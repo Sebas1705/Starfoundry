@@ -4,7 +4,7 @@ Update this file in the same change as any decision. Move resolved items into an
 
 ## Needs owner decision
 1. ~~Engine~~ Decided: Godot 4 with C#, see [ADR 0001](../adr/0001-engine.md).
-2. **Name:** "Starfoundry" is a working title. Needs a trademark and domain check.
+2. **Name:** "Starfoundry" is a working title. A web search on 2026-11-19 found no game or studio with that exact name, but close names exist (Starfactory on itch.io, Obelisk Foundry, Foundry, StarWorks, Astrofactories). Still needs a real trademark search (USPTO, EUIPO) and a domain check before any store page or art.
 3. **Art direction:** stylised low-poly (assumed) vs realistic.
 4. **Scope:** solo-only first, or co-op in the vertical slice?
 5. **Distribution:** Steam Early Access, Epic, itch.io demo; owner-only account steps.

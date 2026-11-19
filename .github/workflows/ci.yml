@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Test simulation
+        run: dotnet test -c Release
+
+      - name: Build Godot project
+        run: dotnet build game -c Debug
+
+      - name: Simulation benchmark (fails if p99 tick exceeds the 30 UPS budget)
+        run: dotnet run -c Release --project tools/Starfoundry.Bench
