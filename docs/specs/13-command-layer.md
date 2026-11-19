@@ -43,6 +43,18 @@ Need a `SimWorld` created with content ([ADR 0004](../adr/0004-data-driven-conte
 
 Inside a batch, negative machine ids refer to machines placed earlier in that batch (-1 first, -2 second), like segment ids. `CommandResult.CreatedMachines` lists the ids created.
 
+### Player and research commands
+Act for the commanding player ([ADR 0005](../adr/0005-campaign-economy-hold-costs-and-research-gates.md)).
+
+| Command | Effect | Main rejections |
+| --- | --- | --- |
+| `StartMining(deposit)` / `StopMining` | Hand-mine a deposit into the hold, 2 ore per second, until the hold is full or the deposit is empty | NoContent, UnknownDeposit, Depleted |
+| `SetShipRecipe(recipe)` | What the ship's micro-refinery works on (-1 for nothing); a craft in progress is undone and its inputs returned | UnknownRecipe, NotAShipRecipe, Locked |
+| `SetResearch(node)` | The node labs work on (-1 for none); progress is kept per node | UnknownResearch, ResearchUnavailable |
+| `LinkDeposit(machine, deposit)` / `UnlinkDeposit(machine)` | Point a drill at a deposit | UnknownMachine, WrongRole, UnknownDeposit |
+
+In **campaign** mode the build commands also enforce costs and locks: `PlaceSegment` and `PlaceMachine` take their cost from the commanding player's hold (NotEnoughItems), reject locked belt tiers, machines and recipes (Locked), and `RemoveSegment` and `RemoveMachine` refund it. `SetSource` and the free extractor are sandbox only. Ship machine types cannot be placed in the world (NotPlaceable).
+
 ## Rules
 - Commands apply at the start of the next tick, in submission order. Two commands for the same cell resolve by that order.
 - A rejected command changes nothing. A rejected batch restores the world exactly, including id counters.
@@ -51,7 +63,7 @@ Inside a batch, negative machine ids refer to machines placed earlier in that ba
 - Malformed commands (nulls, oversized, nested more than 4 levels in the encoding) throw at `Submit`, because they could never be logged. Game-rule problems are never exceptions.
 
 ## Log, codec and replay
-- Log header: magic `SFCL`, format version (2), content hash, entry count. Compare the hash with `ContentDb.Hash` before replaying.
+- Log header: magic `SFCL`, format version (3), content hash, game mode, entry count. Compare the hash with `ContentDb.Hash` before replaying. A replay starts from a world built the same way as the original (same mode, content and starting deposits and grants).
 - `CommandCodec` encodes commands and logs: little-endian, magic `SFCL`, version byte, bounded sizes, strict decoding (unknown tags, truncation, bad order and trailing bytes are errors).
 - `SimWorld.Replay(log, ticks)` rebuilds a world from an empty one; the result has the same checksum as the original. Replaying a prefix reproduces intermediate states.
 - The checksum covers geometry, wiring, items and counters, so it doubles as the co-op desync check.

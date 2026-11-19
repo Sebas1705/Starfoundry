@@ -50,4 +50,4 @@ dotnet test
 dotnet run -c Release --project tools/Starfoundry.Bench
 dotnet build game -c Debug
 ```
-Then open `game/` in Godot 4.7.2 (Mono) and press F5, or run the game folder from the command line with `--bench` after `--` for the frame-time benchmark. Controls: hold right mouse to look, WASD and QE to move, Shift for speed.
+This prototype now lives in the benchmark scene `game/Main.tscn` (the project's main scene is the [playable loop](playable-loop.md)). Open it in Godot 4.7.2 (Mono) and press F6, or run `godot --path game res://Main.tscn -- --bench` for the frame-time benchmark. Controls: hold right mouse to look, WASD and QE to move, Shift for speed.
