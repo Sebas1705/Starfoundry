@@ -9,10 +9,14 @@ namespace Starfoundry.Sim;
 public static class CommandCodec
 {
     private const byte TagPlace = 1, TagRemove = 2, TagConnect = 3, TagDisconnect = 4,
-        TagSetSource = 5, TagClearSource = 6, TagSetSink = 7, TagClearSink = 8, TagBatch = 9;
+        TagSetSource = 5, TagClearSource = 6, TagSetSink = 7, TagClearSink = 8, TagBatch = 9,
+        TagPlaceMachine = 10, TagRemoveMachine = 11, TagSetRecipe = 12,
+        TagConnectToMachine = 13, TagConnectFromMachine = 14, TagDisconnectMachine = 15;
 
     private static readonly byte[] Magic = Encoding.ASCII.GetBytes("SFCL");
-    private const byte LogVersion = 1;
+
+    /// <summary>Version 2 added the content hash to the header.</summary>
+    private const byte LogVersion = 2;
 
     /// <summary>Deepest allowed batch nesting. The world rejects nested batches, but the format can still
     /// carry them so a log reproduces rejections exactly; the bound keeps decoding cheap and safe.</summary>
@@ -37,7 +41,9 @@ public static class CommandCodec
             case SetSource s:
                 return s.ItemTypes is not null && s.ItemTypes.Length <= SimWorld.MaxPattern;
             case PlaceSegment or RemoveSegment or ConnectSegments or DisconnectSegments
-                or ClearSource or SetSink or ClearSink:
+                or ClearSource or SetSink or ClearSink
+                or PlaceMachine or RemoveMachine or SetRecipe
+                or ConnectToMachine or ConnectFromMachine or DisconnectMachine:
                 return true;
             default:
                 return false;
@@ -85,6 +91,25 @@ public static class CommandCodec
             case ClearSink cl:
                 w.Write(TagClearSink); w.Write(cl.Segment);
                 break;
+            case PlaceMachine pm:
+                w.Write(TagPlaceMachine);
+                w.Write(pm.X); w.Write(pm.Y); w.Write(pm.Z); w.Write(pm.Machine); w.Write(pm.Recipe);
+                break;
+            case RemoveMachine rm:
+                w.Write(TagRemoveMachine); w.Write(rm.Machine);
+                break;
+            case SetRecipe sr:
+                w.Write(TagSetRecipe); w.Write(sr.Machine); w.Write(sr.Recipe);
+                break;
+            case ConnectToMachine ctm:
+                w.Write(TagConnectToMachine); w.Write(ctm.Segment); w.Write(ctm.Machine);
+                break;
+            case ConnectFromMachine cfm:
+                w.Write(TagConnectFromMachine); w.Write(cfm.Machine); w.Write(cfm.Segment);
+                break;
+            case DisconnectMachine dm:
+                w.Write(TagDisconnectMachine); w.Write(dm.Segment); w.Write(dm.Machine);
+                break;
             case Batch b:
                 w.Write(TagBatch);
                 w.Write(b.Commands.Length);
@@ -126,6 +151,12 @@ public static class CommandCodec
             case TagClearSource: return new ClearSource(r.ReadInt32());
             case TagSetSink: return new SetSink(r.ReadInt32());
             case TagClearSink: return new ClearSink(r.ReadInt32());
+            case TagPlaceMachine: return new PlaceMachine(r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
+            case TagRemoveMachine: return new RemoveMachine(r.ReadInt32());
+            case TagSetRecipe: return new SetRecipe(r.ReadInt32(), r.ReadInt32());
+            case TagConnectToMachine: return new ConnectToMachine(r.ReadInt32(), r.ReadInt32());
+            case TagConnectFromMachine: return new ConnectFromMachine(r.ReadInt32(), r.ReadInt32());
+            case TagDisconnectMachine: return new DisconnectMachine(r.ReadInt32(), r.ReadInt32());
             case TagBatch:
             {
                 if (depth >= MaxNesting) throw new InvalidDataException("Batches are nested too deeply.");
@@ -156,12 +187,14 @@ public static class CommandCodec
         return command;
     }
 
-    /// <summary>Writes a log: magic, version, count, then (tick, player, command) entries.</summary>
-    public static void WriteLog(Stream stream, IReadOnlyList<LoggedCommand> log)
+    /// <summary>Writes a log: magic, version, content hash, count, then (tick, player, command) entries.
+    /// Pass <see cref="ContentDb.Hash"/> of the content the log was recorded with (0 if there is none).</summary>
+    public static void WriteLog(Stream stream, IReadOnlyList<LoggedCommand> log, ulong contentHash = 0)
     {
         using var w = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
         w.Write(Magic);
         w.Write(LogVersion);
+        w.Write(contentHash);
         w.Write(log.Count);
         foreach (var e in log)
         {
@@ -171,13 +204,18 @@ public static class CommandCodec
         }
     }
 
-    public static List<LoggedCommand> ReadLog(Stream stream)
+    public static List<LoggedCommand> ReadLog(Stream stream) => ReadLog(stream, out _);
+
+    /// <summary>Reads a log and the hash of the content it was recorded with. Compare it with
+    /// <see cref="ContentDb.Hash"/> before replaying: a different hash means the replay would diverge.</summary>
+    public static List<LoggedCommand> ReadLog(Stream stream, out ulong contentHash)
     {
         using var r = new BinaryReader(stream, Encoding.UTF8, leaveOpen: true);
         var magic = r.ReadBytes(Magic.Length);
         if (!magic.AsSpan().SequenceEqual(Magic)) throw new InvalidDataException("Not a command log.");
         byte version = r.ReadByte();
         if (version != LogVersion) throw new InvalidDataException($"Unsupported log version {version}.");
+        contentHash = r.ReadUInt64();
         int count = r.ReadInt32();
         if (count < 0) throw new InvalidDataException("Negative entry count.");
 

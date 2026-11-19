@@ -18,4 +18,8 @@
     <ProjectReference Include="..\..\src\Starfoundry.Sim\Starfoundry.Sim.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\..\content\core.json" Link="content\core.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

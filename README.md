@@ -2,7 +2,7 @@
 
 A first-person space factory-builder: mine asteroids, refine, automate production lines, design modular ships and stations, and defend an expanding logistics empire against a dormant alien sentinel network.
 
-> **Status: specification phase plus a first prototype.** This repository holds the design specs, research notes and decision records needed to build an original game in the genre of *Main Sequence*, *Factorio*, *Satisfactory* and *X4*, and a belt simulation prototype in Godot ([docs/prototypes/belts.md](docs/prototypes/belts.md)).
+> **Status: specification phase plus early prototypes.** This repository holds the design specs, research notes and decision records needed to build an original game in the genre of *Main Sequence*, *Factorio*, *Satisfactory* and *X4*, and prototypes in Godot: [belts](docs/prototypes/belts.md) and [data-driven machines](docs/prototypes/machines.md), both driven by a command layer.
 
 This is an **original design**. Genre-level mechanics (mine, refine, belt, automate, research, modular ships) are common ground; names, lore, art, numbers and systems here are our own. See [docs/research/reference-main-sequence.md](docs/research/reference-main-sequence.md) for what we studied and why we do not copy it.
 

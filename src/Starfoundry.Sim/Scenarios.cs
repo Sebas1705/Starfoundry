@@ -7,9 +7,9 @@ public static class Scenarios
     /// Stacked parallel belt rows along +X, each fed by a source and drained by a sink. Tiers cycle
     /// Mk1, Mk2, Mk3. Saturated, it holds about layers * rowsPerLayer * cellsPerRow * 4 items.
     /// </summary>
-    public static BeltNetwork ParallelRows(int layers, int rowsPerLayer, int cellsPerRow)
+    public static BeltNetwork ParallelRows(int layers, int rowsPerLayer, int cellsPerRow, ContentDb? content = null)
     {
-        var net = new BeltNetwork();
+        var net = new BeltNetwork(content);
         ReadOnlySpan<ushort> pattern = stackalloc ushort[] { 0, 1, 2, 3 };
         for (int l = 0; l < layers; l++)
         {

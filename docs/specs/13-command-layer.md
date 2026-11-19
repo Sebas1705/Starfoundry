@@ -29,6 +29,20 @@ sequenceDiagram
 | `SetSink(id)` / `ClearSink(id)` | Consumes items arriving at the end | UnknownSegment, SinkHasOutputs |
 | `Batch(commands)` | Atomic group, no nesting; negative ids (-1, -2, ...) refer to the first, second, ... segment placed earlier in the batch | any of the above, plus NestedBatch; `FailedIndex` says which command failed |
 
+### Machine commands
+Need a `SimWorld` created with content ([ADR 0004](../adr/0004-data-driven-content-and-one-cell-machines.md)).
+
+| Command | Effect | Main rejections |
+| --- | --- | --- |
+| `PlaceMachine(x, y, z, machineType, recipe)` | One-cell machine; recipe -1 for none | NoContent, UnknownMachineType, UnknownRecipe, RecipeMismatch, OutOfBounds, Overlap, TooManyMachines |
+| `RemoveMachine(id)` | Destroys its contents, detaches its belts, frees the cell | UnknownMachine |
+| `SetRecipe(id, recipe)` | Changes the recipe; buffers and the craft in progress are discarded | UnknownMachine, UnknownRecipe, RecipeMismatch |
+| `ConnectToMachine(segment, machine)` | The belt end feeds the machine; the machine cell must touch the belt's last cell by a face | UnknownSegment, UnknownMachine, AlreadyConnected, NotAdjacent, SegmentConflict |
+| `ConnectFromMachine(machine, segment)` | The machine feeds the belt start; the belt's first cell must touch the machine cell | as above, plus MachineOutputsFull (2) |
+| `DisconnectMachine(segment, machine)` | Removes the link in whichever direction exists | NotConnected |
+
+Inside a batch, negative machine ids refer to machines placed earlier in that batch (-1 first, -2 second), like segment ids. `CommandResult.CreatedMachines` lists the ids created.
+
 ## Rules
 - Commands apply at the start of the next tick, in submission order. Two commands for the same cell resolve by that order.
 - A rejected command changes nothing. A rejected batch restores the world exactly, including id counters.
@@ -37,6 +51,7 @@ sequenceDiagram
 - Malformed commands (nulls, oversized, nested more than 4 levels in the encoding) throw at `Submit`, because they could never be logged. Game-rule problems are never exceptions.
 
 ## Log, codec and replay
+- Log header: magic `SFCL`, format version (2), content hash, entry count. Compare the hash with `ContentDb.Hash` before replaying.
 - `CommandCodec` encodes commands and logs: little-endian, magic `SFCL`, version byte, bounded sizes, strict decoding (unknown tags, truncation, bad order and trailing bytes are errors).
 - `SimWorld.Replay(log, ticks)` rebuilds a world from an empty one; the result has the same checksum as the original. Replaying a prefix reproduces intermediate states.
 - The checksum covers geometry, wiring, items and counters, so it doubles as the co-op desync check.
@@ -50,7 +65,7 @@ Atomic batches snapshot the network. Measured on the benchmark scenario: 0.13 ms
 
 ## Not done yet
 - Permissions per player (host settings) and per-build-volume ownership: commands already carry the player id.
-- Commands for machines, ships and research. Each new gameplay action adds a command, a codec tag, reject reasons and tests.
+- Commands for ships and research (belts and machines are done). Each new gameplay action adds a command, a codec tag, reject reasons and tests.
 - Undo and redo, blueprint capture and placement (they build on `Batch`).
 - Network transport and tick agreement ([07-multiplayer](07-multiplayer.md)).
 - A targeted undo journal to replace the batch snapshot if batches become frequent or worlds much larger.

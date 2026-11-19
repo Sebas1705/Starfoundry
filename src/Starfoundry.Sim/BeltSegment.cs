@@ -33,6 +33,12 @@ internal sealed class BeltSegment
     /// <summary>Tick in which this segment was last processed; lets merges tell who still has to move.</summary>
     public long LastMoved = -1;
 
+    /// <summary>Machine this segment's end feeds, or -1. Exclusive with outputs to other segments and with being a sink.</summary>
+    public int MachineOut = -1;
+
+    /// <summary>Machine whose output feeds this segment's start, or -1. Exclusive with input segments and a source.</summary>
+    public int FedBy = -1;
+
     public bool IsSink;
     public long Consumed;
 
@@ -69,6 +75,8 @@ internal sealed class BeltSegment
         c.Inputs.AddRange(Inputs);
         c.MergeTurn = MergeTurn;
         c.LastMoved = LastMoved;
+        c.MachineOut = MachineOut;
+        c.FedBy = FedBy;
         c.IsSink = IsSink;
         c.Consumed = Consumed;
         c.Passed = Passed;
