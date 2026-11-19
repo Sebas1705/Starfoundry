@@ -125,6 +125,62 @@
       ],
       "requires": ["core:logistics", "core:carbon_drilling"],
       "unlocks": ["core:belt_mk3"]
+    },
+    {
+      "id": "core:jump_drive",
+      "cost": [
+        { "item": "core:iron_plate", "count": 30 },
+        { "item": "core:carbon", "count": 10 }
+      ],
+      "requires": ["core:logistics", "core:carbon_drilling"],
+      "unlocks": [],
+      "abilities": ["jump"]
     }
-  ]
+  ],
+  "galaxy": {
+    "system_count": 12,
+    "spacing_cells": 800,
+    "lanes_per_system": 2,
+    "system_radius_cells": 150
+  },
+  "archetypes": [
+    {
+      "id": "core:home",
+      "home": true,
+      "weight": 0,
+      "distance_cells": [6, 12],
+      "deposits": [
+        { "item": "core:iron_ore", "count": [1, 1], "amount": [4000, 4000] },
+        { "item": "core:carbon", "count": [1, 1], "amount": [1500, 1500] }
+      ]
+    },
+    {
+      "id": "core:dense_belt",
+      "weight": 3,
+      "distance_cells": [12, 45],
+      "deposits": [
+        { "item": "core:iron_ore", "count": [3, 5], "amount": [600, 1200] },
+        { "item": "core:carbon", "count": [1, 2], "amount": [300, 700] }
+      ]
+    },
+    {
+      "id": "core:sparse_belt",
+      "weight": 2,
+      "distance_cells": [20, 60],
+      "deposits": [
+        { "item": "core:iron_ore", "count": [1, 2], "amount": [1500, 2500] },
+        { "item": "core:carbon", "count": [1, 1], "amount": [800, 1200] }
+      ]
+    },
+    {
+      "id": "core:carbon_rich",
+      "weight": 2,
+      "distance_cells": [10, 40],
+      "deposits": [
+        { "item": "core:carbon", "count": [3, 4], "amount": [700, 1400] },
+        { "item": "core:iron_ore", "count": [1, 1], "amount": [500, 900] }
+      ]
+    }
+  ],
+  "jump_cost": [{ "item": "core:carbon", "count": 5 }]
 }

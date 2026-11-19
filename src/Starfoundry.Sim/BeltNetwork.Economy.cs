@@ -40,7 +40,8 @@ public static class PlayerRules
 /// <summary>Read-only view of a player, for rendering and tests. Positions are in units (<see cref="Units.CellUnits"/> per cell).</summary>
 public readonly record struct PlayerInfo(
     int Id, int HoldTotal, int MiningDeposit, int ShipRecipe, bool ShipCrafting, int ShipRemaining,
-    int X = 0, int Y = 0, int Z = 0, int MoveX = 0, int MoveY = 0, int MoveZ = 0);
+    int X = 0, int Y = 0, int Z = 0, int MoveX = 0, int MoveY = 0, int MoveZ = 0,
+    int ScanCooldown = 0, int JumpTarget = -1, int JumpRemaining = 0);
 
 internal sealed class Player
 {
@@ -60,6 +61,13 @@ internal sealed class Player
     public int X, Y, Z;
     public int MoveX, MoveY, MoveZ;
 
+    /// <summary>Ticks until the scanner can fire again.</summary>
+    public int ScanCooldown;
+
+    /// <summary>System being jumped to (or -1) and ticks left of the charge. The ship is frozen while charging.</summary>
+    public int JumpTarget = -1;
+    public int JumpRemaining;
+
     public Player(int id, int items)
     {
         Id = id;
@@ -73,6 +81,7 @@ internal sealed class Player
             HoldTotal = HoldTotal, MiningDeposit = MiningDeposit, MineProgress = MineProgress,
             ShipRecipe = ShipRecipe, ShipCrafting = ShipCrafting, ShipRemaining = ShipRemaining, ShipReserved = ShipReserved,
             X = X, Y = Y, Z = Z, MoveX = MoveX, MoveY = MoveY, MoveZ = MoveZ,
+            ScanCooldown = ScanCooldown, JumpTarget = JumpTarget, JumpRemaining = JumpRemaining,
         };
         Array.Copy(Hold, c.Hold, Hold.Length);
         return c;
@@ -89,12 +98,15 @@ internal sealed class Deposit
     public readonly int X, Y, Z;
     public int Remaining;
 
+    /// <summary>Hidden deposits cannot be mined or linked until a scan reveals them.</summary>
+    public bool Revealed = true;
+
     public Deposit(int id, int item, int amount, int x, int y, int z)
     {
         Id = id; Item = item; Initial = amount; Remaining = amount; X = x; Y = y; Z = z;
     }
 
-    public Deposit Clone() => new(Id, Item, Initial, X, Y, Z) { Remaining = Remaining };
+    public Deposit Clone() => new(Id, Item, Initial, X, Y, Z) { Remaining = Remaining, Revealed = Revealed };
 }
 
 public sealed partial class BeltNetwork
@@ -135,7 +147,7 @@ public sealed partial class BeltNetwork
     // ---- deposits -----------------------------------------------------------------------------
 
     /// <summary>Adds a deposit centred on a cell (the origin by default, which is where players start).</summary>
-    public int AddDeposit(int item, int amount, int x = 0, int y = 0, int z = 0)
+    public int AddDeposit(int item, int amount, int x = 0, int y = 0, int z = 0, bool revealed = true)
     {
         var content = Content ?? throw new InvalidOperationException("The network has no content.");
         if ((uint)item >= (uint)content.Items.Count) throw new ArgumentOutOfRangeException(nameof(item));
@@ -143,7 +155,7 @@ public sealed partial class BeltNetwork
         if (Math.Abs(x) > SimWorld.MaxCoord || Math.Abs(y) > SimWorld.MaxCoord || Math.Abs(z) > SimWorld.MaxCoord)
             throw new ArgumentOutOfRangeException(nameof(x), "The deposit is outside the world.");
         int id = _deposits.Count;
-        _deposits.Add(new Deposit(id, item, amount, x, y, z));
+        _deposits.Add(new Deposit(id, item, amount, x, y, z) { Revealed = revealed });
         StructureVersion++;
         return id;
     }
@@ -192,7 +204,7 @@ public sealed partial class BeltNetwork
     {
         var p = GetPlayer(id);
         return new PlayerInfo(p.Id, p.HoldTotal, p.MiningDeposit, p.ShipRecipe, p.ShipCrafting, p.ShipRemaining,
-            p.X, p.Y, p.Z, p.MoveX, p.MoveY, p.MoveZ);
+            p.X, p.Y, p.Z, p.MoveX, p.MoveY, p.MoveZ, p.ScanCooldown, p.JumpTarget, p.JumpRemaining);
     }
 
     /// <summary>Makes sure the player exists, spawning at the origin with an empty hold. Needed before range checks.</summary>
@@ -345,7 +357,16 @@ public sealed partial class BeltNetwork
         if (_players.Count == 0) return;
         foreach (var p in _players.Values)
         {
-            if ((p.MoveX | p.MoveY | p.MoveZ) != 0) MoveShip(p);
+            if (p.ScanCooldown > 0) p.ScanCooldown--;
+            if (p.JumpRemaining > 0)
+            {
+                if (--p.JumpRemaining == 0) CompleteJump(p);
+            }
+            else if ((p.MoveX | p.MoveY | p.MoveZ) != 0)
+            {
+                MoveShip(p);
+                DiscoverAt(p);
+            }
 
             if (p.MiningDeposit >= 0)
             {
@@ -501,6 +522,7 @@ public sealed partial class BeltNetwork
     {
         _players = new SortedDictionary<int, Player>(other._players.ToDictionary(kv => kv.Key, kv => kv.Value.Clone()));
         _deposits = other._deposits.Select(d => d.Clone()).ToList();
+        CopyGalaxyFrom(other);
         _researched = (bool[])other._researched.Clone();
         _progress = other._progress.Select(a => (int[])a.Clone()).ToArray();
         _researchCurrent = other._researchCurrent;
@@ -515,11 +537,13 @@ public sealed partial class BeltNetwork
     private void MixEconomy(Action<long> mix)
     {
         mix(HoldIn); mix(HoldOut); mix(MinedByHand); mix(DrilledTotal); mix(ResearchItemsUsed); mix(DepotDelivered);
+        MixGalaxy(mix);
         mix(_deposits.Count);
-        foreach (var d in _deposits) { mix(d.Item); mix(d.Initial); mix(d.Remaining); mix(d.X); mix(d.Y); mix(d.Z); }
+        foreach (var d in _deposits) { mix(d.Item); mix(d.Initial); mix(d.Remaining); mix(d.X); mix(d.Y); mix(d.Z); mix(d.Revealed ? 1 : 0); }
         mix(_players.Count);
         foreach (var p in _players.Values)
         {
+            mix(p.ScanCooldown); mix(p.JumpTarget); mix(p.JumpRemaining);
             mix(p.X); mix(p.Y); mix(p.Z); mix(p.MoveX); mix(p.MoveY); mix(p.MoveZ);
             mix(p.Id); mix(p.HoldTotal); mix(p.MiningDeposit); mix(p.MineProgress);
             mix(p.ShipRecipe); mix(p.ShipCrafting ? 1 : 0); mix(p.ShipRemaining); mix(p.ShipReserved);
@@ -570,6 +594,7 @@ public sealed partial class BeltNetwork
             }
         }
         if (HoldIn - HoldOut != held) Fail($"hold accounting broken: in {HoldIn} - out {HoldOut} != held {held}");
+        ValidateGalaxy();
 
         long extracted = 0;
         foreach (var d in _deposits)

@@ -88,6 +88,12 @@ public sealed record SetResearch(int Node) : Command;
 /// moving every tick until a new intent is set, so a held key is one command on press and one on release.</summary>
 public sealed record SetMovement(int Dx, int Dy, int Dz) : Command;
 
+/// <summary>Fires the commanding player's scanner: hidden deposits within range of the ship are revealed.</summary>
+public sealed record Scan : Command;
+
+/// <summary>Charges a jump along a lane to a connected, known system and teleports the ship to its anchor.</summary>
+public sealed record Jump(int System) : Command;
+
 /// <summary>Points a drill at a deposit.</summary>
 public sealed record LinkDeposit(int Machine, int Deposit) : Command;
 
@@ -144,8 +150,26 @@ public enum Reject
     /// <summary>The recipe does not belong to the ship's micro-refinery.</summary>
     NotAShipRecipe,
 
-    /// <summary>The ship is too far away: from the deposit to mine it, or from the cell to build or remove there (campaign).</summary>
+    /// <summary>The ship is too far away: from the deposit to mine it, or from the cell to build or remove there (campaign);
+    /// or a drill is too far from the deposit it should link to.</summary>
     OutOfRange,
+
+    /// <summary>The world has no galaxy.</summary>
+    NoGalaxy,
+    UnknownSystem,
+
+    /// <summary>The ship is in deep space, not near a system anchor.</summary>
+    NotInASystem,
+
+    /// <summary>No lane connects the current system to the target.</summary>
+    NoLane,
+
+    /// <summary>A jump is already charging.</summary>
+    Busy,
+    OnCooldown,
+
+    /// <summary>The deposit is still hidden: scan near it first.</summary>
+    NotDiscovered,
 }
 
 /// <summary>Outcome of one submitted command.</summary>
@@ -153,13 +177,16 @@ public enum Reject
 /// <param name="Created">Ids of the segments created, in order.</param>
 /// <param name="FailedIndex">For a rejected batch, the index of the command that failed; otherwise -1.</param>
 /// <param name="CreatedMachineIds">Ids of the machines created, in order.</param>
+/// <param name="RevealedDepositIds">Ids of the deposits a scan revealed.</param>
 public sealed record CommandResult(
     long Tick, int Player, Command Command, Reject Reject, IReadOnlyList<int> Created, int FailedIndex = -1,
-    IReadOnlyList<int>? CreatedMachineIds = null)
+    IReadOnlyList<int>? CreatedMachineIds = null, IReadOnlyList<int>? RevealedDepositIds = null)
 {
     public bool Ok => Reject == Reject.None;
 
     public IReadOnlyList<int> CreatedMachines => CreatedMachineIds ?? Array.Empty<int>();
+
+    public IReadOnlyList<int> RevealedDeposits => RevealedDepositIds ?? Array.Empty<int>();
 }
 
 /// <summary>A command as it was applied, for replays and network sync.</summary>
