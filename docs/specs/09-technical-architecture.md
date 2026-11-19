@@ -32,6 +32,9 @@ flowchart TB
 - **Engine layer:** presents state, collects input, converts it into commands.
 - **Data layer:** recipes, machines, modules, research, systems archetypes, loaded and validated at startup.
 
+## Commands
+The engine layer never edits the simulation directly: it submits commands to `SimWorld`, which validates, applies at tick boundaries, logs and can replay them. See [13-command-layer](13-command-layer.md) and [ADR 0003](../adr/0003-commands-as-the-only-way-to-change-the-world.md).
+
 ## Simulation design
 - Data-oriented: components in arrays (structure of arrays), systems iterate. Entities identified by stable integer IDs.
 - Belts: segments with item slots; an item moves by position along a segment, not as an independent engine object. Rendering reads a compact buffer.

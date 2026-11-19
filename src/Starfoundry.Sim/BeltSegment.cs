@@ -56,6 +56,27 @@ internal sealed class BeltSegment
         Type = new ushort[Capacity];
     }
 
+    public BeltSegment Clone()
+    {
+        var c = new BeltSegment(Id, OriginX, OriginY, OriginZ, DirX, DirY, DirZ, Length / Units.CellUnits, Tier);
+        Array.Copy(Pos, c.Pos, Capacity);
+        Array.Copy(Type, c.Type, Capacity);
+        c.Head = Head;
+        c.Count = Count;
+        Array.Copy(Out, c.Out, Out.Length);
+        c.OutCount = OutCount;
+        c.RoundRobin = RoundRobin;
+        c.Inputs.AddRange(Inputs);
+        c.MergeTurn = MergeTurn;
+        c.LastMoved = LastMoved;
+        c.IsSink = IsSink;
+        c.Consumed = Consumed;
+        c.Passed = Passed;
+        c.SourcePattern = (ushort[]?)SourcePattern?.Clone();
+        c.SourceIndex = SourceIndex;
+        return c;
+    }
+
     public int Index(int k) => (Head + k) % Capacity;
 
     public int TailPos => Pos[Index(Count - 1)];

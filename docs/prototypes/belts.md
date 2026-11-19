@@ -42,7 +42,7 @@ The simulation is not the bottleneck. Each frame the C# loop rewrites a 100,000 
 - A waiting item entering a merge may skip ahead by up to one tick of travel (visible only as a small step), which keeps a saturated merge at the full output rate.
 - Straight, axis-aligned segments only; corners are segment joins, with no curved visuals or slopes.
 - No items on the move between ticks other than linear extrapolation in the renderer.
-- No commands layer, save format or networking yet.
+- No save format or networking yet. The command layer now exists: see [13-command-layer](../specs/13-command-layer.md).
 
 ## Run it
 ```powershell

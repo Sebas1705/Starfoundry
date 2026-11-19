@@ -6,6 +6,7 @@ One decision per file, `NNNN-slug.md`. An accepted ADR is never rewritten; add a
 | --- | --- | --- | --- |
 | [0001](0001-engine.md) | Use Godot 4 with C# for the game layer | accepted | 2026-11-19 |
 | [0002](0002-deterministic-simulation-core.md) | Engine-independent deterministic simulation core | accepted | 2026-11-19 |
+| [0003](0003-commands-as-the-only-way-to-change-the-world.md) | All world changes go through validated, logged commands | accepted | 2026-11-19 |
 
 ## Template
 ```markdown

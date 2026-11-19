@@ -23,6 +23,7 @@ This is an **original design**. Genre-level mechanics (mine, refine, belt, autom
 | [docs/specs/10-data-model.md](docs/specs/10-data-model.md) | Data-driven content schemas |
 | [docs/specs/11-roadmap.md](docs/specs/11-roadmap.md) | Prototype, vertical slice, Early Access |
 | [docs/specs/12-open-questions.md](docs/specs/12-open-questions.md) | What is still undecided |
+| [docs/specs/13-command-layer.md](docs/specs/13-command-layer.md) | Commands, validation, log, replay (implemented for belts) |
 | [docs/adr/](docs/adr/README.md) | Architecture decision records |
 
 ## Conventions
