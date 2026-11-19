@@ -22,8 +22,9 @@ public class ContentTests
     {
         var c = TestContent.Core;
         Assert.Equal(4, c.Items.Count);
-        Assert.Equal(3, c.Machines.Count);
-        Assert.Equal(4, c.Recipes.Count);
+        Assert.Equal(7, c.Machines.Count);
+        Assert.Equal(7, c.Recipes.Count);
+        Assert.Equal(3, c.Research.Count);
 
         var smelt = c.Recipes[c.RecipeIndex("core:smelt_iron")];
         Assert.Equal(c.MachineIndex("core:smelter"), smelt.Machine);
@@ -83,6 +84,77 @@ public class ContentTests
         Assert.Contains(find, Base);
         var e = Assert.Throws<InvalidDataException>(() => ContentDb.FromJson(Base.Replace(find, replace)));
         Assert.Contains(messagePart, e.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static readonly string Rich = System.Text.RegularExpressions.Regex.Replace("""
+        {"schema":1,
+         "items":[{"id":"t:a"},{"id":"t:b"}],
+         "machines":[{"id":"t:m","cost":[{"item":"t:a","count":3}]},
+                     {"id":"t:drill","role":"drill"},
+                     {"id":"t:lab","role":"lab"},
+                     {"id":"t:ship","role":"ship"}],
+         "recipes":[{"id":"t:r","machine":"t:m","inputs":[{"item":"t:a","count":1}],"outputs":[{"item":"t:b","count":1}],"time_s":1},
+                    {"id":"t:dr","machine":"t:drill","inputs":[],"outputs":[{"item":"t:a","count":1}],"time_s":1},
+                    {"id":"t:sr","machine":"t:ship","inputs":[{"item":"t:a","count":1}],"outputs":[{"item":"t:b","count":1}],"time_s":1}],
+         "belts":[{"id":"t:belt1","tier":"mk1","cost_per_cell":[{"item":"t:a","count":1}]},
+                  {"id":"t:belt2","tier":"mk2","cost_per_cell":[]}],
+         "research":[{"id":"t:n1","cost":[{"item":"t:b","count":5}],"requires":[],"unlocks":["t:belt2","t:dr"]},
+                     {"id":"t:n2","cost":[{"item":"t:b","count":9}],"requires":["t:n1"],"unlocks":["t:m"]}]}
+        """, @"\s+", "");
+
+    [Fact]
+    public void RolesCostsBeltsAndResearchLoadAndGateContent()
+    {
+        var c = ContentDb.FromJson(Rich);
+        Assert.Equal(MachineRole.Drill, c.Machines[c.MachineIndex("t:drill")].Role);
+        Assert.Equal(MachineRole.Lab, c.Machines[c.MachineIndex("t:lab")].Role);
+        Assert.Equal(MachineRole.Ship, c.Machines[c.MachineIndex("t:ship")].Role);
+        Assert.Equal(new ItemStack(c.ItemIndex("t:a"), 3), Assert.Single(c.Machines[c.MachineIndex("t:m")].Cost));
+        Assert.Equal(BeltTier.Mk2, c.Belts[1]!.Tier);
+        Assert.Null(c.Belts[2]);
+
+        // Whatever a node unlocks is gated; everything else is open from the start.
+        Assert.True(c.MachineGated[c.MachineIndex("t:m")]);
+        Assert.False(c.MachineGated[c.MachineIndex("t:drill")]);
+        Assert.True(c.RecipeGated[c.RecipeIndex("t:dr")]);
+        Assert.False(c.RecipeGated[c.RecipeIndex("t:r")]);
+        Assert.True(c.BeltGated[(int)BeltTier.Mk2]);
+        Assert.False(c.BeltGated[(int)BeltTier.Mk1]);
+        Assert.Equal(new[] { c.ResearchIndex("t:n1") }, c.Research[c.ResearchIndex("t:n2")].Requires);
+    }
+
+    [Theory]
+    [InlineData("\"role\":\"drill\"", "\"role\":\"pilot\"", "role")]
+    [InlineData("\"role\":\"drill\"", "\"role\":5", "role")]
+    [InlineData("{\"id\":\"t:ship\",\"role\":\"ship\"}", "{\"id\":\"t:ship\",\"role\":\"ship\",\"cost\":[{\"item\":\"t:a\",\"count\":1}]}", "never built")]
+    [InlineData("{\"id\":\"t:m\",\"cost\"", "{\"id\":\"t:m\",\"sandbox_only\":1,\"cost\"", "sandbox_only")]
+    [InlineData("\"item\":\"t:a\",\"count\":3", "\"item\":\"t:zz\",\"count\":3", "unknown item")]
+    [InlineData("\"machine\":\"t:drill\",\"inputs\":[]", "\"machine\":\"t:drill\",\"inputs\":[{\"item\":\"t:b\",\"count\":1}]", "Drill recipe")]
+    [InlineData("\"machine\":\"t:drill\"", "\"machine\":\"t:lab\"", "lab")]
+    [InlineData("\"tier\":\"mk2\"", "\"tier\":\"mk1\"", "twice")]
+    [InlineData("\"tier\":\"mk2\"", "\"tier\":\"mk9\"", "tier")]
+    [InlineData("\"requires\":[\"t:n1\"]", "\"requires\":[\"t:nope\"]", "unknown research")]
+    [InlineData("\"requires\":[\"t:n1\"]", "\"requires\":[\"t:n2\"]", "itself")]
+    [InlineData("\"requires\":[],\"unlocks\":[\"t:belt2\"", "\"requires\":[\"t:n2\"],\"unlocks\":[\"t:belt2\"", "cycle")]
+    [InlineData("\"unlocks\":[\"t:m\"]", "\"unlocks\":[]", "unlocks nothing")]
+    [InlineData("\"unlocks\":[\"t:m\"]", "\"unlocks\":[\"t:ghost\"]", "unknown id")]
+    [InlineData("\"id\":\"t:belt2\"", "\"id\":\"t:m\"", "used twice")]
+    [InlineData("\"cost\":[{\"item\":\"t:b\",\"count\":5}]", "\"cost\":[]", "at least one")]
+    [InlineData("\"cost\":[{\"item\":\"t:b\",\"count\":5}]", "\"cost\":[{\"item\":\"t:b\",\"count\":10001}]", "count")]
+    public void InvalidRichContentIsRejected(string find, string replace, string messagePart)
+    {
+        Assert.Contains(find, Rich);
+        var e = Assert.Throws<InvalidDataException>(() => ContentDb.FromJson(Rich.Replace(find, replace)));
+        Assert.Contains(messagePart, e.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void RichContentChangesTheHash()
+    {
+        ulong baseHash = ContentDb.FromJson(Rich).Hash;
+        Assert.NotEqual(baseHash, ContentDb.FromJson(Rich.Replace("\"count\":9", "\"count\":8")).Hash);
+        Assert.NotEqual(baseHash, ContentDb.FromJson(Rich.Replace("\"role\":\"ship\"", "\"role\":\"crafter\"")).Hash);
+        Assert.NotEqual(baseHash, ContentDb.FromJson(Rich.Replace("\"count\":3", "\"count\":4")).Hash);
     }
 
     [Fact]

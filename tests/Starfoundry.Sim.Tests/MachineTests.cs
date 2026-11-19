@@ -393,13 +393,13 @@ public class MachineTests
         return -1;
     }
 
-    private static Command RandomMachineCommand(Random rng, SimWorld w)
+    internal static Command RandomMachineCommand(Random rng, SimWorld w)
     {
         var net = w.Network;
         int PickRecipeFor(int type)
         {
             var ids = C.Recipes.Where(r => r.Machine == type).Select(r => r.Index).ToList();
-            return rng.Next(0, 6) == 0 ? -1 : ids[rng.Next(0, ids.Count)];
+            return ids.Count == 0 || rng.Next(0, 6) == 0 ? -1 : ids[rng.Next(0, ids.Count)];
         }
 
         switch (rng.Next(0, 9))

@@ -24,9 +24,14 @@ public sealed partial class BeltNetwork
     /// <summary>Game content (items, machines, recipes). Needed only when machines are used.</summary>
     public ContentDb? Content { get; }
 
-    public BeltNetwork(ContentDb? content = null)
+    /// <summary>Sandbox: free building, nothing locked. Campaign: building costs items and research gates content.</summary>
+    public GameMode Mode { get; }
+
+    public BeltNetwork(ContentDb? content = null, GameMode mode = GameMode.Sandbox)
     {
         Content = content;
+        Mode = mode;
+        InitResearch();
     }
 
     public long Tick { get; private set; }
@@ -173,6 +178,8 @@ public sealed partial class BeltNetwork
         foreach (int id in _order) MoveSegment(_segs[id]!);
 
         StepMachines();
+        StepPlayers();
+        StepResearch();
 
         foreach (var s in _segs)
         {
@@ -237,8 +244,9 @@ public sealed partial class BeltNetwork
         }
 
         Mix(Tick); Mix(Spawned); Mix(Consumed); Mix(Destroyed); Mix(_segs.Count);
-        Mix(MachineInputsConsumed); Mix(MachineOutputsCreated); Mix((long)(Content?.Hash ?? 0));
+        Mix(MachineInputsConsumed); Mix(MachineOutputsCreated); Mix((long)(Content?.Hash ?? 0)); Mix((int)Mode);
         MixMachines(Mix);
+        MixEconomy(Mix);
         foreach (var s in _segs)
         {
             if (s is null) { Mix(-1); continue; }
@@ -263,7 +271,7 @@ public sealed partial class BeltNetwork
     /// <summary>Deep copy of the whole state.</summary>
     public BeltNetwork Clone()
     {
-        var c = new BeltNetwork(Content);
+        var c = new BeltNetwork(Content, Mode);
         c.CopyFrom(this);
         return c;
     }
@@ -274,6 +282,7 @@ public sealed partial class BeltNetwork
         _segs = other._segs.Select(s => s?.Clone()).ToList();
         _alive = other._alive;
         CopyMachinesFrom(other);
+        CopyEconomyFrom(other);
         Tick = other.Tick;
         Spawned = other.Spawned;
         Consumed = other.Consumed;
@@ -338,6 +347,7 @@ public sealed partial class BeltNetwork
 
         if (alive != _alive) Fail($"alive counter {_alive} but {alive} segments exist");
         ValidateMachines();
+        ValidateEconomy();
         long held = MachineHeldItems;
         if (Spawned + MachineOutputsCreated != Consumed + Destroyed + MachineInputsConsumed + InTransit + held)
             Fail($"conservation broken: spawned {Spawned} + made {MachineOutputsCreated} != consumed {Consumed} + destroyed {Destroyed} " +

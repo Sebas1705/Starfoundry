@@ -35,7 +35,9 @@ public sealed class SimWorld
 
     public int PendingCommands => _queue.Count;
 
-    public SimWorld(ContentDb? content = null) : this(new BeltNetwork(content)) { }
+    public SimWorld(ContentDb? content = null, GameMode mode = GameMode.Sandbox) : this(new BeltNetwork(content, mode)) { }
+
+    public GameMode Mode => Network.Mode;
 
     /// <summary>Wraps an existing network (for example a scenario), indexing the cells its segments and machines occupy.</summary>
     public SimWorld(BeltNetwork network)
@@ -63,6 +65,7 @@ public sealed class SimWorld
     public void Submit(int player, Command command)
     {
         ArgumentNullException.ThrowIfNull(command);
+        ArgumentOutOfRangeException.ThrowIfNegative(player);
         if (!CommandCodec.IsWellFormed(command)) throw new ArgumentException("The command is malformed.", nameof(command));
         _queue.Enqueue((player, command));
     }
@@ -90,9 +93,10 @@ public sealed class SimWorld
     /// for <paramref name="ticks"/> ticks. A world fed the same log ends in the same state. Pass the same
     /// content the log was recorded with; <see cref="CommandCodec.ReadLog"/> returns its hash for checking.
     /// </summary>
-    public static SimWorld Replay(IReadOnlyList<LoggedCommand> log, long ticks, SimWorld? initial = null, ContentDb? content = null)
+    public static SimWorld Replay(IReadOnlyList<LoggedCommand> log, long ticks, SimWorld? initial = null, ContentDb? content = null,
+        GameMode mode = GameMode.Sandbox)
     {
-        var world = initial ?? new SimWorld(content);
+        var world = initial ?? new SimWorld(content, mode);
         int next = 0;
         for (long t = 0; t < ticks; t++)
         {
@@ -104,6 +108,16 @@ public sealed class SimWorld
             world.Step();
         }
         return world;
+    }
+
+    public enum EntityKind { None, Segment, Machine }
+
+    /// <summary>What occupies a cell: a belt segment, a machine, or nothing (id -1). For pickers and tools.</summary>
+    public (EntityKind Kind, int Id) EntityAt(int x, int y, int z)
+    {
+        if (!InBounds(x) || !InBounds(y) || !InBounds(z)) return (EntityKind.None, -1);
+        if (!_cells.TryGetValue(Key(x, y, z), out int v)) return (EntityKind.None, -1);
+        return v >= 0 ? (EntityKind.Segment, v) : (EntityKind.Machine, -(v + 1));
     }
 
     /// <summary>State hash for desync detection. Equal values mean equal worlds.</summary>
@@ -145,12 +159,12 @@ public sealed class SimWorld
         var createdMachines = new List<int>();
         int failed = -1;
         Reject reject;
-        if (command is Batch batch) reject = ApplyBatch(batch, created, createdMachines, out failed);
-        else reject = ApplySingle(command, created, createdMachines);
+        if (command is Batch batch) reject = ApplyBatch(player, batch, created, createdMachines, out failed);
+        else reject = ApplySingle(player, command, created, createdMachines);
         return new CommandResult(Network.Tick, player, command, reject, created.ToArray(), failed, createdMachines.ToArray());
     }
 
-    private Reject ApplyBatch(Batch batch, List<int> created, List<int> createdMachines, out int failedIndex)
+    private Reject ApplyBatch(int player, Batch batch, List<int> created, List<int> createdMachines, out int failedIndex)
     {
         failedIndex = -1;
         if (batch.Commands is null || batch.Commands.Length == 0 || batch.Commands.Length > MaxBatch)
@@ -163,7 +177,7 @@ public sealed class SimWorld
 
         for (int i = 0; i < batch.Commands.Length; i++)
         {
-            var reject = ApplySingle(batch.Commands[i], created, createdMachines);
+            var reject = ApplySingle(player, batch.Commands[i], created, createdMachines);
             if (reject == Reject.None) continue;
 
             Network.CopyFrom(snapshot);
@@ -185,12 +199,17 @@ public sealed class SimWorld
         return index < created.Count ? created[index] : -1;
     }
 
-    private Reject ApplySingle(Command command, List<int> created, List<int> machines)
+    private bool Campaign => Network.Mode == GameMode.Campaign;
+
+    private ItemStack[] BeltCost(BeltTier tier) =>
+        Network.Content?.Belts[(int)tier]?.CostPerCell ?? System.Array.Empty<ItemStack>();
+
+    private Reject ApplySingle(int player, Command command, List<int> created, List<int> machines)
     {
         switch (command)
         {
             case PlaceSegment p:
-                return Place(p, created);
+                return Place(player, p, created);
 
             case RemoveSegment r:
             {
@@ -199,6 +218,7 @@ public sealed class SimWorld
                 var info = Network.GetSegmentInfo(id);
                 Release(info);
                 Network.RemoveSegment(id);
+                if (Campaign) Network.Refund(player, BeltCost(info.Tier), info.LengthCells);
                 return Reject.None;
             }
 
@@ -239,6 +259,7 @@ public sealed class SimWorld
                 if (!Network.IsAlive(id)) return Reject.UnknownSegment;
                 if (s.ItemTypes is null || s.ItemTypes.Length == 0 || s.ItemTypes.Length > MaxPattern)
                     return Reject.InvalidArgument;
+                if (Campaign) return Reject.Locked; // a source makes items from nothing: sandbox only
                 if (Network.IsFedByAnyMachine(id)) return Reject.SegmentConflict;
                 Network.SetSource(id, s.ItemTypes);
                 return Reject.None;
@@ -270,7 +291,7 @@ public sealed class SimWorld
             }
 
             case PlaceMachine pm:
-                return PlaceMachineCore(pm, machines);
+                return PlaceMachineCore(player, pm, machines);
 
             case RemoveMachine rm:
             {
@@ -279,6 +300,7 @@ public sealed class SimWorld
                 var m = Network.GetMachineInfo(id);
                 _cells.Remove(Key(m.X, m.Y, m.Z));
                 Network.RemoveMachine(id);
+                if (Campaign) Network.Refund(player, Network.Content!.Machines[m.Type].Cost);
                 return Reject.None;
             }
 
@@ -288,7 +310,67 @@ public sealed class SimWorld
                 if (!Network.IsMachineAlive(id)) return Reject.UnknownMachine;
                 var check = CheckRecipe(Network.GetMachineInfo(id).Type, sr.Recipe);
                 if (check != Reject.None) return check;
+                if (sr.Recipe != -1 && Network.IsRecipeLocked(sr.Recipe)) return Reject.Locked;
                 Network.SetRecipe(id, sr.Recipe);
+                return Reject.None;
+            }
+
+            case StartMining sm:
+            {
+                if (Network.Content is null) return Reject.NoContent;
+                if (!Network.IsDeposit(sm.Deposit)) return Reject.UnknownDeposit;
+                if (Network.DepositRemaining(sm.Deposit) <= 0) return Reject.Depleted;
+                Network.StartMining(player, sm.Deposit);
+                return Reject.None;
+            }
+
+            case StopMining:
+                if (Network.Content is null) return Reject.NoContent;
+                Network.StopMining(player);
+                return Reject.None;
+
+            case SetShipRecipe ssr:
+            {
+                var content = Network.Content;
+                if (content is null) return Reject.NoContent;
+                if (ssr.Recipe != -1)
+                {
+                    if (!content.IsRecipe(ssr.Recipe)) return Reject.UnknownRecipe;
+                    if (content.Machines[content.Recipes[ssr.Recipe].Machine].Role != MachineRole.Ship) return Reject.NotAShipRecipe;
+                    if (Network.IsRecipeLocked(ssr.Recipe)) return Reject.Locked;
+                }
+                Network.SetShipRecipe(player, ssr.Recipe);
+                return Reject.None;
+            }
+
+            case SetResearch sres:
+            {
+                if (sres.Node != -1)
+                {
+                    if (Network.Content is null) return Reject.NoContent;
+                    if (!Network.Content.IsResearch(sres.Node)) return Reject.UnknownResearch;
+                    if (!Network.CanResearch(sres.Node)) return Reject.ResearchUnavailable;
+                }
+                Network.SetResearch(sres.Node);
+                return Reject.None;
+            }
+
+            case LinkDeposit ld:
+            {
+                int id = Resolve(ld.Machine, machines);
+                if (!Network.IsMachineAlive(id)) return Reject.UnknownMachine;
+                if (Network.Content!.Machines[Network.GetMachineInfo(id).Type].Role != MachineRole.Drill) return Reject.WrongRole;
+                if (!Network.IsDeposit(ld.Deposit)) return Reject.UnknownDeposit;
+                Network.LinkDeposit(id, ld.Deposit);
+                return Reject.None;
+            }
+
+            case UnlinkDeposit ud:
+            {
+                int id = Resolve(ud.Machine, machines);
+                if (!Network.IsMachineAlive(id)) return Reject.UnknownMachine;
+                if (Network.Content!.Machines[Network.GetMachineInfo(id).Type].Role != MachineRole.Drill) return Reject.WrongRole;
+                Network.UnlinkDeposit(id);
                 return Reject.None;
             }
 
@@ -348,12 +430,13 @@ public sealed class SimWorld
         return content.Recipes[recipe].Machine == machineType ? Reject.None : Reject.RecipeMismatch;
     }
 
-    private Reject Place(PlaceSegment p, List<int> created)
+    private Reject Place(int player, PlaceSegment p, List<int> created)
     {
         if (!Dirs.IsValid(p.Direction)) return Reject.InvalidArgument;
         if (p.LengthCells < 1 || p.LengthCells > MaxSegmentCells) return Reject.InvalidArgument;
         if (!Enum.IsDefined(p.Tier)) return Reject.InvalidArgument;
         if (Network.SegmentCount >= MaxSegments) return Reject.TooManySegments;
+        if (Campaign && Network.IsBeltLocked(p.Tier)) return Reject.Locked;
 
         var (dx, dy, dz) = Dirs.Vector(p.Direction);
         long endX = (long)p.X + (long)dx * p.LengthCells;
@@ -367,26 +450,43 @@ public sealed class SimWorld
             if (_cells.ContainsKey(Key(p.X + dx * k, p.Y + dy * k, p.Z + dz * k))) return Reject.Overlap;
         }
 
+        if (Campaign)
+        {
+            var cost = BeltCost(p.Tier);
+            if (!Network.CanPay(player, cost, p.LengthCells)) return Reject.NotEnoughItems;
+            Network.Pay(player, cost, p.LengthCells);
+        }
+
         int id = Network.AddSegment(p.X, p.Y, p.Z, dx, dy, dz, p.LengthCells, p.Tier);
         TryClaim(id, p.X, p.Y, p.Z, dx, dy, dz, p.LengthCells);
         created.Add(id);
         return Reject.None;
     }
 
-    private Reject PlaceMachineCore(PlaceMachine p, List<int> machines)
+    private Reject PlaceMachineCore(int player, PlaceMachine p, List<int> machines)
     {
         var content = Network.Content;
         if (content is null) return Reject.NoContent;
         if (!content.IsMachine(p.Machine)) return Reject.UnknownMachineType;
+        if (content.Machines[p.Machine].Role == MachineRole.Ship) return Reject.NotPlaceable;
         var recipe = CheckRecipe(p.Machine, p.Recipe);
         if (recipe != Reject.None) return recipe;
         if (Network.MachineCount >= MaxMachines) return Reject.TooManyMachines;
         if (!InBounds(p.X) || !InBounds(p.Y) || !InBounds(p.Z)) return Reject.OutOfBounds;
+        if (Campaign && (Network.IsMachineLocked(p.Machine) || (p.Recipe != -1 && Network.IsRecipeLocked(p.Recipe))))
+            return Reject.Locked;
 
         long key = Key(p.X, p.Y, p.Z);
         if (_cells.ContainsKey(key)) return Reject.Overlap;
 
-        int id = Network.AddMachine(p.X, p.Y, p.Z, p.Machine, p.Recipe);
+        if (Campaign)
+        {
+            var cost = content.Machines[p.Machine].Cost;
+            if (!Network.CanPay(player, cost)) return Reject.NotEnoughItems;
+            Network.Pay(player, cost);
+        }
+
+        int id = Network.AddMachine(p.X, p.Y, p.Z, p.Machine, p.Recipe, player);
         _cells.Add(key, -(id + 1));
         machines.Add(id);
         return Reject.None;
