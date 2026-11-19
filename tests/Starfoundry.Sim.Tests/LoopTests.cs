@@ -582,8 +582,9 @@ public class LoopTests
     private static Command RandomEconomyCommand(Random rng, SimWorld w)
     {
         var net = w.Network;
-        switch (rng.Next(0, 8))
+        switch (rng.Next(0, 9))
         {
+            case 8: return new SetMovement(rng.Next(0, 2) == 0 ? 2 : 0, rng.Next(0, 2) == 0 ? -3 : 0, 0); // invalid or a no-op
             case 0: return new StartMining(rng.Next(-1, net.DepositCount + 2));
             case 1: return new StopMining();
             case 2: return new SetShipRecipe(rng.Next(0, 5) == 0 ? rng.Next(-2, C.Recipes.Count + 2) : rng.Next(0, 2) == 0 ? ShipSmelt : -1);
@@ -619,6 +620,22 @@ public class LoopTests
         }
     }
 
+    /// <summary>
+    /// Mostly keeps the ship near the work (the build and mining ranges are what we want to exercise, not a ship lost in space):
+    /// head home when more than 4 cells out, otherwise stop or drift off now and then.
+    /// </summary>
+    private static Command SteerShip(Random rng, SimWorld w, int player)
+    {
+        if (!w.Network.HasPlayer(player)) return new SetMovement(rng.Next(0, 2), 0, 0);
+        var p = w.Network.GetPlayerInfo(player);
+        static int Home(int units) => Math.Abs(units) > 4 * Units.CellUnits ? -Math.Sign(units) : 0;
+        int hx = Home(p.X), hy = Home(p.Y), hz = Home(p.Z);
+        if (hx != 0 || hy != 0 || hz != 0) return new SetMovement(hx, hy, hz);
+        return rng.Next(0, 4) == 0
+            ? new SetMovement(rng.Next(-1, 2), rng.Next(-1, 2), rng.Next(-1, 2))
+            : new SetMovement(0, 0, 0);
+    }
+
     [Theory]
     [InlineData(21)]
     [InlineData(22)]
@@ -630,18 +647,20 @@ public class LoopTests
         const int ticks = 3000;
         var rng = new Random(seed);
         var w = StormWorld();
-        int ok = 0, locked = 0, broke = 0, rolledBack = 0, minedStarts = 0, shipSets = 0;
+        int ok = 0, locked = 0, broke = 0, rolledBack = 0, minedStarts = 0, shipSets = 0, tooFar = 0, moves = 0;
 
         for (int t = 0; t < ticks; t++)
         {
             int n = rng.Next(0, 4);
             for (int i = 0; i < n; i++)
             {
-                int pick = rng.Next(0, 10);
+                int who = rng.Next(0, 3);
+                int pick = rng.Next(0, 12);
                 var cmd = pick < 2 ? CommandTests.RandomCommand(rng, w)
                     : pick < 5 ? MachineTests_RandomMachine(rng, w)
+                    : pick < 7 ? SteerShip(rng, w, who)
                     : RandomEconomyCommand(rng, w);
-                w.Submit(rng.Next(0, 3), cmd);
+                w.Submit(who, cmd);
             }
             w.Step();
 
@@ -650,6 +669,8 @@ public class LoopTests
                 if (r.Ok) ok++;
                 if (r.Reject == Reject.Locked) locked++;
                 if (r.Reject == Reject.NotEnoughItems) broke++;
+                if (r.Reject == Reject.OutOfRange) tooFar++;
+                if (r.Ok && r.Command is SetMovement { Dx: not 0 } or SetMovement { Dy: not 0 } or SetMovement { Dz: not 0 }) moves++;
                 if (r.Command is Batch && !r.Ok && r.FailedIndex >= 0) rolledBack++;
                 if (r.Ok && r.Command is StartMining) minedStarts++;
                 if (r.Ok && r.Command is SetShipRecipe) shipSets++;
@@ -663,7 +684,8 @@ public class LoopTests
         Assert.True(minedStarts > 0 && shipSets > 0, "the player economy was not exercised");
         Assert.True(w.Network.MinedByHand > 0, "nothing was mined by hand");
         Assert.True(w.Network.HoldIn > 0 && w.Network.HoldOut > 0, "hold accounting was not exercised");
-        Assert.True(broke >= 0);
+        Assert.True(moves > 0, "the ships never moved");
+        Assert.True(tooFar > 0, "nothing was ever out of range");
 
         // Replay from the same starting world, directly and through the binary format.
         Assert.Equal(w.Checksum(), SimWorld.Replay(w.Log, ticks, initial: StormWorld()).Checksum());

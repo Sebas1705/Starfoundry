@@ -201,6 +201,10 @@ public sealed class SimWorld
 
     private bool Campaign => Network.Mode == GameMode.Campaign;
 
+    /// <summary>True if the ship of <paramref name="player"/> is close enough to build or remove at the cell (campaign rule).</summary>
+    public bool InBuildRange(int player, int x, int y, int z) =>
+        Network.CellInRange(player, x, y, z, PlayerRules.BuildRangeCells);
+
     private ItemStack[] BeltCost(BeltTier tier) =>
         Network.Content?.Belts[(int)tier]?.CostPerCell ?? System.Array.Empty<ItemStack>();
 
@@ -216,6 +220,7 @@ public sealed class SimWorld
                 int id = Resolve(r.Segment, created);
                 if (!Network.IsAlive(id)) return Reject.UnknownSegment;
                 var info = Network.GetSegmentInfo(id);
+                if (Campaign && !InBuildRange(player, info.OriginX, info.OriginY, info.OriginZ)) return Reject.OutOfRange;
                 Release(info);
                 Network.RemoveSegment(id);
                 if (Campaign) Network.Refund(player, BeltCost(info.Tier), info.LengthCells);
@@ -298,6 +303,7 @@ public sealed class SimWorld
                 int id = Resolve(rm.Machine, machines);
                 if (!Network.IsMachineAlive(id)) return Reject.UnknownMachine;
                 var m = Network.GetMachineInfo(id);
+                if (Campaign && !InBuildRange(player, m.X, m.Y, m.Z)) return Reject.OutOfRange;
                 _cells.Remove(Key(m.X, m.Y, m.Z));
                 Network.RemoveMachine(id);
                 if (Campaign) Network.Refund(player, Network.Content!.Machines[m.Type].Cost);
@@ -320,9 +326,15 @@ public sealed class SimWorld
                 if (Network.Content is null) return Reject.NoContent;
                 if (!Network.IsDeposit(sm.Deposit)) return Reject.UnknownDeposit;
                 if (Network.DepositRemaining(sm.Deposit) <= 0) return Reject.Depleted;
+                if (!Network.InMineRange(player, sm.Deposit)) return Reject.OutOfRange;
                 Network.StartMining(player, sm.Deposit);
                 return Reject.None;
             }
+
+            case SetMovement mv:
+                if (mv.Dx is < -1 or > 1 || mv.Dy is < -1 or > 1 || mv.Dz is < -1 or > 1) return Reject.InvalidArgument;
+                Network.SetMovement(player, mv.Dx, mv.Dy, mv.Dz);
+                return Reject.None;
 
             case StopMining:
                 if (Network.Content is null) return Reject.NoContent;
@@ -445,6 +457,10 @@ public sealed class SimWorld
         if (!InBounds(p.X) || !InBounds(p.Y) || !InBounds(p.Z) || !InBounds(endX) || !InBounds(endY) || !InBounds(endZ))
             return Reject.OutOfBounds;
 
+        if (Campaign && (!InBuildRange(player, p.X, p.Y, p.Z)
+            || !InBuildRange(player, p.X + dx * (p.LengthCells - 1), p.Y + dy * (p.LengthCells - 1), p.Z + dz * (p.LengthCells - 1))))
+            return Reject.OutOfRange;
+
         for (int k = 0; k < p.LengthCells; k++)
         {
             if (_cells.ContainsKey(Key(p.X + dx * k, p.Y + dy * k, p.Z + dz * k))) return Reject.Overlap;
@@ -475,6 +491,8 @@ public sealed class SimWorld
         if (!InBounds(p.X) || !InBounds(p.Y) || !InBounds(p.Z)) return Reject.OutOfBounds;
         if (Campaign && (Network.IsMachineLocked(p.Machine) || (p.Recipe != -1 && Network.IsRecipeLocked(p.Recipe))))
             return Reject.Locked;
+
+        if (Campaign && !InBuildRange(player, p.X, p.Y, p.Z)) return Reject.OutOfRange;
 
         long key = Key(p.X, p.Y, p.Z);
         if (_cells.ContainsKey(key)) return Reject.Overlap;
