@@ -162,6 +162,85 @@ public class BeltNetworkTests
         Assert.True(net.Consumed <= 10.0 * 100 + 20);
     }
 
+    private static (BeltNetwork Net, int[] Inputs, int Output) BuildMerge(BeltTier outTier, params BeltTier[] inTiers)
+    {
+        var net = new BeltNetwork();
+        var inputs = new int[inTiers.Length];
+        for (int i = 0; i < inTiers.Length; i++)
+            inputs[i] = net.AddSegment(0, 0, i, 1, 0, 0, 6, inTiers[i]);
+        int output = net.AddSegment(6, 0, 0, 1, 0, 0, 10, outTier);
+        foreach (int input in inputs)
+        {
+            net.Connect(input, output);
+            net.SetSource(input, new ushort[] { (ushort)input });
+        }
+        net.SetSink(output);
+        return (net, inputs, output);
+    }
+
+    [Fact]
+    public void SaturatedMergeSplitsEvenlyBetweenTwoInputs()
+    {
+        var (net, inputs, _) = BuildMerge(BeltTier.Mk2, BeltTier.Mk2, BeltTier.Mk2);
+        net.Step(30 * 30);
+        long a0 = net.PassedBy(inputs[0]), b0 = net.PassedBy(inputs[1]);
+        net.Step(30 * 60);
+        long a = net.PassedBy(inputs[0]) - a0, b = net.PassedBy(inputs[1]) - b0;
+
+        Assert.InRange(Math.Abs(a - b), 0, 2);
+        Assert.InRange(a + b, 600 * 0.97, 600 * 1.03); // output belt limit: 10 items/s for 60 s
+    }
+
+    [Fact]
+    public void SaturatedMergeSplitsEvenlyBetweenThreeInputs()
+    {
+        var (net, inputs, _) = BuildMerge(BeltTier.Mk2, BeltTier.Mk2, BeltTier.Mk2, BeltTier.Mk2);
+        net.Step(30 * 30);
+        var before = inputs.Select(net.PassedBy).ToArray();
+        net.Step(30 * 60);
+        var got = inputs.Select((id, i) => net.PassedBy(id) - before[i]).ToArray();
+
+        Assert.InRange(got.Max() - got.Min(), 0, 3);
+        Assert.InRange(got.Sum(), 600 * 0.97, 600 * 1.03);
+    }
+
+    [Fact]
+    public void MergeIsMaxMinFairWhenOneInputIsSlow()
+    {
+        // A Mk1 input can only offer 4 items/s. It must get all of it; the fast input takes the rest.
+        var (net, inputs, _) = BuildMerge(BeltTier.Mk3, BeltTier.Mk1, BeltTier.Mk3);
+        net.Step(30 * 30);
+        long slow0 = net.PassedBy(inputs[0]), fast0 = net.PassedBy(inputs[1]);
+        net.Step(30 * 60);
+        long slow = net.PassedBy(inputs[0]) - slow0, fast = net.PassedBy(inputs[1]) - fast0;
+
+        Assert.InRange(slow, 240 * 0.97, 240 * 1.03); // 4 items/s for 60 s
+        Assert.InRange(slow + fast, 1440 * 0.97, 1440 * 1.03); // output belt limit: 24 items/s
+    }
+
+    [Fact]
+    public void MergeFairnessDoesNotDependOnSegmentOrder()
+    {
+        // Same merge with the inputs created in the opposite order must give the same split.
+        long Gap(bool reversed)
+        {
+            var net = new BeltNetwork();
+            int first = net.AddSegment(0, 0, 0, 1, 0, 0, 6, BeltTier.Mk2);
+            int second = net.AddSegment(0, 0, 1, 1, 0, 0, 6, BeltTier.Mk2);
+            int output = net.AddSegment(6, 0, 0, 1, 0, 0, 10, BeltTier.Mk2);
+            if (reversed) { net.Connect(second, output); net.Connect(first, output); }
+            else { net.Connect(first, output); net.Connect(second, output); }
+            net.SetSink(output);
+            net.SetSource(first, new ushort[] { 0 });
+            net.SetSource(second, new ushort[] { 1 });
+            net.Step(30 * 90);
+            return Math.Abs(net.PassedBy(first) - net.PassedBy(second));
+        }
+
+        Assert.InRange(Gap(false), 0, 2);
+        Assert.InRange(Gap(true), 0, 2);
+    }
+
     [Fact]
     public void SimulationIsDeterministic()
     {
@@ -213,6 +292,13 @@ public class BeltNetworkTests
         net.Connect(a, b);
         net.Connect(a, c);
         Assert.Throws<InvalidOperationException>(() => net.Connect(a, d));
+        Assert.Throws<InvalidOperationException>(() =>
+        {
+            int e = net.AddSegment(9, 0, 0, 1, 0, 0, 2, BeltTier.Mk1);
+            int f = net.AddSegment(11, 0, 0, 1, 0, 0, 2, BeltTier.Mk1);
+            net.Connect(e, f);
+            net.Connect(e, f);
+        });
         Assert.Throws<InvalidOperationException>(() => net.SetSink(a));
         net.SetSink(d);
         Assert.Throws<InvalidOperationException>(() => net.Connect(d, a));

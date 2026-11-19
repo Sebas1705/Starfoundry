@@ -3,7 +3,7 @@
 Update this file in the same change as any decision. Move resolved items into an ADR.
 
 ## Needs owner decision
-1. **Engine:** Godot 4 (recommended) vs Unity vs Unreal. See [ADR 0001](../adr/0001-engine.md).
+1. ~~Engine~~ Decided: Godot 4 with C#, see [ADR 0001](../adr/0001-engine.md).
 2. **Name:** "Starfoundry" is a working title. Needs a trademark and domain check.
 3. **Art direction:** stylised low-poly (assumed) vs realistic.
 4. **Scope:** solo-only first, or co-op in the vertical slice?
