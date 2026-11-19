@@ -14,12 +14,20 @@ public readonly record struct SegmentInfo(
 /// Segment ids are stable and never reused; a removed segment leaves a hole.
 /// Gameplay code should change the network through <see cref="SimWorld"/> commands, not directly.
 /// </summary>
-public sealed class BeltNetwork
+public sealed partial class BeltNetwork
 {
     private List<BeltSegment?> _segs = new();
     private int _alive;
     private int[] _order = Array.Empty<int>();
     private bool _dirty = true;
+
+    /// <summary>Game content (items, machines, recipes). Needed only when machines are used.</summary>
+    public ContentDb? Content { get; }
+
+    public BeltNetwork(ContentDb? content = null)
+    {
+        Content = content;
+    }
 
     public long Tick { get; private set; }
     public long Spawned { get; private set; }
@@ -65,6 +73,9 @@ public sealed class BeltNetwork
         var s = Get(id);
         Destroyed += s.Count;
 
+        if (s.MachineOut >= 0) _machines[s.MachineOut]!.InputsFrom.Remove(id);
+        if (s.FedBy >= 0) _machines[s.FedBy]!.DropOutBelt(id);
+
         foreach (int input in s.Inputs)
         {
             if (input != id) DropOutput(_segs[input]!, id);
@@ -90,6 +101,8 @@ public sealed class BeltNetwork
         var s = Get(from);
         Get(to);
         if (s.IsSink) throw new InvalidOperationException("A sink cannot have outputs.");
+        if (s.MachineOut >= 0) throw new InvalidOperationException("A segment feeding a machine cannot have other outputs.");
+        if (_segs[to]!.FedBy >= 0) throw new InvalidOperationException("A segment fed by a machine cannot have input segments.");
         if (s.OutCount >= 2) throw new InvalidOperationException("A segment supports at most two outputs.");
         if (s.OutCount == 1 && s.Out[0] == to) throw new InvalidOperationException("Both outputs cannot target the same segment.");
         s.Out[s.OutCount++] = to;
@@ -129,7 +142,7 @@ public sealed class BeltNetwork
     public void SetSink(int segment)
     {
         var s = Get(segment);
-        if (s.OutCount > 0) throw new InvalidOperationException("A segment with outputs cannot be a sink.");
+        if (s.OutCount > 0 || s.MachineOut >= 0) throw new InvalidOperationException("A segment with outputs cannot be a sink.");
         s.IsSink = true;
     }
 
@@ -140,6 +153,7 @@ public sealed class BeltNetwork
     {
         if (pattern.Length == 0) throw new ArgumentException("Pattern must not be empty.", nameof(pattern));
         var s = Get(segment);
+        if (s.FedBy >= 0) throw new InvalidOperationException("A segment fed by a machine cannot have a source.");
         s.SourcePattern = pattern.ToArray();
         s.SourceIndex = 0;
     }
@@ -157,6 +171,8 @@ public sealed class BeltNetwork
         if (_dirty) RebuildOrder();
 
         foreach (int id in _order) MoveSegment(_segs[id]!);
+
+        StepMachines();
 
         foreach (var s in _segs)
         {
@@ -221,6 +237,8 @@ public sealed class BeltNetwork
         }
 
         Mix(Tick); Mix(Spawned); Mix(Consumed); Mix(Destroyed); Mix(_segs.Count);
+        Mix(MachineInputsConsumed); Mix(MachineOutputsCreated); Mix((long)(Content?.Hash ?? 0));
+        MixMachines(Mix);
         foreach (var s in _segs)
         {
             if (s is null) { Mix(-1); continue; }
@@ -229,6 +247,7 @@ public sealed class BeltNetwork
             Mix(s.DirX); Mix(s.DirY); Mix(s.DirZ);
             Mix(s.Length); Mix((int)s.Tier);
             Mix(s.IsSink ? 1 : 0); Mix(s.SourcePattern?.Length ?? -1);
+            Mix(s.MachineOut); Mix(s.FedBy);
             Mix(s.OutCount);
             for (int k = 0; k < s.OutCount; k++) Mix(s.Out[k]);
             Mix(s.Count); Mix(s.RoundRobin); Mix(s.SourceIndex); Mix(s.MergeTurn);
@@ -244,7 +263,7 @@ public sealed class BeltNetwork
     /// <summary>Deep copy of the whole state.</summary>
     public BeltNetwork Clone()
     {
-        var c = new BeltNetwork();
+        var c = new BeltNetwork(Content);
         c.CopyFrom(this);
         return c;
     }
@@ -254,6 +273,7 @@ public sealed class BeltNetwork
     {
         _segs = other._segs.Select(s => s?.Clone()).ToList();
         _alive = other._alive;
+        CopyMachinesFrom(other);
         Tick = other.Tick;
         Spawned = other.Spawned;
         Consumed = other.Consumed;
@@ -279,6 +299,16 @@ public sealed class BeltNetwork
             alive++;
             if (s.Id != id) Fail($"segment {id} has id {s.Id}");
             if (s.IsSink && s.OutCount > 0) Fail($"sink {id} has outputs");
+            if (s.MachineOut >= 0)
+            {
+                if (s.OutCount > 0 || s.IsSink) Fail($"segment {id} feeds a machine and also has other outputs");
+                if (!IsMachineAlive(s.MachineOut) || !_machines[s.MachineOut]!.InputsFrom.Contains(id)) Fail($"segment {id} has a broken machine output link");
+            }
+            if (s.FedBy >= 0)
+            {
+                if (s.Inputs.Count > 0 || s.SourcePattern is not null) Fail($"segment {id} is fed by a machine and also has other inputs");
+                if (!IsMachineAlive(s.FedBy) || Array.IndexOf(_machines[s.FedBy]!.OutBelts, id, 0, _machines[s.FedBy]!.OutCount) < 0) Fail($"segment {id} has a broken machine input link");
+            }
             if (s.OutCount is < 0 or > 2) Fail($"segment {id} has {s.OutCount} outputs");
             for (int k = 0; k < s.OutCount; k++)
             {
@@ -307,8 +337,11 @@ public sealed class BeltNetwork
         }
 
         if (alive != _alive) Fail($"alive counter {_alive} but {alive} segments exist");
-        if (Spawned != Consumed + Destroyed + InTransit)
-            Fail($"conservation broken: spawned {Spawned}, consumed {Consumed}, destroyed {Destroyed}, in transit {InTransit}");
+        ValidateMachines();
+        long held = MachineHeldItems;
+        if (Spawned + MachineOutputsCreated != Consumed + Destroyed + MachineInputsConsumed + InTransit + held)
+            Fail($"conservation broken: spawned {Spawned} + made {MachineOutputsCreated} != consumed {Consumed} + destroyed {Destroyed} " +
+                 $"+ used {MachineInputsConsumed} + in transit {InTransit} + held {held}");
     }
 
     private BeltSegment Get(int id)
@@ -425,6 +458,8 @@ public sealed class BeltNetwork
     /// <summary>Moves the front item of <paramref name="s"/> into one of its outputs, round-robin. Returns false when every output is full.</summary>
     private bool TryTransfer(BeltSegment s, int overflow)
     {
+        if (s.MachineOut >= 0) return TryFeedMachine(s);
+
         for (int t = 0; t < s.OutCount; t++)
         {
             int slot = (s.RoundRobin + t) % s.OutCount;

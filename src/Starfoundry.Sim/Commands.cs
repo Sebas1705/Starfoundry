@@ -54,6 +54,25 @@ public sealed record SetSink(int Segment) : Command;
 
 public sealed record ClearSink(int Segment) : Command;
 
+/// <summary>Places a one-cell machine of a content type (<see cref="ContentDb.Machines"/> index) with a recipe index, or -1 for none.
+/// Inside a batch, negative machine ids refer to machines placed earlier in the same batch (-1 first, -2 second, ...).</summary>
+public sealed record PlaceMachine(int X, int Y, int Z, int Machine, int Recipe) : Command;
+
+/// <summary>Removes a machine; everything inside it is destroyed and its belts are detached.</summary>
+public sealed record RemoveMachine(int Machine) : Command;
+
+/// <summary>Changes a machine's recipe (-1 clears it). Items inside and the craft in progress are discarded.</summary>
+public sealed record SetRecipe(int Machine, int Recipe) : Command;
+
+/// <summary>The end of a belt feeds a machine. The machine cell must touch the belt's last cell by a face.</summary>
+public sealed record ConnectToMachine(int Segment, int Machine) : Command;
+
+/// <summary>A machine feeds the start of a belt. The belt's first cell must touch the machine cell by a face.</summary>
+public sealed record ConnectFromMachine(int Machine, int Segment) : Command;
+
+/// <summary>Removes the link between a belt and a machine, in whichever direction it exists.</summary>
+public sealed record DisconnectMachine(int Segment, int Machine) : Command;
+
 /// <summary>Several commands applied atomically: either all succeed or the world is left untouched.</summary>
 public sealed record Batch(Command[] Commands) : Command;
 
@@ -73,16 +92,30 @@ public enum Reject
     FromIsSink,
     SinkHasOutputs,
     NestedBatch,
+    NoContent,
+    UnknownMachineType,
+    UnknownMachine,
+    UnknownRecipe,
+    RecipeMismatch,
+    TooManyMachines,
+    MachineOutputsFull,
+
+    /// <summary>The belt already has a link that excludes this one (for example it feeds a machine and so cannot also feed a belt).</summary>
+    SegmentConflict,
 }
 
 /// <summary>Outcome of one submitted command.</summary>
 /// <param name="Tick">Tick at which the command was applied.</param>
 /// <param name="Created">Ids of the segments created, in order.</param>
 /// <param name="FailedIndex">For a rejected batch, the index of the command that failed; otherwise -1.</param>
+/// <param name="CreatedMachineIds">Ids of the machines created, in order.</param>
 public sealed record CommandResult(
-    long Tick, int Player, Command Command, Reject Reject, IReadOnlyList<int> Created, int FailedIndex = -1)
+    long Tick, int Player, Command Command, Reject Reject, IReadOnlyList<int> Created, int FailedIndex = -1,
+    IReadOnlyList<int>? CreatedMachineIds = null)
 {
     public bool Ok => Reject == Reject.None;
+
+    public IReadOnlyList<int> CreatedMachines => CreatedMachineIds ?? Array.Empty<int>();
 }
 
 /// <summary>A command as it was applied, for replays and network sync.</summary>

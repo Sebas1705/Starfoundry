@@ -2,6 +2,9 @@
 
 Status: proposal. All content lives in versioned data files so balance and mods do not require code changes.
 
+## Implemented subset (prototype P2)
+`content/core.json` holds items, machine types and recipes, loaded by `ContentDb` ([ADR 0004](../adr/0004-data-driven-content-and-one-cell-machines.md)). The real file is simpler than the examples below: ids are `pack:name`, recipe times are `time_s` (converted to whole ticks at load), machines have only an id for now, and the loader is strict (unknown properties, duplicates and dangling references are errors). A content hash goes into the state checksum and command-log headers. Everything below remains the target design.
+
 ## Conventions
 - Format: JSON (or YAML converted to JSON at build time). IDs are `snake_case` strings, namespaced by pack (`core:iron_ingot`).
 - Every file has `schema` (version) and `id`.

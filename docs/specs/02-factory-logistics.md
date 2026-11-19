@@ -2,6 +2,8 @@
 
 Status: proposal. Reference only establishes "machines + conveyor belts + production lines + automated supply routes". Everything else below is our design.
 
+> **Implementation status:** belts, splitters, fair merges, one-cell machines with recipes and the command layer exist as prototypes ([belts](../prototypes/belts.md), [machines](../prototypes/machines.md)). Power, heat, fluids, footprints, ports and blueprints are still design only.
+
 ## Principles
 - Deterministic, tick-based simulation (30 ticks per second target, see ADR 0002).
 - Everything that moves items is an explicit entity with capacity and speed, so throughput is predictable and testable.

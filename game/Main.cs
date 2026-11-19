@@ -33,7 +33,16 @@ public partial class Main : Node3D
     private static readonly Color[] TierColors =
         { new(0.35f, 0.40f, 0.50f), new(0.20f, 0.55f, 0.60f), new(0.85f, 0.50f, 0.20f) };
 
+    private static readonly Color[] MachineColors =
+        { new(0.85f, 0.55f, 0.20f), new(0.80f, 0.25f, 0.20f), new(0.25f, 0.45f, 0.85f) };
+
     private SimWorld _world = null!;
+    private ContentDb? _content;
+    private int _chainSink = -1;
+    private MultiMeshInstance3D? _machineNode;
+    private MultiMesh? _machines;
+    private float[] _machineBuf = Array.Empty<float>();
+    private int[] _machineIds = Array.Empty<int>();
     private BeltNetwork Net => _world.Network;
     private Seg[] _segs = Array.Empty<Seg>();
     private ItemSample[] _samples = Array.Empty<ItemSample>();
@@ -78,8 +87,12 @@ public partial class Main : Node3D
         _rows = IntArg(args, "--rows", 5);
         _cells = IntArg(args, "--cells", 50);
 
-        _world = new SimWorld(Scenarios.ParallelRows(_layers, _rows, _cells));
-        _world.Step(30 * 60); // fill the belts (the slowest tier needs ~50 s for 50 cells) before the first frame
+        _content = LoadContent();
+        _world = new SimWorld(Scenarios.ParallelRows(_layers, _rows, _cells, _content));
+        SubmitChain();
+        _world.Step(); // applies the chain batch
+        CollectResults();
+        _world.Step(30 * 60 - 1); // fill the belts (the slowest tier needs ~50 s for 50 cells) before the first frame
 
         BuildScene();
         RebuildGeometry();
@@ -93,11 +106,50 @@ public partial class Main : Node3D
         return a != null && int.TryParse(a[(name.Length + 1)..], out int v) ? v : fallback;
     }
 
+    /// <summary>Loads content/core.json from the repository (next to the game folder).</summary>
+    private static ContentDb? LoadContent()
+    {
+        string path = ProjectSettings.GlobalizePath("res://../content/core.json");
+        try
+        {
+            return ContentDb.FromFile(path);
+        }
+        catch (Exception e)
+        {
+            GD.PrintErr($"Could not load content from {path}: {e.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>Builds an extractor, smelter and assembler chain with belts between them, as one atomic batch.</summary>
+    private void SubmitChain()
+    {
+        if (_content is null) return;
+        const int z = -6;
+        int extractor = _content.MachineIndex("core:extractor");
+        int smelter = _content.MachineIndex("core:smelter");
+        int assembler = _content.MachineIndex("core:assembler");
+        _world.Submit(0, new Batch(new Command[]
+        {
+            new PlaceMachine(0, 0, z, extractor, _content.RecipeIndex("core:mine_iron")),   // machine -1
+            new PlaceMachine(5, 0, z, smelter, _content.RecipeIndex("core:smelt_iron")),    // machine -2
+            new PlaceMachine(10, 0, z, assembler, _content.RecipeIndex("core:iron_plate")), // machine -3
+            new PlaceSegment(1, 0, z, Dir.PosX, 4, BeltTier.Mk2),                           // segment -1
+            new PlaceSegment(6, 0, z, Dir.PosX, 4, BeltTier.Mk2),                           // segment -2
+            new PlaceSegment(11, 0, z, Dir.PosX, 4, BeltTier.Mk2),                          // segment -3
+            new ConnectFromMachine(-1, -1), new ConnectToMachine(-1, -2),
+            new ConnectFromMachine(-2, -2), new ConnectToMachine(-2, -3),
+            new ConnectFromMachine(-3, -3),
+            new SetSink(-3),
+        }));
+    }
+
     /// <summary>Rebuilds belt slabs and the item buffer. Called at start and whenever the network structure changes.</summary>
     private void RebuildGeometry()
     {
         _slabNode?.QueueFree();
         _itemNode?.QueueFree();
+        _machineNode?.QueueFree();
 
         _segs = new Seg[Net.SegmentIdLimit];
         var alive = new List<int>();
@@ -153,7 +205,35 @@ public partial class Main : Node3D
         _itemNode = new MultiMeshInstance3D { Multimesh = _items };
         AddChild(_itemNode);
 
+        // Machines: one box each, tinted by type; brightness shows whether it is crafting (updated every frame).
+        var machineIds = Enumerable.Range(0, Net.MachineIdLimit).Where(Net.IsMachineAlive).ToArray();
+        _machineIds = machineIds;
+        _machines = new MultiMesh
+        {
+            TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
+            UseColors = true,
+            Mesh = new BoxMesh { Size = Vector3.One, Material = VertexColorMaterial() },
+            InstanceCount = machineIds.Length,
+        };
+        _machineBuf = new float[machineIds.Length * FloatsPerItem];
+        _machineNode = new MultiMeshInstance3D { Multimesh = _machines };
+        AddChild(_machineNode);
+
         _structureVersion = Net.StructureVersion;
+    }
+
+    private void UpdateMachines()
+    {
+        if (_machines is null || _machineIds.Length == 0) return;
+        for (int i = 0; i < _machineIds.Length; i++)
+        {
+            var m = Net.GetMachineInfo(_machineIds[i]);
+            var c = MachineColors[m.Type % MachineColors.Length];
+            float k = m.Crafting ? 1f : 0.45f;
+            Write(_machineBuf, i * FloatsPerItem, 0.9f, 0.9f, 0.9f, m.X + 0.5f, m.Y + 0.45f, m.Z,
+                new Color(c.R * k, c.G * k, c.B * k));
+        }
+        _machines.Buffer = _machineBuf;
     }
 
     private static StandardMaterial3D VertexColorMaterial() => new()
@@ -183,6 +263,11 @@ public partial class Main : Node3D
         AddChild(_camera);
         var center = new Vector3(_cells / 2f, _layers, _rows);
         var pos = center + new Vector3(_cells * 0.3f, _layers * 0.9f + 3f, _cells * 0.42f);
+        if (OS.GetCmdlineUserArgs().Contains("--view=chain"))
+        {
+            center = new Vector3(7.5f, 0.5f, -6f);
+            pos = center + new Vector3(0f, 6f, -9f);
+        }
         _camera.LookAtFromPosition(pos, center);
         var euler = _camera.GlobalTransform.Basis.GetEuler();
         _pitch = euler.X;
@@ -232,7 +317,9 @@ public partial class Main : Node3D
         foreach (var r in _world.LastResults)
         {
             if (r.Ok) _commandsOk++; else _commandsRejected++;
-            if (r.Ok && r.Command is Batch && r.Created.Count > 0) _demoIds.Push(r.Created[0]);
+            if (r.Ok && r.Command is Batch b && r.Created.Count == 3 && r.CreatedMachines.Count == 3 && _chainSink < 0)
+                _chainSink = r.Created[2]; // the machine chain batch
+            else if (r.Ok && r.Command is Batch && r.Created.Count > 0) _demoIds.Push(r.Created[0]);
             GD.Print($"COMMAND tick={r.Tick} {r.Command.GetType().Name} -> {(r.Ok ? "ok" : r.Reject.ToString())}" +
                      (r.Created.Count > 0 ? $" created=[{string.Join(",", r.Created)}]" : ""));
         }
@@ -265,10 +352,12 @@ public partial class Main : Node3D
         }
         _items.VisibleInstanceCount = _count;
         _items.Buffer = _buf;
+        UpdateMachines();
 
         _hud.Text =
             $"FPS {Engine.GetFramesPerSecond()}   items {_count}   sim {_simMsAvg:F3} ms/tick   segments {Net.SegmentCount}\n" +
-            $"commands ok {_commandsOk}  rejected {_commandsRejected}\n" +
+            $"commands ok {_commandsOk}  rejected {_commandsRejected}   machines {Net.MachineCount}   " +
+            $"plates delivered {(_chainSink >= 0 && Net.IsAlive(_chainSink) ? Net.ConsumedBy(_chainSink) : 0)}\n" +
             "RMB + mouse: look   WASD/QE: move   Shift: fast   B: add belt row   X: remove it";
 
         MoveCamera((float)delta);
@@ -330,7 +419,10 @@ public partial class Main : Node3D
         var sorted = _frameMs.OrderBy(x => x).ToArray();
         double avg = sorted.Average();
         double p99 = sorted[(int)(sorted.Length * 0.99)];
-        bool conserved = Net.Spawned == Net.Consumed + Net.Destroyed + Net.InTransit;
+        bool conserved = Net.Spawned + Net.MachineOutputsCreated ==
+            Net.Consumed + Net.Destroyed + Net.MachineInputsConsumed + Net.InTransit + Net.MachineHeldItems;
+        GD.Print($"BENCH chain_plates={(_chainSink >= 0 && Net.IsAlive(_chainSink) ? Net.ConsumedBy(_chainSink) : -1)} " +
+                 $"machines={Net.MachineCount} crafted={Net.MachineOutputsCreated}");
         GD.Print($"BENCH items={_count} segments={Net.SegmentCount} frames={sorted.Length}");
         GD.Print($"BENCH avg_frame_ms={avg:F3} avg_fps={1000.0 / avg:F1} p99_frame_ms={p99:F3} min_fps={1000.0 / sorted[^1]:F1}");
         GD.Print($"BENCH sim_ms_per_tick_avg={_simMsAvg:F4} conserved={conserved}");

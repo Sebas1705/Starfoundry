@@ -427,7 +427,7 @@ public class CommandTests
 
     // ---- fuzz and replay ---------------------------------------------------------------------
 
-    private static Command RandomCommand(Random rng, SimWorld w)
+    internal static Command RandomCommand(Random rng, SimWorld w)
     {
         var net = w.Network;
         int limit = net.SegmentIdLimit;

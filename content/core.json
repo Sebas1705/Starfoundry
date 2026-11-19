@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "items": [
+    { "id": "core:iron_ore" },
+    { "id": "core:iron_ingot" },
+    { "id": "core:iron_plate" },
+    { "id": "core:carbon" }
+  ],
+  "machines": [
+    { "id": "core:extractor" },
+    { "id": "core:smelter" },
+    { "id": "core:assembler" }
+  ],
+  "recipes": [
+    {
+      "id": "core:mine_iron",
+      "machine": "core:extractor",
+      "inputs": [],
+      "outputs": [{ "item": "core:iron_ore", "count": 1 }],
+      "time_s": 1.0
+    },
+    {
+      "id": "core:mine_carbon",
+      "machine": "core:extractor",
+      "inputs": [],
+      "outputs": [{ "item": "core:carbon", "count": 1 }],
+      "time_s": 1.0
+    },
+    {
+      "id": "core:smelt_iron",
+      "machine": "core:smelter",
+      "inputs": [{ "item": "core:iron_ore", "count": 1 }],
+      "outputs": [{ "item": "core:iron_ingot", "count": 1 }],
+      "time_s": 2.0
+    },
+    {
+      "id": "core:iron_plate",
+      "machine": "core:assembler",
+      "inputs": [{ "item": "core:iron_ingot", "count": 2 }],
+      "outputs": [{ "item": "core:iron_plate", "count": 1 }],
+      "time_s": 2.0
+    }
+  ]
+}
