@@ -27,14 +27,14 @@ public sealed partial class BeltNetwork
     }
 
     /// <summary>Adds a machine of a content type, optionally with a recipe (-1 for none).</summary>
-    public int AddMachine(int x, int y, int z, int type, int recipe)
+    public int AddMachine(int x, int y, int z, int type, int recipe, int owner = -1)
     {
         var content = Content ?? throw new InvalidOperationException("The network has no content.");
         if (!content.IsMachine(type)) throw new ArgumentOutOfRangeException(nameof(type));
         CheckRecipe(type, recipe);
 
         int id = _machines.Count;
-        _machines.Add(new Machine(id, x, y, z, type, content.Items.Count) { Recipe = recipe });
+        _machines.Add(new Machine(id, x, y, z, type, content.Items.Count) { Recipe = recipe, Owner = owner });
         _machinesAlive++;
         StructureVersion++;
         return id;
@@ -138,7 +138,7 @@ public sealed partial class BeltNetwork
     public MachineInfo GetMachineInfo(int id)
     {
         var m = GetMachine(id);
-        return new MachineInfo(m.Id, m.X, m.Y, m.Z, m.Type, m.Recipe, m.Crafting, m.Remaining, m.HeldInputs, m.HeldOutputs);
+        return new MachineInfo(m.Id, m.X, m.Y, m.Z, m.Type, m.Recipe, m.Crafting, m.Remaining, m.HeldInputs, m.HeldOutputs, m.Deposit);
     }
 
     private Machine GetMachine(int id)
@@ -182,7 +182,7 @@ public sealed partial class BeltNetwork
                 m.Crafting = false;
             }
 
-            if (!m.Crafting && CanStart(m, r))
+            if (!m.Crafting && CanStart(m, r) && TakeFromDepositIfDrill(m, r))
             {
                 foreach (var i in r.Inputs)
                 {
@@ -204,6 +204,19 @@ public sealed partial class BeltNetwork
             if (m.In[i.Item] < i.Count) return false;
         foreach (var o in r.Outputs)
             if (m.Out[o.Item] + o.Count > 2 * o.Count) return false;
+        return true;
+    }
+
+    /// <summary>A drill needs a linked deposit that still holds enough of the recipe's output item; the ore is taken as the craft starts.</summary>
+    private bool TakeFromDepositIfDrill(Machine m, RecipeDef r)
+    {
+        if (Content!.Machines[m.Type].Role != MachineRole.Drill) return true;
+        if (m.Deposit < 0) return false;
+        var d = _deposits[m.Deposit];
+        var o = r.Outputs[0];
+        if (d.Item != o.Item || d.Remaining < o.Count) return false;
+        d.Remaining -= o.Count;
+        DrilledTotal += o.Count;
         return true;
     }
 
@@ -233,8 +246,11 @@ public sealed partial class BeltNetwork
     private bool TryFeedMachine(BeltSegment s)
     {
         var m = _machines[s.MachineOut]!;
-        if (m.Recipe < 0) return false;
         int type = s.Type[s.Head];
+        var role = Content!.Machines[m.Type].Role;
+        if (role == MachineRole.Lab) return TryFeedLab(s, type);
+        if (role == MachineRole.Depot) return TryFeedDepot(m, s, type);
+        if (m.Recipe < 0) return false;
         if (type >= m.In.Length) return false;
 
         foreach (var i in Content!.Recipes[m.Recipe].Inputs)
@@ -265,7 +281,7 @@ public sealed partial class BeltNetwork
         foreach (var m in _machines)
         {
             if (m is null) { mix(-1); continue; }
-            mix(m.Id); mix(m.X); mix(m.Y); mix(m.Z); mix(m.Type); mix(m.Recipe);
+            mix(m.Id); mix(m.X); mix(m.Y); mix(m.Z); mix(m.Type); mix(m.Recipe); mix(m.Deposit); mix(m.Owner);
             mix(m.Crafting ? 1 : 0); mix(m.Remaining);
             foreach (int v in m.In) mix(v);
             foreach (int v in m.Out) mix(v);
@@ -290,6 +306,10 @@ public sealed partial class BeltNetwork
             var content = Content ?? throw new InvalidOperationException("Machines exist without content.");
             if (!content.IsMachine(m.Type)) Fail($"machine {id} has unknown type {m.Type}");
             if (m.In.Length != content.Items.Count || m.Out.Length != content.Items.Count) Fail($"machine {id} buffers have the wrong size");
+            var role = content.Machines[m.Type].Role;
+            if (role == MachineRole.Ship) Fail($"machine {id} is a ship machine placed in the world");
+            if (role != MachineRole.Drill && m.Deposit != -1) Fail($"machine {id} is not a drill but has a deposit");
+            if (m.Deposit != -1 && !IsDeposit(m.Deposit)) Fail($"machine {id} has an unknown deposit");
 
             if (m.Recipe == -1)
             {

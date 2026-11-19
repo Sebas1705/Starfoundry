@@ -29,4 +29,4 @@ Extractor (1 iron ore per second) feeds a belt into a smelter (1 ingot every 2 s
 dotnet test
 dotnet build game -c Debug
 ```
-Then run the `game/` project in Godot 4.7.2 (Mono), or from the command line with `-- --bench --commands --view=chain "--shot=path.png"` after the project path.
+The chain demo is in the benchmark scene `game/Main.tscn` (the project's main scene is now the [playable loop](playable-loop.md)). Run it from the command line with `godot --path game res://Main.tscn -- --bench --commands --view=chain "--shot=path.png"`.

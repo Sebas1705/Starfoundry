@@ -73,6 +73,22 @@ public sealed record ConnectFromMachine(int Machine, int Segment) : Command;
 /// <summary>Removes the link between a belt and a machine, in whichever direction it exists.</summary>
 public sealed record DisconnectMachine(int Segment, int Machine) : Command;
 
+/// <summary>The commanding player starts hand-mining a deposit. Ore flows into their hold until it is full or the deposit is empty.</summary>
+public sealed record StartMining(int Deposit) : Command;
+
+public sealed record StopMining : Command;
+
+/// <summary>Sets what the commanding player's ship micro-refinery works on (-1 for nothing).</summary>
+public sealed record SetShipRecipe(int Recipe) : Command;
+
+/// <summary>Chooses the research the labs work on (-1 for none).</summary>
+public sealed record SetResearch(int Node) : Command;
+
+/// <summary>Points a drill at a deposit.</summary>
+public sealed record LinkDeposit(int Machine, int Deposit) : Command;
+
+public sealed record UnlinkDeposit(int Machine) : Command;
+
 /// <summary>Several commands applied atomically: either all succeed or the world is left untouched.</summary>
 public sealed record Batch(Command[] Commands) : Command;
 
@@ -102,6 +118,27 @@ public enum Reject
 
     /// <summary>The belt already has a link that excludes this one (for example it feeds a machine and so cannot also feed a belt).</summary>
     SegmentConflict,
+
+    /// <summary>The builder's hold does not contain the cost (campaign mode).</summary>
+    NotEnoughItems,
+
+    /// <summary>Not unlocked yet, or not allowed in this game mode.</summary>
+    Locked,
+    UnknownDeposit,
+    UnknownResearch,
+
+    /// <summary>The research is already finished or its requirements are not.</summary>
+    ResearchUnavailable,
+
+    /// <summary>The machine type lives on the ship and cannot be placed in the world.</summary>
+    NotPlaceable,
+
+    /// <summary>The machine has the wrong role for this command (for example linking a deposit to a smelter).</summary>
+    WrongRole,
+    Depleted,
+
+    /// <summary>The recipe does not belong to the ship's micro-refinery.</summary>
+    NotAShipRecipe,
 }
 
 /// <summary>Outcome of one submitted command.</summary>

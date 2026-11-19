@@ -7,9 +7,34 @@
     { "id": "core:carbon" }
   ],
   "machines": [
-    { "id": "core:extractor" },
-    { "id": "core:smelter" },
-    { "id": "core:assembler" }
+    { "id": "core:extractor", "sandbox_only": true },
+    {
+      "id": "core:drill",
+      "role": "drill",
+      "cost": [{ "item": "core:iron_ingot", "count": 6 }]
+    },
+    {
+      "id": "core:smelter",
+      "cost": [{ "item": "core:iron_ingot", "count": 8 }]
+    },
+    {
+      "id": "core:assembler",
+      "cost": [{ "item": "core:iron_ingot", "count": 12 }]
+    },
+    {
+      "id": "core:research_lab",
+      "role": "lab",
+      "cost": [
+        { "item": "core:iron_ingot", "count": 10 },
+        { "item": "core:iron_plate", "count": 4 }
+      ]
+    },
+    {
+      "id": "core:depot",
+      "role": "depot",
+      "cost": [{ "item": "core:iron_ingot", "count": 5 }]
+    },
+    { "id": "core:micro_refinery", "role": "ship" }
   ],
   "recipes": [
     {
@@ -27,6 +52,20 @@
       "time_s": 1.0
     },
     {
+      "id": "core:drill_iron",
+      "machine": "core:drill",
+      "inputs": [],
+      "outputs": [{ "item": "core:iron_ore", "count": 1 }],
+      "time_s": 2.0
+    },
+    {
+      "id": "core:drill_carbon",
+      "machine": "core:drill",
+      "inputs": [],
+      "outputs": [{ "item": "core:carbon", "count": 1 }],
+      "time_s": 2.0
+    },
+    {
       "id": "core:smelt_iron",
       "machine": "core:smelter",
       "inputs": [{ "item": "core:iron_ore", "count": 1 }],
@@ -39,6 +78,53 @@
       "inputs": [{ "item": "core:iron_ingot", "count": 2 }],
       "outputs": [{ "item": "core:iron_plate", "count": 1 }],
       "time_s": 2.0
+    },
+    {
+      "id": "core:ship_smelt",
+      "machine": "core:micro_refinery",
+      "inputs": [{ "item": "core:iron_ore", "count": 1 }],
+      "outputs": [{ "item": "core:iron_ingot", "count": 1 }],
+      "time_s": 2.0
+    }
+  ],
+  "belts": [
+    {
+      "id": "core:belt_mk1",
+      "tier": "mk1",
+      "cost_per_cell": [{ "item": "core:iron_ingot", "count": 1 }]
+    },
+    {
+      "id": "core:belt_mk2",
+      "tier": "mk2",
+      "cost_per_cell": [{ "item": "core:iron_plate", "count": 1 }]
+    },
+    {
+      "id": "core:belt_mk3",
+      "tier": "mk3",
+      "cost_per_cell": [{ "item": "core:iron_plate", "count": 2 }]
+    }
+  ],
+  "research": [
+    {
+      "id": "core:logistics",
+      "cost": [{ "item": "core:iron_plate", "count": 10 }],
+      "requires": [],
+      "unlocks": ["core:belt_mk2"]
+    },
+    {
+      "id": "core:carbon_drilling",
+      "cost": [{ "item": "core:iron_plate", "count": 15 }],
+      "requires": [],
+      "unlocks": ["core:drill_carbon"]
+    },
+    {
+      "id": "core:advanced_logistics",
+      "cost": [
+        { "item": "core:iron_plate", "count": 40 },
+        { "item": "core:carbon", "count": 10 }
+      ],
+      "requires": ["core:logistics", "core:carbon_drilling"],
+      "unlocks": ["core:belt_mk3"]
     }
   ]
 }

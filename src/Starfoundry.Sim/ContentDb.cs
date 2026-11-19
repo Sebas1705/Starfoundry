@@ -6,50 +6,109 @@ public sealed record ItemDef(int Index, string Id);
 
 public sealed record ItemStack(int Item, int Count);
 
-public sealed record MachineDef(int Index, string Id);
+/// <summary>What a machine type does.</summary>
+public enum MachineRole
+{
+    /// <summary>Works through recipes on items delivered by belts.</summary>
+    Crafter = 0,
+
+    /// <summary>Takes ore out of a linked deposit; its recipes have no inputs.</summary>
+    Drill = 1,
+
+    /// <summary>Consumes the items the current research needs; has no recipes.</summary>
+    Lab = 2,
+
+    /// <summary>Lives on the player's ship (the micro-refinery); never placed in the world.</summary>
+    Ship = 3,
+
+    /// <summary>Delivers every item that reaches it into the hold of the player who built it, as long as there is room.</summary>
+    Depot = 4,
+}
+
+/// <param name="Cost">Items paid from the builder's hold in campaign mode (refunded on removal).</param>
+/// <param name="SandboxOnly">Allowed only in sandbox mode (test fixtures and debug machines).</param>
+public sealed record MachineDef(int Index, string Id, MachineRole Role, ItemStack[] Cost, bool SandboxOnly);
 
 /// <param name="TimeTicks">Crafting time in simulation ticks (converted once at load from seconds).</param>
 public sealed record RecipeDef(int Index, string Id, int Machine, ItemStack[] Inputs, ItemStack[] Outputs, int TimeTicks);
 
+/// <param name="CostPerCell">Items paid per cell of belt in campaign mode.</param>
+public sealed record BeltDef(BeltTier Tier, string Id, ItemStack[] CostPerCell);
+
+/// <param name="Requires">Research nodes that must be finished first.</param>
+public sealed record ResearchDef(
+    int Index, string Id, ItemStack[] Cost, int[] Requires, int[] UnlockMachines, int[] UnlockRecipes, BeltTier[] UnlockBelts);
+
 /// <summary>
-/// Immutable game content loaded from data files: items, machine types and recipes. Simulation code
-/// refers to them by index; files refer to them by string id. Loading is strict (unknown properties,
-/// duplicates and dangling references are errors) and the <see cref="Hash"/> identifies the exact content,
-/// so replays and co-op peers can detect a mismatch.
+/// Immutable game content loaded from data files: items, machine types, recipes, belt costs and research.
+/// Simulation code refers to them by index; files refer to them by string id. Loading is strict (unknown
+/// properties, duplicates and dangling references are errors) and the <see cref="Hash"/> identifies the exact
+/// content, so replays and co-op peers can detect a mismatch. Anything unlocked by some research node is
+/// locked until that node is finished (in campaign mode); everything else is available from the start.
 /// </summary>
 public sealed class ContentDb
 {
     public const int MaxItems = 256;
     public const int MaxStack = 64;
     public const int MaxRecipeStacks = 4;
+    public const int MaxResearch = 256;
+    public const int MaxCostStack = 10_000;
     public const int MaxRecipeTicks = Units.TicksPerSecond * 600;
 
     private readonly Dictionary<string, int> _items = new();
     private readonly Dictionary<string, int> _machines = new();
     private readonly Dictionary<string, int> _recipes = new();
+    private readonly Dictionary<string, int> _research = new();
 
     public IReadOnlyList<ItemDef> Items { get; }
     public IReadOnlyList<MachineDef> Machines { get; }
     public IReadOnlyList<RecipeDef> Recipes { get; }
+
+    /// <summary>Belt definitions by tier (index 0 is Mk1). A tier without a definition is free and unlocked.</summary>
+    public IReadOnlyList<BeltDef?> Belts { get; }
+    public IReadOnlyList<ResearchDef> Research { get; }
+
+    /// <summary>True if the machine type is unlocked by some research node.</summary>
+    public IReadOnlyList<bool> MachineGated { get; }
+    public IReadOnlyList<bool> RecipeGated { get; }
+    public IReadOnlyList<bool> BeltGated { get; }
     public ulong Hash { get; }
 
-    private ContentDb(List<ItemDef> items, List<MachineDef> machines, List<RecipeDef> recipes)
+    private ContentDb(List<ItemDef> items, List<MachineDef> machines, List<RecipeDef> recipes, BeltDef?[] belts, List<ResearchDef> research)
     {
         Items = items;
         Machines = machines;
         Recipes = recipes;
+        Belts = belts;
+        Research = research;
         foreach (var i in items) _items.Add(i.Id, i.Index);
         foreach (var m in machines) _machines.Add(m.Id, m.Index);
         foreach (var r in recipes) _recipes.Add(r.Id, r.Index);
+        foreach (var r in research) _research.Add(r.Id, r.Index);
+
+        var mg = new bool[machines.Count];
+        var rg = new bool[recipes.Count];
+        var bg = new bool[3];
+        foreach (var node in research)
+        {
+            foreach (int m in node.UnlockMachines) mg[m] = true;
+            foreach (int r in node.UnlockRecipes) rg[r] = true;
+            foreach (var b in node.UnlockBelts) bg[(int)b] = true;
+        }
+        MachineGated = mg;
+        RecipeGated = rg;
+        BeltGated = bg;
         Hash = ComputeHash();
     }
 
     public int ItemIndex(string id) => _items.TryGetValue(id, out int i) ? i : throw new KeyNotFoundException($"Unknown item '{id}'.");
     public int MachineIndex(string id) => _machines.TryGetValue(id, out int i) ? i : throw new KeyNotFoundException($"Unknown machine '{id}'.");
     public int RecipeIndex(string id) => _recipes.TryGetValue(id, out int i) ? i : throw new KeyNotFoundException($"Unknown recipe '{id}'.");
+    public int ResearchIndex(string id) => _research.TryGetValue(id, out int i) ? i : throw new KeyNotFoundException($"Unknown research '{id}'.");
 
     public bool IsMachine(int index) => (uint)index < (uint)Machines.Count;
     public bool IsRecipe(int index) => (uint)index < (uint)Recipes.Count;
+    public bool IsResearch(int index) => (uint)index < (uint)Research.Count;
 
     /// <summary>Parses and validates a content file. Throws <see cref="InvalidDataException"/> with a precise message.</summary>
     public static ContentDb FromJson(string json)
@@ -61,9 +120,11 @@ public sealed class ContentDb
         using (doc)
         {
             var root = doc.RootElement;
-            RequireObject(root, "content", "schema", "items", "machines", "recipes");
+            RequireObject(root, "content", "schema", "items", "machines", "recipes", "belts", "research");
             if (!root.TryGetProperty("schema", out var schema) || schema.ValueKind != JsonValueKind.Number || schema.GetInt32() != 1)
                 throw new InvalidDataException("Unsupported or missing content schema (expected 1).");
+
+            var allIds = new HashSet<string>();
 
             var items = new List<ItemDef>();
             var itemIds = new Dictionary<string, int>();
@@ -80,26 +141,58 @@ public sealed class ContentDb
             var machineIds = new Dictionary<string, int>();
             foreach (var e in Array(root, "machines"))
             {
-                RequireObject(e, "machine", "id");
+                RequireObject(e, "machine", "id", "role", "cost", "sandbox_only");
                 string id = Id(e, "machine");
                 if (!machineIds.TryAdd(id, machines.Count)) throw new InvalidDataException($"Duplicate machine '{id}'.");
-                machines.Add(new MachineDef(machines.Count, id));
+                if (!allIds.Add(id)) throw new InvalidDataException($"Id '{id}' is used twice across machines, recipes, belts and research.");
+
+                var role = MachineRole.Crafter;
+                if (e.TryGetProperty("role", out var r))
+                {
+                    role = r.ValueKind == JsonValueKind.String ? r.GetString() switch
+                    {
+                        "crafter" => MachineRole.Crafter,
+                        "drill" => MachineRole.Drill,
+                        "lab" => MachineRole.Lab,
+                        "ship" => MachineRole.Ship,
+                        "depot" => MachineRole.Depot,
+                        _ => throw new InvalidDataException($"Machine '{id}' has an unknown role."),
+                    } : throw new InvalidDataException($"Machine '{id}' role must be a string.");
+                }
+                var cost = e.TryGetProperty("cost", out _) ? Stacks(e, "cost", id, itemIds, allowEmpty: true, max: MaxCostStack) : System.Array.Empty<ItemStack>();
+                bool sandboxOnly = false;
+                if (e.TryGetProperty("sandbox_only", out var so))
+                {
+                    if (so.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+                        throw new InvalidDataException($"Machine '{id}' sandbox_only must be true or false.");
+                    sandboxOnly = so.GetBoolean();
+                }
+                if (role == MachineRole.Ship && cost.Length > 0)
+                    throw new InvalidDataException($"Ship machine '{id}' cannot have a cost (it is never built).");
+                machines.Add(new MachineDef(machines.Count, id, role, cost, sandboxOnly));
             }
 
             var recipes = new List<RecipeDef>();
-            var recipeIds = new HashSet<string>();
+            var recipeIds = new Dictionary<string, int>();
             foreach (var e in Array(root, "recipes"))
             {
                 RequireObject(e, "recipe", "id", "machine", "inputs", "outputs", "time_s");
                 string id = Id(e, "recipe");
-                if (!recipeIds.Add(id)) throw new InvalidDataException($"Duplicate recipe '{id}'.");
+                if (!recipeIds.TryAdd(id, recipes.Count)) throw new InvalidDataException($"Duplicate recipe '{id}'.");
+                if (!allIds.Add(id)) throw new InvalidDataException($"Id '{id}' is used twice across machines, recipes, belts and research.");
 
                 string machineId = Str(e, "machine", id);
                 if (!machineIds.TryGetValue(machineId, out int machine))
                     throw new InvalidDataException($"Recipe '{id}' uses unknown machine '{machineId}'.");
 
-                var inputs = Stacks(e, "inputs", id, itemIds, allowEmpty: true);
-                var outputs = Stacks(e, "outputs", id, itemIds, allowEmpty: false);
+                var inputs = Stacks(e, "inputs", id, itemIds, allowEmpty: true, max: MaxStack);
+                var outputs = Stacks(e, "outputs", id, itemIds, allowEmpty: false, max: MaxStack);
+
+                var role = machines[machine].Role;
+                if (role is MachineRole.Lab or MachineRole.Depot)
+                    throw new InvalidDataException($"Recipe '{id}' targets a lab or depot, which have no recipes.");
+                if (role == MachineRole.Drill && (inputs.Length != 0 || outputs.Length != 1))
+                    throw new InvalidDataException($"Drill recipe '{id}' must have no inputs and exactly one output.");
 
                 if (!e.TryGetProperty("time_s", out var t) || t.ValueKind != JsonValueKind.Number || !t.TryGetDecimal(out decimal seconds))
                     throw new InvalidDataException($"Recipe '{id}' needs a numeric time_s.");
@@ -110,7 +203,90 @@ public sealed class ContentDb
                 recipes.Add(new RecipeDef(recipes.Count, id, machine, inputs, outputs, ticks));
             }
 
-            return new ContentDb(items, machines, recipes);
+            var belts = new BeltDef?[3];
+            var beltIds = new Dictionary<string, BeltTier>();
+            if (root.TryGetProperty("belts", out _))
+            {
+                foreach (var e in Array(root, "belts"))
+                {
+                    RequireObject(e, "belt", "id", "tier", "cost_per_cell");
+                    string id = Id(e, "belt");
+                    if (!allIds.Add(id)) throw new InvalidDataException($"Id '{id}' is used twice across machines, recipes, belts and research.");
+                    string tierName = Str(e, "tier", id);
+                    var tier = tierName switch
+                    {
+                        "mk1" => BeltTier.Mk1,
+                        "mk2" => BeltTier.Mk2,
+                        "mk3" => BeltTier.Mk3,
+                        _ => throw new InvalidDataException($"Belt '{id}' has an unknown tier '{tierName}'."),
+                    };
+                    if (belts[(int)tier] is not null) throw new InvalidDataException($"Belt tier {tierName} is defined twice.");
+                    var cost = Stacks(e, "cost_per_cell", id, itemIds, allowEmpty: true, max: MaxStack);
+                    belts[(int)tier] = new BeltDef(tier, id, cost);
+                    beltIds.Add(id, tier);
+                }
+            }
+
+            var research = new List<ResearchDef>();
+            var researchIds = new Dictionary<string, int>();
+            if (root.TryGetProperty("research", out _))
+            {
+                var pending = new List<(JsonElement Element, string Id)>();
+                foreach (var e in Array(root, "research"))
+                {
+                    RequireObject(e, "research node", "id", "cost", "requires", "unlocks");
+                    string id = Id(e, "research node");
+                    if (!researchIds.TryAdd(id, researchIds.Count)) throw new InvalidDataException($"Duplicate research '{id}'.");
+                    if (!allIds.Add(id)) throw new InvalidDataException($"Id '{id}' is used twice across machines, recipes, belts and research.");
+                    pending.Add((e, id));
+                }
+                if (pending.Count > MaxResearch) throw new InvalidDataException($"At most {MaxResearch} research nodes are allowed.");
+
+                foreach (var (e, id) in pending)
+                {
+                    var cost = Stacks(e, "cost", id, itemIds, allowEmpty: false, max: MaxCostStack);
+
+                    var requires = new List<int>();
+                    foreach (var q in Array(e, "requires"))
+                    {
+                        string rid = q.ValueKind == JsonValueKind.String ? q.GetString()! : throw new InvalidDataException($"Research '{id}' requires must list ids.");
+                        if (!researchIds.TryGetValue(rid, out int ri)) throw new InvalidDataException($"Research '{id}' requires unknown research '{rid}'.");
+                        if (ri == researchIds[id]) throw new InvalidDataException($"Research '{id}' requires itself.");
+                        if (requires.Contains(ri)) throw new InvalidDataException($"Research '{id}' lists '{rid}' twice.");
+                        requires.Add(ri);
+                    }
+
+                    var um = new List<int>();
+                    var ur = new List<int>();
+                    var ub = new List<BeltTier>();
+                    foreach (var u in Array(e, "unlocks"))
+                    {
+                        string uid = u.ValueKind == JsonValueKind.String ? u.GetString()! : throw new InvalidDataException($"Research '{id}' unlocks must list ids.");
+                        if (machineIds.TryGetValue(uid, out int mi)) { if (!um.Contains(mi)) um.Add(mi); }
+                        else if (recipeIds.TryGetValue(uid, out int rec)) { if (!ur.Contains(rec)) ur.Add(rec); }
+                        else if (beltIds.TryGetValue(uid, out var tier)) { if (!ub.Contains(tier)) ub.Add(tier); }
+                        else throw new InvalidDataException($"Research '{id}' unlocks unknown id '{uid}'.");
+                    }
+                    if (um.Count + ur.Count + ub.Count == 0) throw new InvalidDataException($"Research '{id}' unlocks nothing.");
+                    research.Add(new ResearchDef(research.Count, id, cost, requires.ToArray(), um.ToArray(), ur.ToArray(), ub.ToArray()));
+                }
+
+                // Requirements must form a DAG, otherwise some node could never be researched.
+                for (int i = 0; i < research.Count; i++)
+                {
+                    var seen = new HashSet<int>();
+                    var stack = new Stack<int>(research[i].Requires);
+                    while (stack.Count > 0)
+                    {
+                        int n = stack.Pop();
+                        if (n == i) throw new InvalidDataException($"Research '{research[i].Id}' depends on itself through a cycle.");
+                        if (!seen.Add(n)) continue;
+                        foreach (int p in research[n].Requires) stack.Push(p);
+                    }
+                }
+            }
+
+            return new ContentDb(items, machines, recipes, belts, research);
         }
     }
 
@@ -146,23 +322,23 @@ public sealed class ContentDb
         return v.GetString()!;
     }
 
-    private static ItemStack[] Stacks(JsonElement recipe, string name, string recipeId, Dictionary<string, int> itemIds, bool allowEmpty)
+    private static ItemStack[] Stacks(JsonElement owner, string name, string ownerId, Dictionary<string, int> itemIds, bool allowEmpty, int max)
     {
         var list = new List<ItemStack>();
-        foreach (var s in Array(recipe, name))
+        foreach (var s in Array(owner, name))
         {
             RequireObject(s, "stack", "item", "count");
-            string item = Str(s, "item", $"{name} of '{recipeId}'");
+            string item = Str(s, "item", $"{name} of '{ownerId}'");
             if (!itemIds.TryGetValue(item, out int index))
-                throw new InvalidDataException($"Recipe '{recipeId}' uses unknown item '{item}'.");
-            if (!s.TryGetProperty("count", out var c) || c.ValueKind != JsonValueKind.Number || !c.TryGetInt32(out int count) || count < 1 || count > MaxStack)
-                throw new InvalidDataException($"Recipe '{recipeId}' count must be 1 to {MaxStack}.");
+                throw new InvalidDataException($"'{ownerId}' uses unknown item '{item}'.");
+            if (!s.TryGetProperty("count", out var c) || c.ValueKind != JsonValueKind.Number || !c.TryGetInt32(out int count) || count < 1 || count > max)
+                throw new InvalidDataException($"'{ownerId}' count must be 1 to {max}.");
             if (list.Any(x => x.Item == index))
-                throw new InvalidDataException($"Recipe '{recipeId}' lists '{item}' twice in {name}.");
+                throw new InvalidDataException($"'{ownerId}' lists '{item}' twice in {name}.");
             list.Add(new ItemStack(index, count));
         }
-        if (list.Count > MaxRecipeStacks) throw new InvalidDataException($"Recipe '{recipeId}' has more than {MaxRecipeStacks} {name}.");
-        if (list.Count == 0 && !allowEmpty) throw new InvalidDataException($"Recipe '{recipeId}' needs at least one output.");
+        if (list.Count > MaxRecipeStacks) throw new InvalidDataException($"'{ownerId}' has more than {MaxRecipeStacks} entries in {name}.");
+        if (list.Count == 0 && !allowEmpty) throw new InvalidDataException($"'{ownerId}' needs at least one entry in {name} (an output or a cost).");
         return list.ToArray();
     }
 
@@ -178,19 +354,36 @@ public sealed class ContentDb
             Mix(s.Length);
             foreach (char c in s) Mix(c);
         }
+        void MixStacks(ItemStack[] stacks)
+        {
+            Mix(stacks.Length);
+            foreach (var s in stacks) { Mix(s.Item); Mix(s.Count); }
+        }
 
         Mix(Items.Count);
         foreach (var i in Items) MixStr(i.Id);
         Mix(Machines.Count);
-        foreach (var m in Machines) MixStr(m.Id);
+        foreach (var m in Machines) { MixStr(m.Id); Mix((int)m.Role); MixStacks(m.Cost); Mix(m.SandboxOnly ? 1 : 0); }
         Mix(Recipes.Count);
         foreach (var r in Recipes)
         {
             MixStr(r.Id); Mix(r.Machine); Mix(r.TimeTicks);
-            Mix(r.Inputs.Length);
-            foreach (var s in r.Inputs) { Mix(s.Item); Mix(s.Count); }
-            Mix(r.Outputs.Length);
-            foreach (var s in r.Outputs) { Mix(s.Item); Mix(s.Count); }
+            MixStacks(r.Inputs);
+            MixStacks(r.Outputs);
+        }
+        foreach (var b in Belts)
+        {
+            if (b is null) { Mix(-1); continue; }
+            MixStr(b.Id); Mix((int)b.Tier); MixStacks(b.CostPerCell);
+        }
+        Mix(Research.Count);
+        foreach (var r in Research)
+        {
+            MixStr(r.Id); MixStacks(r.Cost);
+            Mix(r.Requires.Length); foreach (int q in r.Requires) Mix(q);
+            Mix(r.UnlockMachines.Length); foreach (int q in r.UnlockMachines) Mix(q);
+            Mix(r.UnlockRecipes.Length); foreach (int q in r.UnlockRecipes) Mix(q);
+            Mix(r.UnlockBelts.Length); foreach (var q in r.UnlockBelts) Mix((int)q);
         }
         return h;
     }

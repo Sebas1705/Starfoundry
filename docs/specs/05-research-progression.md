@@ -2,6 +2,8 @@
 
 Status: proposal. Reference states: produced items feed research; unlocks add ships, station modules, items and upgrades; research lets you travel farther and reach more valuable resources.
 
+> **Implementation status:** a first version exists ([playable loop](../prototypes/playable-loop.md)): a research graph in `content/core.json`, labs that consume the current node's items from belts, progress kept per node, and unlocks of belt tiers and recipes. It uses plates as the only datum and three placeholder nodes; the tier and datum design below is still the target.
+
 ## Model
 Research is a graph of **nodes**. Each node has a cost expressed in **datums**: produced items delivered to a Research Lab. Nodes unlock recipes, parts, buildings, ship frames and upgrades.
 
