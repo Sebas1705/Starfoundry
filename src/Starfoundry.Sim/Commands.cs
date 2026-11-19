@@ -84,6 +84,10 @@ public sealed record SetShipRecipe(int Recipe) : Command;
 /// <summary>Chooses the research the labs work on (-1 for none).</summary>
 public sealed record SetResearch(int Node) : Command;
 
+/// <summary>Sets the commanding player's ship movement intent: -1, 0 or 1 per axis (world axes). The ship keeps
+/// moving every tick until a new intent is set, so a held key is one command on press and one on release.</summary>
+public sealed record SetMovement(int Dx, int Dy, int Dz) : Command;
+
 /// <summary>Points a drill at a deposit.</summary>
 public sealed record LinkDeposit(int Machine, int Deposit) : Command;
 
@@ -139,6 +143,9 @@ public enum Reject
 
     /// <summary>The recipe does not belong to the ship's micro-refinery.</summary>
     NotAShipRecipe,
+
+    /// <summary>The ship is too far away: from the deposit to mine it, or from the cell to build or remove there (campaign).</summary>
+    OutOfRange,
 }
 
 /// <summary>Outcome of one submitted command.</summary>

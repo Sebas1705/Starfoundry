@@ -19,11 +19,28 @@ public static class PlayerRules
 
     /// <summary>The ship's micro-refinery works this many times slower than the recipe time.</summary>
     public const int ShipCraftMultiplier = 2;
+
+    /// <summary>Ship speed along one axis: 48 units per tick, 6 cells per second.</summary>
+    public const int MoveUnitsPerTick = 48;
+
+    /// <summary>Speed per axis when moving along two axes (about 48 / sqrt 2) and three axes (about 48 / sqrt 3).</summary>
+    public const int MoveUnitsPerTickDiagonal2 = 34;
+    public const int MoveUnitsPerTickDiagonal3 = 28;
+
+    /// <summary>Hand mining works within this many cells of the deposit centre.</summary>
+    public const int MineRangeCells = 6;
+
+    /// <summary>In campaign mode, placing and removing works within this many cells of the ship.</summary>
+    public const int BuildRangeCells = 24;
+
+    /// <summary>The ship cannot leave this cube (units, same as the building limit).</summary>
+    public const int WorldLimitUnits = SimWorld.MaxCoord * Units.CellUnits;
 }
 
-/// <summary>Read-only view of a player, for rendering and tests.</summary>
+/// <summary>Read-only view of a player, for rendering and tests. Positions are in units (<see cref="Units.CellUnits"/> per cell).</summary>
 public readonly record struct PlayerInfo(
-    int Id, int HoldTotal, int MiningDeposit, int ShipRecipe, bool ShipCrafting, int ShipRemaining);
+    int Id, int HoldTotal, int MiningDeposit, int ShipRecipe, bool ShipCrafting, int ShipRemaining,
+    int X = 0, int Y = 0, int Z = 0, int MoveX = 0, int MoveY = 0, int MoveZ = 0);
 
 internal sealed class Player
 {
@@ -39,6 +56,10 @@ internal sealed class Player
     /// <summary>Output items of the craft in progress, counted against the hold capacity.</summary>
     public int ShipReserved;
 
+    /// <summary>Position in units and the movement intent per axis (-1, 0 or 1).</summary>
+    public int X, Y, Z;
+    public int MoveX, MoveY, MoveZ;
+
     public Player(int id, int items)
     {
         Id = id;
@@ -51,6 +72,7 @@ internal sealed class Player
         {
             HoldTotal = HoldTotal, MiningDeposit = MiningDeposit, MineProgress = MineProgress,
             ShipRecipe = ShipRecipe, ShipCrafting = ShipCrafting, ShipRemaining = ShipRemaining, ShipReserved = ShipReserved,
+            X = X, Y = Y, Z = Z, MoveX = MoveX, MoveY = MoveY, MoveZ = MoveZ,
         };
         Array.Copy(Hold, c.Hold, Hold.Length);
         return c;
@@ -62,14 +84,17 @@ internal sealed class Deposit
     public readonly int Id;
     public readonly int Item;
     public readonly int Initial;
+
+    /// <summary>Centre of the deposit in cells.</summary>
+    public readonly int X, Y, Z;
     public int Remaining;
 
-    public Deposit(int id, int item, int amount)
+    public Deposit(int id, int item, int amount, int x, int y, int z)
     {
-        Id = id; Item = item; Initial = amount; Remaining = amount;
+        Id = id; Item = item; Initial = amount; Remaining = amount; X = x; Y = y; Z = z;
     }
 
-    public Deposit Clone() => new(Id, Item, Initial) { Remaining = Remaining };
+    public Deposit Clone() => new(Id, Item, Initial, X, Y, Z) { Remaining = Remaining };
 }
 
 public sealed partial class BeltNetwork
@@ -109,15 +134,25 @@ public sealed partial class BeltNetwork
 
     // ---- deposits -----------------------------------------------------------------------------
 
-    public int AddDeposit(int item, int amount)
+    /// <summary>Adds a deposit centred on a cell (the origin by default, which is where players start).</summary>
+    public int AddDeposit(int item, int amount, int x = 0, int y = 0, int z = 0)
     {
         var content = Content ?? throw new InvalidOperationException("The network has no content.");
         if ((uint)item >= (uint)content.Items.Count) throw new ArgumentOutOfRangeException(nameof(item));
         if (amount < 1) throw new ArgumentOutOfRangeException(nameof(amount));
+        if (Math.Abs(x) > SimWorld.MaxCoord || Math.Abs(y) > SimWorld.MaxCoord || Math.Abs(z) > SimWorld.MaxCoord)
+            throw new ArgumentOutOfRangeException(nameof(x), "The deposit is outside the world.");
         int id = _deposits.Count;
-        _deposits.Add(new Deposit(id, item, amount));
+        _deposits.Add(new Deposit(id, item, amount, x, y, z));
         StructureVersion++;
         return id;
+    }
+
+    /// <summary>Centre of the deposit, in cells.</summary>
+    public (int X, int Y, int Z) DepositPosition(int id)
+    {
+        var d = GetDeposit(id);
+        return (d.X, d.Y, d.Z);
     }
 
     public int DepositCount => _deposits.Count;
@@ -156,7 +191,45 @@ public sealed partial class BeltNetwork
     public PlayerInfo GetPlayerInfo(int id)
     {
         var p = GetPlayer(id);
-        return new PlayerInfo(p.Id, p.HoldTotal, p.MiningDeposit, p.ShipRecipe, p.ShipCrafting, p.ShipRemaining);
+        return new PlayerInfo(p.Id, p.HoldTotal, p.MiningDeposit, p.ShipRecipe, p.ShipCrafting, p.ShipRemaining,
+            p.X, p.Y, p.Z, p.MoveX, p.MoveY, p.MoveZ);
+    }
+
+    /// <summary>Makes sure the player exists, spawning at the origin with an empty hold. Needed before range checks.</summary>
+    public void EnsurePlayer(int id) => GetOrCreatePlayer(id);
+
+    /// <summary>
+    /// Sets the ship's movement intent: -1, 0 or 1 per axis. The ship then moves every tick until the intent
+    /// changes, at <see cref="PlayerRules.MoveUnitsPerTick"/> per axis (slower per axis when combining axes).
+    /// </summary>
+    public void SetMovement(int player, int dx, int dy, int dz)
+    {
+        if (dx is < -1 or > 1 || dy is < -1 or > 1 || dz is < -1 or > 1) throw new ArgumentOutOfRangeException(nameof(dx));
+        var p = GetOrCreatePlayer(player);
+        p.MoveX = dx; p.MoveY = dy; p.MoveZ = dz;
+    }
+
+    /// <summary>True if the centre of the cell is within <paramref name="rangeCells"/> of the player's ship.</summary>
+    public bool CellInRange(int player, int cellX, int cellY, int cellZ, int rangeCells)
+    {
+        var p = _players.TryGetValue(player, out var found) ? found : null;
+        long px = p?.X ?? 0, py = p?.Y ?? 0, pz = p?.Z ?? 0;
+        long dx = cellX * (long)Units.CellUnits + Units.CellUnits / 2 - px;
+        long dy = cellY * (long)Units.CellUnits + Units.CellUnits / 2 - py;
+        long dz = cellZ * (long)Units.CellUnits + Units.CellUnits / 2 - pz;
+        long r = (long)rangeCells * Units.CellUnits;
+        return dx * dx + dy * dy + dz * dz <= r * r;
+    }
+
+    /// <summary>True if the ship is close enough to hand-mine the deposit.</summary>
+    public bool InMineRange(int player, int deposit)
+    {
+        var d = GetDeposit(deposit);
+        var p = _players.TryGetValue(player, out var found) ? found : null;
+        long px = p?.X ?? 0, py = p?.Y ?? 0, pz = p?.Z ?? 0;
+        long dx = d.X * (long)Units.CellUnits - px, dy = d.Y * (long)Units.CellUnits - py, dz = d.Z * (long)Units.CellUnits - pz;
+        long r = (long)PlayerRules.MineRangeCells * Units.CellUnits;
+        return dx * dx + dy * dy + dz * dz <= r * r;
     }
 
     /// <summary>Items of a kind in the player's hold (0 for an unknown player).</summary>
@@ -272,6 +345,8 @@ public sealed partial class BeltNetwork
         if (_players.Count == 0) return;
         foreach (var p in _players.Values)
         {
+            if ((p.MoveX | p.MoveY | p.MoveZ) != 0) MoveShip(p);
+
             if (p.MiningDeposit >= 0)
             {
                 var d = _deposits[p.MiningDeposit];
@@ -280,7 +355,8 @@ public sealed partial class BeltNetwork
                     p.MiningDeposit = -1;
                     p.MineProgress = 0;
                 }
-                else if (p.HoldTotal + p.ShipReserved < PlayerRules.HoldCapacity && ++p.MineProgress >= PlayerRules.MineTicksPerItem)
+                else if (p.HoldTotal + p.ShipReserved < PlayerRules.HoldCapacity && InMineRange(p.Id, p.MiningDeposit)
+                    && ++p.MineProgress >= PlayerRules.MineTicksPerItem)
                 {
                     p.MineProgress = 0;
                     d.Remaining--;
@@ -290,6 +366,21 @@ public sealed partial class BeltNetwork
             }
             if (p.ShipRecipe >= 0) StepShip(p);
         }
+    }
+
+    private static void MoveShip(Player p)
+    {
+        int axes = Math.Abs(p.MoveX) + Math.Abs(p.MoveY) + Math.Abs(p.MoveZ);
+        int speed = axes switch
+        {
+            1 => PlayerRules.MoveUnitsPerTick,
+            2 => PlayerRules.MoveUnitsPerTickDiagonal2,
+            _ => PlayerRules.MoveUnitsPerTickDiagonal3,
+        };
+        const int limit = PlayerRules.WorldLimitUnits;
+        p.X = Math.Clamp(p.X + p.MoveX * speed, -limit, limit);
+        p.Y = Math.Clamp(p.Y + p.MoveY * speed, -limit, limit);
+        p.Z = Math.Clamp(p.Z + p.MoveZ * speed, -limit, limit);
     }
 
     private void StepShip(Player p)
@@ -425,10 +516,11 @@ public sealed partial class BeltNetwork
     {
         mix(HoldIn); mix(HoldOut); mix(MinedByHand); mix(DrilledTotal); mix(ResearchItemsUsed); mix(DepotDelivered);
         mix(_deposits.Count);
-        foreach (var d in _deposits) { mix(d.Item); mix(d.Initial); mix(d.Remaining); }
+        foreach (var d in _deposits) { mix(d.Item); mix(d.Initial); mix(d.Remaining); mix(d.X); mix(d.Y); mix(d.Z); }
         mix(_players.Count);
         foreach (var p in _players.Values)
         {
+            mix(p.X); mix(p.Y); mix(p.Z); mix(p.MoveX); mix(p.MoveY); mix(p.MoveZ);
             mix(p.Id); mix(p.HoldTotal); mix(p.MiningDeposit); mix(p.MineProgress);
             mix(p.ShipRecipe); mix(p.ShipCrafting ? 1 : 0); mix(p.ShipRemaining); mix(p.ShipReserved);
             foreach (int h in p.Hold) mix(h);
@@ -456,6 +548,10 @@ public sealed partial class BeltNetwork
             }
             if (sum != p.HoldTotal) Fail($"player {p.Id} hold total {p.HoldTotal} but items sum to {sum}");
             held += sum;
+
+            if (Math.Abs(p.X) > PlayerRules.WorldLimitUnits || Math.Abs(p.Y) > PlayerRules.WorldLimitUnits || Math.Abs(p.Z) > PlayerRules.WorldLimitUnits)
+                Fail($"player {p.Id} is outside the world");
+            if (p.MoveX is < -1 or > 1 || p.MoveY is < -1 or > 1 || p.MoveZ is < -1 or > 1) Fail($"player {p.Id} has an invalid movement intent");
 
             if (p.MiningDeposit != -1 && !IsDeposit(p.MiningDeposit)) Fail($"player {p.Id} mines an unknown deposit");
             if (p.MineProgress < 0 || p.MineProgress >= PlayerRules.MineTicksPerItem) Fail($"player {p.Id} mine progress out of range");
