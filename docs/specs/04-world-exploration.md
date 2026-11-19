@@ -2,6 +2,8 @@
 
 Status: proposal. Reference states procedurally generated systems with unique logistic challenges, wrecks, new resources, black holes, neutron stars, NPC traders.
 
+> **Implementation status:** only the ship in a single empty region exists so far ([world and ship](../prototypes/world-and-ship.md)): integer positions, a fixed starter field of deposits, mining and build ranges. Systems, procedural generation, scanning, wrecks and travel between systems are still design only.
+
 ## Structure
 Galaxy map of **systems**, each generated from a seed. Each system contains a star, bodies (asteroid belts, planetoids, gas giants, ice fields) and optional anomalies. Systems are connected by **lanes** discovered by scanning.
 

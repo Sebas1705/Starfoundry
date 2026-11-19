@@ -69,6 +69,8 @@ public partial class Play : Node3D
     private int _botStep;
     private long _botStartedAt;
     private bool _botDone;
+    private bool _outOfRangeSeen;
+    private (int X, int Y, int Z) _botIntent;
 
     public override void _Ready()
     {
@@ -81,8 +83,9 @@ public partial class Play : Node3D
         string path = ProjectSettings.GlobalizePath("res://../content/core.json");
         _content = ContentDb.FromFile(path);
         _world = new SimWorld(_content, GameMode.Campaign);
-        _world.Network.AddDeposit(_content.ItemIndex("core:iron_ore"), 4000);
-        _world.Network.AddDeposit(_content.ItemIndex("core:carbon"), 1500);
+        _world.Network.AddDeposit(_content.ItemIndex("core:iron_ore"), 4000, -7, 1, 3);
+        _world.Network.AddDeposit(_content.ItemIndex("core:carbon"), 1500, -7, 1, -6);
+        _world.Network.EnsurePlayer(Player); // the ship starts at the origin
 
         BuildPalette();
         BuildScene();
@@ -147,23 +150,84 @@ public partial class Play : Node3D
         _toastLabel = MakeLabel(layer, new Vector2(12, 540));
         _help = MakeLabel(layer, new Vector2(12, 640));
         _help.Text = "LMB drag: belt   LMB: place   RMB: remove   1-9: build item   Tab: recipe   R: rotate   Z/X: layer\n" +
-                     "WASD: pan   wheel: zoom   Q/E: turn   M: mine   [ ]: deposit   F: refinery   T: research   P: pause   +/-: speed";
+                     "WASD: fly   Space/C: up/down   wheel: zoom   M: mine   [ ]: deposit   F: refinery   T: research   P: pause   +/-: speed";
 
-        // Deposits: spheres west of the build area, shrinking as they run dry.
-        var positions = new[] { new Vector3(-7, 1, 3), new Vector3(-7, 1, -6) };
+        // Deposits: spheres where the simulation says they are, shrinking as they run dry.
         for (int d = 0; d < Net.DepositCount; d++)
         {
             var color = Net.DepositItem(d) == _content.ItemIndex("core:iron_ore") ? new Color(0.65f, 0.4f, 0.3f) : new Color(0.25f, 0.25f, 0.28f);
+            var (dx, dy, dz) = Net.DepositPosition(d);
             var n = new MeshInstance3D
             {
                 Mesh = new SphereMesh { Radius = 1.5f, Height = 3f },
                 MaterialOverride = new StandardMaterial3D { AlbedoColor = color, Roughness = 0.9f },
-                Position = positions[d % positions.Length],
+                Position = new Vector3(dx, dy, dz),
             };
             AddChild(n);
             _depositNodes.Add(n);
         }
+
+        // The ship, with discs showing where it can build (big) and mine (small).
+        _ship = new MeshInstance3D
+        {
+            Mesh = new BoxMesh { Size = new Vector3(0.8f, 0.35f, 1.3f) },
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.9f, 0.9f, 0.95f), Roughness = 0.4f },
+        };
+        AddChild(_ship);
+        _buildRange = RangeDisc(PlayerRules.BuildRangeCells, new Color(0.4f, 0.7f, 1f, 0.07f));
+        _mineRange = RangeDisc(PlayerRules.MineRangeCells, new Color(1f, 0.6f, 0.2f, 0.12f));
     }
+
+    private MeshInstance3D RangeDisc(float radius, Color color)
+    {
+        var disc = new MeshInstance3D
+        {
+            Mesh = new CylinderMesh { TopRadius = radius, BottomRadius = radius, Height = 0.02f, RadialSegments = 64 },
+            MaterialOverride = new StandardMaterial3D
+            {
+                AlbedoColor = color,
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            },
+        };
+        AddChild(disc);
+        return disc;
+    }
+
+    /// <summary>Ship position in world coordinates, extrapolated by <paramref name="alpha"/> ticks of movement.</summary>
+    private Vector3 ShipPosition(float alpha)
+    {
+        if (!Net.HasPlayer(Player)) return Vector3.Zero;
+        var p = Net.GetPlayerInfo(Player);
+        int axes = Math.Abs(p.MoveX) + Math.Abs(p.MoveY) + Math.Abs(p.MoveZ);
+        float speed = axes switch { 0 => 0, 1 => PlayerRules.MoveUnitsPerTick, 2 => PlayerRules.MoveUnitsPerTickDiagonal2, _ => PlayerRules.MoveUnitsPerTickDiagonal3 };
+        return new Vector3(p.X + p.MoveX * speed * alpha, p.Y + p.MoveY * speed * alpha, p.Z + p.MoveZ * speed * alpha) / CellUnits;
+    }
+
+    private void UpdateShip(float alpha, float dt)
+    {
+        var pos = ShipPosition(_demo ? 0f : alpha);
+        _ship.Position = pos;
+        _buildRange.Position = pos;
+        _mineRange.Position = pos;
+        _target = _target.Lerp(pos, 1f - MathF.Exp(-6f * dt));
+        PlaceCamera();
+
+        if (_demo) return;
+        // Held keys become movement intents; only changes are sent, so a held key is one command on press and one on release.
+        int dx = (Input.IsKeyPressed(Key.D) ? 1 : 0) - (Input.IsKeyPressed(Key.A) ? 1 : 0);
+        int dz = (Input.IsKeyPressed(Key.S) ? 1 : 0) - (Input.IsKeyPressed(Key.W) ? 1 : 0);
+        int dy = (Input.IsKeyPressed(Key.Space) ? 1 : 0) - (Input.IsKeyPressed(Key.C) ? 1 : 0);
+        if ((dx, dy, dz) != _lastIntent)
+        {
+            _lastIntent = (dx, dy, dz);
+            Send(new SetMovement(dx, dy, dz));
+        }
+    }
+
+    private MeshInstance3D _ship = null!, _buildRange = null!, _mineRange = null!;
+    private (int X, int Y, int Z) _lastIntent;
 
     private static Label MakeLabel(CanvasLayer layer, Vector2 pos)
     {
@@ -309,6 +373,7 @@ public partial class Play : Node3D
         Reject.NotEnoughItems => "not enough items in the hold",
         Reject.Locked => "locked: research it first",
         Reject.Overlap => "that cell is taken",
+        Reject.OutOfRange => "too far from the ship",
         Reject.OutOfBounds => "out of bounds",
         Reject.UnknownDeposit => "no such deposit",
         Reject.Depleted => "that deposit is empty",
@@ -322,7 +387,8 @@ public partial class Play : Node3D
         {
             if (!r.Ok)
             {
-                if (r.Command is PlaceSegment or PlaceMachine or StartMining or SetResearch or SetShipRecipe)
+                if (r.Reject == Reject.OutOfRange) _outOfRangeSeen = true;
+                if (r.Command is PlaceSegment or PlaceMachine or RemoveSegment or RemoveMachine or StartMining or SetResearch or SetShipRecipe)
                     Toast($"{r.Command.GetType().Name}: {Why(r.Reject)}");
                 continue;
             }
@@ -510,8 +576,6 @@ public partial class Play : Node3D
                 case Key.R: _dir = _dir switch { Dir.PosX => Dir.PosZ, Dir.PosZ => Dir.NegX, Dir.NegX => Dir.NegZ, _ => Dir.PosX }; Toast($"Single belts face {_dir}"); break;
                 case Key.Z: _cursorY--; break;
                 case Key.X: _cursorY++; break;
-                case Key.Q: _yaw -= 0.2f; PlaceCamera(); break;
-                case Key.E: _yaw += 0.2f; PlaceCamera(); break;
                 case Key.M: ToggleMining(); break;
                 case Key.Bracketleft: _selectedDeposit = (_selectedDeposit + Net.DepositCount - 1) % Net.DepositCount; break;
                 case Key.Bracketright: _selectedDeposit = (_selectedDeposit + 1) % Net.DepositCount; break;
@@ -544,20 +608,6 @@ public partial class Play : Node3D
         int cur = Net.CurrentResearch;
         int next = cur < 0 ? options[0] : options[(options.IndexOf(cur) + 1) % options.Count];
         Send(new SetResearch(next));
-    }
-
-    private void Pan(float dt)
-    {
-        var f = new Vector3(-MathF.Sin(_yaw), 0, -MathF.Cos(_yaw));
-        var r = new Vector3(MathF.Cos(_yaw), 0, -MathF.Sin(_yaw));
-        var d = Vector3.Zero;
-        if (Input.IsKeyPressed(Key.W)) d += f;
-        if (Input.IsKeyPressed(Key.S)) d -= f;
-        if (Input.IsKeyPressed(Key.D)) d += r;
-        if (Input.IsKeyPressed(Key.A)) d -= r;
-        if (d == Vector3.Zero) return;
-        _target += d.Normalized() * (Input.IsKeyPressed(Key.Shift) ? 30f : 12f) * dt;
-        PlaceCamera();
     }
 
     // ---- frame loop ----------------------------------------------------------------------------
@@ -595,14 +645,16 @@ public partial class Play : Node3D
         _items.Buffer = _itemBuf;
         UpdateMachines();
         UpdateDeposits();
+        UpdateShip(alpha, (float)delta);
 
         if (!_demo)
         {
-            Pan((float)delta);
             if (CellUnderMouse() is { } c)
             {
                 _cursor = c;
                 _ghost.Position = CellCenter(c.X, c.Y, c.Z);
+                bool reachable = _world.InBuildRange(Player, c.X, c.Y, c.Z);
+                ((StandardMaterial3D)_ghost.MaterialOverride).AlbedoColor = reachable ? new Color(1f, 0.95f, 0.4f, 0.35f) : new Color(1f, 0.25f, 0.2f, 0.35f);
             }
             UpdateDragGhost();
         }
@@ -646,6 +698,13 @@ public partial class Play : Node3D
         string refinery = Net.HasPlayer(Player) && Net.GetPlayerInfo(Player).ShipRecipe >= 0
             ? (Net.GetPlayerInfo(Player).ShipCrafting ? "refinery working" : "refinery waiting for ore") : "refinery off";
         sb.Append($"{mining}   |   {refinery}   |   delivered by depots: {Net.DepotDelivered}").Append('\n');
+
+        var ship = ShipPosition(0f);
+        var dep = Net.DepositPosition(_selectedDeposit);
+        float distance = (new Vector3(dep.X, dep.Y, dep.Z) - ship).Length();
+        bool inRange = Net.InMineRange(Player, _selectedDeposit);
+        sb.Append($"SHIP ({ship.X:F1}, {ship.Y:F1}, {ship.Z:F1})   deposit {_selectedDeposit} is {distance:F1} cells away (mining range {PlayerRules.MineRangeCells}): " +
+                  $"{(inRange ? "in range" : "out of range, fly closer")}   build range {PlayerRules.BuildRangeCells}").Append('\n');
 
         if (Net.CurrentResearch >= 0)
         {
@@ -701,14 +760,32 @@ public partial class Play : Node3D
         if (_world.PendingCommands > 0) return; // one action at a time, so each result and auto-link is applied before the next
         switch (_botStep)
         {
-            case 0: Step(true, () => { Send(new StartMining(0)); Send(new SetShipRecipe(_content.RecipeIndex("core:ship_smelt"))); _botStartedAt = _world.Tick; }); break;
+            // Fly to the iron deposit, then mine it and start the refinery.
+            case 0:
+                if (!Net.InMineRange(Player, 0)) { BotSteer(Net.DepositPosition(0)); break; }
+                Step(true, () =>
+                {
+                    _botIntent = (0, 0, 0);
+                    Send(new SetMovement(0, 0, 0));
+                    Send(new StartMining(0));
+                    Send(new SetShipRecipe(_content.RecipeIndex("core:ship_smelt")));
+                    _botStartedAt = _world.Tick;
+                });
+                break;
             // Line 1: iron drill -> smelter -> depot, delivering ingots into the hold.
             case 1: Step(Affordable((ingot, 6)), () => Send(new PlaceMachine(0, 0, 0, drill, drillIron))); break;
             // These two go through the same code as the mouse: a belt drag from cell 1 to 3, a machine click on the palette selection.
             case 2: Step(Affordable((ingot, 3)), () => { _selected = 0; PlaceSelectedAt((3, 0, 0), (1, 0, 0)); }); break;
             case 3: Step(Affordable((ingot, 8)), () => { _selected = _palette.FindIndex(b => b.Machine == smelter); PlaceSelectedAt((4, 0, 0), null); }); break;
             case 4: Step(Affordable((ingot, 3)), () => Send(new PlaceSegment(5, 0, 0, Dir.PosX, 3, BeltTier.Mk1))); break;
-            case 5: Step(Affordable((ingot, 5)), () => { Send(new PlaceMachine(8, 0, 0, depot, -1)); Send(new StopMining()); }); break;
+            case 5:
+                Step(Affordable((ingot, 5)), () =>
+                {
+                    Send(new PlaceMachine(8, 0, 0, depot, -1));
+                    Send(new StopMining());
+                    Send(new PlaceSegment(60, 0, 0, Dir.PosX, 2, BeltTier.Mk1)); // far from the ship: must be refused
+                });
+                break;
             // Line 2: drill -> smelter -> assembler -> depot, delivering plates.
             case 6: Step(Affordable((ingot, 6)), () => Send(new PlaceMachine(0, 0, 3, drill, drillIron))); break;
             case 7: Step(Affordable((ingot, 3)), () => Send(new PlaceSegment(1, 0, 3, Dir.PosX, 3, BeltTier.Mk1))); break;
@@ -725,6 +802,17 @@ public partial class Play : Node3D
         }
     }
 
+    /// <summary>Flies the ship towards a cell (cells), sending a movement command only when the intent changes.</summary>
+    private void BotSteer((int X, int Y, int Z) target)
+    {
+        var p = Net.GetPlayerInfo(Player);
+        static int Axis(int diffUnits) => Math.Abs(diffUnits) > Units.CellUnits / 2 ? Math.Sign(diffUnits) : 0;
+        var intent = (Axis(target.X * Units.CellUnits - p.X), Axis(target.Y * Units.CellUnits - p.Y), Axis(target.Z * Units.CellUnits - p.Z));
+        if (intent == _botIntent) return;
+        _botIntent = intent;
+        Send(new SetMovement(intent.Item1, intent.Item2, intent.Item3));
+    }
+
     private void FinishDemo()
     {
         var net = Net;
@@ -733,6 +821,8 @@ public partial class Play : Node3D
                  $"belt_mk2_locked={net.IsBeltLocked(BeltTier.Mk2)} machines={net.MachineCount} segments={net.SegmentCount}");
         GD.Print($"PLAY mined_by_hand={net.MinedByHand} drilled={net.DrilledTotal} depot_delivered={net.DepotDelivered} research_items={net.ResearchItemsUsed}");
         GD.Print($"PLAY hold_ingots={Hold("core:iron_ingot")} hold_plates={Hold("core:iron_plate")} hold_total={net.HoldTotal(Player)}");
+        var ship = net.GetPlayerInfo(Player);
+        GD.Print($"PLAY ship_cells=({ship.X / (float)Units.CellUnits:F1}, {ship.Y / (float)Units.CellUnits:F1}, {ship.Z / (float)Units.CellUnits:F1}) out_of_range_seen={_outOfRangeSeen}");
         try { _world.ValidateInvariants(); GD.Print("PLAY invariants=ok"); }
         catch (Exception e) { GD.PrintErr("PLAY invariants=FAILED " + e.Message); }
 

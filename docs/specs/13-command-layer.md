@@ -52,6 +52,9 @@ Act for the commanding player ([ADR 0005](../adr/0005-campaign-economy-hold-cost
 | `SetShipRecipe(recipe)` | What the ship's micro-refinery works on (-1 for nothing); a craft in progress is undone and its inputs returned | UnknownRecipe, NotAShipRecipe, Locked |
 | `SetResearch(node)` | The node labs work on (-1 for none); progress is kept per node | UnknownResearch, ResearchUnavailable |
 | `LinkDeposit(machine, deposit)` / `UnlinkDeposit(machine)` | Point a drill at a deposit | UnknownMachine, WrongRole, UnknownDeposit |
+| `SetMovement(dx, dy, dz)` | Ship movement intent, -1, 0 or 1 per world axis; the ship keeps moving until the next intent ([ADR 0006](../adr/0006-ship-movement-as-intent-commands-and-ranges.md)) | InvalidArgument |
+
+`StartMining` also needs the ship within 6 cells of the deposit (OutOfRange). In campaign mode, placing or removing belts and machines needs the ship within 24 cells (OutOfRange).
 
 In **campaign** mode the build commands also enforce costs and locks: `PlaceSegment` and `PlaceMachine` take their cost from the commanding player's hold (NotEnoughItems), reject locked belt tiers, machines and recipes (Locked), and `RemoveSegment` and `RemoveMachine` refund it. `SetSource` and the free extractor are sandbox only. Ship machine types cannot be placed in the world (NotPlaceable).
 
