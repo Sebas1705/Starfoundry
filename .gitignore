@@ -1,0 +1,22 @@
+# Godot
+.godot/
+*.import
+export_presets.cfg
+export/
+build/
+
+# .NET
+bin/
+obj/
+*.user
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vs/
+.idea/
+.vscode/
+
+# Secrets
+.env
+*.keystore
