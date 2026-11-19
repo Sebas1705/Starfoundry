@@ -9,7 +9,9 @@ namespace Starfoundry.Game;
 
 /// <summary>
 /// Belt prototype: renders the engine-independent simulation with one MultiMesh for belts and one
-/// for items. Run with user args after "--": --bench, --shot=path, --layers=N, --rows=N, --cells=N.
+/// for items. All changes go through simulation commands. Run with user args after "--":
+/// --bench, --commands (bench only: exercise commands), --shot=path, --layers=N, --rows=N, --cells=N.
+/// Keys: B adds a belt row on top, X removes the last one added.
 /// </summary>
 public partial class Main : Node3D
 {
@@ -28,11 +30,18 @@ public partial class Main : Node3D
         new(0.95f, 0.35f, 0.25f), new(0.30f, 0.80f, 0.45f), new(0.35f, 0.55f, 0.95f), new(0.95f, 0.85f, 0.30f),
     };
 
-    private BeltNetwork _net = null!;
+    private static readonly Color[] TierColors =
+        { new(0.35f, 0.40f, 0.50f), new(0.20f, 0.55f, 0.60f), new(0.85f, 0.50f, 0.20f) };
+
+    private SimWorld _world = null!;
+    private BeltNetwork Net => _world.Network;
     private Seg[] _segs = Array.Empty<Seg>();
     private ItemSample[] _samples = Array.Empty<ItemSample>();
     private int _count;
+    private int _structureVersion = -1;
 
+    private MultiMeshInstance3D? _slabNode;
+    private MultiMeshInstance3D? _itemNode;
     private MultiMesh _items = null!;
     private float[] _buf = Array.Empty<float>();
 
@@ -40,11 +49,18 @@ public partial class Main : Node3D
     private readonly Stopwatch _simWatch = new();
     private double _simMsAvg;
 
+    // Command demo
+    private int _layers, _rows, _cells;
+    private int _nextDemoRow;
+    private readonly Stack<int> _demoIds = new();
+    private int _commandsOk, _commandsRejected;
+
     private Camera3D _camera = null!;
     private float _yaw, _pitch;
 
     // Benchmark state
     private bool _bench;
+    private bool _benchCommands;
     private string? _shotPath;
     private int _frame;
     private const int WarmupFrames = 120;
@@ -56,16 +72,17 @@ public partial class Main : Node3D
     {
         var args = OS.GetCmdlineUserArgs();
         _bench = args.Contains("--bench");
+        _benchCommands = args.Contains("--commands");
         _shotPath = args.FirstOrDefault(a => a.StartsWith("--shot="))?["--shot=".Length..];
-        int layers = IntArg(args, "--layers", 10);
-        int rows = IntArg(args, "--rows", 5);
-        int cells = IntArg(args, "--cells", 50);
+        _layers = IntArg(args, "--layers", 10);
+        _rows = IntArg(args, "--rows", 5);
+        _cells = IntArg(args, "--cells", 50);
 
-        _net = Scenarios.ParallelRows(layers, rows, cells);
-        _net.Step(30 * 60); // fill the belts (the slowest tier needs ~50 s for 50 cells) before the first frame
+        _world = new SimWorld(Scenarios.ParallelRows(_layers, _rows, _cells));
+        _world.Step(30 * 60); // fill the belts (the slowest tier needs ~50 s for 50 cells) before the first frame
 
-        BuildGeometry();
-        BuildScene(layers, rows, cells);
+        BuildScene();
+        RebuildGeometry();
         RefreshSamples();
         _lastUsec = Time.GetTicksUsec();
     }
@@ -76,47 +93,53 @@ public partial class Main : Node3D
         return a != null && int.TryParse(a[(name.Length + 1)..], out int v) ? v : fallback;
     }
 
-    private void BuildGeometry()
+    /// <summary>Rebuilds belt slabs and the item buffer. Called at start and whenever the network structure changes.</summary>
+    private void RebuildGeometry()
     {
-        _segs = new Seg[_net.SegmentCount];
-        for (int i = 0; i < _segs.Length; i++)
+        _slabNode?.QueueFree();
+        _itemNode?.QueueFree();
+
+        _segs = new Seg[Net.SegmentIdLimit];
+        var alive = new List<int>();
+        int capacity = 0;
+        for (int id = 0; id < _segs.Length; id++)
         {
-            var s = _net.GetSegmentInfo(i);
-            _segs[i] = new Seg
+            if (!Net.IsAlive(id)) continue;
+            var s = Net.GetSegmentInfo(id);
+            _segs[id] = new Seg
             {
                 Ox = s.OriginX, Oy = s.OriginY, Oz = s.OriginZ,
                 Dx = s.DirX, Dy = s.DirY, Dz = s.DirZ,
                 Length = s.Length, Speed = s.Speed,
             };
+            alive.Add(id);
+            capacity += s.Length / Units.ItemSpacing + 2;
         }
 
         // Belt slabs: one stretched box per segment, tinted by tier.
-        var slabMesh = new MultiMesh
+        var slabs = new MultiMesh
         {
             TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
             UseColors = true,
             Mesh = new BoxMesh { Size = Vector3.One, Material = VertexColorMaterial() },
-            InstanceCount = _segs.Length,
+            InstanceCount = alive.Count,
         };
-        var slabBuf = new float[_segs.Length * FloatsPerItem];
-        Color[] tierColors = { new(0.35f, 0.40f, 0.50f), new(0.20f, 0.55f, 0.60f), new(0.85f, 0.50f, 0.20f) };
-        for (int i = 0; i < _segs.Length; i++)
+        var slabBuf = new float[alive.Count * FloatsPerItem];
+        for (int i = 0; i < alive.Count; i++)
         {
-            var info = _net.GetSegmentInfo(i);
+            var info = Net.GetSegmentInfo(alive[i]);
             float len = info.LengthCells;
             float sx = info.DirX != 0 ? len : 1f, sy = info.DirY != 0 ? len : 0.2f, sz = info.DirZ != 0 ? len : 1f;
             float cx = info.OriginX + info.DirX * len / 2f;
             float cy = info.OriginY + info.DirY * len / 2f;
             float cz = info.OriginZ + info.DirZ * len / 2f;
-            Write(slabBuf, i * FloatsPerItem, sx, sy, sz, cx, cy, cz, tierColors[(int)info.Tier]);
+            Write(slabBuf, i * FloatsPerItem, sx, sy, sz, cx, cy, cz, TierColors[(int)info.Tier]);
         }
-        slabMesh.Buffer = slabBuf;
-        AddChild(new MultiMeshInstance3D { Multimesh = slabMesh });
+        slabs.Buffer = slabBuf;
+        _slabNode = new MultiMeshInstance3D { Multimesh = slabs };
+        AddChild(_slabNode);
 
         // Items.
-        int capacity = 0;
-        for (int i = 0; i < _net.SegmentCount; i++)
-            capacity += _net.GetSegmentInfo(i).Length / Units.ItemSpacing + 2;
         _samples = new ItemSample[capacity];
         _items = new MultiMesh
         {
@@ -127,7 +150,10 @@ public partial class Main : Node3D
             VisibleInstanceCount = 0,
         };
         _buf = new float[capacity * FloatsPerItem];
-        AddChild(new MultiMeshInstance3D { Multimesh = _items });
+        _itemNode = new MultiMeshInstance3D { Multimesh = _items };
+        AddChild(_itemNode);
+
+        _structureVersion = Net.StructureVersion;
     }
 
     private static StandardMaterial3D VertexColorMaterial() => new()
@@ -136,7 +162,7 @@ public partial class Main : Node3D
         Roughness = 0.7f,
     };
 
-    private void BuildScene(int layers, int rows, int cells)
+    private void BuildScene()
     {
         AddChild(new WorldEnvironment
         {
@@ -155,8 +181,8 @@ public partial class Main : Node3D
 
         _camera = new Camera3D { Far = 2000f };
         AddChild(_camera);
-        var center = new Vector3(cells / 2f, layers, rows);
-        var pos = center + new Vector3(cells * 0.3f, layers * 0.9f + 3f, cells * 0.42f);
+        var center = new Vector3(_cells / 2f, _layers, _rows);
+        var pos = center + new Vector3(_cells * 0.3f, _layers * 0.9f + 3f, _cells * 0.42f);
         _camera.LookAtFromPosition(pos, center);
         var euler = _camera.GlobalTransform.Basis.GetEuler();
         _pitch = euler.X;
@@ -179,13 +205,48 @@ public partial class Main : Node3D
         b[o + 12] = c.R; b[o + 13] = c.G; b[o + 14] = c.B; b[o + 15] = c.A;
     }
 
-    private void RefreshSamples() => _count = _net.FillSamples(_samples);
+    private void RefreshSamples() => _count = Net.FillSamples(_samples);
+
+    // ---- commands ------------------------------------------------------------------------------
+
+    /// <summary>Adds a fed and drained Mk3 belt on top of the stack, as one atomic batch.</summary>
+    private void SubmitAddRow()
+    {
+        int z = _nextDemoRow * 2;
+        _nextDemoRow = (_nextDemoRow + 1) % Math.Max(1, _rows);
+        _world.Submit(0, new Batch(new Command[]
+        {
+            new PlaceSegment(0, _layers * 2, z, Dir.PosX, _cells, BeltTier.Mk3),
+            new SetSource(-1, new ushort[] { 0, 1, 2, 3 }),
+            new SetSink(-1),
+        }));
+    }
+
+    private void SubmitRemoveLast()
+    {
+        if (_demoIds.Count > 0) _world.Submit(0, new RemoveSegment(_demoIds.Pop()));
+    }
+
+    private void CollectResults()
+    {
+        foreach (var r in _world.LastResults)
+        {
+            if (r.Ok) _commandsOk++; else _commandsRejected++;
+            if (r.Ok && r.Command is Batch && r.Created.Count > 0) _demoIds.Push(r.Created[0]);
+            GD.Print($"COMMAND tick={r.Tick} {r.Command.GetType().Name} -> {(r.Ok ? "ok" : r.Reject.ToString())}" +
+                     (r.Created.Count > 0 ? $" created=[{string.Join(",", r.Created)}]" : ""));
+        }
+    }
+
+    // ---- frame loop ----------------------------------------------------------------------------
 
     public override void _PhysicsProcess(double delta)
     {
         _simWatch.Restart();
-        _net.Step();
+        _world.Step();
         _simWatch.Stop();
+        CollectResults();
+        if (Net.StructureVersion != _structureVersion) RebuildGeometry();
         RefreshSamples();
         _simMsAvg = _simMsAvg * 0.95 + _simWatch.Elapsed.TotalMilliseconds * 0.05;
     }
@@ -206,8 +267,9 @@ public partial class Main : Node3D
         _items.Buffer = _buf;
 
         _hud.Text =
-            $"FPS {Engine.GetFramesPerSecond()}   items {_count}   sim {_simMsAvg:F3} ms/tick   segments {_segs.Length}\n" +
-            "RMB + mouse: look   WASD/QE: move   Shift: fast";
+            $"FPS {Engine.GetFramesPerSecond()}   items {_count}   sim {_simMsAvg:F3} ms/tick   segments {Net.SegmentCount}\n" +
+            $"commands ok {_commandsOk}  rejected {_commandsRejected}\n" +
+            "RMB + mouse: look   WASD/QE: move   Shift: fast   B: add belt row   X: remove it";
 
         MoveCamera((float)delta);
         if (_bench) TickBench();
@@ -222,6 +284,11 @@ public partial class Main : Node3D
             _yaw -= mm.Relative.X * 0.003f;
             _pitch = Mathf.Clamp(_pitch - mm.Relative.Y * 0.003f, -1.5f, 1.5f);
             _camera.Rotation = new Vector3(_pitch, _yaw, 0);
+        }
+        else if (e is InputEventKey { Pressed: true, Echo: false } key)
+        {
+            if (key.Keycode == Key.B) SubmitAddRow();
+            else if (key.Keycode == Key.X) SubmitRemoveLast();
         }
     }
 
@@ -246,6 +313,15 @@ public partial class Main : Node3D
         if (_frame > WarmupFrames) _frameMs.Add((now - _lastUsec) / 1000.0);
         _lastUsec = now;
 
+        if (_benchCommands)
+        {
+            // Exercise the command layer while measuring: add a row, remove one, and try an invalid command.
+            if (_frame == WarmupFrames + 60) SubmitAddRow();
+            if (_frame == WarmupFrames + 120) _world.Submit(0, new RemoveSegment(0));
+            if (_frame == WarmupFrames + 180) _world.Submit(0, new RemoveSegment(0)); // already gone: rejected
+            if (_frame == WarmupFrames + 240) SubmitAddRow();
+        }
+
         if (_frame == WarmupFrames + MeasureFrames / 2 && _shotPath != null)
             GetViewport().GetTexture().GetImage().SavePng(_shotPath);
 
@@ -254,9 +330,11 @@ public partial class Main : Node3D
         var sorted = _frameMs.OrderBy(x => x).ToArray();
         double avg = sorted.Average();
         double p99 = sorted[(int)(sorted.Length * 0.99)];
-        GD.Print($"BENCH items={_count} segments={_segs.Length} frames={sorted.Length}");
+        bool conserved = Net.Spawned == Net.Consumed + Net.Destroyed + Net.InTransit;
+        GD.Print($"BENCH items={_count} segments={Net.SegmentCount} frames={sorted.Length}");
         GD.Print($"BENCH avg_frame_ms={avg:F3} avg_fps={1000.0 / avg:F1} p99_frame_ms={p99:F3} min_fps={1000.0 / sorted[^1]:F1}");
-        GD.Print($"BENCH sim_ms_per_tick_avg={_simMsAvg:F4} conserved={_net.Spawned == _net.Consumed + _net.InTransit}");
+        GD.Print($"BENCH sim_ms_per_tick_avg={_simMsAvg:F4} conserved={conserved}");
+        GD.Print($"BENCH commands_ok={_commandsOk} commands_rejected={_commandsRejected} destroyed={Net.Destroyed} structure_version={Net.StructureVersion}");
         GD.Print($"BENCH renderer={RenderingServer.GetVideoAdapterName()}");
         GetTree().Quit();
     }

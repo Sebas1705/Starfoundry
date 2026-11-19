@@ -11,10 +11,13 @@ public readonly record struct SegmentInfo(
 /// <summary>
 /// A network of belt segments with sources and sinks. Fully deterministic: fixed tick, integer
 /// state, stable processing order. Engine-independent (no Godot references).
+/// Segment ids are stable and never reused; a removed segment leaves a hole.
+/// Gameplay code should change the network through <see cref="SimWorld"/> commands, not directly.
 /// </summary>
 public sealed class BeltNetwork
 {
-    private readonly List<BeltSegment> _segs = new();
+    private List<BeltSegment?> _segs = new();
+    private int _alive;
     private int[] _order = Array.Empty<int>();
     private bool _dirty = true;
 
@@ -22,14 +25,26 @@ public sealed class BeltNetwork
     public long Spawned { get; private set; }
     public long Consumed { get; private set; }
 
-    public int SegmentCount => _segs.Count;
+    /// <summary>Items destroyed because their segment was removed.</summary>
+    public long Destroyed { get; private set; }
+
+    /// <summary>Changes whenever segments are added, removed or rewired, so renderers know when to rebuild.</summary>
+    public int StructureVersion { get; private set; }
+
+    /// <summary>Number of segments that exist.</summary>
+    public int SegmentCount => _alive;
+
+    /// <summary>One past the highest id ever issued. Valid ids are below this and satisfy <see cref="IsAlive"/>.</summary>
+    public int SegmentIdLimit => _segs.Count;
+
+    public bool IsAlive(int id) => (uint)id < (uint)_segs.Count && _segs[id] is not null;
 
     public int InTransit
     {
         get
         {
             int n = 0;
-            foreach (var s in _segs) n += s.Count;
+            foreach (var s in _segs) if (s is not null) n += s.Count;
             return n;
         }
     }
@@ -38,8 +53,35 @@ public sealed class BeltNetwork
     {
         int id = _segs.Count;
         _segs.Add(new BeltSegment(id, x, y, z, dx, dy, dz, lengthCells, tier));
+        _alive++;
         _dirty = true;
+        StructureVersion++;
         return id;
+    }
+
+    /// <summary>Removes a segment, destroying the items on it and detaching it from its neighbours.</summary>
+    public void RemoveSegment(int id)
+    {
+        var s = Get(id);
+        Destroyed += s.Count;
+
+        foreach (int input in s.Inputs)
+        {
+            if (input != id) DropOutput(_segs[input]!, id);
+        }
+        for (int k = 0; k < s.OutCount; k++)
+        {
+            int o = s.Out[k];
+            if (o == id) continue;
+            var t = _segs[o]!;
+            t.Inputs.Remove(id);
+            FixMergeTurn(t);
+        }
+
+        _segs[id] = null;
+        _alive--;
+        _dirty = true;
+        StructureVersion++;
     }
 
     /// <summary>Connects the end of <paramref name="from"/> to the start of <paramref name="to"/>. A segment may have up to two outputs (a splitter).</summary>
@@ -51,9 +93,37 @@ public sealed class BeltNetwork
         if (s.OutCount >= 2) throw new InvalidOperationException("A segment supports at most two outputs.");
         if (s.OutCount == 1 && s.Out[0] == to) throw new InvalidOperationException("Both outputs cannot target the same segment.");
         s.Out[s.OutCount++] = to;
-        _segs[to].Inputs.Add(from);
+        _segs[to]!.Inputs.Add(from);
         _dirty = true;
+        StructureVersion++;
     }
+
+    /// <summary>Removes the connection <paramref name="from"/> to <paramref name="to"/>. Items stay where they are.</summary>
+    public void Disconnect(int from, int to)
+    {
+        var s = Get(from);
+        var t = Get(to);
+        if (!IsConnected(from, to)) throw new InvalidOperationException("These segments are not connected.");
+        DropOutput(s, to);
+        t.Inputs.Remove(from);
+        FixMergeTurn(t);
+        _dirty = true;
+        StructureVersion++;
+    }
+
+    public bool IsConnected(int from, int to)
+    {
+        var s = Get(from);
+        Get(to);
+        for (int k = 0; k < s.OutCount; k++) if (s.Out[k] == to) return true;
+        return false;
+    }
+
+    public int OutputCount(int segment) => Get(segment).OutCount;
+
+    public bool IsSink(int segment) => Get(segment).IsSink;
+
+    public bool HasSource(int segment) => Get(segment).SourcePattern is not null;
 
     /// <summary>Items reaching the end of this segment are consumed.</summary>
     public void SetSink(int segment)
@@ -63,11 +133,22 @@ public sealed class BeltNetwork
         s.IsSink = true;
     }
 
+    public void ClearSink(int segment) => Get(segment).IsSink = false;
+
     /// <summary>Feeds the segment start whenever there is room, cycling through the item types.</summary>
     public void SetSource(int segment, ReadOnlySpan<ushort> pattern)
     {
         if (pattern.Length == 0) throw new ArgumentException("Pattern must not be empty.", nameof(pattern));
-        Get(segment).SourcePattern = pattern.ToArray();
+        var s = Get(segment);
+        s.SourcePattern = pattern.ToArray();
+        s.SourceIndex = 0;
+    }
+
+    public void ClearSource(int segment)
+    {
+        var s = Get(segment);
+        s.SourcePattern = null;
+        s.SourceIndex = 0;
     }
 
     /// <summary>Advances the simulation by one tick.</summary>
@@ -75,11 +156,11 @@ public sealed class BeltNetwork
     {
         if (_dirty) RebuildOrder();
 
-        foreach (int id in _order) MoveSegment(_segs[id]);
+        foreach (int id in _order) MoveSegment(_segs[id]!);
 
         foreach (var s in _segs)
         {
-            if (s.SourcePattern is null || !s.CanAccept) continue;
+            if (s?.SourcePattern is null || !s.CanAccept) continue;
             // Insert exactly one spacing behind the tail so a saturated belt stays perfectly packed.
             int pos = s.Count == 0 ? 0 : s.TailPos - Units.ItemSpacing;
             s.PushTail(pos, s.SourcePattern[s.SourceIndex]);
@@ -115,6 +196,7 @@ public sealed class BeltNetwork
         int n = 0;
         foreach (var s in _segs)
         {
+            if (s is null) continue;
             for (int k = 0; k < s.Count; k++)
             {
                 if (n >= dst.Length) return n;
@@ -138,9 +220,17 @@ public sealed class BeltNetwork
             }
         }
 
-        Mix(Tick); Mix(Spawned); Mix(Consumed);
+        Mix(Tick); Mix(Spawned); Mix(Consumed); Mix(Destroyed); Mix(_segs.Count);
         foreach (var s in _segs)
         {
+            if (s is null) { Mix(-1); continue; }
+            Mix(s.Id);
+            Mix(s.OriginX); Mix(s.OriginY); Mix(s.OriginZ);
+            Mix(s.DirX); Mix(s.DirY); Mix(s.DirZ);
+            Mix(s.Length); Mix((int)s.Tier);
+            Mix(s.IsSink ? 1 : 0); Mix(s.SourcePattern?.Length ?? -1);
+            Mix(s.OutCount);
+            for (int k = 0; k < s.OutCount; k++) Mix(s.Out[k]);
             Mix(s.Count); Mix(s.RoundRobin); Mix(s.SourceIndex); Mix(s.MergeTurn);
             for (int k = 0; k < s.Count; k++)
             {
@@ -151,10 +241,94 @@ public sealed class BeltNetwork
         return h;
     }
 
+    /// <summary>Deep copy of the whole state.</summary>
+    public BeltNetwork Clone()
+    {
+        var c = new BeltNetwork();
+        c.CopyFrom(this);
+        return c;
+    }
+
+    /// <summary>Replaces this network's state with a deep copy of <paramref name="other"/> (used to roll back atomic commands).</summary>
+    public void CopyFrom(BeltNetwork other)
+    {
+        _segs = other._segs.Select(s => s?.Clone()).ToList();
+        _alive = other._alive;
+        Tick = other.Tick;
+        Spawned = other.Spawned;
+        Consumed = other.Consumed;
+        Destroyed = other.Destroyed;
+        StructureVersion = other.StructureVersion;
+        _order = Array.Empty<int>();
+        _dirty = true;
+    }
+
+    /// <summary>
+    /// Throws <see cref="InvalidOperationException"/> if any structural or conservation invariant is broken.
+    /// Meant for tests and debug builds.
+    /// </summary>
+    public void ValidateInvariants()
+    {
+        static void Fail(string m) => throw new InvalidOperationException(m);
+
+        int alive = 0;
+        for (int id = 0; id < _segs.Count; id++)
+        {
+            var s = _segs[id];
+            if (s is null) continue;
+            alive++;
+            if (s.Id != id) Fail($"segment {id} has id {s.Id}");
+            if (s.IsSink && s.OutCount > 0) Fail($"sink {id} has outputs");
+            if (s.OutCount is < 0 or > 2) Fail($"segment {id} has {s.OutCount} outputs");
+            for (int k = 0; k < s.OutCount; k++)
+            {
+                int o = s.Out[k];
+                if (!IsAlive(o)) Fail($"segment {id} outputs to dead segment {o}");
+                if (!_segs[o]!.Inputs.Contains(id)) Fail($"segment {id} -> {o} lacks the back reference");
+            }
+            foreach (int input in s.Inputs)
+            {
+                if (!IsAlive(input)) Fail($"segment {id} has dead input {input}");
+                if (!IsConnected(input, id)) Fail($"segment {id} lists input {input} that does not output to it");
+            }
+            if (s.Inputs.Count != s.Inputs.Distinct().Count()) Fail($"segment {id} has duplicate inputs");
+            if (s.MergeTurn < 0 || s.MergeTurn >= Math.Max(1, s.Inputs.Count)) Fail($"segment {id} merge turn out of range");
+            if (s.OutCount > 0 && (s.RoundRobin < 0 || s.RoundRobin >= s.OutCount)) Fail($"segment {id} round robin out of range");
+            if (s.Count < 0 || s.Count > s.Capacity) Fail($"segment {id} item count out of range");
+
+            int prev = int.MaxValue;
+            for (int k = 0; k < s.Count; k++)
+            {
+                int p = s.Pos[s.Index(k)];
+                if (p < 0 || p > s.Length) Fail($"segment {id} item at {p} outside 0..{s.Length}");
+                if (k > 0 && prev - p < Units.ItemSpacing) Fail($"segment {id} items closer than the spacing");
+                prev = p;
+            }
+        }
+
+        if (alive != _alive) Fail($"alive counter {_alive} but {alive} segments exist");
+        if (Spawned != Consumed + Destroyed + InTransit)
+            Fail($"conservation broken: spawned {Spawned}, consumed {Consumed}, destroyed {Destroyed}, in transit {InTransit}");
+    }
+
     private BeltSegment Get(int id)
     {
         if ((uint)id >= (uint)_segs.Count) throw new ArgumentOutOfRangeException(nameof(id));
-        return _segs[id];
+        return _segs[id] ?? throw new ArgumentOutOfRangeException(nameof(id), "The segment was removed.");
+    }
+
+    /// <summary>Removes <paramref name="to"/> from the outputs of <paramref name="p"/>.</summary>
+    private static void DropOutput(BeltSegment p, int to)
+    {
+        if (p.OutCount == 2 && p.Out[0] == to) p.Out[0] = p.Out[1];
+        p.OutCount--;
+        p.Out[p.OutCount] = 0;
+        p.RoundRobin = 0;
+    }
+
+    private static void FixMergeTurn(BeltSegment t)
+    {
+        t.MergeTurn = t.Inputs.Count == 0 ? 0 : t.MergeTurn % t.Inputs.Count;
     }
 
     /// <summary>Orders segments downstream-first so space freed this tick is visible upstream. Cycles are broken by id.</summary>
@@ -162,18 +336,18 @@ public sealed class BeltNetwork
     {
         int n = _segs.Count;
         var visited = new bool[n];
-        var order = new List<int>(n);
+        var order = new List<int>(_alive);
         var stack = new Stack<(int Id, int Next)>();
 
         for (int r = 0; r < n; r++)
         {
-            if (visited[r]) continue;
+            if (visited[r] || _segs[r] is null) continue;
             visited[r] = true;
             stack.Push((r, 0));
             while (stack.Count > 0)
             {
                 var (id, next) = stack.Pop();
-                var s = _segs[id];
+                var s = _segs[id]!;
                 if (next < s.OutCount)
                 {
                     stack.Push((id, next + 1));
@@ -254,7 +428,7 @@ public sealed class BeltNetwork
         for (int t = 0; t < s.OutCount; t++)
         {
             int slot = (s.RoundRobin + t) % s.OutCount;
-            var target = _segs[s.Out[slot]];
+            var target = _segs[s.Out[slot]]!;
             if (!target.CanAccept) continue;
             if (target.Inputs.Count > 1 && HigherPriorityInputWaiting(s, target)) continue;
 
@@ -291,7 +465,7 @@ public sealed class BeltNetwork
         int mine = (target.Inputs.IndexOf(s.Id) - target.MergeTurn + n) % n;
         for (int r = 0; r < mine; r++)
         {
-            var other = _segs[target.Inputs[(target.MergeTurn + r) % n]];
+            var other = _segs[target.Inputs[(target.MergeTurn + r) % n]]!;
             if (other.LastMoved == Tick) continue; // already processed: it either went through or could not
             if (other.Count > 0 && other.Pos[other.Head] + other.Speed >= other.Length
                 && other.OutCount > 0 && other.Out[other.RoundRobin % other.OutCount] == target.Id)
