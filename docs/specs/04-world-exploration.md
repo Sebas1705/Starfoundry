@@ -2,7 +2,7 @@
 
 Status: proposal. Reference states procedurally generated systems with unique logistic challenges, wrecks, new resources, black holes, neutron stars, NPC traders.
 
-> **Implementation status:** only the ship in a single empty region exists so far ([world and ship](../prototypes/world-and-ship.md)): integer positions, a fixed starter field of deposits, mining and build ranges. Systems, procedural generation, scanning, wrecks and travel between systems are still design only.
+> **Implementation status:** a first version exists ([ship in the world](../prototypes/world-and-ship.md), [galaxy and exploration](../prototypes/galaxy-exploration.md)): a seeded galaxy of systems with archetypes and connected lanes, hidden deposits revealed by a scanner, and jumps along lanes gated by research. The systems share one coordinate space ([ADR 0007](../adr/0007-galaxy-as-regions-of-one-space-with-deterministic-generation.md)). Star types, solar power, wrecks, anomalies, NPCs and trade, and cross-system logistics are still design only.
 
 ## Structure
 Galaxy map of **systems**, each generated from a seed. Each system contains a star, bodies (asteroid belts, planetoids, gas giants, ice fields) and optional anomalies. Systems are connected by **lanes** discovered by scanning.

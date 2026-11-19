@@ -10,6 +10,7 @@ One decision per file, `NNNN-slug.md`. An accepted ADR is never rewritten; add a
 | [0004](0004-data-driven-content-and-one-cell-machines.md) | Data-driven content and one-cell buffered machines | proposed | 2026-11-19 |
 | [0005](0005-campaign-economy-hold-costs-and-research-gates.md) | Campaign mode: build costs paid from the hold, research gates content | proposed | 2026-11-19 |
 | [0006](0006-ship-movement-as-intent-commands-and-ranges.md) | Ship movement as intent commands, with mining and build ranges | proposed | 2026-11-20 |
+| [0007](0007-galaxy-as-regions-of-one-space-with-deterministic-generation.md) | The galaxy is a set of regions of one shared space, generated deterministically | proposed | 2026-11-20 |
 
 ## Template
 ```markdown
