@@ -1,6 +1,6 @@
 # 09 Technical architecture
 
-Status: proposal, engine pending owner confirmation ([ADR 0001](../adr/0001-engine.md)).
+Status: proposal; engine decided: Godot 4 with C# ([ADR 0001](../adr/0001-engine.md), accepted).
 
 ## Goals
 - 1,000+ machines and 10,000+ belt items at 30 simulation ticks per second and 60 FPS on the recommended hardware.

@@ -4,7 +4,7 @@ One decision per file, `NNNN-slug.md`. An accepted ADR is never rewritten; add a
 
 | # | Decision | Status | Date |
 | --- | --- | --- | --- |
-| [0001](0001-engine.md) | Use Godot 4 with C# for the game layer | proposed | 2026-11-19 |
+| [0001](0001-engine.md) | Use Godot 4 with C# for the game layer | accepted | 2026-11-19 |
 | [0002](0002-deterministic-simulation-core.md) | Engine-independent deterministic simulation core | proposed | 2026-11-19 |
 
 ## Template

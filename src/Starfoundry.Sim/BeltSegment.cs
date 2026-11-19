@@ -24,8 +24,20 @@ internal sealed class BeltSegment
     public int OutCount;
     public int RoundRobin;
 
+    /// <summary>Segments whose end feeds this one. More than one means this segment is a merge.</summary>
+    public readonly List<int> Inputs = new();
+
+    /// <summary>Index into <see cref="Inputs"/> of the input with top priority; rotates after each transfer.</summary>
+    public int MergeTurn;
+
+    /// <summary>Tick in which this segment was last processed; lets merges tell who still has to move.</summary>
+    public long LastMoved = -1;
+
     public bool IsSink;
     public long Consumed;
+
+    /// <summary>Items that left this segment, by transfer or by being consumed.</summary>
+    public long Passed;
 
     public ushort[]? SourcePattern;
     public int SourceIndex;

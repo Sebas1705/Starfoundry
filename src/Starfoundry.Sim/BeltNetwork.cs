@@ -49,7 +49,9 @@ public sealed class BeltNetwork
         Get(to);
         if (s.IsSink) throw new InvalidOperationException("A sink cannot have outputs.");
         if (s.OutCount >= 2) throw new InvalidOperationException("A segment supports at most two outputs.");
+        if (s.OutCount == 1 && s.Out[0] == to) throw new InvalidOperationException("Both outputs cannot target the same segment.");
         s.Out[s.OutCount++] = to;
+        _segs[to].Inputs.Add(from);
         _dirty = true;
     }
 
@@ -95,6 +97,9 @@ public sealed class BeltNetwork
 
     public long ConsumedBy(int segment) => Get(segment).Consumed;
 
+    /// <summary>Items that have left the segment (handed on or consumed). Useful to check merge fairness.</summary>
+    public long PassedBy(int segment) => Get(segment).Passed;
+
     public int CountOn(int segment) => Get(segment).Count;
 
     public SegmentInfo GetSegmentInfo(int id)
@@ -136,7 +141,7 @@ public sealed class BeltNetwork
         Mix(Tick); Mix(Spawned); Mix(Consumed);
         foreach (var s in _segs)
         {
-            Mix(s.Count); Mix(s.RoundRobin); Mix(s.SourceIndex);
+            Mix(s.Count); Mix(s.RoundRobin); Mix(s.SourceIndex); Mix(s.MergeTurn);
             for (int k = 0; k < s.Count; k++)
             {
                 int i = s.Index(k);
@@ -192,6 +197,7 @@ public sealed class BeltNetwork
 
     private void MoveSegment(BeltSegment s)
     {
+        s.LastMoved = Tick;
         if (s.Count == 0) return;
 
         int front = s.Head;
@@ -204,6 +210,7 @@ public sealed class BeltNetwork
             {
                 s.PopFront();
                 s.Consumed++;
+                s.Passed++;
                 Consumed++;
                 frontKept = false;
             }
@@ -249,15 +256,46 @@ public sealed class BeltNetwork
             int slot = (s.RoundRobin + t) % s.OutCount;
             var target = _segs[s.Out[slot]];
             if (!target.CanAccept) continue;
+            if (target.Inputs.Count > 1 && HigherPriorityInputWaiting(s, target)) continue;
 
             int pos = overflow;
-            if (target.Count > 0) pos = Math.Min(pos, target.TailPos - Units.ItemSpacing);
+            if (target.Count > 0)
+            {
+                int packed = target.TailPos - Units.ItemSpacing;
+                // At a merge the arrival phase of each input differs, which would leave a gap behind
+                // the tail every time. Let a waiting item close it, by at most one tick of travel, so
+                // a saturated merge still fills the output belt.
+                pos = target.Inputs.Count > 1 ? Math.Min(overflow + target.Speed, packed) : Math.Min(overflow, packed);
+            }
             pos = Math.Clamp(pos, 0, target.Length);
 
             target.PushTail(pos, s.Type[s.Head]);
             s.PopFront();
+            s.Passed++;
             s.RoundRobin = (slot + 1) % s.OutCount;
+            if (target.Inputs.Count > 1)
+                target.MergeTurn = (target.Inputs.IndexOf(s.Id) + 1) % target.Inputs.Count;
             return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Fair merge: inputs take turns in round-robin order. An input yields only to a higher-priority
+    /// input that still has to move this tick and has an item at its end aimed at the same target.
+    /// An input with nothing to send never blocks the others, so the split is max-min fair.
+    /// </summary>
+    private bool HigherPriorityInputWaiting(BeltSegment s, BeltSegment target)
+    {
+        int n = target.Inputs.Count;
+        int mine = (target.Inputs.IndexOf(s.Id) - target.MergeTurn + n) % n;
+        for (int r = 0; r < mine; r++)
+        {
+            var other = _segs[target.Inputs[(target.MergeTurn + r) % n]];
+            if (other.LastMoved == Tick) continue; // already processed: it either went through or could not
+            if (other.Count > 0 && other.Pos[other.Head] + other.Speed >= other.Length
+                && other.OutCount > 0 && other.Out[other.RoundRobin % other.OutCount] == target.Id)
+                return true;
         }
         return false;
     }

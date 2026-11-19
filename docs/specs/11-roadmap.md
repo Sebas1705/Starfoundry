@@ -55,4 +55,4 @@ Release a free demo (tier 1, one system, co-op enabled) before Early Access to g
 Each phase ends with a playtest. If the factory loop is not fun after P3, stop and fix it before adding ships or combat.
 
 ## Owner decisions needed
-Engine (ADR 0001), game name, store account, art direction. See [12-open-questions](12-open-questions.md).
+Game name, store account, art direction. See [12-open-questions](12-open-questions.md).
