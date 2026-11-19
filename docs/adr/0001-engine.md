@@ -17,6 +17,7 @@ Use Godot 4 (stable) with C# for the engine layer and a plain .NET class library
 - Benefits: MIT licence, no royalties or runtime fees, small editor, fast builds, scene tree suited to build tools, Steam via GodotSteam.
 - Costs: smaller 3D feature set and ecosystem than Unity or Unreal; fewer ready-made assets; C# export to some platforms is less mature.
 - Checked by: a one-week prototype of 10,000 belt items rendered via MultiMesh at 60 FPS before the decision becomes accepted.
+- Prototype result (2026-11-19): met. 10,000 items render at about 1,190 FPS and 100,000 at about 135 FPS on a Ryzen 9 7950X and RTX 4080 SUPER (a stronger machine than the recommended spec). Details in [the belt prototype](../prototypes/belts.md). Awaiting owner approval to mark accepted.
 
 ## Alternatives considered
 - **Unity:** mature, large asset store, but licence and fee history is a risk; heavier editor.

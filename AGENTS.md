@@ -15,5 +15,7 @@ Contract for agents working in this repository.
 ## Checks
 ```
 git diff --check
+dotnet test
+dotnet build game -c Debug
 ```
-(No code yet. Add build/test commands here when the first project is scaffolded.)
+Needs the .NET 8 SDK and, to run the game, Godot 4.7.2 (Mono). The simulation library must never reference Godot.

@@ -1,0 +1,45 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{CAA11AD0-3D18-44DB-A62C-3024307558B2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Starfoundry.Sim", "src\Starfoundry.Sim\Starfoundry.Sim.csproj", "{DA8AB906-F0DC-4F25-A220-E435B3AC78FF}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{EF98CBDA-7FF4-4723-8965-CD17F1C3725B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Starfoundry.Sim.Tests", "tests\Starfoundry.Sim.Tests\Starfoundry.Sim.Tests.csproj", "{B24E59B6-5010-457B-BD70-5D97D3317288}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{8CE8E5C1-82BB-4D02-9B8C-D921D87D0C6D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Starfoundry.Bench", "tools\Starfoundry.Bench\Starfoundry.Bench.csproj", "{5C5AE9D9-31B3-432D-B9E7-26AFB08687C7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DA8AB906-F0DC-4F25-A220-E435B3AC78FF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DA8AB906-F0DC-4F25-A220-E435B3AC78FF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DA8AB906-F0DC-4F25-A220-E435B3AC78FF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DA8AB906-F0DC-4F25-A220-E435B3AC78FF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B24E59B6-5010-457B-BD70-5D97D3317288}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B24E59B6-5010-457B-BD70-5D97D3317288}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B24E59B6-5010-457B-BD70-5D97D3317288}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B24E59B6-5010-457B-BD70-5D97D3317288}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5C5AE9D9-31B3-432D-B9E7-26AFB08687C7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5C5AE9D9-31B3-432D-B9E7-26AFB08687C7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5C5AE9D9-31B3-432D-B9E7-26AFB08687C7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5C5AE9D9-31B3-432D-B9E7-26AFB08687C7}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{DA8AB906-F0DC-4F25-A220-E435B3AC78FF} = {CAA11AD0-3D18-44DB-A62C-3024307558B2}
+		{B24E59B6-5010-457B-BD70-5D97D3317288} = {EF98CBDA-7FF4-4723-8965-CD17F1C3725B}
+		{5C5AE9D9-31B3-432D-B9E7-26AFB08687C7} = {8CE8E5C1-82BB-4D02-9B8C-D921D87D0C6D}
+	EndGlobalSection
+EndGlobal
