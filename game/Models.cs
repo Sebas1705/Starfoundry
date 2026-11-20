@@ -100,16 +100,8 @@ public static class Models
         return r;
     }
 
-    /// <summary>An enemy: 0 = scout (small, fast, red-orange), 1 = striker (bigger, armoured, magenta).</summary>
-    public static Node3D Enemy(int type)
-    {
-        if (type < 2) return type == 1 ? BuildStriker() : BuildScout();
-        // Placeholder for the heavy types: a striker scaled up until they get a model of their own.
-        var heavy = BuildStriker();
-        heavy.Name = "Brute";
-        heavy.Scale = Vector3.One * 1.8f;
-        return heavy;
-    }
+    /// <summary>An enemy: 0 = scout (small, fast, red-orange), 1 = striker (bigger, armoured, magenta), 2 and above = brute (heavy, bronze and amber).</summary>
+    public static Node3D Enemy(int type) => type switch { 0 => BuildScout(), 1 => BuildStriker(), _ => BuildBrute() };
 
     /// <summary>An irregular asteroid with glowing crystal veins in <paramref name="tint"/>; about 1.5 units radius.</summary>
     public static Node3D Deposit(Color tint, int seed)
@@ -817,6 +809,38 @@ public static class Models
         {
             foreach (float s in new[] { 1f, -1f })
                 mb.At(default, Deg(0, 0, 90)).Prism(new(0, 0.30f, 0.12f * s), 0.07f, 0f, 0.18f, 6);
+        });
+        return r;
+    }
+
+    /// <summary>A heavy enemy: a wide bronze slab with a ram prow, armoured flanks, shoulder guns and three amber engines.</summary>
+    private static Node3D BuildBrute()
+    {
+        var bronze = new Color(0.30f, 0.19f, 0.09f);
+        var bronzeDk = new Color(0.16f, 0.10f, 0.06f);
+        var amber = new Color(1f, 0.62f, 0.08f);
+        var r = new Node3D { Name = "Brute" };
+        Add(r, "Hull", "brute.hull", Body(), mb =>
+        {
+            mb.C(bronzeDk).Block(new(0, 0, 0), new(1.0f, 0.34f, 0.78f), 0.8f, 0.85f);
+            mb.C(bronze).Block(new(-0.05f, 0.20f, 0), new(0.62f, 0.10f, 0.50f), 0.8f, 0.8f);
+            // The ram: a four-sided wedge from the front edge of the hull, tip along +X.
+            mb.At(default, Deg(0, 0, -90)).C(Steel).Prism(new(0, 0.50f, 0), 0.34f, 0.04f, 0.30f, 4, 45f);
+            foreach (float s in new[] { 1f, -1f })
+            {
+                mb.At(default).C(bronze).Block(new(0.05f, -0.04f, s * 0.46f), new(0.80f, 0.26f, 0.16f), 0.9f, 0.9f);
+                mb.C(amber).Block(new(0.02f, 0.10f, s * 0.47f), new(0.50f, 0.03f, 0.05f));
+                mb.C(Steel).Beam(new(0.15f, 0.14f, s * 0.46f), new(0.66f, 0.14f, s * 0.46f), 0.075f);
+                mb.C(bronzeDk).Block(new(0.68f, 0.14f, s * 0.46f), new(0.08f, 0.11f, 0.11f));
+            }
+            // Rear bulkhead the engines sit on.
+            mb.C(Steel).Block(new(-0.53f, 0f, 0), new(0.14f, 0.30f, 0.50f));
+        });
+        Add(r, "GlowCore", "brute.core", Glow(amber, 3.2f), mb => mb.Sphere(new(0.10f, 0.27f, 0), new(0.12f, 0.06f, 0.12f), 3, 8));
+        Add(r, "GlowEngine", "brute.engine", Glow(new Color(1f, 0.5f, 0.1f), 3.8f), mb =>
+        {
+            foreach (float z in new[] { -0.19f, 0f, 0.19f })
+                mb.At(default, Deg(0, 0, 90)).Prism(new(0, 0.60f, z), 0.085f, 0f, 0.22f, 6);
         });
         return r;
     }
