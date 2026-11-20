@@ -2,6 +2,8 @@
 
 Status: proposal. Reference states: an ancient alien defence network detects industry, sends waves, you defend or strike first, endgame battleship, trade with NPCs. Our implementation is original.
 
+> **Implementation status:** a first version exists ([threat and combat](../prototypes/threat-and-combat.md), [ADR 0008](../adr/0008-remnant-threat-as-signature-driven-waves.md)): machine signatures, a per-system alert meter, warned waves of two enemy types, machine hit points, ammo-fed turrets and an armed ship. Heat and power as signature sources, stealth and quiet-play modules, decoys, fleets with orders, assaults on Remnant nodes, shields and damage types are still design only.
+
 ## The Remnant
 Dormant automated sentinels left by a vanished civilisation. They are tuned to heat and power signatures above a **threshold** and respond with waves of drones.
 

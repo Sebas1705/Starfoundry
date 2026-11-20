@@ -77,7 +77,8 @@ public partial class Play : Node3D
     public override void _Ready()
     {
         var args = OS.GetCmdlineUserArgs();
-        _demo = args.Contains("--demo") || args.Contains("--explore-demo");
+        _threatDemo = args.Contains("--threat-demo");
+        _demo = args.Contains("--demo") || args.Contains("--explore-demo") || _threatDemo;
         _shotPath = args.FirstOrDefault(a => a.StartsWith("--shot="))?["--shot=".Length..];
         string? sp = args.FirstOrDefault(a => a.StartsWith("--speed="));
         if (sp != null && int.TryParse(sp["--speed=".Length..], out int s)) _demoSpeed = Math.Clamp(s, 1, 200);
@@ -86,12 +87,15 @@ public partial class Play : Node3D
         _content = ContentDb.FromFile(path);
         _exploreDemo = args.Contains("--explore-demo");
         // A generated galaxy: the same seed always gives the same systems. Home's deposits start revealed; scan to find the rest.
-        _world = SimWorld.CreateGalaxy(_content, _exploreDemo ? GameMode.Sandbox : GameMode.Campaign, GalaxySeed);
+        // The Remnant are on in the game and the threat demo; the production and exploration demos run without them.
+        bool threats = !(args.Contains("--demo") || _exploreDemo);
+        _world = SimWorld.CreateGalaxy(_content, _exploreDemo || _threatDemo ? GameMode.Sandbox : GameMode.Campaign, GalaxySeed, threats);
         _world.Network.EnsurePlayer(Player); // the ship starts at the origin, inside Home
         _selectedDeposit = RevealedDeposits().FirstOrDefault();
 
         BuildPalette();
         BuildScene();
+        BuildThreatVisuals();
         RebuildGeometry();
         Toast("Mine ore with M, refine it with F, build with 1-9. Everything costs items.");
     }
@@ -154,7 +158,7 @@ public partial class Play : Node3D
         _help = MakeLabel(layer, new Vector2(12, 640));
         _help.Text = "LMB drag: belt   LMB: place   RMB: remove   1-9: build item   Tab: recipe   R: rotate   Z/X: layer\n" +
                      "WASD: fly   Space/C: up/down   wheel: zoom   M: mine   [ ]: deposit   F: refinery   T: research   P: pause   +/-: speed\n" +
-                     "K: scan   G: star map   Up/Down: choose system   J: jump";
+                     "K: scan   G: star map   Up/Down: choose system   J: jump   V: weapons on/off";
 
         _map = new MapPanel { Position = new Vector2(940, 8), Visible = false };
         layer.AddChild(_map);
@@ -218,6 +222,7 @@ public partial class Play : Node3D
     {
         var pos = ShipPosition(_demo ? 0f : alpha);
         _ship.Position = pos;
+        _ship.Visible = !(Net.HasPlayer(Player) && Net.GetPlayerInfo(Player).RespawnRemaining > 0); // hidden while being rebuilt
         _buildRange.Position = pos;
         _mineRange.Position = pos;
         // After a jump the camera snaps to the ship instead of flying hundreds of cells.
@@ -338,6 +343,11 @@ public partial class Play : Node3D
     private Color MachineColor(MachineInfo m, bool dim)
     {
         var role = _content.Machines[m.Type].Role;
+        if (role == MachineRole.Turret)
+        {
+            var t = new Color(0.95f, 0.85f, 0.2f) * (m.InputItems > 0 ? 1f : 0.45f); // dim when out of ammo
+            return Damaged(m, new Color(t.R, t.G, t.B));
+        }
         var c = role switch
         {
             MachineRole.Drill => new Color(0.85f, 0.55f, 0.20f),
@@ -346,7 +356,15 @@ public partial class Play : Node3D
             _ => _content.Machines[m.Type].Id == "core:smelter" ? new Color(0.80f, 0.25f, 0.20f) : new Color(0.25f, 0.45f, 0.85f),
         };
         float k = dim ? 0.45f : 1f;
-        return new Color(c.R * k, c.G * k, c.B * k);
+        return Damaged(m, new Color(c.R * k, c.G * k, c.B * k));
+    }
+
+    /// <summary>Tints a machine red as it loses hit points.</summary>
+    private Color Damaged(MachineInfo m, Color c)
+    {
+        float max = _content.Machines[m.Type].Hp;
+        float lost = max <= 0 ? 0f : 1f - Math.Clamp(m.Hp / max, 0f, 1f);
+        return new Color(Mathf.Lerp(c.R, 1f, lost * 0.7f), Mathf.Lerp(c.G, 0.1f, lost * 0.8f), Mathf.Lerp(c.B, 0.1f, lost * 0.8f));
     }
 
     private void UpdateMachines()
@@ -681,6 +699,7 @@ public partial class Play : Node3D
                 case Key.Bracketleft: CycleDeposit(-1); break;
                 case Key.Bracketright: CycleDeposit(1); break;
                 case Key.K: Send(new Scan()); break;
+                case Key.V: ToggleWeapons(); break;
                 case Key.G: _mapOpen = !_mapOpen; break;
                 case Key.J: SendJump(); break;
                 case Key.Up: CycleSystem(-1); break;
@@ -724,9 +743,10 @@ public partial class Play : Node3D
         int ticks = _demo ? _demoSpeed : _speed;
         for (int i = 0; i < ticks; i++)
         {
-            if (_demo) { if (_exploreDemo) ExploreThink(); else BotThink(); }
+            if (_demo) { if (_threatDemo) ThreatThink(); else if (_exploreDemo) ExploreThink(); else BotThink(); }
             _world.Step();
             CollectResults();
+            WatchThreat();
             if (_botDone) break;
         }
         if (Net.StructureVersion != _structureVersion) RebuildGeometry();
@@ -754,6 +774,7 @@ public partial class Play : Node3D
         _items.VisibleInstanceCount = _sampleCount;
         _items.Buffer = _itemBuf;
         UpdateMachines();
+        UpdateEnemies((float)delta);
         UpdateDeposits();
         UpdateShip(alpha, (float)delta);
         UpdateMap();
@@ -770,9 +791,13 @@ public partial class Play : Node3D
             UpdateDragGhost();
         }
         UpdateHud();
+        if (_shotCountdown > 0 && --_shotCountdown == 0 && _shotPath != null)
+            GetViewport().GetTexture().GetImage().SavePng(_shotPath);
         if (_finishCountdown > 0 && --_finishCountdown == 0)
         {
-            if (_exploreDemo) FinishExplore(); else FinishDemo();
+            if (_threatDemo) FinishThreat();
+            else if (_exploreDemo) FinishExplore();
+            else FinishDemo();
         }
     }
 
@@ -829,6 +854,7 @@ public partial class Play : Node3D
                 ? $"JUMPING to {galaxy.Systems[Net.JumpTarget(Player)].Name} in {Net.JumpRemaining(Player) / (float)Units.TicksPerSecond:F1}s"
                 : Net.HasAbility(Ability.Jump) ? "jump drive ready (G map, J jump)" : "jump drive locked: research Jump Drive";
             sb.Append($"SYSTEM {where}   |   {scanner}   |   {drive}   |   visited {Enumerable.Range(0, galaxy.Systems.Count).Count(Net.IsSystemVisited)}/{galaxy.Systems.Count}").Append('\n');
+            ThreatHud(sb, cur);
         }
 
         if (Net.CurrentResearch >= 0)
@@ -925,6 +951,179 @@ public partial class Play : Node3D
             case 15: Step(true, () => Send(new SetResearch(logistics))); break;
             case 16: Step(Net.IsResearched(logistics), () => { _botDone = true; }); break;
         }
+    }
+
+    // ---- threat: enemies, shots and warnings ---------------------------------------------------------------
+
+    private bool _threatDemo;
+    private MultiMesh? _enemyMesh;
+    private float[] _enemyBuf = Array.Empty<float>();
+    private readonly List<(MeshInstance3D Node, float Life)> _fx = new();
+    private StandardMaterial3D _fxTurret = null!, _fxShip = null!, _fxEnemy = null!;
+    private long _lastWaves, _lastLost, _lastShipsLost;
+    private bool _warned;
+    private int _shotCountdown;
+    private bool _shotTaken;
+
+    private void BuildThreatVisuals()
+    {
+        if (_content.Threat is null) return;
+        _enemyMesh = new MultiMesh
+        {
+            TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true,
+            Mesh = new BoxMesh { Size = Vector3.One, Material = VertexMaterial() },
+            InstanceCount = _content.Threat.MaxEnemies, VisibleInstanceCount = 0,
+        };
+        _enemyBuf = new float[_content.Threat.MaxEnemies * FloatsPerItem];
+        AddChild(new MultiMeshInstance3D { Multimesh = _enemyMesh });
+
+        StandardMaterial3D Beam(Color c) => new() { AlbedoColor = c, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded };
+        _fxTurret = Beam(new Color(1f, 0.9f, 0.3f));
+        _fxShip = Beam(new Color(0.5f, 0.9f, 1f));
+        _fxEnemy = Beam(new Color(1f, 0.25f, 0.2f));
+    }
+
+    private void UpdateEnemies(float dt)
+    {
+        if (_enemyMesh is null) return;
+        var list = Net.Enemies();
+        for (int i = 0; i < list.Count; i++)
+        {
+            var e = list[i];
+            var color = e.Type == 0 ? new Color(1f, 0.35f, 0.25f) : new Color(0.8f, 0.2f, 0.75f);
+            Write(_enemyBuf, i * FloatsPerItem, Vector3.One * (e.Type == 0 ? 0.5f : 0.8f),
+                new Vector3(e.X, e.Y, e.Z) / CellUnits, color);
+        }
+        _enemyMesh.VisibleInstanceCount = list.Count;
+        _enemyMesh.Buffer = _enemyBuf;
+
+        // Beams from the shots of the last tick fade quickly.
+        for (int i = _fx.Count - 1; i >= 0; i--)
+        {
+            var (node, life) = _fx[i];
+            life -= dt;
+            if (life <= 0) { node.QueueFree(); _fx.RemoveAt(i); }
+            else _fx[i] = (node, life);
+        }
+    }
+
+    private void SpawnShotFx()
+    {
+        foreach (var s in Net.Shots)
+        {
+            if (_fx.Count >= 40) return;
+            var from = new Vector3(s.FromX, s.FromY, s.FromZ) / CellUnits;
+            var to = new Vector3(s.ToX, s.ToY, s.ToZ) / CellUnits;
+            float length = (to - from).Length();
+            if (length < 0.01f) continue;
+            var beam = new MeshInstance3D
+            {
+                Mesh = new BoxMesh { Size = new Vector3(0.07f, 0.07f, length) },
+                MaterialOverride = s.Kind == ShotKind.Turret ? _fxTurret : s.Kind == ShotKind.Ship ? _fxShip : _fxEnemy,
+            };
+            AddChild(beam);
+            beam.LookAtFromPosition((from + to) / 2f, to);
+            _fx.Add((beam, 0.14f));
+        }
+    }
+
+    /// <summary>Called after every simulation tick: warnings, losses and shot effects.</summary>
+    private void WatchThreat()
+    {
+        if (!Net.ThreatActive) return;
+        SpawnShotFx();
+
+        var home = Net.GetSystemThreat(0);
+        if (home.WarningRemaining >= 0 && !_warned)
+        {
+            _warned = true;
+            Toast($"Remnant signature detected: a wave arrives in {home.WarningRemaining / (float)Units.TicksPerSecond:F0}s. Arm turrets (belts of ammo) and your weapons (V).");
+        }
+        else if (home.WarningRemaining < 0) _warned = false;
+
+        if (Net.WavesSpawned > _lastWaves) { _lastWaves = Net.WavesSpawned; Toast($"Wave {Net.WavesSpawned} has arrived: {Net.EnemyCount} enemies."); }
+        if (Net.MachinesLost > _lastLost) { Toast($"A machine was destroyed ({Net.MachinesLost} lost in total)."); _lastLost = Net.MachinesLost; }
+        if (Net.ShipsLost > _lastShipsLost) { Toast("Your ship was destroyed. Rebuilding at the anchor..."); _lastShipsLost = Net.ShipsLost; }
+    }
+
+    private void ToggleWeapons()
+    {
+        bool on = Net.HasPlayer(Player) && Net.GetPlayerInfo(Player).Armed;
+        Send(new SetWeapons(!on));
+    }
+
+    private void ThreatHud(StringBuilder sb, int currentSystem)
+    {
+        if (!Net.ThreatActive) return;
+        var rules = _content.Threat!;
+        int sys = currentSystem >= 0 ? currentSystem : 0;
+        var th = Net.GetSystemThreat(sys);
+        string state = th.WarningRemaining >= 0 ? $"WAVE {th.Wave + 1} INCOMING in {th.WarningRemaining / (float)Units.TicksPerSecond:F0}s"
+            : th.Enemies > 0 ? $"{th.Enemies} enemies attacking"
+            : $"alert {100 * th.Alert / th.AlertMax}%";
+        var p = Net.GetPlayerInfo(Player);
+        string ship = p.RespawnRemaining > 0 ? $"SHIP REBUILDING {p.RespawnRemaining / (float)Units.TicksPerSecond:F0}s" : $"hull {p.Hull}/{rules.ShipHull}";
+        sb.Append($"THREAT signature {th.Signature} (calm up to {rules.SignatureThreshold})   {state}   |   {ship}   weapons {(p.Armed ? "ON" : "off")} (V)   |   " +
+                  $"killed {Net.EnemiesKilled}  lost {Net.MachinesLost} machines").Append('\n');
+    }
+
+    // ---- threat demo -------------------------------------------------------------------------------
+    // --threat-demo: a sandbox bot builds a loud base with two ammo-fed turrets, arms the ship, forces a wave and watches it.
+
+    private void ThreatThink()
+    {
+        if (_botDone || _world.PendingCommands > 0) return;
+        if (_botStep == 0)
+        {
+            int lab = _content.MachineIndex("core:research_lab"), smelter = _content.MachineIndex("core:smelter");
+            int assembler = _content.MachineIndex("core:assembler"), turret = _content.MachineIndex("core:turret");
+            int ammo = _content.ItemIndex("core:ammo");
+            Send(new PlaceMachine(0, 0, 0, lab, -1));
+            Send(new PlaceMachine(0, 0, 3, smelter, _content.RecipeIndex("core:smelt_iron")));
+            Send(new PlaceMachine(0, 0, 6, assembler, _content.RecipeIndex("core:iron_plate")));
+            foreach (int z in new[] { 0, 6 })
+            {
+                Send(new Batch(new Command[]
+                {
+                    new PlaceMachine(10, 0, z, turret, -1),
+                    new PlaceSegment(7, 0, z, Dir.PosX, 3, BeltTier.Mk2),
+                    new SetSource(-1, new ushort[] { (ushort)ammo }),
+                    new ConnectToMachine(-1, -1),
+                }));
+            }
+            // The ship stays out of it so the turrets' work shows (the ship weapon is covered by tests).
+            Send(new SetWeapons(false));
+            _distance = 34f;
+            _botStartedAt = Math.Max(1, _world.Tick);
+            _botStep = 1;
+            return;
+        }
+
+        if (_botStep == 1)
+        {
+            if (_world.Tick - _botStartedAt < 600) return; // let the turrets fill with ammo
+            Net.ScheduleWave(0); // setup for the demo: a wave arrives without waiting for the alert
+            _botStep = 2;
+            return;
+        }
+
+        if (!_shotTaken && Net.Shots.Any(s => s.Kind == ShotKind.Turret) && Net.EnemyCount > 0)
+        {
+            _shotTaken = true;
+            _shotCountdown = 3;
+        }
+        if (Net.EnemiesSpawned > 0 && Net.EnemyCount == 0) _botDone = true;
+        if (_world.Tick - _botStartedAt > 8000) _botDone = true;
+    }
+
+    private void FinishThreat()
+    {
+        var net = Net;
+        GD.Print($"THREAT waves={net.WavesSpawned} spawned={net.EnemiesSpawned} killed={net.EnemiesKilled} machines_lost={net.MachinesLost} " +
+                 $"ships_lost={net.ShipsLost} ammo_fired={net.AmmoFired} sim_seconds={(_world.Tick - _botStartedAt) / (double)Units.TicksPerSecond:F0}");
+        try { _world.ValidateInvariants(); GD.Print("THREAT invariants=ok"); }
+        catch (Exception e) { GD.PrintErr("THREAT invariants=FAILED " + e.Message); }
+        GetTree().Quit();
     }
 
     // ---- explore demo ------------------------------------------------------------------------------
