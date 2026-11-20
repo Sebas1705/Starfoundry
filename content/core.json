@@ -484,6 +484,75 @@
           "percent": 50
         }
       ]
+    },
+    {
+      "id": "core:overclock",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 300
+        }
+      ],
+      "requires": [
+        "core:turret_calibration"
+      ],
+      "unlocks": [],
+      "bonuses": [
+        {
+          "kind": "turret_damage",
+          "percent": 8
+        }
+      ],
+      "repeatable": {
+        "max_levels": 8,
+        "cost_growth_percent": 35
+      }
+    },
+    {
+      "id": "core:alloy_refinement",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 300
+        }
+      ],
+      "requires": [
+        "core:reinforced_plating"
+      ],
+      "unlocks": [],
+      "bonuses": [
+        {
+          "kind": "machine_hp",
+          "percent": 10
+        }
+      ],
+      "repeatable": {
+        "max_levels": 8,
+        "cost_growth_percent": 35
+      }
+    },
+    {
+      "id": "core:nanite_repair",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 300
+        }
+      ],
+      "requires": [
+        "core:field_repair"
+      ],
+      "unlocks": [],
+      "bonuses": [
+        {
+          "kind": "repair_heal",
+          "percent": 25
+        }
+      ],
+      "repeatable": {
+        "max_levels": 6,
+        "cost_growth_percent": 35
+      }
     }
   ],
   "galaxy": {

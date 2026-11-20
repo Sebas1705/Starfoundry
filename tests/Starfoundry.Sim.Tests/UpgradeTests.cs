@@ -226,6 +226,118 @@ public class UpgradeTests
 
     }
 
+    private static readonly int Overclock = C.ResearchIndex("core:overclock");
+    private static readonly int Plate = C.RecipeIndex("core:iron_plate");
+    private static readonly int PlateItem = C.ItemIndex("core:iron_plate");
+
+    [Fact]
+    public void RepeatableNodesCarryTheirLevelsAndGrowth()
+    {
+        var def = C.Research[Overclock];
+        Assert.Equal((8, 35), (def.MaxLevels, def.CostGrowthPercent));
+        Assert.Equal(1, C.Research[Calibration].MaxLevels);
+        foreach (var id in new[] { "core:alloy_refinement", "core:nanite_repair" })
+            Assert.True(C.Research[C.ResearchIndex(id)].MaxLevels > 1, id);
+    }
+
+    private const string RepHead = """{"schema":1,"items":[{"id":"t:a"}],"machines":[{"id":"t:m"}],"recipes":[],"research":[""";
+
+    private static string RepNode(string extra) =>
+        RepHead + """{"id":"t:r","cost":[{"item":"t:a","count":10}],"requires":[],"unlocks":[],""" + extra + "}]}";
+
+    [Fact]
+    public void RepeatableContentIsValidated()
+    {
+        const string bonus = """ "bonuses":[{"kind":"machine_hp","percent":5}]""";
+        var c = ContentDb.FromJson(RepNode(bonus + """,  "repeatable":{"max_levels":3,"cost_growth_percent":50}"""));
+        Assert.Equal((3, 50), (c.Research[0].MaxLevels, c.Research[0].CostGrowthPercent));
+        Assert.NotEqual(c.Hash, ContentDb.FromJson(RepNode(bonus + """,  "repeatable":{"max_levels":4,"cost_growth_percent":50}""")).Hash);
+
+        Assert.Throws<InvalidDataException>(() => ContentDb.FromJson(RepNode(bonus + """,  "repeatable":{"max_levels":1,"cost_growth_percent":50}""")));
+        Assert.Throws<InvalidDataException>(() => ContentDb.FromJson(RepNode(bonus + """,  "repeatable":{"max_levels":3,"cost_growth_percent":0}""")));
+        Assert.Throws<InvalidDataException>(() => ContentDb.FromJson(RepNode(bonus + """,  "repeatable":{"max_levels":3}""")));
+        Assert.Throws<InvalidDataException>(() => ContentDb.FromJson(RepNode(bonus + """,  "repeatable":{"max_levels":3,"cost_growth_percent":50,"x":1}""")));
+        Assert.Throws<InvalidDataException>(() => ContentDb.FromJson(
+            RepNode("""  "abilities":["jump"],"repeatable":{"max_levels":3,"cost_growth_percent":50}"""))); // nothing to repeat
+    }
+
+    [Fact]
+    public void EachLevelCostsTheGrowthPercentMoreRoundedUpAndTheBonusIsPerLevel()
+    {
+        var n = World().Network;
+        int baseCost = C.Research[Overclock].Cost.Single().Count;
+        Assert.Equal(baseCost, n.ResearchCost(Overclock).Single().Count);
+
+        int expected = baseCost;
+        for (int level = 1; level <= 7; level++)
+        {
+            n.GrantResearch(Overclock, level);
+            Assert.Equal(level, n.ResearchLevel(Overclock));
+            expected = (int)(((long)expected * 135 + 99) / 100);
+            Assert.Equal(expected, n.ResearchCost(Overclock).Single().Count);
+            Assert.Equal(25 + 8 * level, n.BonusPercent(BonusKind.TurretDamage)); // calibration's 25 plus 8 for each level
+            Assert.True(n.CanResearch(Overclock));
+        }
+        n.GrantResearch(Overclock, 99); // clamped to the maximum
+        Assert.Equal(8, n.ResearchLevel(Overclock));
+        Assert.False(n.CanResearch(Overclock), "the last level is done");
+        Assert.Equal(25 + 8 * 8, n.BonusPercent(BonusKind.TurretDamage));
+        Assert.Equal(expected, n.ResearchCost(Overclock).Single().Count == expected ? expected : -1); // a finished node shows its last level cost
+    }
+
+    [Fact]
+    public void ALabResearchesLevelAfterLevelAndEachCostsMore()
+    {
+        var w = SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: false); // no waves to wreck the chain over the hours this takes
+        w.Network.GrantResearch(Calibration);
+        int ex = Ok(w, new PlaceMachine(0, 0, 0, Extractor, MineIron));
+        int b1 = Ok(w, new PlaceSegment(1, 0, 0, Dir.PosX, 3, BeltTier.Mk1));
+        int sm = Ok(w, new PlaceMachine(4, 0, 0, Smelter, SmeltIron));
+        int b2 = Ok(w, new PlaceSegment(5, 0, 0, Dir.PosX, 3, BeltTier.Mk1));
+        int asm = Ok(w, new PlaceMachine(8, 0, 0, Assembler, Plate));
+        int b3 = Ok(w, new PlaceSegment(9, 0, 0, Dir.PosX, 3, BeltTier.Mk1));
+        int lab = Ok(w, new PlaceMachine(12, 0, 0, Lab, -1));
+        Ok(w, new ConnectFromMachine(ex, b1)); Ok(w, new ConnectToMachine(b1, sm));
+        Ok(w, new ConnectFromMachine(sm, b2)); Ok(w, new ConnectToMachine(b2, asm));
+        Ok(w, new ConnectFromMachine(asm, b3)); Ok(w, new ConnectToMachine(b3, lab));
+
+        int first = w.Network.ResearchCost(Overclock).Single().Count;
+        Ok(w, new SetResearch(Overclock));
+        for (int i = 0; i < 160_000 && w.Network.ResearchLevel(Overclock) < 1; i++) w.Step();
+        Assert.Equal(1, w.Network.ResearchLevel(Overclock));
+        Assert.Equal(-1, w.Network.CurrentResearch);
+        Assert.Equal(0, w.Network.ResearchProgress(Overclock, PlateItem)); // the next level starts from nothing
+        Assert.Equal(33, w.Network.BonusPercent(BonusKind.TurretDamage));  // 25 + 8
+
+        int second = w.Network.ResearchCost(Overclock).Single().Count;
+        Assert.True(second > first);
+        Ok(w, new SetResearch(Overclock));                                   // allowed again
+        for (int i = 0; i < 260_000 && w.Network.ResearchLevel(Overclock) < 2; i++) w.Step();
+        Assert.Equal(2, w.Network.ResearchLevel(Overclock));
+        Assert.Equal(41, w.Network.BonusPercent(BonusKind.TurretDamage));
+        w.ValidateInvariants();
+    }
+
+    [Fact]
+    public void LevelsSurviveARolledBackBatchAndAreDeterministic()
+    {
+        ulong Run()
+        {
+            var w = World();
+            w.Network.GrantResearch(Overclock, 3);
+            Ok(w, new PlaceMachine(0, 0, 0, Lab, -1));
+            w.Submit(0, new Batch(new Command[] { new PlaceMachine(0, 0, 3, Lab, -1), new PlaceMachine(0, 0, 0, Lab, -1) }));
+            w.Step();
+            Assert.False(w.LastResults.Single().Ok);
+            Assert.Equal(3, w.Network.ResearchLevel(Overclock));
+            Assert.Equal(25 + 24, w.Network.BonusPercent(BonusKind.TurretDamage));
+            for (int i = 0; i < 300; i++) w.Step();
+            w.ValidateInvariants();
+            return w.Checksum();
+        }
+        Assert.Equal(Run(), Run());
+    }
+
     [Fact]
     public void UpgradesAreDeterministic()
     {

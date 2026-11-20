@@ -80,18 +80,19 @@ public sealed partial class BeltNetwork
     /// <summary>Whether the ship can jump: always in sandbox, otherwise only after the research that unlocks it.</summary>
     public bool HasAbility(Ability ability) =>
         Mode == GameMode.Sandbox || Content is not { } c || !c.AbilityGated[(int)ability]
-        || c.Research.Any(n => _researched[n.Index] && n.UnlockAbilities.Contains(ability));
+        || c.Research.Any(n => _level[n.Index] > 0 && n.UnlockAbilities.Contains(ability));
 
     /// <summary>
     /// Marks a research node and everything it requires finished, without paying for them. For setup and tests;
     /// gameplay goes through labs.
     /// </summary>
-    public void GrantResearch(int node)
+    public void GrantResearch(int node, int levels = 1)
     {
         if (Content is null || !Content.IsResearch(node)) throw new ArgumentOutOfRangeException(nameof(node));
-        if (_researched[node]) return;
+        levels = Math.Clamp(levels, 1, Content.Research[node].MaxLevels);
+        if (_level[node] >= levels) return;
         foreach (int required in Content.Research[node].Requires) GrantResearch(required);
-        _researched[node] = true;
+        _level[node] = levels;
         if (_researchCurrent == node) _researchCurrent = -1;
         RecomputeBonuses(scaleHp: true);
         StructureVersion++;

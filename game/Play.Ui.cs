@@ -298,11 +298,11 @@ public partial class Play
         if (Net.CurrentResearch >= 0)
         {
             var node = _content.Research[Net.CurrentResearch];
-            sb.Append(L("hud.research", Loc.Name("research", node.Id),
-                string.Join(", ", node.Cost.Select(c => $"{Net.ResearchProgress(node.Index, c.Item)}/{c.Count} {ItemName(c.Item)}")))).Append('\n');
+            sb.Append(L("hud.research", ResearchName(node, next: true),
+                string.Join(", ", Net.ResearchCost(node.Index).Select(c => $"{Net.ResearchProgress(node.Index, c.Item)}/{c.Count} {ItemName(c.Item)}")))).Append('\n');
         }
         else sb.Append(Net.ResearchedCount == 0 ? L("hud.researchNone") : L("hud.researchDone",
-            string.Join(", ", _content.Research.Where(r => Net.IsResearched(r.Index)).Select(r => Loc.Name("research", r.Id))))).Append('\n');
+            string.Join(", ", _content.Research.Where(r => Net.IsResearched(r.Index)).Select(r => ResearchName(r, next: false))))).Append('\n');
 
         int bDmg = Net.BonusPercent(BonusKind.TurretDamage), bRate = Net.BonusPercent(BonusKind.TurretRate),
             bHp = Net.BonusPercent(BonusKind.MachineHp), bHeal = Net.BonusPercent(BonusKind.RepairHeal),
@@ -327,6 +327,14 @@ public partial class Play
         string ship = p.RespawnRemaining > 0 ? L("hud.rebuilding", (p.RespawnRemaining / (float)Units.TicksPerSecond).ToString("F0", Loc.Culture))
             : L("hud.hull", p.Hull, Net.ShipMaxHull);
         sb.Append(L("hud.threat", th.Signature, rules.SignatureThreshold, state, ship)).Append('\n');
+    }
+
+    /// <summary>A research name, with the level for repeatable nodes (the level being researched when next is true, the level reached otherwise).</summary>
+    private string ResearchName(ResearchDef r, bool next)
+    {
+        string name = Loc.Name("research", r.Id);
+        if (r.MaxLevels <= 1) return name;
+        return L("hud.level", name, next ? Net.ResearchLevel(r.Index) + 1 : Net.ResearchLevel(r.Index), r.MaxLevels);
     }
 
     /// <summary>Damaged machines the ship can reach, worst first.</summary>
