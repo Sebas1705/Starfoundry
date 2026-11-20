@@ -65,10 +65,10 @@ public class BalanceTests
     }
 
     /// <summary>The wave during which a base with this many fed turrets (each with its own ammo line) first loses a machine.</summary>
-    private static int FirstLossWave(int turrets, ulong seed, int walls = 0, RepairMode repairs = RepairMode.Never) =>
+    private static int FirstLossWave(int turrets, ulong seed, int walls = 0, RepairMode repairs = RepairMode.Never, int bays = 0, int upgrades = 0) =>
         new BalanceBot(TestContent.Core, seed)
         {
-            ActionDelaySeconds = 15, Turrets = turrets, Walls = walls, Repairs = repairs,
+            ActionDelaySeconds = 15, Turrets = turrets, Walls = walls, Repairs = repairs, Bays = bays, Upgrades = upgrades,
             StopAtFirstLoss = true, ObserveAfterSeconds = 6 * 60 * 60,
         }.Run(6 * 60 * 60).FirstLossWave ?? int.MaxValue;
 
@@ -132,6 +132,35 @@ public class BalanceTests
         Assert.Equal(0, bays.MachinesLost);
         Assert.True(bays.WallsLost * 4 <= bare.WallsLost * 3, $"walls lost: {bare.WallsLost} without bays, {bays.WallsLost} with two");
         Assert.True(bays.WallsLost > 0, "the bays slow the wear, they do not stop it");
+    }
+
+    [Theory]
+    [InlineData(20261120UL)]
+    [InlineData(1UL)]
+    public void TheFourDefenceUpgradesBuyAtLeastTwoWavesToASingleTurret(ulong seed)
+    {
+        int bare = FirstLossWave(1, seed), upgraded = FirstLossWave(1, seed, upgrades: 4);
+        Assert.True(upgraded >= bare + 2, $"no upgrades held until wave {bare}, four upgrades until wave {upgraded}");
+    }
+
+    [Fact]
+    public void UpgradesPayOffMostOnAFullDefence()
+    {
+        // Four walls and two repair bays, with and without the four upgrades (plating makes walls and bays tougher, field repair heals more).
+        int bare = FirstLossWave(1, 20261120UL, walls: 4, bays: 2), upgraded = FirstLossWave(1, 20261120UL, walls: 4, bays: 2, upgrades: 4);
+        Assert.True(upgraded >= bare + 6, $"without upgrades wave {bare}, with them wave {upgraded}");
+    }
+
+    [Fact]
+    public void TheUpgradesArriveOneAfterAnotherAndNeverBeforeTheirPredecessors()
+    {
+        var r = new BalanceBot(TestContent.Core, 20261120UL) { ActionDelaySeconds = 15, Turrets = 1, Upgrades = 4, ObserveAfterSeconds = 90 * 60 }.Run(120 * 60);
+        double Done(string id) => r.Milestones["Researched " + id];
+        double logistics = Done("core:logistics"), calibration = Done("core:turret_calibration"), plating = Done("core:reinforced_plating"),
+            loader = Done("core:rapid_loader"), repair = Done("core:field_repair");
+        Assert.True(logistics < calibration && calibration < plating && plating < loader && loader < repair);
+        Assert.InRange(calibration - logistics, 5 * 60, 20 * 60);   // the first upgrade is a few minutes of plates away
+        Assert.InRange(repair, 40 * 60, 110 * 60);                  // all four inside the first two hours
     }
 
     [Theory]

@@ -71,6 +71,24 @@ public sealed record RecipeDef(int Index, string Id, int Machine, ItemStack[] In
 /// <param name="CostPerCell">Items paid per cell of belt in campaign mode.</param>
 public sealed record BeltDef(BeltTier Tier, string Id, ItemStack[] CostPerCell);
 
+/// <summary>What a research bonus improves. Bonuses of finished research add up as percentages.</summary>
+public enum BonusKind
+{
+    /// <summary>Turret damage per shot goes up.</summary>
+    TurretDamage = 0,
+
+    /// <summary>The interval between turret shots goes down.</summary>
+    TurretRate = 1,
+
+    /// <summary>The maximum hit points of every machine go up; machines already standing keep their share of it.</summary>
+    MachineHp = 2,
+
+    /// <summary>Repairers restore more hit points per use.</summary>
+    RepairHeal = 3,
+}
+
+public sealed record Bonus(BonusKind Kind, int Percent);
+
 /// <summary>Abilities of the ship that research can unlock.</summary>
 public enum Ability
 {
@@ -81,7 +99,7 @@ public enum Ability
 /// <param name="Requires">Research nodes that must be finished first.</param>
 public sealed record ResearchDef(
     int Index, string Id, ItemStack[] Cost, int[] Requires, int[] UnlockMachines, int[] UnlockRecipes, BeltTier[] UnlockBelts,
-    Ability[] UnlockAbilities);
+    Ability[] UnlockAbilities, Bonus[] Bonuses);
 
 /// <param name="SystemCount">Systems in the galaxy, including home.</param>
 /// <param name="SpacingCells">Distance between neighbouring grid positions.</param>
@@ -347,7 +365,7 @@ public sealed class ContentDb
                 var pending = new List<(JsonElement Element, string Id)>();
                 foreach (var e in Array(root, "research"))
                 {
-                    RequireObject(e, "research node", "id", "cost", "requires", "unlocks", "abilities");
+                    RequireObject(e, "research node", "id", "cost", "requires", "unlocks", "abilities", "bonuses");
                     string id = Id(e, "research node");
                     if (!researchIds.TryAdd(id, researchIds.Count)) throw new InvalidDataException($"Duplicate research '{id}'.");
                     if (!allIds.Add(id)) throw new InvalidDataException($"Id '{id}' is used twice across machines, recipes, belts and research.");
@@ -392,8 +410,26 @@ public sealed class ContentDb
                             ua.Add(ability);
                         }
                     }
-                    if (um.Count + ur.Count + ub.Count + ua.Count == 0) throw new InvalidDataException($"Research '{id}' unlocks nothing.");
-                    research.Add(new ResearchDef(research.Count, id, cost, requires.ToArray(), um.ToArray(), ur.ToArray(), ub.ToArray(), ua.ToArray()));
+                    var bonuses = new List<Bonus>();
+                    if (e.TryGetProperty("bonuses", out _))
+                    {
+                        foreach (var b in Array(e, "bonuses"))
+                        {
+                            RequireObject(b, "bonus", "kind", "percent");
+                            var kind = Str(b, "kind", id) switch
+                            {
+                                "turret_damage" => BonusKind.TurretDamage,
+                                "turret_rate" => BonusKind.TurretRate,
+                                "machine_hp" => BonusKind.MachineHp,
+                                "repair_heal" => BonusKind.RepairHeal,
+                                _ => throw new InvalidDataException($"Research '{id}' has an unknown bonus kind."),
+                            };
+                            if (bonuses.Any(x => x.Kind == kind)) throw new InvalidDataException($"Research '{id}' lists a bonus kind twice.");
+                            bonuses.Add(new Bonus(kind, Int(b, "percent", id, 1, kind == BonusKind.TurretRate ? 75 : 1000)));
+                        }
+                    }
+                    if (um.Count + ur.Count + ub.Count + ua.Count + bonuses.Count == 0) throw new InvalidDataException($"Research '{id}' unlocks nothing.");
+                    research.Add(new ResearchDef(research.Count, id, cost, requires.ToArray(), um.ToArray(), ur.ToArray(), ub.ToArray(), ua.ToArray(), bonuses.ToArray()));
                 }
 
                 // Requirements must form a DAG, otherwise some node could never be researched.
@@ -655,6 +691,7 @@ public sealed class ContentDb
             Mix(r.UnlockRecipes.Length); foreach (int q in r.UnlockRecipes) Mix(q);
             Mix(r.UnlockBelts.Length); foreach (var q in r.UnlockBelts) Mix((int)q);
             Mix(r.UnlockAbilities.Length); foreach (var q in r.UnlockAbilities) Mix((int)q);
+            Mix(r.Bonuses.Length); foreach (var q in r.Bonuses) { Mix((int)q.Kind); Mix(q.Percent); }
         }
         if (Galaxy is { } g)
         {

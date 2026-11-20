@@ -487,7 +487,7 @@ public sealed class SimWorld
                 int mach = Resolve(rp.Machine, machines);
                 if (!Network.IsMachineAlive(mach)) return Reject.UnknownMachine;
                 var m = Network.GetMachineInfo(mach);
-                if (m.Hp >= Network.Content!.Machines[m.Type].Hp) return Reject.NotDamaged;
+                if (m.Hp >= Network.MaxHp(m.Type)) return Reject.NotDamaged;
                 if (Campaign)
                 {
                     if (!InBuildRange(player, m.X, m.Y, m.Z)) return Reject.OutOfRange;

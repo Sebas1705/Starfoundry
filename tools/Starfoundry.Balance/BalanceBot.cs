@@ -55,6 +55,9 @@ public sealed class BalanceBot
     /// <summary>How many walls to put around the base (0 to 4), once the first turret stands.</summary>
     public int Walls { get; init; }
 
+    /// <summary>How many defence upgrades to research after Logistics (0 to 4), in order: calibration, plating, loader, field repair.</summary>
+    public int Upgrades { get; init; }
+
     /// <summary>How many repair bays to build (0 to 2), each fed ingots by a second output of a smelter.</summary>
     public int Bays { get; init; }
 
@@ -230,8 +233,17 @@ public sealed class BalanceBot
         if (Turrets >= 2 || Walls > 0 || Bays > 0)
         {
             _steps.Add(() => Net.IsResearched(_c.ResearchIndex("core:logistics")));
-            _steps.Add(() => Try(new RemoveMachine(_ids["lab"]), out _));
-            Machine_("plates.depot", 12, 3, "core:depot", null, () => Do(new ConnectToMachine(_ids["l2.b3"], _ids["plates.depot"])));
+            if (Upgrades > 0)
+            {
+                // The lab stays for the upgrades, so the plates for building come from a second output of the assembler.
+                Link("plates.belt", 8, 4, 4, "l2.asm");
+                Machine_("plates.depot", 12, 4, "core:depot", null, () => Do(new ConnectToMachine(_ids["plates.belt"], _ids["plates.depot"])));
+            }
+            else
+            {
+                _steps.Add(() => Try(new RemoveMachine(_ids["lab"]), out _));
+                Machine_("plates.depot", 12, 3, "core:depot", null, () => Do(new ConnectToMachine(_ids["l2.b3"], _ids["plates.depot"])));
+            }
         }
         // Walls on four sides, inside the turrets' reach: enemies go for the nearest one, so it does not matter which side they come from.
         for (int i = 0; i < Walls; i++)
@@ -278,6 +290,7 @@ public sealed class BalanceBot
     /// </summary>
     private void Maintain()
     {
+        ResearchUpgrades();
         if (_wallSpots.Count == 0 && Repairs == RepairMode.Never) return;
         bool fighting = Net.EnemyCount > 0;
         if (!fighting)
@@ -285,12 +298,25 @@ public sealed class BalanceBot
                 _w.Submit(0, new PlaceMachine(_wallSpots[i].X, 0, _wallSpots[i].Z, Machine("core:wall"), -1));
         if (Repairs == RepairMode.Never || (fighting && Repairs == RepairMode.BetweenWaves)) return;
         for (int id = 0; id < Net.MachineIdLimit; id++)
-            if (Net.IsMachineAlive(id) && Net.GetMachineInfo(id).Hp < _c.Machines[Net.GetMachineInfo(id).Type].Hp)
+            if (Net.IsMachineAlive(id) && Net.GetMachineInfo(id).Hp < Net.MaxHp(Net.GetMachineInfo(id).Type))
                 _w.Submit(0, new Repair(id));
         // The commands are applied by the next tick; rejections (no items, not damaged, cell taken) are expected and ignored.
     }
 
     private int _wallsBuilt;
+
+    private static readonly string[] UpgradeOrder = { "core:turret_calibration", "core:reinforced_plating", "core:rapid_loader", "core:field_repair" };
+
+    /// <summary>Keeps the lab busy with the next defence upgrade once Logistics is done.</summary>
+    private void ResearchUpgrades()
+    {
+        if (Upgrades == 0 || Net.CurrentResearch >= 0 || !Net.IsResearched(_c.ResearchIndex("core:logistics"))) return;
+        for (int i = 0; i < Upgrades && i < UpgradeOrder.Length; i++)
+        {
+            int node = _c.ResearchIndex(UpgradeOrder[i]);
+            if (Net.CanResearch(node)) { _w.Submit(0, new SetResearch(node)); return; }
+        }
+    }
 
     private void Steer((int X, int Y, int Z) target)
     {

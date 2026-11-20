@@ -34,7 +34,7 @@ public sealed partial class BeltNetwork
         CheckRecipe(type, recipe);
 
         int id = _machines.Count;
-        _machines.Add(new Machine(id, x, y, z, type, content.Items.Count) { Recipe = recipe, Owner = owner, Hp = content.Machines[type].Hp });
+        _machines.Add(new Machine(id, x, y, z, type, content.Items.Count) { Recipe = recipe, Owner = owner, Hp = MaxHp(type) });
         _machinesAlive++;
         StructureVersion++;
         return id;
@@ -314,7 +314,7 @@ public sealed partial class BeltNetwork
             if (role != MachineRole.Drill && m.Deposit != -1) Fail($"machine {id} is not a drill but has a deposit");
             if (m.Deposit != -1 && !IsDeposit(m.Deposit)) Fail($"machine {id} has an unknown deposit");
 
-            if (m.Hp < 1 || m.Hp > content.Machines[m.Type].Hp) Fail($"machine {id} hit points {m.Hp} out of range");
+            if (m.Hp < 1 || m.Hp > MaxHp(m.Type)) Fail($"machine {id} hit points {m.Hp} out of range");
             var turret = content.Machines[m.Type].Turret;
             var repairer = content.Machines[m.Type].Repairer;
             if (turret is null && repairer is null && m.TurretCooldown != 0) Fail($"machine {id} is not a turret or repairer but has a cooldown");

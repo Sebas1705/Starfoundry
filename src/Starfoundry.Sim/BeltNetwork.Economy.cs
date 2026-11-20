@@ -131,6 +131,44 @@ public sealed partial class BeltNetwork
     private SortedDictionary<int, Player> _players = new();
     private List<Deposit> _deposits = new();
     private bool[] _researched = Array.Empty<bool>();
+
+    private readonly int[] _bonus = new int[4];
+
+    /// <summary>Total research bonus of a kind, as a percentage.</summary>
+    public int BonusPercent(BonusKind kind) => _bonus[(int)kind];
+
+    /// <summary>Maximum hit points of a machine type, with the research bonus.</summary>
+    public int MaxHp(int machineType) => Content!.Machines[machineType].Hp * (100 + _bonus[(int)BonusKind.MachineHp]) / 100;
+
+    /// <summary>Damage of one turret shot, with the research bonus.</summary>
+    public int TurretDamage(TurretDef turret) => Math.Max(1, turret.Damage * (100 + _bonus[(int)BonusKind.TurretDamage]) / 100);
+
+    /// <summary>Ticks between turret shots, with the research bonus (never fewer than one).</summary>
+    public int TurretInterval(TurretDef turret) => Math.Max(1, turret.IntervalTicks * (100 - _bonus[(int)BonusKind.TurretRate]) / 100);
+
+    /// <summary>Hit points one repairer use restores, with the research bonus.</summary>
+    public int RepairHeal(RepairerDef repairer) => Math.Max(1, repairer.Heal * (100 + _bonus[(int)BonusKind.RepairHeal]) / 100);
+
+    /// <summary>
+    /// Adds up the bonuses of finished research. When the machine hit point bonus changes, machines already standing keep
+    /// their share of the new maximum, so finishing the research does not hurt or heal them by accident.
+    /// </summary>
+    private void RecomputeBonuses(bool scaleHp)
+    {
+        if (Content is null) return;
+        int[] old = (int[])_bonus.Clone();
+        System.Array.Clear(_bonus);
+        foreach (var node in Content.Research)
+            if (_researched[node.Index])
+                foreach (var b in node.Bonuses) _bonus[(int)b.Kind] += b.Percent;
+        if (!scaleHp || old[(int)BonusKind.MachineHp] == _bonus[(int)BonusKind.MachineHp]) return;
+        foreach (var m in _machines)
+        {
+            if (m is null) continue;
+            long oldMax = Content.Machines[m.Type].Hp * (100L + old[(int)BonusKind.MachineHp]) / 100, newMax = MaxHp(m.Type);
+            m.Hp = (int)Math.Clamp(m.Hp * newMax / Math.Max(1, oldMax), 1, newMax);
+        }
+    }
     private int[][] _progress = Array.Empty<int[]>();
     private int _researchCurrent = -1;
 
@@ -534,6 +572,7 @@ public sealed partial class BeltNetwork
 
         _researched[_researchCurrent] = true;
         _researchCurrent = -1;
+        RecomputeBonuses(scaleHp: true);
         StructureVersion++;
     }
 
@@ -546,6 +585,7 @@ public sealed partial class BeltNetwork
         CopyGalaxyFrom(other);
         CopyThreatFrom(other);
         _researched = (bool[])other._researched.Clone();
+        RecomputeBonuses(scaleHp: false);
         _progress = other._progress.Select(a => (int[])a.Clone()).ToArray();
         _researchCurrent = other._researchCurrent;
         HoldIn = other.HoldIn;

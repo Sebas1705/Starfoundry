@@ -166,17 +166,17 @@ public sealed partial class BeltNetwork
             foreach (var t in _machines)
             {
                 if (t is null) continue;
-                int max = Content.Machines[t.Type].Hp;
+                int max = MaxHp(t.Type);
                 if (t.Hp >= max) continue;
                 long dx = (long)(t.X - m.X) * Units.CellUnits, dy = (long)(t.Y - m.Y) * Units.CellUnits, dz = (long)(t.Z - m.Z) * Units.CellUnits;
                 if (dx * dx + dy * dy + dz * dz > range * range) continue;
                 // Lowest share of hit points first; the lowest id wins ties.
-                if (best is null || (long)t.Hp * Content.Machines[best.Type].Hp < (long)best.Hp * max) best = t;
+                if (best is null || (long)t.Hp * MaxHp(best.Type) < (long)best.Hp * max) best = t;
             }
             if (best is null) continue;
 
             int before = best.Hp;
-            best.Hp = Math.Min(Content.Machines[best.Type].Hp, best.Hp + def.Heal);
+            best.Hp = Math.Min(MaxHp(best.Type), best.Hp + RepairHeal(def));
             AutoRepaired += best.Hp - before;
             m.In[def.Item]--;
             MachineInputsConsumed++;
@@ -292,11 +292,11 @@ public sealed partial class BeltNetwork
             var target = NearestEnemy(cx, cy, cz, (long)turret.RangeCells * Units.CellUnits);
             if (target is null) continue;
 
-            target.Hp -= turret.Damage;
+            target.Hp -= TurretDamage(turret);
             m.In[turret.AmmoItem]--;
             MachineInputsConsumed++;
             AmmoFired++;
-            m.TurretCooldown = turret.IntervalTicks;
+            m.TurretCooldown = TurretInterval(turret);
             _shots.Add(new ShotEvent(ShotKind.Turret, (int)cx, (int)cy, (int)cz, target.X, target.Y, target.Z));
         }
 
@@ -356,13 +356,14 @@ public sealed partial class BeltNetwork
     {
         var m = _machines[machine]!;
         var def = Content!.Machines[m.Type];
-        int missing = def.Hp - m.Hp;
+        int maxHp = MaxHp(m.Type);
+        int missing = maxHp - m.Hp;
         if (missing <= 0) return System.Array.Empty<ItemStack>();
-        return def.Cost.Select(s => new ItemStack(s.Item, Math.Max(1, (int)(((long)s.Count * missing + 2L * def.Hp - 1) / (2L * def.Hp))))).ToArray();
+        return def.Cost.Select(s => new ItemStack(s.Item, Math.Max(1, (int)(((long)s.Count * missing + 2L * maxHp - 1) / (2L * maxHp))))).ToArray();
     }
 
     /// <summary>Sets a machine's hit points back to its maximum.</summary>
-    public void RepairMachine(int machine) => _machines[machine]!.Hp = Content!.Machines[_machines[machine]!.Type].Hp;
+    public void RepairMachine(int machine) => _machines[machine]!.Hp = MaxHp(_machines[machine]!.Type);
 
     /// <summary>The machine with the highest signature in the system (lowest id on ties); machines with no signature count last.</summary>
     private Machine? PickTargetMachine(int system)
