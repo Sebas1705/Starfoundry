@@ -34,7 +34,7 @@ public sealed partial class BeltNetwork
         CheckRecipe(type, recipe);
 
         int id = _machines.Count;
-        _machines.Add(new Machine(id, x, y, z, type, content.Items.Count) { Recipe = recipe, Owner = owner });
+        _machines.Add(new Machine(id, x, y, z, type, content.Items.Count) { Recipe = recipe, Owner = owner, Hp = content.Machines[type].Hp });
         _machinesAlive++;
         StructureVersion++;
         return id;
@@ -138,7 +138,8 @@ public sealed partial class BeltNetwork
     public MachineInfo GetMachineInfo(int id)
     {
         var m = GetMachine(id);
-        return new MachineInfo(m.Id, m.X, m.Y, m.Z, m.Type, m.Recipe, m.Crafting, m.Remaining, m.HeldInputs, m.HeldOutputs, m.Deposit);
+        return new MachineInfo(m.Id, m.X, m.Y, m.Z, m.Type, m.Recipe, m.Crafting, m.Remaining, m.HeldInputs, m.HeldOutputs, m.Deposit,
+            m.Hp, m.TurretCooldown);
     }
 
     private Machine GetMachine(int id)
@@ -250,6 +251,7 @@ public sealed partial class BeltNetwork
         var role = Content!.Machines[m.Type].Role;
         if (role == MachineRole.Lab) return TryFeedLab(s, type);
         if (role == MachineRole.Depot) return TryFeedDepot(m, s, type);
+        if (role == MachineRole.Turret) return TryFeedTurret(m, s, type);
         if (m.Recipe < 0) return false;
         if (type >= m.In.Length) return false;
 
@@ -281,7 +283,7 @@ public sealed partial class BeltNetwork
         foreach (var m in _machines)
         {
             if (m is null) { mix(-1); continue; }
-            mix(m.Id); mix(m.X); mix(m.Y); mix(m.Z); mix(m.Type); mix(m.Recipe); mix(m.Deposit); mix(m.Owner);
+            mix(m.Id); mix(m.X); mix(m.Y); mix(m.Z); mix(m.Type); mix(m.Recipe); mix(m.Deposit); mix(m.Owner); mix(m.Hp); mix(m.TurretCooldown);
             mix(m.Crafting ? 1 : 0); mix(m.Remaining);
             foreach (int v in m.In) mix(v);
             foreach (int v in m.Out) mix(v);
@@ -311,9 +313,23 @@ public sealed partial class BeltNetwork
             if (role != MachineRole.Drill && m.Deposit != -1) Fail($"machine {id} is not a drill but has a deposit");
             if (m.Deposit != -1 && !IsDeposit(m.Deposit)) Fail($"machine {id} has an unknown deposit");
 
+            if (m.Hp < 1 || m.Hp > content.Machines[m.Type].Hp) Fail($"machine {id} hit points {m.Hp} out of range");
+            var turret = content.Machines[m.Type].Turret;
+            if (turret is null && m.TurretCooldown != 0) Fail($"machine {id} is not a turret but has a cooldown");
+            if (turret is not null && (m.TurretCooldown < 0 || m.TurretCooldown > turret.IntervalTicks)) Fail($"machine {id} turret cooldown out of range");
+
             if (m.Recipe == -1)
             {
-                if (m.HeldInputs + m.HeldOutputs > 0 || m.Crafting) Fail($"machine {id} has no recipe but holds items or is crafting");
+                if (turret is not null)
+                {
+                    for (int i = 0; i < m.In.Length; i++)
+                    {
+                        int cap = i == turret.AmmoItem ? turret.AmmoCap : 0;
+                        if (m.In[i] < 0 || m.In[i] > cap) Fail($"turret {id} holds {m.In[i]} of item {i} (cap {cap})");
+                    }
+                    if (m.HeldOutputs > 0 || m.Crafting) Fail($"turret {id} has outputs or is crafting");
+                }
+                else if (m.HeldInputs + m.HeldOutputs > 0 || m.Crafting) Fail($"machine {id} has no recipe but holds items or is crafting");
             }
             else
             {

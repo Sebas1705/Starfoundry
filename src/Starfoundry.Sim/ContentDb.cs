@@ -23,11 +23,35 @@ public enum MachineRole
 
     /// <summary>Delivers every item that reaches it into the hold of the player who built it, as long as there is room.</summary>
     Depot = 4,
+
+    /// <summary>Shoots enemies in range using ammo items delivered by belts.</summary>
+    Turret = 5,
 }
+
+/// <summary>How a turret fires. One ammo item is used per shot.</summary>
+public sealed record TurretDef(int RangeCells, int Damage, int IntervalTicks, int AmmoItem, int AmmoCap);
+
+/// <summary>An enemy type. Speed is in units per tick (240 units per cell).</summary>
+public sealed record EnemyDef(int Index, string Id, int Hp, int Speed, int Damage, int RangeCells, int IntervalTicks);
+
+/// <summary>A wave contains <c>Base + PerWave * waveNumber</c> enemies of this type (wave 0 is the first).</summary>
+public sealed record WaveSpec(int Enemy, int Base, int PerWave);
+
+/// <summary>
+/// How the Remnant threat works. Each system sums the signatures of the machines in it; above the threshold the
+/// alert meter fills by the excess every tick, below it the meter decays. A full meter schedules a wave after the
+/// warning time.
+/// </summary>
+public sealed record ThreatRules(
+    int AlertMax, int SignatureThreshold, int DecayPerTick, int AlertAfterWave, int WarningTicks, int NodeDistanceCells,
+    int MaxEnemies, int ShipHull, int ShipWeaponRangeCells, int ShipWeaponDamage, int ShipWeaponIntervalTicks, int RespawnTicks);
 
 /// <param name="Cost">Items paid from the builder's hold in campaign mode (refunded on removal).</param>
 /// <param name="SandboxOnly">Allowed only in sandbox mode (test fixtures and debug machines).</param>
-public sealed record MachineDef(int Index, string Id, MachineRole Role, ItemStack[] Cost, bool SandboxOnly);
+/// <param name="Hp">Hit points; a machine at zero is destroyed.</param>
+/// <param name="Signature">What the machine adds to its system's signature, which attracts waves.</param>
+public sealed record MachineDef(
+    int Index, string Id, MachineRole Role, ItemStack[] Cost, bool SandboxOnly, int Hp = 100, int Signature = 0, TurretDef? Turret = null);
 
 /// <param name="TimeTicks">Crafting time in simulation ticks (converted once at load from seconds).</param>
 public sealed record RecipeDef(int Index, string Id, int Machine, ItemStack[] Inputs, ItemStack[] Outputs, int TimeTicks);
@@ -104,11 +128,20 @@ public sealed class ContentDb
 
     /// <summary>Items a jump costs, paid from the hold in campaign mode.</summary>
     public ItemStack[] JumpCost { get; }
+
+    /// <summary>Threat rules, or null if the content has none.</summary>
+    public ThreatRules? Threat { get; }
+    public IReadOnlyList<EnemyDef> Enemies { get; }
+    public IReadOnlyList<WaveSpec> Waves { get; }
     public ulong Hash { get; }
 
     private ContentDb(List<ItemDef> items, List<MachineDef> machines, List<RecipeDef> recipes, BeltDef?[] belts, List<ResearchDef> research,
-        GalaxyRules? galaxy, List<ArchetypeDef> archetypes, ItemStack[] jumpCost)
+        GalaxyRules? galaxy, List<ArchetypeDef> archetypes, ItemStack[] jumpCost,
+        ThreatRules? threat, List<EnemyDef> enemies, List<WaveSpec> waves)
     {
+        Threat = threat;
+        Enemies = enemies;
+        Waves = waves;
         Items = items;
         Machines = machines;
         Recipes = recipes;
@@ -159,7 +192,8 @@ public sealed class ContentDb
         using (doc)
         {
             var root = doc.RootElement;
-            RequireObject(root, "content", "schema", "items", "machines", "recipes", "belts", "research", "galaxy", "archetypes", "jump_cost");
+            RequireObject(root, "content", "schema", "items", "machines", "recipes", "belts", "research", "galaxy", "archetypes", "jump_cost",
+                "threat", "enemies", "waves");
             if (!root.TryGetProperty("schema", out var schema) || schema.ValueKind != JsonValueKind.Number || schema.GetInt32() != 1)
                 throw new InvalidDataException("Unsupported or missing content schema (expected 1).");
 
@@ -180,7 +214,7 @@ public sealed class ContentDb
             var machineIds = new Dictionary<string, int>();
             foreach (var e in Array(root, "machines"))
             {
-                RequireObject(e, "machine", "id", "role", "cost", "sandbox_only");
+                RequireObject(e, "machine", "id", "role", "cost", "sandbox_only", "hp", "signature", "turret");
                 string id = Id(e, "machine");
                 if (!machineIds.TryAdd(id, machines.Count)) throw new InvalidDataException($"Duplicate machine '{id}'.");
                 if (!allIds.Add(id)) throw new InvalidDataException($"Id '{id}' is used twice across machines, recipes, belts and research.");
@@ -195,6 +229,7 @@ public sealed class ContentDb
                         "lab" => MachineRole.Lab,
                         "ship" => MachineRole.Ship,
                         "depot" => MachineRole.Depot,
+                        "turret" => MachineRole.Turret,
                         _ => throw new InvalidDataException($"Machine '{id}' has an unknown role."),
                     } : throw new InvalidDataException($"Machine '{id}' role must be a string.");
                 }
@@ -208,7 +243,21 @@ public sealed class ContentDb
                 }
                 if (role == MachineRole.Ship && cost.Length > 0)
                     throw new InvalidDataException($"Ship machine '{id}' cannot have a cost (it is never built).");
-                machines.Add(new MachineDef(machines.Count, id, role, cost, sandboxOnly));
+
+                int hp = e.TryGetProperty("hp", out _) ? Int(e, "hp", id, 1, 100_000) : 100;
+                int signature = e.TryGetProperty("signature", out _) ? Int(e, "signature", id, 0, 1000) : 0;
+                TurretDef? turretDef = null;
+                if (e.TryGetProperty("turret", out var tu))
+                {
+                    if (role != MachineRole.Turret) throw new InvalidDataException($"Machine '{id}' has turret data but is not a turret.");
+                    RequireObject(tu, "turret", "range_cells", "damage", "interval_ticks", "ammo_item", "ammo_cap");
+                    string ammo = Str(tu, "ammo_item", id);
+                    if (!itemIds.TryGetValue(ammo, out int ammoIndex)) throw new InvalidDataException($"Turret '{id}' uses unknown ammo item '{ammo}'.");
+                    turretDef = new TurretDef(Int(tu, "range_cells", id, 1, 100), Int(tu, "damage", id, 1, 10_000),
+                        Int(tu, "interval_ticks", id, 1, 600), ammoIndex, Int(tu, "ammo_cap", id, 1, 1000));
+                }
+                else if (role == MachineRole.Turret) throw new InvalidDataException($"Turret '{id}' needs turret data.");
+                machines.Add(new MachineDef(machines.Count, id, role, cost, sandboxOnly, hp, signature, turretDef));
             }
 
             var recipes = new List<RecipeDef>();
@@ -228,8 +277,8 @@ public sealed class ContentDb
                 var outputs = Stacks(e, "outputs", id, itemIds, allowEmpty: false, max: MaxStack);
 
                 var role = machines[machine].Role;
-                if (role is MachineRole.Lab or MachineRole.Depot)
-                    throw new InvalidDataException($"Recipe '{id}' targets a lab or depot, which have no recipes.");
+                if (role is MachineRole.Lab or MachineRole.Depot or MachineRole.Turret)
+                    throw new InvalidDataException($"Recipe '{id}' targets a lab, depot or turret, which have no recipes.");
                 if (role == MachineRole.Drill && (inputs.Length != 0 || outputs.Length != 1))
                     throw new InvalidDataException($"Drill recipe '{id}' must have no inputs and exactly one output.");
 
@@ -395,7 +444,66 @@ public sealed class ContentDb
             }
             else if (archetypes.Count > 0) throw new InvalidDataException("Archetypes need a galaxy section.");
 
-            return new ContentDb(items, machines, recipes, belts, research, galaxy, archetypes, jumpCost);
+            ThreatRules? threat = null;
+            if (root.TryGetProperty("threat", out var th))
+            {
+                RequireObject(th, "threat", "alert_max", "signature_threshold", "decay_per_tick", "alert_after_wave", "warning_seconds",
+                    "node_distance_cells", "max_enemies", "ship_hull", "ship_weapon", "respawn_seconds");
+                if (!th.TryGetProperty("ship_weapon", out var sw)) throw new InvalidDataException("'ship_weapon' in threat must be an object.");
+                RequireObject(sw, "ship_weapon", "range_cells", "damage", "interval_ticks");
+                int alertMax = Int(th, "alert_max", "threat", 100, 10_000_000);
+                threat = new ThreatRules(
+                    alertMax,
+                    Int(th, "signature_threshold", "threat", 0, 100_000),
+                    Int(th, "decay_per_tick", "threat", 0, 100_000),
+                    Int(th, "alert_after_wave", "threat", 0, alertMax - 1),
+                    Int(th, "warning_seconds", "threat", 1, 600) * Units.TicksPerSecond,
+                    Int(th, "node_distance_cells", "threat", 10, 140),
+                    Int(th, "max_enemies", "threat", 1, 200),
+                    Int(th, "ship_hull", "threat", 1, 100_000),
+                    Int(sw, "range_cells", "ship_weapon", 1, 100),
+                    Int(sw, "damage", "ship_weapon", 1, 10_000),
+                    Int(sw, "interval_ticks", "ship_weapon", 1, 600),
+                    Int(th, "respawn_seconds", "threat", 1, 600) * Units.TicksPerSecond);
+            }
+
+            var enemies = new List<EnemyDef>();
+            var enemyIds = new Dictionary<string, int>();
+            if (root.TryGetProperty("enemies", out _))
+            {
+                foreach (var e in Array(root, "enemies"))
+                {
+                    RequireObject(e, "enemy", "id", "hp", "speed", "damage", "range_cells", "interval_ticks");
+                    string id = Id(e, "enemy");
+                    if (!enemyIds.TryAdd(id, enemies.Count)) throw new InvalidDataException($"Duplicate enemy '{id}'.");
+                    if (!allIds.Add(id)) throw new InvalidDataException($"Id '{id}' is used twice across machines, recipes, belts, research, archetypes and enemies.");
+                    enemies.Add(new EnemyDef(enemies.Count, id, Int(e, "hp", id, 1, 100_000), Int(e, "speed", id, 1, 200),
+                        Int(e, "damage", id, 1, 10_000), Int(e, "range_cells", id, 1, 50), Int(e, "interval_ticks", id, 1, 600)));
+                }
+            }
+
+            var waves = new List<WaveSpec>();
+            if (root.TryGetProperty("waves", out _))
+            {
+                foreach (var e in Array(root, "waves"))
+                {
+                    RequireObject(e, "wave", "enemy", "base", "per_wave");
+                    string enemyId = Str(e, "enemy", "a wave");
+                    if (!enemyIds.TryGetValue(enemyId, out int enemyIndex)) throw new InvalidDataException($"A wave uses unknown enemy '{enemyId}'.");
+                    int b = Int(e, "base", "a wave", 0, 100), pw = Int(e, "per_wave", "a wave", 0, 100);
+                    if (b + pw == 0) throw new InvalidDataException($"A wave of '{enemyId}' would never contain any.");
+                    waves.Add(new WaveSpec(enemyIndex, b, pw));
+                }
+            }
+
+            if (threat is not null)
+            {
+                if (enemies.Count == 0 || waves.Count == 0) throw new InvalidDataException("A threat section needs enemies and waves.");
+                if (!machines.Any(m => m.Role == MachineRole.Turret)) throw new InvalidDataException("A threat section needs at least one turret machine to defend with.");
+            }
+            else if (enemies.Count > 0 || waves.Count > 0) throw new InvalidDataException("Enemies and waves need a threat section.");
+
+            return new ContentDb(items, machines, recipes, belts, research, galaxy, archetypes, jumpCost, threat, enemies, waves);
         }
     }
 
@@ -493,7 +601,12 @@ public sealed class ContentDb
         Mix(Items.Count);
         foreach (var i in Items) MixStr(i.Id);
         Mix(Machines.Count);
-        foreach (var m in Machines) { MixStr(m.Id); Mix((int)m.Role); MixStacks(m.Cost); Mix(m.SandboxOnly ? 1 : 0); }
+        foreach (var m in Machines)
+        {
+            MixStr(m.Id); Mix((int)m.Role); MixStacks(m.Cost); Mix(m.SandboxOnly ? 1 : 0); Mix(m.Hp); Mix(m.Signature);
+            if (m.Turret is { } t) { Mix(t.RangeCells); Mix(t.Damage); Mix(t.IntervalTicks); Mix(t.AmmoItem); Mix(t.AmmoCap); }
+            else Mix(-1);
+        }
         Mix(Recipes.Count);
         foreach (var r in Recipes)
         {
@@ -529,6 +642,17 @@ public sealed class ContentDb
             foreach (var d in a.Deposits) { Mix(d.Item); Mix(d.CountMin); Mix(d.CountMax); Mix(d.AmountMin); Mix(d.AmountMax); }
         }
         MixStacks(JumpCost);
+        if (Threat is { } th)
+        {
+            Mix(th.AlertMax); Mix(th.SignatureThreshold); Mix(th.DecayPerTick); Mix(th.AlertAfterWave); Mix(th.WarningTicks);
+            Mix(th.NodeDistanceCells); Mix(th.MaxEnemies); Mix(th.ShipHull); Mix(th.ShipWeaponRangeCells); Mix(th.ShipWeaponDamage);
+            Mix(th.ShipWeaponIntervalTicks); Mix(th.RespawnTicks);
+        }
+        else Mix(-1);
+        Mix(Enemies.Count);
+        foreach (var e in Enemies) { MixStr(e.Id); Mix(e.Hp); Mix(e.Speed); Mix(e.Damage); Mix(e.RangeCells); Mix(e.IntervalTicks); }
+        Mix(Waves.Count);
+        foreach (var w in Waves) { Mix(w.Enemy); Mix(w.Base); Mix(w.PerWave); }
         return h;
     }
 }

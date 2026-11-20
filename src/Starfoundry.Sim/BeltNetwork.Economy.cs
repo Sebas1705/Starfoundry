@@ -41,7 +41,7 @@ public static class PlayerRules
 public readonly record struct PlayerInfo(
     int Id, int HoldTotal, int MiningDeposit, int ShipRecipe, bool ShipCrafting, int ShipRemaining,
     int X = 0, int Y = 0, int Z = 0, int MoveX = 0, int MoveY = 0, int MoveZ = 0,
-    int ScanCooldown = 0, int JumpTarget = -1, int JumpRemaining = 0);
+    int ScanCooldown = 0, int JumpTarget = -1, int JumpRemaining = 0, int Hull = 0, bool Armed = false, int RespawnRemaining = 0);
 
 internal sealed class Player
 {
@@ -68,6 +68,16 @@ internal sealed class Player
     public int JumpTarget = -1;
     public int JumpRemaining;
 
+    /// <summary>Hit points of the ship; zero while it is being rebuilt after a loss.</summary>
+    public int Hull;
+
+    /// <summary>Whether the ship's weapon is switched on, and its cooldown.</summary>
+    public bool Armed;
+    public int WeaponCooldown;
+
+    /// <summary>Ticks until the ship is rebuilt at a system anchor (0 when it is fine).</summary>
+    public int RespawnRemaining;
+
     public Player(int id, int items)
     {
         Id = id;
@@ -82,6 +92,7 @@ internal sealed class Player
             ShipRecipe = ShipRecipe, ShipCrafting = ShipCrafting, ShipRemaining = ShipRemaining, ShipReserved = ShipReserved,
             X = X, Y = Y, Z = Z, MoveX = MoveX, MoveY = MoveY, MoveZ = MoveZ,
             ScanCooldown = ScanCooldown, JumpTarget = JumpTarget, JumpRemaining = JumpRemaining,
+            Hull = Hull, Armed = Armed, WeaponCooldown = WeaponCooldown, RespawnRemaining = RespawnRemaining,
         };
         Array.Copy(Hold, c.Hold, Hold.Length);
         return c;
@@ -204,8 +215,11 @@ public sealed partial class BeltNetwork
     {
         var p = GetPlayer(id);
         return new PlayerInfo(p.Id, p.HoldTotal, p.MiningDeposit, p.ShipRecipe, p.ShipCrafting, p.ShipRemaining,
-            p.X, p.Y, p.Z, p.MoveX, p.MoveY, p.MoveZ, p.ScanCooldown, p.JumpTarget, p.JumpRemaining);
+            p.X, p.Y, p.Z, p.MoveX, p.MoveY, p.MoveZ, p.ScanCooldown, p.JumpTarget, p.JumpRemaining, p.Hull, p.Armed, p.RespawnRemaining);
     }
+
+    /// <summary>Switches the ship's weapon on or off. It fires at the nearest enemy in range while on.</summary>
+    public void SetWeapons(int player, bool armed) => GetOrCreatePlayer(player).Armed = armed;
 
     /// <summary>Makes sure the player exists, spawning at the origin with an empty hold. Needed before range checks.</summary>
     public void EnsurePlayer(int id) => GetOrCreatePlayer(id);
@@ -330,7 +344,7 @@ public sealed partial class BeltNetwork
         if (id < 0) throw new ArgumentOutOfRangeException(nameof(id));
         if (!_players.TryGetValue(id, out var p))
         {
-            p = new Player(id, Content?.Items.Count ?? 0);
+            p = new Player(id, Content?.Items.Count ?? 0) { Hull = Content?.Threat?.ShipHull ?? 100 };
             _players.Add(id, p);
         }
         return p;
@@ -362,7 +376,7 @@ public sealed partial class BeltNetwork
             {
                 if (--p.JumpRemaining == 0) CompleteJump(p);
             }
-            else if ((p.MoveX | p.MoveY | p.MoveZ) != 0)
+            else if (p.RespawnRemaining == 0 && (p.MoveX | p.MoveY | p.MoveZ) != 0)
             {
                 MoveShip(p);
                 DiscoverAt(p);
@@ -523,6 +537,7 @@ public sealed partial class BeltNetwork
         _players = new SortedDictionary<int, Player>(other._players.ToDictionary(kv => kv.Key, kv => kv.Value.Clone()));
         _deposits = other._deposits.Select(d => d.Clone()).ToList();
         CopyGalaxyFrom(other);
+        CopyThreatFrom(other);
         _researched = (bool[])other._researched.Clone();
         _progress = other._progress.Select(a => (int[])a.Clone()).ToArray();
         _researchCurrent = other._researchCurrent;
@@ -538,12 +553,14 @@ public sealed partial class BeltNetwork
     {
         mix(HoldIn); mix(HoldOut); mix(MinedByHand); mix(DrilledTotal); mix(ResearchItemsUsed); mix(DepotDelivered);
         MixGalaxy(mix);
+        MixThreat(mix);
         mix(_deposits.Count);
         foreach (var d in _deposits) { mix(d.Item); mix(d.Initial); mix(d.Remaining); mix(d.X); mix(d.Y); mix(d.Z); mix(d.Revealed ? 1 : 0); }
         mix(_players.Count);
         foreach (var p in _players.Values)
         {
             mix(p.ScanCooldown); mix(p.JumpTarget); mix(p.JumpRemaining);
+            mix(p.Hull); mix(p.Armed ? 1 : 0); mix(p.WeaponCooldown); mix(p.RespawnRemaining);
             mix(p.X); mix(p.Y); mix(p.Z); mix(p.MoveX); mix(p.MoveY); mix(p.MoveZ);
             mix(p.Id); mix(p.HoldTotal); mix(p.MiningDeposit); mix(p.MineProgress);
             mix(p.ShipRecipe); mix(p.ShipCrafting ? 1 : 0); mix(p.ShipRemaining); mix(p.ShipReserved);
@@ -595,6 +612,7 @@ public sealed partial class BeltNetwork
         }
         if (HoldIn - HoldOut != held) Fail($"hold accounting broken: in {HoldIn} - out {HoldOut} != held {held}");
         ValidateGalaxy();
+        ValidateThreat();
 
         long extracted = 0;
         foreach (var d in _deposits)

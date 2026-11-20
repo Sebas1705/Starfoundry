@@ -13,12 +13,12 @@ public static class CommandCodec
         TagPlaceMachine = 10, TagRemoveMachine = 11, TagSetRecipe = 12,
         TagConnectToMachine = 13, TagConnectFromMachine = 14, TagDisconnectMachine = 15,
         TagStartMining = 16, TagStopMining = 17, TagSetShipRecipe = 18, TagSetResearch = 19,
-        TagLinkDeposit = 20, TagUnlinkDeposit = 21, TagSetMovement = 22, TagScan = 23, TagJump = 24;
+        TagLinkDeposit = 20, TagUnlinkDeposit = 21, TagSetMovement = 22, TagScan = 23, TagJump = 24, TagSetWeapons = 25;
 
     private static readonly byte[] Magic = Encoding.ASCII.GetBytes("SFCL");
 
-    /// <summary>Version 2 added the content hash to the header, version 3 the game mode, version 4 the galaxy seed.</summary>
-    private const byte LogVersion = 4;
+    /// <summary>Version 2 added the content hash to the header, version 3 the game mode, version 4 the galaxy seed, version 5 the threat flag.</summary>
+    private const byte LogVersion = 5;
 
     /// <summary>Deepest allowed batch nesting. The world rejects nested batches, but the format can still
     /// carry them so a log reproduces rejections exactly; the bound keeps decoding cheap and safe.</summary>
@@ -47,7 +47,7 @@ public static class CommandCodec
                 or PlaceMachine or RemoveMachine or SetRecipe
                 or ConnectToMachine or ConnectFromMachine or DisconnectMachine
                 or StartMining or StopMining or SetShipRecipe or SetResearch or LinkDeposit or UnlinkDeposit or SetMovement
-                or Scan or Jump:
+                or Scan or Jump or SetWeapons:
                 return true;
             default:
                 return false;
@@ -141,6 +141,9 @@ public static class CommandCodec
             case Jump j:
                 w.Write(TagJump); w.Write(j.System);
                 break;
+            case SetWeapons sw:
+                w.Write(TagSetWeapons); w.Write(sw.Armed);
+                break;
             case Batch b:
                 w.Write(TagBatch);
                 w.Write(b.Commands.Length);
@@ -197,6 +200,7 @@ public static class CommandCodec
             case TagSetMovement: return new SetMovement(r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
             case TagScan: return new Scan();
             case TagJump: return new Jump(r.ReadInt32());
+            case TagSetWeapons: return new SetWeapons(r.ReadBoolean());
             case TagBatch:
             {
                 if (depth >= MaxNesting) throw new InvalidDataException("Batches are nested too deeply.");
@@ -230,7 +234,7 @@ public static class CommandCodec
     /// <summary>Writes a log: magic, version, content hash, count, then (tick, player, command) entries.
     /// Pass <see cref="ContentDb.Hash"/> of the content the log was recorded with (0 if there is none).</summary>
     public static void WriteLog(Stream stream, IReadOnlyList<LoggedCommand> log, ulong contentHash = 0, GameMode mode = GameMode.Sandbox,
-        ulong galaxySeed = 0)
+        ulong galaxySeed = 0, bool threats = false)
     {
         using var w = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
         w.Write(Magic);
@@ -238,6 +242,7 @@ public static class CommandCodec
         w.Write(contentHash);
         w.Write((byte)mode);
         w.Write(galaxySeed);
+        w.Write((byte)(threats ? 1 : 0));
         w.Write(log.Count);
         foreach (var e in log)
         {
@@ -258,7 +263,11 @@ public static class CommandCodec
         ReadLog(stream, out contentHash, out mode, out _);
 
     /// <summary>Also returns the galaxy seed the world was created with (0 for a world without a galaxy).</summary>
-    public static List<LoggedCommand> ReadLog(Stream stream, out ulong contentHash, out GameMode mode, out ulong galaxySeed)
+    public static List<LoggedCommand> ReadLog(Stream stream, out ulong contentHash, out GameMode mode, out ulong galaxySeed) =>
+        ReadLog(stream, out contentHash, out mode, out galaxySeed, out _);
+
+    /// <summary>Also returns whether the world had threats switched on.</summary>
+    public static List<LoggedCommand> ReadLog(Stream stream, out ulong contentHash, out GameMode mode, out ulong galaxySeed, out bool threats)
     {
         using var r = new BinaryReader(stream, Encoding.UTF8, leaveOpen: true);
         var magic = r.ReadBytes(Magic.Length);
@@ -270,6 +279,9 @@ public static class CommandCodec
         if (rawMode > (byte)GameMode.Campaign) throw new InvalidDataException($"Unknown game mode {rawMode}.");
         mode = (GameMode)rawMode;
         galaxySeed = r.ReadUInt64();
+        byte flags = r.ReadByte();
+        if (flags > 1) throw new InvalidDataException($"Unknown header flags {flags}.");
+        threats = flags == 1;
         int count = r.ReadInt32();
         if (count < 0) throw new InvalidDataException("Negative entry count.");
 

@@ -57,6 +57,8 @@ Act for the commanding player ([ADR 0005](../adr/0005-campaign-economy-hold-cost
 | `Scan` | Reveals hidden deposits within 80 cells of the ship; 5 second cooldown. `CommandResult.RevealedDeposits` lists them | NoContent, OnCooldown |
 | `Jump(system)` | Charges a 3 second jump along a lane from inside a system to a known system; the ship is frozen until it arrives at the anchor. Campaign: needs the Jump Drive research and pays the jump cost ([ADR 0007](../adr/0007-galaxy-as-regions-of-one-space-with-deterministic-generation.md)) | NoGalaxy, UnknownSystem, Locked, Busy, NotInASystem, InvalidArgument (already there), NoLane, NotEnoughItems |
 
+| `SetWeapons(armed)` | Switches the ship weapon on or off; while on it fires at the nearest enemy within 25 cells ([ADR 0008](../adr/0008-remnant-threat-as-signature-driven-waves.md)) | none |
+
 `StartMining` and `LinkDeposit` need the deposit to be revealed (NotDiscovered); `LinkDeposit` also needs the drill within 16 cells of it (OutOfRange). `StartMining` also needs the ship within 6 cells of the deposit (OutOfRange). In campaign mode, placing or removing belts and machines needs the ship within 24 cells (OutOfRange).
 
 In **campaign** mode the build commands also enforce costs and locks: `PlaceSegment` and `PlaceMachine` take their cost from the commanding player's hold (NotEnoughItems), reject locked belt tiers, machines and recipes (Locked), and `RemoveSegment` and `RemoveMachine` refund it. `SetSource` and the free extractor are sandbox only. Ship machine types cannot be placed in the world (NotPlaceable).
@@ -66,10 +68,11 @@ In **campaign** mode the build commands also enforce costs and locks: `PlaceSegm
 - A rejected command changes nothing. A rejected batch restores the world exactly, including id counters.
 - Ids are stable and never reused. A removed segment leaves a hole (`IsAlive` is false).
 - Items on a removed segment are destroyed and counted in `Destroyed`. Conservation: `Spawned = Consumed + Destroyed + InTransit`.
+- Things that happen to the world without a command (waves, enemy fire, machines destroyed) are part of the tick. `SimWorld.Step` frees the cells of destroyed machines right after the tick. Setup that is not a command, such as forcing a wave with `ScheduleWave`, belongs to the starting world: a replay must recreate it.
 - Malformed commands (nulls, oversized, nested more than 4 levels in the encoding) throw at `Submit`, because they could never be logged. Game-rule problems are never exceptions.
 
 ## Log, codec and replay
-- Log header: magic `SFCL`, format version (4), content hash, game mode, galaxy seed, entry count. Compare the hash with `ContentDb.Hash` before replaying. A replay starts from a world built the same way as the original (same mode, content, galaxy seed, and starting deposits and grants), for example `SimWorld.CreateGalaxy(content, mode, seed)`.
+- Log header: magic `SFCL`, format version (5), content hash, game mode, galaxy seed, threats flag, entry count. Compare the hash with `ContentDb.Hash` before replaying. A replay starts from a world built the same way as the original (same mode, content, galaxy seed, and starting deposits and grants), for example `SimWorld.CreateGalaxy(content, mode, seed)`.
 - `CommandCodec` encodes commands and logs: little-endian, magic `SFCL`, version byte, bounded sizes, strict decoding (unknown tags, truncation, bad order and trailing bytes are errors).
 - `SimWorld.Replay(log, ticks)` rebuilds a world from an empty one; the result has the same checksum as the original. Replaying a prefix reproduces intermediate states.
 - The checksum covers geometry, wiring, items and counters, so it doubles as the co-op desync check.

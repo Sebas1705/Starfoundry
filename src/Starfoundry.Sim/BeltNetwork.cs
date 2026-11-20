@@ -27,10 +27,14 @@ public sealed partial class BeltNetwork
     /// <summary>Sandbox: free building, nothing locked. Campaign: building costs items and research gates content.</summary>
     public GameMode Mode { get; }
 
-    public BeltNetwork(ContentDb? content = null, GameMode mode = GameMode.Sandbox)
+    /// <summary>Whether the Remnant threat is on. Needs content with threat rules and a galaxy. Part of the world's creation settings.</summary>
+    public bool ThreatsEnabled { get; }
+
+    public BeltNetwork(ContentDb? content = null, GameMode mode = GameMode.Sandbox, bool threats = false)
     {
         Content = content;
         Mode = mode;
+        ThreatsEnabled = threats;
         InitResearch();
     }
 
@@ -180,6 +184,7 @@ public sealed partial class BeltNetwork
         StepMachines();
         StepPlayers();
         StepResearch();
+        StepThreat();
 
         foreach (var s in _segs)
         {
@@ -244,7 +249,7 @@ public sealed partial class BeltNetwork
         }
 
         Mix(Tick); Mix(Spawned); Mix(Consumed); Mix(Destroyed); Mix(_segs.Count);
-        Mix(MachineInputsConsumed); Mix(MachineOutputsCreated); Mix((long)(Content?.Hash ?? 0)); Mix((int)Mode);
+        Mix(MachineInputsConsumed); Mix(MachineOutputsCreated); Mix((long)(Content?.Hash ?? 0)); Mix((int)Mode); Mix(ThreatsEnabled ? 1 : 0);
         MixMachines(Mix);
         MixEconomy(Mix);
         foreach (var s in _segs)
@@ -271,7 +276,7 @@ public sealed partial class BeltNetwork
     /// <summary>Deep copy of the whole state.</summary>
     public BeltNetwork Clone()
     {
-        var c = new BeltNetwork(Content, Mode);
+        var c = new BeltNetwork(Content, Mode, ThreatsEnabled);
         c.CopyFrom(this);
         return c;
     }

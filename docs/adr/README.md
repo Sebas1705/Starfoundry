@@ -11,6 +11,7 @@ One decision per file, `NNNN-slug.md`. An accepted ADR is never rewritten; add a
 | [0005](0005-campaign-economy-hold-costs-and-research-gates.md) | Campaign mode: build costs paid from the hold, research gates content | proposed | 2026-11-19 |
 | [0006](0006-ship-movement-as-intent-commands-and-ranges.md) | Ship movement as intent commands, with mining and build ranges | proposed | 2026-11-20 |
 | [0007](0007-galaxy-as-regions-of-one-space-with-deterministic-generation.md) | The galaxy is a set of regions of one shared space, generated deterministically | proposed | 2026-11-20 |
+| [0008](0008-remnant-threat-as-signature-driven-waves.md) | The Remnant threat: signature fills an alert meter, the meter sends waves | proposed | 2026-11-20 |
 
 ## Template
 ```markdown
