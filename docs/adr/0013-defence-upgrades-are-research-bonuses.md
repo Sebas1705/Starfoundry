@@ -22,7 +22,7 @@
 - A single turret gains only 2 to 4 waves from all four upgrades; the field repair and plating bonuses do little without walls and bays.
 - The command log keeps format version 5; the content hash changes.
 - The ship upgrades are weak in the scripted runs, whose ship sits at the base and fires its weapon; a person who flies and fights with the ship should gain more.
-- Not decided here: repeatable upgrades with a rising cost, carbon in upgrade costs, bonuses to mining, belts or the jump drive.
+- Not decided here: carbon in upgrade costs, bonuses to mining, belts or the jump drive. (Repeatable upgrades came later, see [ADR 0014](0014-repeatable-research-with-rising-cost.md).)
 
 ## Alternatives considered
 - **Upgrade machines that replace the old ones:** needs a notion of tiers and migration of what stands.

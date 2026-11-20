@@ -63,6 +63,12 @@ public sealed class BalanceBot
     /// <summary>Which upgrades come first: the turret and repair line, or the ship line (armour and cannon right after their predecessors).</summary>
     public UpgradePath Path { get; init; } = UpgradePath.Defence;
 
+    /// <summary>A second, dedicated plate line (drill, smelter, assembler, depot) once the first turret stands.</summary>
+    public bool ExtraPlateLine { get; init; }
+
+    /// <summary>Research finished before the run starts (comma-separated ids), for what-if comparisons such as "what do the ship nodes do on their own".</summary>
+    public string Granted { get; init; } = "";
+
     /// <summary>How many repair bays to build (0 to 2), each fed ingots by a second output of a smelter.</summary>
     public int Bays { get; init; }
 
@@ -205,7 +211,7 @@ public sealed class BalanceBot
         _steps.Add(() => Net.HoldCount(0, Item("core:iron_plate")) >= platesNeeded);
         _steps.Add(() => Try(new RemoveMachine(_ids["l2.depot"]), out _));
         Machine_("lab", 12, 3, "core:research_lab", null, () => Do(new ConnectToMachine(_ids["l2.b3"], _ids["lab"])));
-        _steps.Add(() => Try(new SetResearch(_c.ResearchIndex("core:logistics")), out _));
+        _steps.Add(() => Net.IsResearched(_c.ResearchIndex("core:logistics")) || Try(new SetResearch(_c.ResearchIndex("core:logistics")), out _));
         _steps.Add(() => Try(new Scan(), out _));
 
         // Line 3: drill -> smelter -> assembler (ammo) -> turret, weapons on.
@@ -238,9 +244,16 @@ public sealed class BalanceBot
         if (Turrets >= 2 || Walls > 0 || Bays > 0)
         {
             _steps.Add(() => Net.IsResearched(_c.ResearchIndex("core:logistics")));
-            if (Upgrades > 0)
+            if (Upgrades > 0 && ExtraPlateLine)
+            {
+                // The lab keeps the first plate line for research; a second line feeds the hold for building.
+                Row("p2", -3, "core:iron_plate");
+                Machine_("p2.depot", 12, -3, "core:depot", null, () => Do(new ConnectToMachine(_ids["p2.b3"], _ids["p2.depot"])));
+            }
+            else if (Upgrades > 0)
             {
                 // The lab stays for the upgrades, so the plates for building come from a second output of the assembler.
+                // The assembler fills its first output first, so while the lab is researching almost nothing reaches the hold.
                 Link("plates.belt", 8, 4, 4, "l2.asm");
                 Machine_("plates.depot", 12, 4, "core:depot", null, () => Do(new ConnectToMachine(_ids["plates.belt"], _ids["plates.depot"])));
             }
@@ -310,8 +323,8 @@ public sealed class BalanceBot
 
     private int _wallsBuilt;
 
-    private static readonly string[] DefenceOrder = { "core:turret_calibration", "core:reinforced_plating", "core:rapid_loader", "core:field_repair", "core:ship_armor", "core:ship_cannon" };
-    private static readonly string[] ShipOrder = { "core:turret_calibration", "core:reinforced_plating", "core:ship_armor", "core:ship_cannon", "core:rapid_loader", "core:field_repair" };
+    private static readonly string[] DefenceOrder = { "core:turret_calibration", "core:reinforced_plating", "core:rapid_loader", "core:field_repair", "core:ship_armor", "core:ship_cannon", "core:overclock", "core:alloy_refinement", "core:nanite_repair" };
+    private static readonly string[] ShipOrder = { "core:turret_calibration", "core:reinforced_plating", "core:ship_armor", "core:ship_cannon", "core:rapid_loader", "core:field_repair", "core:overclock", "core:alloy_refinement", "core:nanite_repair" };
     private string[] UpgradeOrder => Path == UpgradePath.Ship ? ShipOrder : DefenceOrder;
 
     /// <summary>Keeps the lab busy with the next defence upgrade once Logistics is done.</summary>
@@ -383,6 +396,7 @@ public sealed class BalanceBot
     public BalanceReport Run(int maxSeconds = 3600)
     {
         if (_steps.Count == 0) BuildScript(); // built here, not in the constructor, so initializer options such as Turrets apply
+        foreach (var id in Granted.Split(',', StringSplitOptions.RemoveEmptyEntries)) Net.GrantResearch(_c.ResearchIndex(id.Trim()));
         int logistics = _c.ResearchIndex("core:logistics");
         for (int sec = 0; sec < maxSeconds; sec++)
         {

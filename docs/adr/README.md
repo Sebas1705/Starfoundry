@@ -17,6 +17,7 @@ One decision per file, `NNNN-slug.md`. An accepted ADR is never rewritten; add a
 | [0011](0011-walls-draw-enemies-and-repairs-restore-hit-points.md) | Walls draw enemies, repairs restore hit points | proposed | 2026-11-20 |
 | [0012](0012-repair-bays-heal-slowly-from-a-belt-fed-item.md) | Repair bays heal slowly from a belt-fed item | proposed | 2026-11-20 |
 | [0013](0013-defence-upgrades-are-research-bonuses.md) | Defence upgrades are research bonuses | proposed | 2026-11-20 |
+| [0014](0014-repeatable-research-with-rising-cost.md) | Repeatable research with rising cost | proposed | 2026-11-20 |
 
 ## Template
 ```markdown

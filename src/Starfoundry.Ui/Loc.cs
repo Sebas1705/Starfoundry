@@ -84,6 +84,9 @@ public static class Loc
         ["research.core:field_repair"] = ("Reparación de campo", "Field repair"),
         ["research.core:ship_armor"] = ("Blindaje de la nave", "Ship armour"),
         ["research.core:ship_cannon"] = ("Cañón de la nave", "Ship cannon"),
+        ["research.core:overclock"] = ("Sobrecarga", "Overclock"),
+        ["research.core:alloy_refinement"] = ("Refinado de aleaciones", "Alloy refinement"),
+        ["research.core:nanite_repair"] = ("Reparación con nanobots", "Nanite repair"),
 
         ["arch.core:home"] = ("hogar", "home"),
         ["arch.core:dense_belt"] = ("cinturón denso", "dense belt"),
@@ -181,6 +184,7 @@ public static class Loc
                             "Researching {0}: {1}   (the lab needs these items by belt)"),
         ["hud.researchNone"] = ("Sin investigación elegida (T).", "No research selected (T)."),
         ["hud.defense"] = ("Mejoras de defensa: daño de torretas +{0}%, cadencia +{1}%, vida de máquinas +{2}%, reparación +{3}%, casco de la nave +{4}%, arma de la nave +{5}%", "Defence upgrades: turret damage +{0}%, fire rate +{1}%, machine hit points +{2}%, repair +{3}%, ship hull +{4}%, ship weapon +{5}%"),
+        ["hud.level"] = ("{0} (nivel {1}/{2})", "{0} (level {1}/{2})"),
         ["hud.researchDone"] = ("Sin investigación elegida (T). Hecho: {0}", "No research selected (T). Done: {0}"),
         ["hud.speed"] = ("velocidad x{0}", "speed x{0}"),
         ["hud.paused"] = ("PAUSA", "PAUSED"),

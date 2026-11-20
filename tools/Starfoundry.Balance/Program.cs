@@ -20,6 +20,8 @@ var content = ContentDb.FromFile(Path.Combine(dir.FullName, "content", "core.jso
 int observe = 0, turrets = 1, walls = 0, bays = 0, upgrades = 0;
 var repairs = RepairMode.Never;
 var path = UpgradePath.Defence;
+bool extraPlates = false;
+string granted = "";
 foreach (var a in args)
 {
     if (a.StartsWith("--observe=")) observe = int.Parse(a["--observe=".Length..]) * 60;
@@ -27,6 +29,9 @@ foreach (var a in args)
     else if (a.StartsWith("--walls=")) walls = int.Parse(a["--walls=".Length..]);
     else if (a.StartsWith("--bays=")) bays = int.Parse(a["--bays=".Length..]);
     else if (a.StartsWith("--upgrades=")) upgrades = int.Parse(a["--upgrades=".Length..]);
+    else if (a == "--extra-plates") extraPlates = true;
+    else if (a.StartsWith("--grant=")) granted = a["--grant=".Length..];
+
     else if (a.StartsWith("--path=")) path = Enum.Parse<UpgradePath>(a["--path=".Length..], ignoreCase: true);
     else if (a.StartsWith("--repairs=")) repairs = Enum.Parse<RepairMode>(a["--repairs=".Length..], ignoreCase: true);
 }
@@ -39,6 +44,9 @@ var report = new BalanceBot(content, seed)
     Bays = bays,
     Upgrades = upgrades,
     Path = path,
+    ExtraPlateLine = extraPlates,
+    Granted = granted,
+
     Repairs = repairs,
     Trace = args.Contains("--trace") ? Console.Out : null,
 }.Run(minutes * 60);

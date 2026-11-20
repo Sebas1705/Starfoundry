@@ -45,4 +45,4 @@ One fed turret: the four upgrades hold at least two waves longer than none (seed
 ## Known limitations
 - Nobody has played it by hand: the research choice (key `T`), the new status line and the names were seen in code and tests, not in a played game; the status line was seen on screen only with the screenshot flag `--grant-upgrades`, which finishes every bonus research before the demo; no demo finishes an upgrade by playing.
 - Upgrades arrive late for the first waves (the first one 10 minutes after Logistics, the last more than an hour in), so the early game is unchanged.
-- No repeatable upgrades, no carbon in the costs, nothing for the ship.
+- No carbon in the costs. Repeatable upgrades came later, see [repeatable upgrades](repeatable-upgrades.md).

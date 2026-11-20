@@ -105,7 +105,7 @@ public enum Ability
 /// <param name="Requires">Research nodes that must be finished first.</param>
 public sealed record ResearchDef(
     int Index, string Id, ItemStack[] Cost, int[] Requires, int[] UnlockMachines, int[] UnlockRecipes, BeltTier[] UnlockBelts,
-    Ability[] UnlockAbilities, Bonus[] Bonuses);
+    Ability[] UnlockAbilities, Bonus[] Bonuses, int MaxLevels = 1, int CostGrowthPercent = 0);
 
 /// <param name="SystemCount">Systems in the galaxy, including home.</param>
 /// <param name="SpacingCells">Distance between neighbouring grid positions.</param>
@@ -371,7 +371,7 @@ public sealed class ContentDb
                 var pending = new List<(JsonElement Element, string Id)>();
                 foreach (var e in Array(root, "research"))
                 {
-                    RequireObject(e, "research node", "id", "cost", "requires", "unlocks", "abilities", "bonuses");
+                    RequireObject(e, "research node", "id", "cost", "requires", "unlocks", "abilities", "bonuses", "repeatable");
                     string id = Id(e, "research node");
                     if (!researchIds.TryAdd(id, researchIds.Count)) throw new InvalidDataException($"Duplicate research '{id}'.");
                     if (!allIds.Add(id)) throw new InvalidDataException($"Id '{id}' is used twice across machines, recipes, belts and research.");
@@ -436,8 +436,16 @@ public sealed class ContentDb
                             bonuses.Add(new Bonus(kind, Int(b, "percent", id, 1, kind == BonusKind.TurretRate ? 75 : 1000)));
                         }
                     }
+                    int maxLevels = 1, growth = 0;
+                    if (e.TryGetProperty("repeatable", out var rep))
+                    {
+                        RequireObject(rep, "repeatable", "max_levels", "cost_growth_percent");
+                        maxLevels = Int(rep, "max_levels", id, 2, 50);
+                        growth = Int(rep, "cost_growth_percent", id, 1, 200);
+                        if (bonuses.Count == 0) throw new InvalidDataException($"Research '{id}' is repeatable but has no bonuses to repeat.");
+                    }
                     if (um.Count + ur.Count + ub.Count + ua.Count + bonuses.Count == 0) throw new InvalidDataException($"Research '{id}' unlocks nothing.");
-                    research.Add(new ResearchDef(research.Count, id, cost, requires.ToArray(), um.ToArray(), ur.ToArray(), ub.ToArray(), ua.ToArray(), bonuses.ToArray()));
+                    research.Add(new ResearchDef(research.Count, id, cost, requires.ToArray(), um.ToArray(), ur.ToArray(), ub.ToArray(), ua.ToArray(), bonuses.ToArray(), maxLevels, growth));
                 }
 
                 // Requirements must form a DAG, otherwise some node could never be researched.
@@ -700,6 +708,7 @@ public sealed class ContentDb
             Mix(r.UnlockBelts.Length); foreach (var q in r.UnlockBelts) Mix((int)q);
             Mix(r.UnlockAbilities.Length); foreach (var q in r.UnlockAbilities) Mix((int)q);
             Mix(r.Bonuses.Length); foreach (var q in r.Bonuses) { Mix((int)q.Kind); Mix(q.Percent); }
+            Mix(r.MaxLevels); Mix(r.CostGrowthPercent);
         }
         if (Galaxy is { } g)
         {

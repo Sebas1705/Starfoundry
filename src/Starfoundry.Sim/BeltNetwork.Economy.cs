@@ -130,7 +130,7 @@ public sealed partial class BeltNetwork
 {
     private SortedDictionary<int, Player> _players = new();
     private List<Deposit> _deposits = new();
-    private bool[] _researched = Array.Empty<bool>();
+    private int[] _level = Array.Empty<int>(); // research levels: 0 not done, 1 done, more for repeatable nodes
 
     private readonly int[] _bonus = new int[6];
 
@@ -165,8 +165,8 @@ public sealed partial class BeltNetwork
         int[] old = (int[])_bonus.Clone();
         System.Array.Clear(_bonus);
         foreach (var node in Content.Research)
-            if (_researched[node.Index])
-                foreach (var b in node.Bonuses) _bonus[(int)b.Kind] += b.Percent;
+            if (_level[node.Index] > 0)
+                foreach (var b in node.Bonuses) _bonus[(int)b.Kind] += b.Percent * _level[node.Index];
         if (scaleHp && old[(int)BonusKind.ShipHull] != _bonus[(int)BonusKind.ShipHull])
         {
             long baseHull = Content.Threat?.ShipHull ?? 100, oldMax = baseHull * (100L + old[(int)BonusKind.ShipHull]) / 100, newMax = ShipMaxHull;
@@ -206,7 +206,7 @@ public sealed partial class BeltNetwork
     {
         int nodes = Content?.Research.Count ?? 0;
         int items = Content?.Items.Count ?? 0;
-        _researched = new bool[nodes];
+        _level = new int[nodes];
         _progress = new int[nodes][];
         for (int i = 0; i < nodes; i++) _progress[i] = new int[items];
     }
@@ -509,15 +509,32 @@ public sealed partial class BeltNetwork
 
     // ---- research -----------------------------------------------------------------------------
 
-    public bool IsResearched(int node) => (uint)node < (uint)_researched.Length && _researched[node];
+    public bool IsResearched(int node) => (uint)node < (uint)_level.Length && _level[node] > 0;
+
+    /// <summary>How many times a node has been researched (0 or 1, more for repeatable nodes).</summary>
+    public int ResearchLevel(int node) => _level[node];
+
+    /// <summary>
+    /// Items the next level of a node costs: the base cost for the first level, then each level costs the previous one
+    /// times (100 + growth) percent, rounded up. For a finished node it is the cost of its last level.
+    /// </summary>
+    public ItemStack[] ResearchCost(int node)
+    {
+        var def = Content!.Research[node];
+        int steps = Math.Min(_level[node], def.MaxLevels - 1);
+        var cost = def.Cost;
+        for (int k = 0; k < steps; k++)
+            cost = cost.Select(c => new ItemStack(c.Item, (int)Math.Min(int.MaxValue / 4, ((long)c.Count * (100 + def.CostGrowthPercent) + 99) / 100))).ToArray();
+        return cost;
+    }
     public int CurrentResearch => _researchCurrent;
-    public int ResearchedCount => _researched.Count(b => b);
+    public int ResearchedCount => _level.Count(l => l > 0);
     public int ResearchProgress(int node, int item) => _progress[node][item];
 
     /// <summary>True if the node exists, is not finished and all its requirements are.</summary>
     public bool CanResearch(int node)
     {
-        if (Content is null || !Content.IsResearch(node) || _researched[node]) return false;
+        if (Content is null || !Content.IsResearch(node) || _level[node] >= Content.Research[node].MaxLevels) return false;
         return Content.Research[node].Requires.All(IsResearched);
     }
 
@@ -532,15 +549,15 @@ public sealed partial class BeltNetwork
 
     public bool IsMachineLocked(int type) =>
         Mode == GameMode.Campaign && Content is { } c && (c.Machines[type].SandboxOnly ||
-            (c.MachineGated[type] && !c.Research.Any(n => _researched[n.Index] && n.UnlockMachines.Contains(type))));
+            (c.MachineGated[type] && !c.Research.Any(n => _level[n.Index] > 0 && n.UnlockMachines.Contains(type))));
 
     public bool IsRecipeLocked(int recipe) =>
         Mode == GameMode.Campaign && Content is { } c &&
-            c.RecipeGated[recipe] && !c.Research.Any(n => _researched[n.Index] && n.UnlockRecipes.Contains(recipe));
+            c.RecipeGated[recipe] && !c.Research.Any(n => _level[n.Index] > 0 && n.UnlockRecipes.Contains(recipe));
 
     public bool IsBeltLocked(BeltTier tier) =>
         Mode == GameMode.Campaign && Content is { } c &&
-            c.BeltGated[(int)tier] && !c.Research.Any(n => _researched[n.Index] && n.UnlockBelts.Contains(tier));
+            c.BeltGated[(int)tier] && !c.Research.Any(n => _level[n.Index] > 0 && n.UnlockBelts.Contains(tier));
 
     /// <summary>A depot hands items to its owner's hold while there is room; when the hold is full the belt waits.</summary>
     private bool TryFeedDepot(Machine depot, BeltSegment s, int item)
@@ -561,9 +578,8 @@ public sealed partial class BeltNetwork
     private bool TryFeedLab(BeltSegment s, int item)
     {
         if (_researchCurrent < 0 || item >= Content!.Items.Count) return false;
-        var node = Content.Research[_researchCurrent];
         int need = 0;
-        foreach (var c in node.Cost)
+        foreach (var c in ResearchCost(_researchCurrent))
             if (c.Item == item) need = c.Count;
         if (need == 0 || _progress[_researchCurrent][item] >= need) return false;
 
@@ -578,11 +594,13 @@ public sealed partial class BeltNetwork
     private void StepResearch()
     {
         if (_researchCurrent < 0) return;
-        var node = Content!.Research[_researchCurrent];
-        foreach (var c in node.Cost)
+        var cost = ResearchCost(_researchCurrent);
+        foreach (var c in cost)
             if (_progress[_researchCurrent][c.Item] < c.Count) return;
 
-        _researched[_researchCurrent] = true;
+        _level[_researchCurrent]++;
+        // A repeatable node that has more levels to go starts its next level from nothing.
+        if (_level[_researchCurrent] < Content!.Research[_researchCurrent].MaxLevels) System.Array.Clear(_progress[_researchCurrent]);
         _researchCurrent = -1;
         RecomputeBonuses(scaleHp: true);
         StructureVersion++;
@@ -596,7 +614,7 @@ public sealed partial class BeltNetwork
         _deposits = other._deposits.Select(d => d.Clone()).ToList();
         CopyGalaxyFrom(other);
         CopyThreatFrom(other);
-        _researched = (bool[])other._researched.Clone();
+        _level = (int[])other._level.Clone();
         RecomputeBonuses(scaleHp: false);
         _progress = other._progress.Select(a => (int[])a.Clone()).ToArray();
         _researchCurrent = other._researchCurrent;
@@ -626,9 +644,9 @@ public sealed partial class BeltNetwork
             foreach (int h in p.Hold) mix(h);
         }
         mix(_researchCurrent);
-        for (int i = 0; i < _researched.Length; i++)
+        for (int i = 0; i < _level.Length; i++)
         {
-            mix(_researched[i] ? 1 : 0);
+            mix(_level[i]);
             foreach (int v in _progress[i]) mix(v);
         }
     }
@@ -681,13 +699,15 @@ public sealed partial class BeltNetwork
         }
         if (extracted != MinedByHand + DrilledTotal) Fail($"deposit accounting broken: extracted {extracted} != hand {MinedByHand} + drills {DrilledTotal}");
 
-        for (int i = 0; i < _researched.Length; i++)
+        for (int i = 0; i < _level.Length; i++)
         {
             var node = Content!.Research[i];
-            if (_researched[i] && !node.Requires.All(IsResearched)) Fail($"research {node.Id} is done without its requirements");
+            if (_level[i] < 0 || _level[i] > node.MaxLevels) Fail($"research {node.Id} level {_level[i]} out of range");
+            var cost = ResearchCost(i);
+            if (_level[i] > 0 && !node.Requires.All(IsResearched)) Fail($"research {node.Id} is done without its requirements");
             for (int item = 0; item < _progress[i].Length; item++)
             {
-                int cap = node.Cost.Where(c => c.Item == item).Select(c => c.Count).FirstOrDefault();
+                int cap = cost.Where(c => c.Item == item).Select(c => c.Count).FirstOrDefault();
                 if (_progress[i][item] < 0 || _progress[i][item] > cap) Fail($"research {node.Id} progress for item {item} out of range");
             }
         }
