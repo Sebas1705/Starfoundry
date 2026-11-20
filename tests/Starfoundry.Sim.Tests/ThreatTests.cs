@@ -121,7 +121,7 @@ public class ThreatTests
     {
         var w = World();
         BuildLoudBase(w);
-        StepUntil(w, () => w.Network.GetSystemThreat(0).WarningRemaining >= 0);
+        StepUntil(w, () => w.Network.GetSystemThreat(0).WarningRemaining >= 0, limit: Rules.AlertMax + 1000); // the meter rises by at least 1 a tick
         var info = w.Network.GetSystemThreat(0);
         Assert.Equal(Rules.AlertMax, info.Alert);
         Assert.Equal(Rules.WarningTicks - 1, info.WarningRemaining); // the countdown starts in the tick the meter fills

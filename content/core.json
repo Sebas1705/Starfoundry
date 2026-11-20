@@ -30,7 +30,7 @@
       "cost": [
         {
           "item": "core:iron_ingot",
-          "count": 6
+          "count": 10
         }
       ],
       "hp": 80,
@@ -41,7 +41,7 @@
       "cost": [
         {
           "item": "core:iron_ingot",
-          "count": 8
+          "count": 14
         }
       ],
       "hp": 100,
@@ -52,7 +52,7 @@
       "cost": [
         {
           "item": "core:iron_ingot",
-          "count": 12
+          "count": 20
         }
       ],
       "hp": 100,
@@ -64,11 +64,11 @@
       "cost": [
         {
           "item": "core:iron_ingot",
-          "count": 10
+          "count": 16
         },
         {
           "item": "core:iron_plate",
-          "count": 4
+          "count": 8
         }
       ],
       "hp": 120,
@@ -80,7 +80,7 @@
       "cost": [
         {
           "item": "core:iron_ingot",
-          "count": 5
+          "count": 8
         }
       ],
       "hp": 80,
@@ -92,11 +92,11 @@
       "cost": [
         {
           "item": "core:iron_ingot",
-          "count": 10
+          "count": 14
         },
         {
           "item": "core:iron_plate",
-          "count": 4
+          "count": 6
         }
       ],
       "hp": 120,
@@ -270,7 +270,7 @@
       "cost": [
         {
           "item": "core:iron_plate",
-          "count": 10
+          "count": 90
         }
       ],
       "requires": [],
@@ -283,7 +283,7 @@
       "cost": [
         {
           "item": "core:iron_plate",
-          "count": 15
+          "count": 135
         }
       ],
       "requires": [],
@@ -296,11 +296,11 @@
       "cost": [
         {
           "item": "core:iron_plate",
-          "count": 40
+          "count": 300
         },
         {
           "item": "core:carbon",
-          "count": 10
+          "count": 75
         }
       ],
       "requires": [
@@ -316,11 +316,11 @@
       "cost": [
         {
           "item": "core:iron_plate",
-          "count": 30
+          "count": 225
         },
         {
           "item": "core:carbon",
-          "count": 10
+          "count": 75
         }
       ],
       "requires": [
@@ -477,10 +477,10 @@
     }
   ],
   "threat": {
-    "alert_max": 18000,
+    "alert_max": 216000,
     "signature_threshold": 8,
     "decay_per_tick": 1,
-    "alert_after_wave": 4000,
+    "alert_after_wave": 48000,
     "warning_seconds": 30,
     "node_distance_cells": 70,
     "max_enemies": 24,

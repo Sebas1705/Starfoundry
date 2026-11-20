@@ -36,7 +36,7 @@ Run with the bots on this machine (Godot 4.7.2, 1280x720, 2026-11-20). No number
 
 | Bot | Result |
 | --- | --- |
-| `--demo --speed=60` | Logistics researched after 2.9 simulated minutes; 80 ore by hand, 102 drilled, 52 delivered by depots; invariants valid |
+| `--demo --speed=60` | Logistics researched after 2.9 simulated minutes at the time of this prototype (9.6 after the [balance pass](balance-pass.md)); invariants valid |
 | `--explore-demo --speed=30` | 7 of 12 systems visited in 30 simulated seconds, 7 scans, 6 jumps, 27 of 47 deposits revealed |
 | `--threat-demo --speed=30` | 1 wave, 2 enemies spawned and killed, no machine or ship lost, 6 ammo fired |
 
@@ -44,7 +44,7 @@ The results match those recorded before the interface rewrite, so the new layer 
 
 ## Known limitations
 - Nobody has played this by hand yet: the controls were exercised through the bots and screenshots. Mouse feel (camera orbit speed, autopilot arrival, drag thresholds) needs a human pass.
-- The balance pass is still pending: the numbers are placeholders and the first-hour pacing has not been tuned.
+- The first balance pass is done ([balance pass](balance-pass.md)); it rests on a scripted player and still needs a human play-test.
 - Only 1280x720 was checked by screenshot; very small or very wide windows are untested.
 
 ## 3D models

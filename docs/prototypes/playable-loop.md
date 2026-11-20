@@ -23,7 +23,7 @@ Status: done (2026-11-19). Builds on [belts](belts.md), [machines](machines.md) 
 ## The demo bot
 `--demo --speed=60` plays the loop with the same commands as a player: mine and refine, build an ingot line ending in a depot, build a plate line, swap its depot for a research lab, research Logistics. Two of its steps go through the exact mouse code paths (belt drag, machine placement from the palette selection).
 
-Result on this machine: Logistics researched after 2.9 simulated minutes (80 ore mined by hand, 102 ore drilled, 52 items delivered by depots, 10 plates used), Mk2 belts unlocked, invariants valid at the end.
+Result on this machine at the time (the [balance pass](balance-pass.md) later raised costs, so it now takes 9.6 minutes): Logistics researched after 2.9 simulated minutes (80 ore mined by hand, 102 ore drilled, 52 items delivered by depots, 10 plates used), Mk2 belts unlocked, invariants valid at the end.
 
 ## Tests
 137 in total. New: loop rules (mining rate, full hold, deposit depletion, independent players, ship refinery, refund of aborted crafts), costs and refunds per player, locks and sandbox-only rules, research flow through a real automated chain, labs jamming on unneeded items, depots and a full hold, content validation for roles, costs, belts and research, and a random campaign storm on five seeds (3,000 ticks, invariants every tick, replay from the same starting world through the binary format).

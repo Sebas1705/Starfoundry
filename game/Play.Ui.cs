@@ -797,7 +797,11 @@ public partial class Play
             case MachineRole.Lab:
                 return Net.CurrentResearch < 0 ? L("status.labNone") : L("status.labWorking", Loc.Name("research", _content.Research[Net.CurrentResearch].Id));
             case MachineRole.Depot:
-                return Net.HoldTotal(Player) >= PlayerRules.HoldCapacity ? L("status.depotFull") : L("status.depotOk");
+                if (Net.HoldTotal(Player) >= PlayerRules.HoldCapacity) return L("status.depotFull");
+                foreach (var item in _content.Items)
+                    if (Net.HoldCount(Player, item.Index) >= PlayerRules.DepotItemCap)
+                        return L("status.depotCap", Loc.Name("item", item.Id), PlayerRules.DepotItemCap);
+                return L("status.depotOk");
             case MachineRole.Turret:
                 var t = def.Turret!;
                 return m.InputItems > 0 ? L("status.turretReady", m.InputItems, t.AmmoCap) : L("status.turretEmpty");

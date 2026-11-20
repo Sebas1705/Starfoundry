@@ -14,6 +14,12 @@ public static class PlayerRules
 {
     public const int HoldCapacity = 60;
 
+    /// <summary>
+    /// A depot stops delivering an item once the hold has this many of it (40 percent of the capacity). Without it, one
+    /// automated line fills the hold with a single item and blocks every other delivery, trapping the player.
+    /// </summary>
+    public const int DepotItemCap = HoldCapacity * 2 / 5;
+
     /// <summary>Hand mining: one item every 15 ticks (2 per second).</summary>
     public const int MineTicksPerItem = 15;
 
@@ -492,6 +498,7 @@ public sealed partial class BeltNetwork
         if (depot.Owner < 0 || item >= Content!.Items.Count) return false;
         var p = GetOrCreatePlayer(depot.Owner);
         if (p.HoldTotal + p.ShipReserved >= PlayerRules.HoldCapacity) return false;
+        if (p.Hold[item] >= PlayerRules.DepotItemCap) return false; // one item type never takes the whole hold
 
         AddToHold(p, item, 1);
         s.PopFront();

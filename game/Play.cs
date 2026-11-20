@@ -728,6 +728,7 @@ public partial class Play : Node3D
 
     private int Hold(string item) => Net.HoldCount(Player, _content.ItemIndex(item));
     private bool Affordable(params (string Item, int Count)[] cost) => cost.All(c => Hold(c.Item) >= c.Count);
+    private int Need(int machine, string item) => _content.Machines[machine].Cost.Where(s => _content.Items[s.Item].Id == item).Sum(s => s.Count);
     private bool CellFree(int x, int y, int z) => _world.EntityAt(x, y, z).Kind == SimWorld.EntityKind.None;
 
     private void BotThink()
@@ -763,13 +764,13 @@ public partial class Play : Node3D
                 });
                 break;
             // Line 1: iron drill -> smelter -> depot, delivering ingots into the hold.
-            case 1: Step(Affordable((ingot, 6)), () => Send(new PlaceMachine(0, 0, 0, drill, drillIron))); break;
+            case 1: Step(Affordable((ingot, Need(drill, ingot))), () => Send(new PlaceMachine(0, 0, 0, drill, drillIron))); break;
             // These two go through the same code as the mouse: a belt drag from cell 1 to 3, a machine click on the palette selection.
             case 2: Step(Affordable((ingot, 3)), () => { _selected = 0; PlaceSelectedAt((3, 0, 0), (1, 0, 0)); }); break;
-            case 3: Step(Affordable((ingot, 8)), () => { _selected = _palette.FindIndex(b => b.Machine == smelter); PlaceSelectedAt((4, 0, 0), null); }); break;
+            case 3: Step(Affordable((ingot, Need(smelter, ingot))), () => { _selected = _palette.FindIndex(b => b.Machine == smelter); PlaceSelectedAt((4, 0, 0), null); }); break;
             case 4: Step(Affordable((ingot, 3)), () => Send(new PlaceSegment(5, 0, 0, Dir.PosX, 3, BeltTier.Mk1))); break;
             case 5:
-                Step(Affordable((ingot, 5)), () =>
+                Step(Affordable((ingot, Need(depot, ingot))), () =>
                 {
                     Send(new PlaceMachine(8, 0, 0, depot, -1));
                     Send(new StopMining());
@@ -777,16 +778,16 @@ public partial class Play : Node3D
                 });
                 break;
             // Line 2: drill -> smelter -> assembler -> depot, delivering plates.
-            case 6: Step(Affordable((ingot, 6)), () => Send(new PlaceMachine(0, 0, 3, drill, drillIron))); break;
+            case 6: Step(Affordable((ingot, Need(drill, ingot))), () => Send(new PlaceMachine(0, 0, 3, drill, drillIron))); break;
             case 7: Step(Affordable((ingot, 3)), () => Send(new PlaceSegment(1, 0, 3, Dir.PosX, 3, BeltTier.Mk1))); break;
-            case 8: Step(Affordable((ingot, 8)), () => Send(new PlaceMachine(4, 0, 3, smelter, smelt))); break;
+            case 8: Step(Affordable((ingot, Need(smelter, ingot))), () => Send(new PlaceMachine(4, 0, 3, smelter, smelt))); break;
             case 9: Step(Affordable((ingot, 3)), () => Send(new PlaceSegment(5, 0, 3, Dir.PosX, 3, BeltTier.Mk1))); break;
-            case 10: Step(Affordable((ingot, 12)), () => Send(new PlaceMachine(8, 0, 3, assembler, asm))); break;
+            case 10: Step(Affordable((ingot, Need(assembler, ingot))), () => Send(new PlaceMachine(8, 0, 3, assembler, asm))); break;
             case 11: Step(Affordable((ingot, 3)), () => Send(new PlaceSegment(9, 0, 3, Dir.PosX, 3, BeltTier.Mk1))); break;
-            case 12: Step(Affordable((ingot, 5)), () => Send(new PlaceMachine(12, 0, 3, depot, -1))); break;
+            case 12: Step(Affordable((ingot, Need(depot, ingot))), () => Send(new PlaceMachine(12, 0, 3, depot, -1))); break;
             // Plates reach the hold; swap the depot for a research lab, which needs 4 of them.
-            case 13: Step(Affordable((plate, 4)), () => RemoveAt((12, 0, 3))); break;
-            case 14: Step(CellFree(12, 0, 3) && Affordable((plate, 4), (ingot, 10)), () => Send(new PlaceMachine(12, 0, 3, lab, -1))); break;
+            case 13: Step(Affordable((plate, Need(lab, plate))), () => RemoveAt((12, 0, 3))); break;
+            case 14: Step(CellFree(12, 0, 3) && Affordable((plate, Need(lab, plate)), (ingot, Need(lab, ingot))), () => Send(new PlaceMachine(12, 0, 3, lab, -1))); break;
             case 15: Step(true, () => Send(new SetResearch(logistics))); break;
             case 16: Step(Net.IsResearched(logistics), () => { _botDone = true; }); break;
         }
