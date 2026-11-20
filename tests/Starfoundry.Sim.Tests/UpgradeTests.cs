@@ -179,6 +179,53 @@ public class UpgradeTests
         Assert.True(TicksToClearTheFirstWave(upgraded: true) < TicksToClearTheFirstWave(upgraded: false));
     }
 
+    private static readonly int Armor = C.ResearchIndex("core:ship_armor");
+    private static readonly int Cannon = C.ResearchIndex("core:ship_cannon");
+
+    [Fact]
+    public void TheShipNodesCarryTheirBonusesAndNeedTheirPredecessors()
+    {
+        Assert.Equal(new[] { new Bonus(BonusKind.ShipHull, 50) }, C.Research[Armor].Bonuses);
+        Assert.Equal(new[] { new Bonus(BonusKind.ShipDamage, 50) }, C.Research[Cannon].Bonuses);
+        Assert.Contains(Plating, C.Research[Armor].Requires);
+        Assert.Contains(Calibration, C.Research[Cannon].Requires);
+    }
+
+    [Fact]
+    public void ShipBonusesRaiseTheHullAndTheWeaponAndAreNamedInTheContent()
+    {
+        var n = World().Network;
+        n.EnsurePlayer(0);
+        int hull = C.Threat!.ShipHull, gun = C.Threat.ShipWeaponDamage;
+        Assert.Equal(hull, n.ShipMaxHull);
+        Assert.Equal(gun, n.ShipWeaponDamage);
+
+        n.GrantResearch(Armor);
+        n.GrantResearch(Cannon);
+        Assert.Equal(hull * 150 / 100, n.ShipMaxHull);
+        Assert.Equal(gun * 150 / 100, n.ShipWeaponDamage);
+        Assert.Equal(n.ShipMaxHull, n.GetPlayerInfo(0).Hull); // a ship at full hull stays at full hull
+    }
+
+    [Fact]
+    public void AHurtShipKeepsItsShareOfHullWhenArmourArrives()
+    {
+        var w = World();
+        w.Network.EnsurePlayer(0);
+        Ok(w, new PlaceMachine(5, 0, 0, Lab, -1)); // bait: the enemies come to it and meet the ship on the way
+        w.Network.ScheduleWave(0);
+        for (int i = 0; i < 20_000 && w.Network.GetPlayerInfo(0).Hull >= C.Threat!.ShipHull; i++) w.Step();
+        int before = w.Network.GetPlayerInfo(0).Hull;
+        Assert.InRange(before, 1, C.Threat!.ShipHull - 1);
+
+        w.Network.GrantResearch(Armor);
+        int max = w.Network.ShipMaxHull;
+        int after = w.Network.GetPlayerInfo(0).Hull;
+        Assert.True(Math.Abs(after - (int)((long)before * max / C.Threat.ShipHull)) <= 12, "the share is kept (enemies may land hits in the same tick)");
+        w.ValidateInvariants();
+
+    }
+
     [Fact]
     public void UpgradesAreDeterministic()
     {

@@ -132,7 +132,7 @@ public sealed partial class BeltNetwork
     private List<Deposit> _deposits = new();
     private bool[] _researched = Array.Empty<bool>();
 
-    private readonly int[] _bonus = new int[4];
+    private readonly int[] _bonus = new int[6];
 
     /// <summary>Total research bonus of a kind, as a percentage.</summary>
     public int BonusPercent(BonusKind kind) => _bonus[(int)kind];
@@ -145,6 +145,12 @@ public sealed partial class BeltNetwork
 
     /// <summary>Ticks between turret shots, with the research bonus (never fewer than one).</summary>
     public int TurretInterval(TurretDef turret) => Math.Max(1, turret.IntervalTicks * (100 - _bonus[(int)BonusKind.TurretRate]) / 100);
+
+    /// <summary>The ship's maximum hull points, with the research bonus (100 without a threat section).</summary>
+    public int ShipMaxHull => (Content?.Threat?.ShipHull ?? 100) * (100 + _bonus[(int)BonusKind.ShipHull]) / 100;
+
+    /// <summary>Damage of one ship weapon shot, with the research bonus.</summary>
+    public int ShipWeaponDamage => Math.Max(1, (Content?.Threat?.ShipWeaponDamage ?? 1) * (100 + _bonus[(int)BonusKind.ShipDamage]) / 100);
 
     /// <summary>Hit points one repairer use restores, with the research bonus.</summary>
     public int RepairHeal(RepairerDef repairer) => Math.Max(1, repairer.Heal * (100 + _bonus[(int)BonusKind.RepairHeal]) / 100);
@@ -161,6 +167,12 @@ public sealed partial class BeltNetwork
         foreach (var node in Content.Research)
             if (_researched[node.Index])
                 foreach (var b in node.Bonuses) _bonus[(int)b.Kind] += b.Percent;
+        if (scaleHp && old[(int)BonusKind.ShipHull] != _bonus[(int)BonusKind.ShipHull])
+        {
+            long baseHull = Content.Threat?.ShipHull ?? 100, oldMax = baseHull * (100L + old[(int)BonusKind.ShipHull]) / 100, newMax = ShipMaxHull;
+            foreach (var p in _players.Values)
+                if (p.Hull > 0) p.Hull = (int)Math.Clamp(p.Hull * newMax / Math.Max(1, oldMax), 1, newMax);
+        }
         if (!scaleHp || old[(int)BonusKind.MachineHp] == _bonus[(int)BonusKind.MachineHp]) return;
         foreach (var m in _machines)
         {
@@ -388,7 +400,7 @@ public sealed partial class BeltNetwork
         if (id < 0) throw new ArgumentOutOfRangeException(nameof(id));
         if (!_players.TryGetValue(id, out var p))
         {
-            p = new Player(id, Content?.Items.Count ?? 0) { Hull = Content?.Threat?.ShipHull ?? 100 };
+            p = new Player(id, Content?.Items.Count ?? 0) { Hull = ShipMaxHull };
             _players.Add(id, p);
         }
         return p;

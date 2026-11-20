@@ -196,7 +196,7 @@ public sealed partial class BeltNetwork
         // Players that are being rebuilt count down.
         foreach (var p in _players.Values)
         {
-            if (p.RespawnRemaining > 0 && --p.RespawnRemaining == 0) p.Hull = rules.ShipHull;
+            if (p.RespawnRemaining > 0 && --p.RespawnRemaining == 0) p.Hull = ShipMaxHull;
             if (p.WeaponCooldown > 0) p.WeaponCooldown--;
         }
 
@@ -308,7 +308,7 @@ public sealed partial class BeltNetwork
             if (!p.Armed || p.RespawnRemaining > 0 || p.WeaponCooldown > 0) continue;
             var target = NearestEnemy(p.X, p.Y, p.Z, (long)rules.ShipWeaponRangeCells * Units.CellUnits);
             if (target is null) continue;
-            target.Hp -= rules.ShipWeaponDamage;
+            target.Hp -= ShipWeaponDamage;
             p.WeaponCooldown = rules.ShipWeaponIntervalTicks;
             _shots.Add(new ShotEvent(ShotKind.Ship, p.X, p.Y, p.Z, target.X, target.Y, target.Z));
         }
@@ -512,7 +512,7 @@ public sealed partial class BeltNetwork
 
         foreach (var p in _players.Values)
         {
-            if (p.Hull < 0 || p.Hull > rules.ShipHull) Fail($"player {p.Id} hull {p.Hull} out of range");
+            if (p.Hull < 0 || p.Hull > ShipMaxHull) Fail($"player {p.Id} hull {p.Hull} out of range");
             if (p.RespawnRemaining < 0 || p.RespawnRemaining > rules.RespawnTicks) Fail($"player {p.Id} respawn time out of range");
             if ((p.RespawnRemaining > 0) != (p.Hull == 0)) Fail($"player {p.Id} hull and respawn disagree");
             if (p.WeaponCooldown < 0 || p.WeaponCooldown > rules.ShipWeaponIntervalTicks) Fail($"player {p.Id} weapon cooldown out of range");
