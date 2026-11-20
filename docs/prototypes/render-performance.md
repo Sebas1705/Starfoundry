@@ -42,4 +42,19 @@ The look did not change: the gallery render of the clean and damaged models is t
 ## Limits
 - Measured on one machine (a desktop with an NVIDIA GeForce RTX 4080 SUPER); a weaker graphics card will be draw-bound earlier.
 - Only the renderer is measured here: the simulation's cost per tick is covered by the benchmark in `tools/Starfoundry.Bench`.
-- The animated machines (working drills, spinning labs) change every frame and still write materials every frame; the stress base has most of its machines idle, so a base with everything running costs more than these numbers.
+- The first table is a mostly idle base; the section below measures one with every machine working.
+
+## Machines at work, and a camera that sees only part of the base
+Two options of `--stress` answer the limits above: `--stress-active` marks every machine as working (the worst case for animation: spinning parts and pulsing lights change every frame) and `--stress-close` puts the camera at the distance a player really has, seeing a part of a big base.
+
+All machines working cost a quarter to a half more than the idle base (1,000 machines 4.5 ms against 3.7 ms, 2,000 machines 10.3 ms against 7.1 ms), and a close camera saw about half of a 2,000-machine base while the rest was still being animated for nobody.
+
+So machines outside the camera's view are no longer animated, damaged-tinted or aimed: the frustum planes are fetched once a frame and the machines are tested in managed code (a first version that asked the engine about each machine cost as much as it saved). The margin is a cell and a half, so a machine about to enter the view is already moving, and a machine that was out of view while it changed is brought up to date the frame it appears.
+
+| Machines, all working | Close camera before | Close camera now | Whole base in view now |
+| --- | --- | --- | --- |
+| 1,000 | 3.9 ms | 3.5 ms | 4.5 ms |
+| 2,000 | 7.6 ms (132 fps) | 5.8 ms (172 fps; 1,145 in view) | 10.4 ms (96 fps; all in view) |
+| 5,000 | 23.8 ms (42 fps) | 9.3 ms (107 fps) | not measured |
+
+With the whole base in view there is nothing to cull and the cost is unchanged. A base of a few thousand machines seen from close up now stays above 100 frames per second on this machine.

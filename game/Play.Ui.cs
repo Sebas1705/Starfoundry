@@ -405,6 +405,8 @@ public partial class Play
     // ---- stress test ---------------------------------------------------------------------------
 
     private int _stressMachines;
+    private bool _stressActive;
+    private bool _stressClose;
     private int _stressFrame;
     private readonly List<double> _stressFrames = new();
     private readonly List<double> _stressProcess = new();
@@ -439,7 +441,7 @@ public partial class Play
                 _world.Submit(Player, new SetSink(id));
             }
         _world.Step();
-        _distance = 40 + side * 1.6f;
+        _distance = _stressClose ? 22f : 40 + side * 1.6f; // --stress-close: the view a player really has, a small part of a big base
         DisplayServer.WindowSetVsyncMode(DisplayServer.VSyncMode.Disabled); // measure what the work costs, not the refresh rate
         GD.Print($"STRESS built machines={_world.Network.MachineCount} segments={_world.Network.SegmentCount}");
     }
@@ -450,7 +452,7 @@ public partial class Play
         if (_stressFrame > 60) { _stressFrames.Add(delta * 1000.0); _stressProcess.Add(Performance.GetMonitor(Performance.Monitor.TimeProcess) * 1000.0); } // the first frames build the scene
         if (_stressFrames.Count < 300) return;
         var sorted = _stressFrames.OrderBy(x => x).ToList();
-        GD.Print($"STRESS machines={_world.Network.MachineCount} frames={sorted.Count} avg_ms={sorted.Average():F2} process_ms={_stressProcess.Average():F2} p95_ms={sorted[(int)(sorted.Count * 0.95)]:F2} worst_ms={sorted[^1]:F2} fps={1000.0 / sorted.Average():F0}");
+        GD.Print($"STRESS machines={_world.Network.MachineCount} in_view={_machinesInView} frames={sorted.Count} avg_ms={sorted.Average():F2} process_ms={_stressProcess.Average():F2} p95_ms={sorted[(int)(sorted.Count * 0.95)]:F2} worst_ms={sorted[^1]:F2} fps={1000.0 / sorted.Average():F0}");
         GetTree().Quit();
     }
 

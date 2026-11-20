@@ -89,6 +89,8 @@ public partial class Play : Node3D
         _exploreDemo = args.Contains("--explore-demo");
         _saveTest = args.Contains("--save-test");
         string? st = args.FirstOrDefault(a => a.StartsWith("--stress="));
+        _stressActive = args.Contains("--stress-active");
+        _stressClose = args.Contains("--stress-close");
         if (st is not null && int.TryParse(st["--stress=".Length..], out int sn)) _stressMachines = Math.Clamp(sn, 1, 5000);
         // A generated galaxy: the same seed always gives the same systems. Home's deposits start revealed; scan to find the rest.
         // The Remnant are on in the game and the threat demo; the production and exploration demos run without them.
@@ -325,18 +327,36 @@ public partial class Play : Node3D
         _structureVersion = Net.StructureVersion;
     }
 
+    /// <summary>True unless the point is more than a cell and a half outside one of the frustum planes (their normals point outwards).</summary>
+    private static bool InView(Plane[] planes, Vector3 p)
+    {
+        foreach (var plane in planes)
+            if (plane.DistanceTo(p) > 1.5f) return false;
+        return true;
+    }
+
+    private int _machinesInView;
+
     private void UpdateMachines()
     {
         if (_machineRoot is null) return;
+        var planes = _camera.GetFrustum().ToArray();
+        int visible = 0;
         var enemies = _content.Threat is null ? null : Net.Enemies();
         foreach (int id in _machineIds)
         {
             if (!_machineModels.TryGetValue(id, out var model) || !Net.IsMachineAlive(id)) continue;
+            // Machines outside the camera's view are not animated: nobody sees them, and a big base is mostly out of view.
+            // The frustum planes are fetched once a frame and tested here in managed code; a margin of a cell and a half keeps
+            // the machines about to enter the view already moving.
+            if (!InView(planes, model.Position)) continue;
+            visible++;
             var m = Net.GetMachineInfo(id);
             var def = _content.Machines[m.Type];
             bool active = m.Crafting || (def.Role == MachineRole.Lab && Net.CurrentResearch >= 0) || def.Role == MachineRole.Depot
                 || (def.Role == MachineRole.Drill && m.Deposit >= 0);
             if (def.Role == MachineRole.Turret) active = m.InputItems > 0; // a dark turret has no ammo
+            if (_stressActive) active = true; // --stress-active: every machine at work, the worst case for animation
             Models.Animate(model, _animTime, active);
             float max = Net.MaxHp(m.Type);
             Models.SetDamage(model, max <= 0 ? 0f : 1f - Math.Clamp(m.Hp / max, 0f, 1f));
@@ -356,6 +376,7 @@ public partial class Play : Node3D
                 if (best < 30f * 30f) Models.Aim(model, target);
             }
         }
+        _machinesInView = visible;
     }
 
     private void UpdateDeposits()
