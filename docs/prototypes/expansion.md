@@ -10,6 +10,8 @@ How soon can a player expand to another deposit, what does it take, and what is 
 | --- | --- |
 | Guided steps | A twelfth step, **Jump to another system**, ticked off by the first visit to a system other than home. Its hint says the home deposit runs out in a couple of hours and names the way: research carbon drilling and the jump drive (`T`), scan (`K`), jump (`G`, `J`) to a system with iron. es and en |
 | Balance simulator | `--expand`: after Logistics the lab researches carbon drilling and the jump drive; a second lab beside the carbon deposit gets carbon from a drill by belt; the ship hand-mines the fuel for a round trip (10 carbon), jumps to the nearest neighbouring system whose archetype makes iron, scans, flies to the closest deposit, builds an ingot line and a plate line there (each paid from the hold, one placement at a time) and jumps home. Milestones and the home iron left at each are in the report |
+| Game | A warning when an ore is running low in the system the ship is in: at 25 percent or less of the revealed deposits of that ore, a line in the status panel and a toast the first time ("Little iron ore left in this system (20%): scan and jump to another system"), es and en. The share is computed by `OreRunway` in the engine-free interface library and tested |
+| Balance simulator | `--take-down-carbon`: once the jump drive is researched the bot removes the carbon drill, belt and second lab and gets the ingots back |
 
 ```powershell
 dotnet run --project tools/Starfoundry.Balance -- --delay=15 --observe=40 --minutes=150 --turrets=1 --walls=4 --bays=2 --expand --extra-plates
@@ -35,6 +37,8 @@ The same run on other seeds: jump drive at 36:20 to 36:55, remote lines at 38:51
 - **The remote lines delivered almost nothing in the first hour** (28 items): the hold already holds the most a depot will deliver of each item, so they only replace what is spent. They matter once the home ore is gone.
 
 ## Findings
+- **Taking the carbon line down fixes that loss.** With `--take-down-carbon` the first machine fell during wave 18 instead of 12 (17 and 19 without any expansion), so the second lab and the drill were the cause.
+- **The expansion costs defence upgrades time.** Carbon drilling and the jump drive are 360 plates of research before any upgrade. With four upgrades queued behind them the first loss came at wave 19 and 17 (seeds 20261120 and 1), against 25 and 24 without the expansion: the upgrades arrive about 25 minutes later, and the remote lines delivered only 64 and 47 items before the loss, so they had not yet replaced anything. A player should expand when the home ore starts to run low, not as early as the scripted player does.
 - **Infrastructure outside the defence is the first thing lost.** In the same run the first machine fell during wave 12, against 17 and 19 without the expansion: the second lab and the carbon drill sit at the carbon deposit, outside the turrets' reach, and the loudest machine is what enemies attack. A player who expands has to defend the new buildings or accept losing them.
 - **Staged building is needed.** The ingots of the whole carbon line (29) are more than the hold keeps from depots (24 of one item), so it cannot be placed as one batch; each piece has to be paid separately.
 - The ship being away costs nothing in the scripted run (two minutes, the round trip is a few seconds); a long stay would leave the home base without repairs or rebuilding.

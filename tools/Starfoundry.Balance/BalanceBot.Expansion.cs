@@ -14,6 +14,9 @@ public sealed partial class BalanceBot
     /// <summary>Research carbon drilling and the jump drive after Logistics, then jump out and build a remote ingot line.</summary>
     public bool Expand { get; init; }
 
+    /// <summary>Remove the carbon drill, belt and second lab once the jump drive is researched, so nothing undefended is left at home.</summary>
+    public bool TakeDownCarbonLine { get; init; }
+
     private Phase _phase = Phase.WaitingForResearch;
     private int _carbonDeposit = -1;
     private int _targetSystem = -1;
@@ -87,7 +90,8 @@ public sealed partial class BalanceBot
                 return false;
             default:
                 if (!Try(new PlaceMachine(px + 4, 0, pz, lab, -1), out var r3)) return false;
-                Do(new ConnectToMachine(_carbonIds[1], r3.CreatedMachines[0]));
+                _carbonIds[2] = r3.CreatedMachines[0];
+                Do(new ConnectToMachine(_carbonIds[1], _carbonIds[2]));
                 return true;
         }
     }
@@ -102,7 +106,13 @@ public sealed partial class BalanceBot
             case Phase.WaitingForResearch:
                 if (!_carbonLineBuilt && Net.IsResearched(_c.ResearchIndex("core:carbon_drilling"))) _carbonLineBuilt = TryCarbonLine();
                 if (_carbonLineBuilt && _carbonNoted == false) { _carbonNoted = true; Note("Carbon line", "carbon line built"); }
-                if (Net.IsResearched(jumpNode)) { Note("Jump drive", "jump drive researched"); _phase = Phase.GatheringFuel; }
+                if (Net.IsResearched(jumpNode))
+                {
+                    Note("Jump drive", "jump drive researched");
+                    // The carbon line has done its job and sits outside the turrets' reach: take it down and get the ingots back.
+                    if (TakeDownCarbonLine) { Do(new RemoveMachine(_carbonIds[0])); Do(new RemoveSegment(_carbonIds[1])); Do(new RemoveMachine(_carbonIds[2])); }
+                    _phase = Phase.GatheringFuel;
+                }
                 break;
 
             case Phase.GatheringFuel:
