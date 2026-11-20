@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Starfoundry.Sim\Starfoundry.Sim.csproj" />
+    <ProjectReference Include="..\..\src\Starfoundry.Ui\Starfoundry.Ui.csproj" />
   </ItemGroup>
 
   <ItemGroup>
