@@ -101,7 +101,15 @@ public static class Models
     }
 
     /// <summary>An enemy: 0 = scout (small, fast, red-orange), 1 = striker (bigger, armoured, magenta).</summary>
-    public static Node3D Enemy(int type) => type == 1 ? BuildStriker() : BuildScout();
+    public static Node3D Enemy(int type)
+    {
+        if (type < 2) return type == 1 ? BuildStriker() : BuildScout();
+        // Placeholder for the heavy types: a striker scaled up until they get a model of their own.
+        var heavy = BuildStriker();
+        heavy.Name = "Brute";
+        heavy.Scale = Vector3.One * 1.8f;
+        return heavy;
+    }
 
     /// <summary>An irregular asteroid with glowing crystal veins in <paramref name="tint"/>; about 1.5 units radius.</summary>
     public static Node3D Deposit(Color tint, int seed)

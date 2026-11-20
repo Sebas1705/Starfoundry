@@ -84,6 +84,7 @@ public static class Loc
 
         ["enemy.core:scout"] = ("explorador", "scout"),
         ["enemy.core:striker"] = ("destructor", "striker"),
+        ["enemy.core:brute"] = ("bruto", "brute"),
 
         // ---- shared words ----
         ["ui.free"] = ("gratis", "free"),

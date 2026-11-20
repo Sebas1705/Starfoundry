@@ -34,8 +34,11 @@ public sealed record TurretDef(int RangeCells, int Damage, int IntervalTicks, in
 /// <summary>An enemy type. Speed is in units per tick (240 units per cell).</summary>
 public sealed record EnemyDef(int Index, string Id, int Hp, int Speed, int Damage, int RangeCells, int IntervalTicks);
 
-/// <summary>A wave contains <c>Base + PerWave * waveNumber</c> enemies of this type (wave 0 is the first).</summary>
-public sealed record WaveSpec(int Enemy, int Base, int PerWave);
+/// <summary>
+/// From wave <c>FromWave</c> on (wave 0 is the first), a wave contains <c>Base + PerWave * (waveNumber - FromWave)</c>
+/// enemies of this type; earlier waves have none of them.
+/// </summary>
+public sealed record WaveSpec(int Enemy, int Base, int PerWave, int FromWave = 0);
 
 /// <summary>
 /// How the Remnant threat works. Each system sums the signatures of the machines in it; above the threshold the
@@ -487,12 +490,13 @@ public sealed class ContentDb
             {
                 foreach (var e in Array(root, "waves"))
                 {
-                    RequireObject(e, "wave", "enemy", "base", "per_wave");
+                    RequireObject(e, "wave", "enemy", "base", "per_wave", "from_wave");
                     string enemyId = Str(e, "enemy", "a wave");
                     if (!enemyIds.TryGetValue(enemyId, out int enemyIndex)) throw new InvalidDataException($"A wave uses unknown enemy '{enemyId}'.");
                     int b = Int(e, "base", "a wave", 0, 100), pw = Int(e, "per_wave", "a wave", 0, 100);
+                    int from = e.TryGetProperty("from_wave", out _) ? Int(e, "from_wave", "a wave", 0, 1000) : 0;
                     if (b + pw == 0) throw new InvalidDataException($"A wave of '{enemyId}' would never contain any.");
-                    waves.Add(new WaveSpec(enemyIndex, b, pw));
+                    waves.Add(new WaveSpec(enemyIndex, b, pw, from));
                 }
             }
 
@@ -652,7 +656,7 @@ public sealed class ContentDb
         Mix(Enemies.Count);
         foreach (var e in Enemies) { MixStr(e.Id); Mix(e.Hp); Mix(e.Speed); Mix(e.Damage); Mix(e.RangeCells); Mix(e.IntervalTicks); }
         Mix(Waves.Count);
-        foreach (var w in Waves) { Mix(w.Enemy); Mix(w.Base); Mix(w.PerWave); }
+        foreach (var w in Waves) { Mix(w.Enemy); Mix(w.Base); Mix(w.PerWave); Mix(w.FromWave); }
         return h;
     }
 }

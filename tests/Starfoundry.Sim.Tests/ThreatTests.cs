@@ -138,6 +138,24 @@ public class ThreatTests
     }
 
     [Fact]
+    public void WaveSizesFollowTheContentFormulaIncludingLaterStarts()
+    {
+        var w = World(); // no machines: nothing kills the enemies, so they pile up until the cap
+        var rules = C.Threat!;
+        for (int wave = 0; wave < 8; wave++)
+        {
+            int alive = w.Network.EnemyCount;
+            long before = w.Network.EnemiesSpawned;
+            w.Network.ScheduleWave(0);
+            w.Step(Rules.WarningTicks);
+            int expected = C.Waves.Sum(s => wave < s.FromWave ? 0 : s.Base + s.PerWave * (wave - s.FromWave));
+            Assert.Equal(Math.Min(expected, rules.MaxEnemies - alive), (int)(w.Network.EnemiesSpawned - before));
+        }
+        Assert.Contains(C.Waves, s => s.FromWave > 0); // the shipped content has enemy types that arrive later
+        w.ValidateInvariants();
+    }
+
+    [Fact]
     public void WavesGrowAndEnemiesAppearAtTheNodeAroundTheSystem()
     {
         var w = World();
@@ -299,7 +317,10 @@ public class ThreatTests
         StepUntil(w, () => w.Network.EnemiesKilled == w.Network.EnemiesSpawned && w.Network.EnemiesSpawned > 0);
 
         Assert.True(w.Network.IsMachineAlive(lab), "two fed turrets protect the lab");
-        Assert.True(w.Network.AmmoFired >= 6, "every scout takes at least three shots");
+        var scout = C.Enemies.First(e => e.Id == "core:scout");
+        int shotsPerScout = (scout.Hp + C.Machines[C.MachineIndex("core:turret")].Turret!.Damage - 1)
+            / C.Machines[C.MachineIndex("core:turret")].Turret!.Damage;
+        Assert.True(w.Network.AmmoFired >= 2 * shotsPerScout, "wave 0 has two scouts and each takes at least its share of shots");
         Assert.Equal(0, w.Network.EnemyCount);
         Assert.True(w.Network.GetMachineInfo(t1).Hp > 0);
         w.ValidateInvariants();

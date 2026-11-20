@@ -344,7 +344,7 @@ public sealed partial class BeltNetwork
         int spawned = 0;
         foreach (var spec in Content.Waves)
         {
-            int count = spec.Base + spec.PerWave * t.Wave;
+            int count = t.Wave < spec.FromWave ? 0 : spec.Base + spec.PerWave * (t.Wave - spec.FromWave);
             for (int k = 0; k < count; k++)
             {
                 if (_enemies.Count >= rules.MaxEnemies) break;
