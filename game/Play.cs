@@ -229,7 +229,15 @@ public partial class Play : Node3D
         _buildRange.Position = pos;
         _mineRange.Position = pos;
         // After a jump the camera snaps to the ship instead of flying hundreds of cells.
-        _target = (_target - pos).LengthSquared() > 100f * 100f ? pos : _target.Lerp(pos, 1f - MathF.Exp(-6f * dt));
+        var focus = pos;
+        // With a deposit chosen close by, look between the ship and the deposit so what you build around it stays on screen.
+        if (Net.IsDeposit(_selectedDeposit) && Net.IsDepositRevealed(_selectedDeposit))
+        {
+            var dp = Net.DepositPosition(_selectedDeposit);
+            var dep = new Vector3(dp.X, dp.Y, dp.Z);
+            if ((dep - pos).LengthSquared() < 40f * 40f) focus = pos.Lerp(dep, 0.5f);
+        }
+        _target = (_target - focus).LengthSquared() > 100f * 100f ? focus : _target.Lerp(focus, 1f - MathF.Exp(-6f * dt));
         PlaceCamera();
         UpdateShipControl();
     }

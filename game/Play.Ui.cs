@@ -33,6 +33,7 @@ public partial class Play
     private bool _helpOpen;
     private bool _objectivesOpen = true;
     private bool _holdWasFull;
+    private double _holdFullAgain;
     private bool _rmbDown, _rmbDragged, _mmbDown;
     private Vector2 _rmbStart;
     private ObjectiveTracker _objectives = null!;
@@ -277,7 +278,13 @@ public partial class Play
         _holdItems.Text = items.ToString();
         _holdItems.AddThemeColorOverride("font_color", full ? new Color(1f, 0.55f, 0.45f) : Colors.White);
 
-        if (full && !_holdWasFull) Toast(L("toast.holdFull"));
+        // Said when it fills and again every 25 s while it stays full: a full hold silently stops mining and depots.
+        double now = Time.GetTicksMsec() / 1000.0;
+        if (full && (!_holdWasFull || now >= _holdFullAgain))
+        {
+            Toast(L("toast.holdFull"), 8.0);
+            _holdFullAgain = now + 25.0;
+        }
         _holdWasFull = full;
     }
 

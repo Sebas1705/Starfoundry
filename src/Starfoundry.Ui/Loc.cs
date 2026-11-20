@@ -258,8 +258,8 @@ public static class Loc
         // ---- toasts ----
         ["toast.welcome"] = ("Bienvenido. Sigue los pasos de arriba a la derecha. F1 muestra los controles.",
                              "Welcome. Follow the steps at the top right. F1 shows the controls."),
-        ["toast.holdFull"] = ("¡Bodega llena! La minería y los depósitos se paran hasta que gastes objetos.",
-                              "Hold full! Mining and depots stop until you spend items."),
+        ["toast.holdFull"] = ("¡Bodega llena! La minería y los depósitos se paran. Gasta objetos construyendo, o deja la refinería (F) encendida para convertir el mineral en lingotes.",
+                              "Hold full! Mining and depots stop. Spend items by building, or keep the refinery (F) on to turn ore into ingots."),
         ["toast.language"] = ("Idioma: español", "Language: English"),
         ["toast.beltFacing"] = ("Las cintas sueltas miran hacia {0}", "Single belts now face {0}"),
         ["toast.depositSelected"] = ("Yacimiento de {0} elegido. Pulsa M para minarlo.", "{0} deposit selected. Press M to mine it."),
