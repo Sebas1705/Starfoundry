@@ -64,6 +64,31 @@ public class BalanceTests
         Assert.True(r.EnemiesKilled > 0);
     }
 
+    /// <summary>The wave during which a base with this many fed turrets (each with its own ammo line) first loses a machine.</summary>
+    private static int FirstLossWave(int turrets, ulong seed) =>
+        new BalanceBot(TestContent.Core, seed) { ActionDelaySeconds = 15, Turrets = turrets, StopAtFirstLoss = true, ObserveAfterSeconds = 4 * 60 * 60 }
+            .Run(4 * 60 * 60).FirstLossWave ?? int.MaxValue;
+
+    [Theory]
+    [InlineData(20261120UL)]
+    [InlineData(1UL)]
+    [InlineData(2UL)]
+    public void TheWaveRampOverrunsOneTurretBetweenTheEighthAndFourteenthWave(ulong seed)
+    {
+        // Wave 1 is about 12 minutes in and waves come every 4 to 6 minutes: the player has to grow the defence inside the first hour or two.
+        Assert.InRange(FirstLossWave(1, seed), 8, 14);
+    }
+
+    [Theory]
+    [InlineData(20261120UL)]
+    [InlineData(1UL)]
+    [InlineData(2UL)]
+    public void ExtraFedTurretsBuyAtLeastTwoMoreWaves(ulong seed)
+    {
+        int one = FirstLossWave(1, seed), three = FirstLossWave(3, seed);
+        Assert.True(three >= one + 2, $"one turret held until wave {one}, three until wave {three}");
+    }
+
     [Theory]
     [InlineData(1UL)]
     [InlineData(2UL)]

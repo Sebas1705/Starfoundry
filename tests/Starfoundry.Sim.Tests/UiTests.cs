@@ -38,6 +38,7 @@ public class UiTests
         foreach (var m in C.Machines) Assert.True(Loc.Has("machine." + m.Id), "machine " + m.Id);
         foreach (var r in C.Recipes) Assert.True(Loc.Has("recipe." + r.Id), "recipe " + r.Id);
         foreach (var r in C.Research) Assert.True(Loc.Has("research." + r.Id), "research " + r.Id);
+        foreach (var e in C.Enemies) Assert.True(Loc.Has("enemy." + e.Id), "enemy " + e.Id);
     }
 
     [Fact]

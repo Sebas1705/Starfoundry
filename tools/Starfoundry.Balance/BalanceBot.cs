@@ -3,6 +3,9 @@ using Starfoundry.Ui;
 
 namespace Starfoundry.Balance;
 
+/// <summary>The state of the base when a wave spawned.</summary>
+public sealed record WaveEntry(int Index, double Seconds, int Enemies, long MachinesLost, long ShipsLost, int Turrets);
+
 /// <summary>What one balance run measured. Times are simulated seconds since the start of the run.</summary>
 public sealed class BalanceReport
 {
@@ -16,6 +19,9 @@ public sealed class BalanceReport
     public long Waves { get; set; }
     public long EnemiesKilled { get; set; }
     public bool Finished { get; set; }
+    public List<WaveEntry> WaveLog { get; } = new();
+    /// <summary>The wave (1 is the first) during which the first machine was destroyed, or null if none was.</summary>
+    public int? FirstLossWave { get; set; }
     public string Stuck { get; set; } = "";
 }
 
@@ -40,6 +46,12 @@ public sealed class BalanceBot
 
     public double ActionDelaySeconds { get; init; } = 5;
 
+    /// <summary>How many fed turrets the base gets (1, 2 or 4).</summary>
+    public int Turrets { get; init; } = 1;
+
+    /// <summary>Stop as soon as a machine is destroyed; enough to find the first wave the defence cannot hold.</summary>
+    public bool StopAtFirstLoss { get; init; }
+
     /// <summary>Keep playing (the base just sits there, mining as before) this long after the guided steps, to see the first waves.</summary>
     public int ObserveAfterSeconds { get; init; }
 
@@ -54,7 +66,6 @@ public sealed class BalanceBot
         _w = SimWorld.CreateGalaxy(content, GameMode.Campaign, galaxySeed, threats: true);
         _w.Network.EnsurePlayer(0);
         _objectives = new ObjectiveTracker(content);
-        BuildScript();
     }
 
     private BeltNetwork Net => _w.Network;
@@ -88,6 +99,18 @@ public sealed class BalanceBot
             if (!Try(new PlaceMachine(x, 0, z, Machine(machine), r), out var res)) return false;
             _ids[key] = res.CreatedMachines[0];
             after?.Invoke();
+            return true;
+        });
+    }
+
+    /// <summary>A belt of the given length that starts next to its producer; the consumer is connected by the caller.</summary>
+    private void Link(string key, int x, int z, int length, string producer)
+    {
+        _steps.Add(() =>
+        {
+            if (!Try(new PlaceSegment(x, 0, z, Dir.PosX, length, BeltTier.Mk1), out var res)) return false;
+            _ids[key] = res.Created[0];
+            Do(new ConnectFromMachine(_ids[producer], _ids[key]));
             return true;
         });
     }
@@ -141,6 +164,7 @@ public sealed class BalanceBot
                     if (Net.IsDepositRevealed(d) && Net.DepositItem(d) == Item("core:iron_ore")) { _ironDeposit = d; break; }
             if (!Net.InMineRange(0, _ironDeposit)) { Steer(Net.DepositPosition(_ironDeposit)); return false; }
             Do(new SetMovement(0, 0, 0));
+            _intent = (0, 0, 0);
             Do(new StartMining(_ironDeposit));
             Do(new SetShipRecipe(Recipe("core:ship_smelt")));
             _mining = true;
@@ -171,6 +195,40 @@ public sealed class BalanceBot
             Do(new ConnectToMachine(_ids["l3.b3"], _ids["turret"]));
             Do(new SetWeapons(true));
         });
+
+        // A player who has built a defence keeps the ship inside it: at the deposit it would be out of the turrets' reach.
+        _steps.Add(() =>
+        {
+            // Steer tick by tick: the ship covers 6 cells a second, so a once-a-second correction would overshoot forever.
+            for (int tick = 0; tick < 20 * Units.TicksPerSecond; tick++)
+            {
+                var p = Net.GetPlayerInfo(0);
+                if (Math.Abs(p.X - 6 * Units.CellUnits) <= Units.CellUnits / 2 && Math.Abs(p.Z - 3 * Units.CellUnits) <= Units.CellUnits / 2
+                    && Math.Abs(p.Y) <= Units.CellUnits / 2) break;
+                Steer((6, 0, 3));
+                _w.Step();
+            }
+            Do(new SetMovement(0, 0, 0));
+            _intent = (0, 0, 0);
+            return true;
+        });
+
+        // More turrets, each with its own ammo line: one drill and smelter only make enough ammo for one turret firing
+        // all the time. They cost plates, and the plate line feeds the lab, so once Logistics is done the lab goes back to a depot.
+        if (Turrets >= 2)
+        {
+            _steps.Add(() => Net.IsResearched(_c.ResearchIndex("core:logistics")));
+            _steps.Add(() => Try(new RemoveMachine(_ids["lab"]), out _));
+            Machine_("plates.depot", 12, 3, "core:depot", null, () => Do(new ConnectToMachine(_ids["l2.b3"], _ids["plates.depot"])));
+            int[] rows = { 9, -3, 12, -6 };
+            for (int i = 0; i < Turrets - 1; i++)
+            {
+                string name = "x" + i;
+                int z = rows[i];
+                Row(name, z, "core:make_ammo");
+                Machine_(name + ".turret", 12, z, "core:turret", null, () => Do(new ConnectToMachine(_ids[name + ".b3"], _ids[name + ".turret"])));
+            }
+        }
     }
 
     private void Steer((int X, int Y, int Z) target)
@@ -199,6 +257,14 @@ public sealed class BalanceBot
     /// <summary>How much raw ore the player keeps in the hold before pausing hand mining.</summary>
     public int OreStock { get; init; } = 10;
 
+    private int CountTurrets()
+    {
+        int n = 0;
+        for (int id = 0; id < Net.MachineIdLimit; id++)
+            if (Net.IsMachineAlive(id) && _c.Machines[Net.GetMachineInfo(id).Type].Role == MachineRole.Turret) n++;
+        return n;
+    }
+
     private void Record()
     {
         double now = _w.Tick / (double)Units.TicksPerSecond;
@@ -212,13 +278,17 @@ public sealed class BalanceBot
             var t = Net.GetSystemThreat(0);
             if (t.WarningRemaining >= 0 && _report.FirstWaveWarning is null) _report.FirstWaveWarning = now;
             if (Net.WavesSpawned > 0 && _report.FirstWave is null) _report.FirstWave = now;
+            while (_report.WaveLog.Count < Net.WavesSpawned)
+                _report.WaveLog.Add(new WaveEntry(_report.WaveLog.Count, now, Net.EnemyCount, Net.MachinesLost, Net.ShipsLost, CountTurrets()));
         }
         if (Net.GetPlayerInfo(0).HoldTotal >= PlayerRules.HoldCapacity) _report.HoldFullSeconds += 1;
+        if (Net.MachinesLost > 0 && _report.FirstLossWave is null) _report.FirstLossWave = (int)Net.WavesSpawned;
     }
 
     /// <summary>Plays until the script is done, Logistics is researched and every guided step is ticked, or the time limit is reached.</summary>
     public BalanceReport Run(int maxSeconds = 3600)
     {
+        if (_steps.Count == 0) BuildScript(); // built here, not in the constructor, so initializer options such as Turrets apply
         int logistics = _c.ResearchIndex("core:logistics");
         for (int sec = 0; sec < maxSeconds; sec++)
         {
@@ -238,8 +308,9 @@ public sealed class BalanceBot
             if (Trace is not null && sec % 30 == 0)
             {
                 var hold = string.Join(" ", _c.Items.Select(i => $"{i.Id.Split(':')[1]}={Net.HoldCount(0, i.Index)}").Where(s => !s.EndsWith("=0")));
-                Trace.WriteLine($"{sec / 60}:{sec % 60:00} step={_step}/{_steps.Count} hold[{Net.GetPlayerInfo(0).HoldTotal}] {hold} machines={Net.MachineCount} lost={Net.MachinesLost} waves={Net.WavesSpawned} delivered={Net.DepotDelivered}");
+                Trace.WriteLine($"{sec / 60}:{sec % 60:00} step={_step}/{_steps.Count} ship=({Net.GetPlayerInfo(0).X / Units.CellUnits},{Net.GetPlayerInfo(0).Y / Units.CellUnits},{Net.GetPlayerInfo(0).Z / Units.CellUnits}) hold[{Net.GetPlayerInfo(0).HoldTotal}] {hold} machines={Net.MachineCount} lost={Net.MachinesLost} waves={Net.WavesSpawned} delivered={Net.DepotDelivered}");
             }
+            if (StopAtFirstLoss && _report.FirstLossWave is not null) break;
             if (_step >= _steps.Count && Net.IsResearched(logistics) && _objectives.Current is null)
             {
                 if (!_report.Finished) { _report.Finished = true; _finishedAt = sec; }
@@ -253,6 +324,14 @@ public sealed class BalanceBot
         if (!_report.Finished) _report.Stuck = $"script step {_step}/{_steps.Count}, next objective {_objectives.Current}";
         _w.ValidateInvariants();
         return _report;
+    }
+
+    public static string FormatWaves(BalanceReport r)
+    {
+        var lines = new List<string> { "| Wave | Time | Enemies | Machines lost so far | Ships lost so far | Turrets |", "| --- | --- | --- | --- | --- | --- |" };
+        foreach (var w in r.WaveLog)
+            lines.Add($"| {w.Index + 1} | {(int)w.Seconds / 60}:{(int)w.Seconds % 60:00} | {w.Enemies} | {w.MachinesLost} | {w.ShipsLost} | {w.Turrets} |");
+        return string.Join("\n", lines);
     }
 
     public static string Format(BalanceReport r)

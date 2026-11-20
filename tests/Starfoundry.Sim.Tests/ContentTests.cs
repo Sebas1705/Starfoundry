@@ -259,6 +259,26 @@ public class ContentTests
         Assert.Equal(new WaveSpec(0, 1, 1), Assert.Single(c.Waves));
     }
 
+    [Fact]
+    public void WavesCanStartLaterAndTheStartIsPartOfTheHash()
+    {
+        string later = RichThreat.Replace("\"base\":1,\"per_wave\":1", "\"base\":1,\"per_wave\":1,\"from_wave\":4");
+        var c = ContentDb.FromJson(later);
+        Assert.Equal(new WaveSpec(0, 1, 1, 4), Assert.Single(c.Waves));
+        Assert.Equal(0, ContentDb.FromJson(RichThreat).Waves[0].FromWave); // the default
+        Assert.NotEqual(ContentDb.FromJson(RichThreat).Hash, c.Hash);
+    }
+
+    [Theory]
+    [InlineData("-1")]
+    [InlineData("1001")]
+    public void AnOutOfRangeFirstWaveIsRejected(string from)
+    {
+        string bad = RichThreat.Replace("\"base\":1,\"per_wave\":1", "\"base\":1,\"per_wave\":1,\"from_wave\":" + from);
+        var e = Assert.Throws<InvalidDataException>(() => ContentDb.FromJson(bad));
+        Assert.Contains("from_wave", e.Message);
+    }
+
     [Theory]
     [InlineData("\"hp\":50", "\"hp\":0", "hp")]
     [InlineData("\"signature\":0,\"turret\"", "\"signature\":1001,\"turret\"", "signature")]

@@ -103,10 +103,10 @@
       "signature": 0,
       "turret": {
         "range_cells": 18,
-        "damage": 8,
+        "damage": 12,
         "interval_ticks": 15,
         "ammo_item": "core:ammo",
-        "ammo_cap": 20
+        "ammo_cap": 60
       }
     },
     {
@@ -483,7 +483,7 @@
     "alert_after_wave": 48000,
     "warning_seconds": 30,
     "node_distance_cells": 70,
-    "max_enemies": 24,
+    "max_enemies": 60,
     "ship_hull": 100,
     "ship_weapon": {
       "range_cells": 25,
@@ -508,6 +508,14 @@
       "damage": 12,
       "range_cells": 4,
       "interval_ticks": 30
+    },
+    {
+      "id": "core:brute",
+      "hp": 300,
+      "speed": 10,
+      "damage": 30,
+      "range_cells": 5,
+      "interval_ticks": 40
     }
   ],
   "waves": [
@@ -520,6 +528,24 @@
       "enemy": "core:striker",
       "base": 0,
       "per_wave": 1
+    },
+    {
+      "enemy": "core:brute",
+      "base": 1,
+      "per_wave": 0,
+      "from_wave": 3
+    },
+    {
+      "enemy": "core:brute",
+      "base": 1,
+      "per_wave": 0,
+      "from_wave": 7
+    },
+    {
+      "enemy": "core:brute",
+      "base": 1,
+      "per_wave": 0,
+      "from_wave": 11
     }
   ]
 }
