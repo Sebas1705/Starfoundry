@@ -328,7 +328,7 @@ public partial class Play : Node3D
                 || (def.Role == MachineRole.Drill && m.Deposit >= 0);
             if (def.Role == MachineRole.Turret) active = m.InputItems > 0; // a dark turret has no ammo
             Models.Animate(model, _animTime, active);
-            float max = def.Hp;
+            float max = Net.MaxHp(m.Type);
             Models.SetDamage(model, max <= 0 ? 0f : 1f - Math.Clamp(m.Hp / max, 0f, 1f));
 
             if (def.Role == MachineRole.Turret && enemies is not null && enemies.Count > 0)

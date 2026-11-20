@@ -304,6 +304,10 @@ public partial class Play
         else sb.Append(Net.ResearchedCount == 0 ? L("hud.researchNone") : L("hud.researchDone",
             string.Join(", ", _content.Research.Where(r => Net.IsResearched(r.Index)).Select(r => Loc.Name("research", r.Id))))).Append('\n');
 
+        int bDmg = Net.BonusPercent(BonusKind.TurretDamage), bRate = Net.BonusPercent(BonusKind.TurretRate),
+            bHp = Net.BonusPercent(BonusKind.MachineHp), bHeal = Net.BonusPercent(BonusKind.RepairHeal);
+        if (bDmg + bRate + bHp + bHeal > 0) sb.Append(L("hud.defense", bDmg, bRate, bHp, bHeal)).Append('\n');
+
         if (_demo) sb.Append(L("hud.speed", _demoSpeed));
         else if (_speed != 1 || _paused) sb.Append(_paused ? L("hud.paused") : L("hud.speed", _speed));
         _statusLabel.Text = sb.ToString().TrimEnd('\n');
@@ -332,11 +336,11 @@ public partial class Play
         {
             if (!Net.IsMachineAlive(id)) continue;
             var m = Net.GetMachineInfo(id);
-            if (m.Hp >= _content.Machines[m.Type].Hp) continue;
+            if (m.Hp >= Net.MaxHp(m.Type)) continue;
             if (!_world.InBuildRange(Player, m.X, m.Y, m.Z)) continue;
             list.Add(id);
         }
-        return list.OrderBy(id => Net.GetMachineInfo(id).Hp / (float)_content.Machines[Net.GetMachineInfo(id).Type].Hp).ToList();
+        return list.OrderBy(id => Net.GetMachineInfo(id).Hp / (float)Net.MaxHp(Net.GetMachineInfo(id).Type)).ToList();
     }
 
     /// <summary>Repairs every damaged machine in reach, worst first; the hold pays and what it cannot pay for stays damaged.</summary>
@@ -864,7 +868,7 @@ public partial class Play
         var m = Net.GetMachineInfo(id);
         var def = _content.Machines[m.Type];
         string recipe = m.Recipe >= 0 ? " - " + Loc.Name("recipe", _content.Recipes[m.Recipe].Id) : "";
-        return $"{MachineName(m.Type)}{recipe}\n{MachineStatus(m)}   {L("tip.hp", m.Hp, def.Hp)}";
+        return $"{MachineName(m.Type)}{recipe}\n{MachineStatus(m)}   {L("tip.hp", m.Hp, Net.MaxHp(m.Type))}";
     }
 
     private void UpdateInspector()
@@ -879,7 +883,7 @@ public partial class Play
 
         var sb = new StringBuilder();
         sb.Append(MachineStatus(m)).Append('\n');
-        sb.Append(L("tip.hp", m.Hp, def.Hp)).Append('\n');
+        sb.Append(L("tip.hp", m.Hp, Net.MaxHp(m.Type))).Append('\n');
         if (m.Recipe >= 0)
         {
             var r = _content.Recipes[m.Recipe];
@@ -893,7 +897,7 @@ public partial class Play
         var options = RecipesFor(m.Type);
         _inspPrev.Visible = _inspNext.Visible = options.Count > 1;
         _inspRemove.Text = L("insp.remove", Stacks(def.Cost));
-        bool damaged = m.Hp < def.Hp;
+        bool damaged = m.Hp < Net.MaxHp(m.Type);
         _inspRepair.Visible = damaged;
         if (damaged) _inspRepair.Text = L("insp.repair", Stacks(Net.RepairCost(_selMachine)));
     }

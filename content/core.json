@@ -370,6 +370,82 @@
       "abilities": [
         "jump"
       ]
+    },
+    {
+      "id": "core:turret_calibration",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 150
+        }
+      ],
+      "requires": [
+        "core:logistics"
+      ],
+      "unlocks": [],
+      "bonuses": [
+        {
+          "kind": "turret_damage",
+          "percent": 25
+        }
+      ]
+    },
+    {
+      "id": "core:reinforced_plating",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 200
+        }
+      ],
+      "requires": [
+        "core:logistics"
+      ],
+      "unlocks": [],
+      "bonuses": [
+        {
+          "kind": "machine_hp",
+          "percent": 50
+        }
+      ]
+    },
+    {
+      "id": "core:rapid_loader",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 250
+        }
+      ],
+      "requires": [
+        "core:turret_calibration"
+      ],
+      "unlocks": [],
+      "bonuses": [
+        {
+          "kind": "turret_rate",
+          "percent": 25
+        }
+      ]
+    },
+    {
+      "id": "core:field_repair",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 250
+        }
+      ],
+      "requires": [
+        "core:reinforced_plating"
+      ],
+      "unlocks": [],
+      "bonuses": [
+        {
+          "kind": "repair_heal",
+          "percent": 100
+        }
+      ]
     }
   ],
   "galaxy": {

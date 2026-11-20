@@ -93,6 +93,7 @@ public sealed partial class BeltNetwork
         foreach (int required in Content.Research[node].Requires) GrantResearch(required);
         _researched[node] = true;
         if (_researchCurrent == node) _researchCurrent = -1;
+        RecomputeBonuses(scaleHp: true);
         StructureVersion++;
     }
 

@@ -78,6 +78,10 @@ public static class Loc
         ["research.core:carbon_drilling"] = ("Perforación de carbono", "Carbon drilling"),
         ["research.core:advanced_logistics"] = ("Logística avanzada", "Advanced logistics"),
         ["research.core:jump_drive"] = ("Motor de salto", "Jump drive"),
+        ["research.core:turret_calibration"] = ("Calibración de torretas", "Turret calibration"),
+        ["research.core:reinforced_plating"] = ("Blindaje reforzado", "Reinforced plating"),
+        ["research.core:rapid_loader"] = ("Cargador rápido", "Rapid loader"),
+        ["research.core:field_repair"] = ("Reparación de campo", "Field repair"),
 
         ["arch.core:home"] = ("hogar", "home"),
         ["arch.core:dense_belt"] = ("cinturón denso", "dense belt"),
@@ -174,6 +178,7 @@ public static class Loc
         ["hud.research"] = ("Investigando {0}: {1}   (el laboratorio necesita esos objetos por cinta)",
                             "Researching {0}: {1}   (the lab needs these items by belt)"),
         ["hud.researchNone"] = ("Sin investigación elegida (T).", "No research selected (T)."),
+        ["hud.defense"] = ("Mejoras de defensa: daño de torretas +{0}%, cadencia +{1}%, vida de máquinas +{2}%, reparación +{3}%", "Defence upgrades: turret damage +{0}%, fire rate +{1}%, machine hit points +{2}%, repair +{3}%"),
         ["hud.researchDone"] = ("Sin investigación elegida (T). Hecho: {0}", "No research selected (T). Done: {0}"),
         ["hud.speed"] = ("velocidad x{0}", "speed x{0}"),
         ["hud.paused"] = ("PAUSA", "PAUSED"),

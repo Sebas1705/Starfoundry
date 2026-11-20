@@ -17,7 +17,7 @@ while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "content", "co
 if (dir is null) { Console.Error.WriteLine("content/core.json not found"); return 1; }
 
 var content = ContentDb.FromFile(Path.Combine(dir.FullName, "content", "core.json"));
-int observe = 0, turrets = 1, walls = 0, bays = 0;
+int observe = 0, turrets = 1, walls = 0, bays = 0, upgrades = 0;
 var repairs = RepairMode.Never;
 foreach (var a in args)
 {
@@ -25,6 +25,7 @@ foreach (var a in args)
     else if (a.StartsWith("--turrets=")) turrets = int.Parse(a["--turrets=".Length..]);
     else if (a.StartsWith("--walls=")) walls = int.Parse(a["--walls=".Length..]);
     else if (a.StartsWith("--bays=")) bays = int.Parse(a["--bays=".Length..]);
+    else if (a.StartsWith("--upgrades=")) upgrades = int.Parse(a["--upgrades=".Length..]);
     else if (a.StartsWith("--repairs=")) repairs = Enum.Parse<RepairMode>(a["--repairs=".Length..], ignoreCase: true);
 }
 var report = new BalanceBot(content, seed)
@@ -34,6 +35,7 @@ var report = new BalanceBot(content, seed)
     Turrets = turrets,
     Walls = walls,
     Bays = bays,
+    Upgrades = upgrades,
     Repairs = repairs,
     Trace = args.Contains("--trace") ? Console.Out : null,
 }.Run(minutes * 60);
