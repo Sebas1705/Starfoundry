@@ -51,3 +51,21 @@ For two seeds (20261120 and 1): the jump drive is researched 30 to 45 minutes in
 - Only the first expansion is measured. Whether the remote lines keep the defence alive after the home ore ends, and what a second or third expansion costs, are not.
 - The remote lines are undefended; waves for a system with machines in it come from its own signature, which the scripted run does not wait to see.
 - Only plates for the first two researches limit the time to jump; with a faster plate line it would be earlier.
+
+## The cargo port
+![The cargo port, last of the machines](cargo-port-gallery.png)
+
+The expansion exposed a gap: the remote lines fill the hold, but nothing took items out of the hold onto belts, so the home ammo lines went dry once the home ore ended whatever the player had mined elsewhere. The **cargo port** (`core:unloader`, [ADR 0015](../adr/0015-cargo-ports-unload-the-hold-onto-belts.md)) is the missing piece: it moves one ingot every half second from the owner's hold to a belt, keeping a reserve of 10 in the hold. 80 hit points, 12 ingots and 4 plates, unlocked by the jump drive. Build key `B` (the build bar has twelve items), model, status text and tooltip in es and en.
+
+Measured with three fed turrets, four walls, two repair bays and four upgrades; the bot expands when the home iron is at or below 40 percent, takes the carbon line down and, with `--port`, replaces the drill and smelter of every ammo line with a port:
+
+| Seed | Waves seen without | Waves seen with ports | First machine lost without | with | Items from the remote lines |
+| --- | --- | --- | --- | --- | --- |
+| 20261120 | 30 | 34 | 30 | 30 | 358 |
+| 1 | 30 | 35 | 30 | 31 | 400 |
+
+The home iron is gone at about 100 minutes in both runs. With the ports the turrets keep their ammo and the base survives four or five more waves, but the first loss stays at wave 30 or 31: the supply stops being the limit and the strength of the waves is. The remote deposits were barely touched (1,957 and 602 ore left of about 2,500 and 1,000 at the start).
+
+Pinned by a test (default seed): the ammo lines are switched, the remote lines deliver at least 200 items, and the base sees at least three more waves than without. Unit tests cover the role and its numbers, the unlock, moving ingots down to the reserve, never taking what a full belt cannot carry, taking only from its owner's hold, carrying only its item and needing a belt, refusing an input belt, feeding an assembler from the hold deterministically, and content validation. 349 tests.
+
+Limitations: only ingots are carried; the port was seen in the gallery and in the scripted runs, not placed by hand; the build key `B`, the model in the world and the status text have not been used in a played game.

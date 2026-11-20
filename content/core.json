@@ -149,6 +149,27 @@
       }
     },
     {
+      "id": "core:unloader",
+      "role": "unloader",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 12
+        },
+        {
+          "item": "core:iron_plate",
+          "count": 4
+        }
+      ],
+      "hp": 80,
+      "signature": 1,
+      "unloader": {
+        "item": "core:iron_ingot",
+        "interval_ticks": 30,
+        "reserve": 10
+      }
+    },
+    {
       "id": "core:micro_refinery",
       "role": "ship"
     }
@@ -366,7 +387,9 @@
         "core:logistics",
         "core:carbon_drilling"
       ],
-      "unlocks": [],
+      "unlocks": [
+        "core:unloader"
+      ],
       "abilities": [
         "jump"
       ]

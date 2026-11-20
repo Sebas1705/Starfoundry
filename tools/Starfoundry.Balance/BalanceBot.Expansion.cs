@@ -9,10 +9,18 @@ namespace Starfoundry.Balance;
 /// </summary>
 public sealed partial class BalanceBot
 {
-    private enum Phase { WaitingForResearch, GatheringFuel, Jumping, Scanning, Flying, Building, Returning, Home, Done }
+    private enum Phase { WaitingForResearch, GatheringFuel, Jumping, Scanning, Flying, Building, Returning, Porting, Done }
 
     /// <summary>Research carbon drilling and the jump drive after Logistics, then jump out and build a remote ingot line.</summary>
     public bool Expand { get; init; }
+
+    /// <summary>After coming home, replace the drill and smelter of every ammo line with a cargo port that feeds it ingots from the hold, so the remote lines keep the turrets supplied.</summary>
+    public bool UseUnloader { get; init; }
+
+    /// <summary>Start the expansion research only when the home iron is at or below this percent of its starting amount (100 means at once).</summary>
+    public int ExpandAtPercent { get; init; } = 100;
+
+    private int HomeIronPercent() => _ironDeposit < 0 ? 100 : (int)((long)Net.DepositRemaining(_ironDeposit) * 100 / Math.Max(1, Net.DepositInitial(_ironDeposit)));
 
     /// <summary>Remove the carbon drill, belt and second lab once the jump drive is researched, so nothing undefended is left at home.</summary>
     public bool TakeDownCarbonLine { get; init; }
@@ -36,6 +44,23 @@ public sealed partial class BalanceBot
         _report.Notes.Add($"{(int)now / 60}:{(int)now % 60:00} {what} (home iron left {ore})");
         _report.Milestones.TryAdd("Expansion: " + key, now);
         _report.HomeIronLeft["Expansion: " + key] = ore;
+    }
+
+    private int _portStep;
+
+    /// <summary>One placement per call: remove the smelter of an ammo line, put a cargo port in its cell and connect it to the belt after it.</summary>
+    private void PortAmmoLines()
+    {
+        var lines = new List<(string Name, int Z)> { ("l3", 6) };
+        int[] rows = { 9, -3, 12, -6 };
+        for (int i = 0; i < Turrets - 1; i++) lines.Add(("x" + i, rows[i]));
+        if (_portStep >= lines.Count) { Note("Cargo ports", "ammo lines now fed from the hold"); _phase = Phase.Done; return; }
+
+        var (name, z) = lines[_portStep];
+        if (_ids.TryGetValue(name + ".smelter", out int smelter) && Net.IsMachineAlive(smelter)) Do(new RemoveMachine(smelter));
+        if (!Try(new PlaceMachine(4, 0, z, Machine("core:unloader"), -1), out var r)) return;
+        Do(new ConnectFromMachine(r.CreatedMachines[0], _ids[name + ".b2"]));
+        _portStep++;
     }
 
     private int _carbonStep;
@@ -164,6 +189,10 @@ public sealed partial class BalanceBot
                 BuildRemoteLine();
                 break;
 
+            case Phase.Porting:
+                PortAmmoLines();
+                break;
+
             case Phase.Returning:
             {
                 if (Net.JumpRemaining(0) == 0 && Net.CurrentSystem(0) == _targetSystem)
@@ -178,7 +207,7 @@ public sealed partial class BalanceBot
                         && Math.Abs(Net.GetPlayerInfo(0).Z - 3 * Units.CellUnits) <= Units.CellUnits / 2);
                     _expanding = false;
                     Note("Home again", "back at the base");
-                    _phase = Phase.Done;
+                    _phase = UseUnloader ? Phase.Porting : Phase.Done;
                 }
                 break;
             }

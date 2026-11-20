@@ -69,6 +69,7 @@ public static class Models
         "core:turret" => BuildTurret(),
         "core:wall" => BuildWall(),
         "core:repair_bay" => BuildRepairBay(),
+        "core:unloader" => BuildUnloader(),
         _ => BuildCrate(),
     };
 
@@ -701,6 +702,29 @@ public static class Models
         {
             mb.Torus(new(0, Y0 + 0.235f, 0), 0.30f, 0.012f, 12, 3);
             mb.Sphere(new(-0.22f, Y0 + 0.60f, -0.22f), new(0.04f, 0.03f, 0.04f), 3, 6);
+        });
+        return r;
+    }
+
+    private static Node3D BuildUnloader()
+    {
+        var r = NewMachine("Unloader");
+        Add(r, "Body", "unloader.body", Body(), mb =>
+        {
+            Plinth(mb, Green);
+            mb.C(GreenDk).Block(new(-0.10f, Y0 + 0.14f, 0), new(0.60f, 0.28f, 0.70f), 0.94f, 0.94f);
+            mb.C(Hull).Block(new(-0.10f, Y0 + 0.29f, 0), new(0.44f, 0.04f, 0.50f));
+            // a chute pointing out of the hold towards +X, where the belt starts
+            mb.C(Steel).Block(new(0.30f, Y0 + 0.12f, 0), new(0.30f, 0.14f, 0.30f), 0.8f, 0.8f);
+            mb.C(Panel).Block(new(0.30f, Y0 + 0.20f, 0), new(0.34f, 0.025f, 0.34f));
+            foreach (float s in new[] { -1f, 1f })
+                mb.C(Steel).Prism(new(-0.30f, Y0, 0.30f * s), 0.05f, 0.04f, 0.40f, 6);
+        });
+        Add(r, "GlowLight", "unloader.light", Glow(new Color(0.4f, 1f, 0.6f), 2.4f), mb =>
+        {
+            mb.Sphere(new(-0.30f, Y0 + 0.43f, 0.30f), new(0.04f, 0.03f, 0.04f), 3, 6);
+            mb.Sphere(new(-0.30f, Y0 + 0.43f, -0.30f), new(0.04f, 0.03f, 0.04f), 3, 6);
+            mb.Block(new(0.30f, Y0 + 0.215f, 0), new(0.16f, 0.012f, 0.16f));
         });
         return r;
     }

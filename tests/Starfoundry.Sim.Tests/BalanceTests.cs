@@ -185,6 +185,23 @@ public class BalanceTests
         Assert.True(r.Milestones.ContainsKey("Expand"), "the guided step is ticked off by the first jump");
     }
 
+    [Fact]
+    public void CargoPortsKeepTheTurretsSuppliedAfterTheHomeOreIsGone()
+    {
+        BalanceReport Long(bool ports) =>
+            new BalanceBot(TestContent.Core, 20261120UL)
+            {
+                ActionDelaySeconds = 15, Turrets = 3, Walls = 4, Bays = 2, ExtraPlateLine = true, Upgrades = 4,
+                Expand = ports, ExpandAtPercent = 40, TakeDownCarbonLine = ports, UseUnloader = ports,
+                ObserveAfterSeconds = 300 * 60,
+            }.Run(400 * 60);
+        var without = Long(false);
+        var with = Long(true);
+        Assert.True(with.Milestones.ContainsKey("Expansion: Cargo ports"), "the ammo lines were switched to the hold");
+        Assert.True(with.RemoteDelivered >= 200, "the remote lines delivered only " + with.RemoteDelivered + " items");
+        Assert.True(with.Waves >= without.Waves + 3, $"the base saw {without.Waves} waves without the ports and {with.Waves} with them");
+    }
+
     [Theory]
     [InlineData(1UL)]
     [InlineData(2UL)]

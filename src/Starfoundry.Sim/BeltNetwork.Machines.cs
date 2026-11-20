@@ -324,7 +324,9 @@ public sealed partial class BeltNetwork
             if (m.Hp < 1 || m.Hp > MaxHp(m.Type)) Fail($"machine {id} hit points {m.Hp} out of range");
             var turret = content.Machines[m.Type].Turret;
             var repairer = content.Machines[m.Type].Repairer;
-            if (turret is null && repairer is null && m.TurretCooldown != 0) Fail($"machine {id} is not a turret or repairer but has a cooldown");
+            var unloader = content.Machines[m.Type].Unloader;
+            if (turret is null && repairer is null && unloader is null && m.TurretCooldown != 0) Fail($"machine {id} is not a turret, repairer or unloader but has a cooldown");
+            if (unloader is not null && (m.TurretCooldown < 0 || m.TurretCooldown > unloader.IntervalTicks)) Fail($"machine {id} unloader cooldown out of range");
             if (turret is not null && (m.TurretCooldown < 0 || m.TurretCooldown > turret.IntervalTicks)) Fail($"machine {id} turret cooldown out of range");
             if (repairer is not null && (m.TurretCooldown < 0 || m.TurretCooldown > repairer.IntervalTicks)) Fail($"machine {id} repairer cooldown out of range");
 

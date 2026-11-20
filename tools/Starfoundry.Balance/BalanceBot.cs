@@ -254,8 +254,8 @@ public sealed partial class BalanceBot
             if (Keeping && ExtraPlateLine)
             {
                 // The lab keeps the first plate line for research; a second line feeds the hold for building.
-                Row("p2", -3, "core:iron_plate");
-                Machine_("p2.depot", 12, -3, "core:depot", null, () => Do(new ConnectToMachine(_ids["p2.b3"], _ids["p2.depot"])));
+                Row("p2", Turrets >= 3 ? -6 : -3, "core:iron_plate");
+                Machine_("p2.depot", 12, Turrets >= 3 ? -6 : -3, "core:depot", null, () => Do(new ConnectToMachine(_ids["p2.b3"], _ids["p2.depot"])));
             }
             else if (Keeping)
             {
@@ -339,7 +339,7 @@ public sealed partial class BalanceBot
     {
         if (!Keeping || Net.CurrentResearch >= 0 || !Net.IsResearched(_c.ResearchIndex("core:logistics"))) return;
         var queue = new List<string>();
-        if (Expand) { queue.Add("core:carbon_drilling"); queue.Add("core:jump_drive"); }
+        if (Expand && HomeIronPercent() <= ExpandAtPercent) { queue.Add("core:carbon_drilling"); queue.Add("core:jump_drive"); }
         queue.AddRange(UpgradeOrder.Take(Upgrades));
         foreach (var id in queue)
         {

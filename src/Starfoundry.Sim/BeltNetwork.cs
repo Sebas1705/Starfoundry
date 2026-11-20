@@ -182,6 +182,7 @@ public sealed partial class BeltNetwork
         foreach (int id in _order) MoveSegment(_segs[id]!);
 
         StepMachines();
+        StepUnloaders();
         StepPlayers();
         StepResearch();
         StepThreat();

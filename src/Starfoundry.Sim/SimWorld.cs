@@ -454,7 +454,7 @@ public sealed class SimWorld
                 if (!Network.IsAlive(seg)) return Reject.UnknownSegment;
                 if (!Network.IsMachineAlive(mach)) return Reject.UnknownMachine;
                 if (Network.FeedsMachine(seg, mach)) return Reject.AlreadyConnected;
-                if (Network.Content!.Machines[Network.GetMachineInfo(mach).Type].Role == MachineRole.Wall) return Reject.WrongRole;
+                if (Network.Content!.Machines[Network.GetMachineInfo(mach).Type].Role is MachineRole.Wall or MachineRole.Unloader) return Reject.WrongRole;
                 var f = Network.GetSegmentInfo(seg);
                 var m = Network.GetMachineInfo(mach);
                 int lastX = f.OriginX + f.DirX * (f.LengthCells - 1);
