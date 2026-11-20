@@ -58,6 +58,7 @@ Act for the commanding player ([ADR 0005](../adr/0005-campaign-economy-hold-cost
 | `Jump(system)` | Charges a 3 second jump along a lane from inside a system to a known system; the ship is frozen until it arrives at the anchor. Campaign: needs the Jump Drive research and pays the jump cost ([ADR 0007](../adr/0007-galaxy-as-regions-of-one-space-with-deterministic-generation.md)) | NoGalaxy, UnknownSystem, Locked, Busy, NotInASystem, InvalidArgument (already there), NoLane, NotEnoughItems |
 
 | `SetWeapons(armed)` | Switches the ship weapon on or off; while on it fires at the nearest enemy within 25 cells ([ADR 0008](../adr/0008-remnant-threat-as-signature-driven-waves.md)) | none |
+| `Repair(machine)` | Restores a damaged machine to full hit points; campaign: ship in building range, pays half the build cost scaled by the damage ([ADR 0011](../adr/0011-walls-draw-enemies-and-repairs-restore-hit-points.md)) | UnknownMachine, NotDamaged, OutOfRange, NotEnoughItems |
 
 `StartMining` and `LinkDeposit` need the deposit to be revealed (NotDiscovered); `LinkDeposit` also needs the drill within 16 cells of it (OutOfRange). `StartMining` also needs the ship within 6 cells of the deposit (OutOfRange). In campaign mode, placing or removing belts and machines needs the ship within 24 cells (OutOfRange).
 

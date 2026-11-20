@@ -22,7 +22,7 @@
 - Benefits: waves now ask for a bigger defence during the first one to two hours; a content author can introduce an enemy at any wave; the cap no longer hides the heavy enemies.
 - Costs: the scripted player keeps its ship inside the turrets' reach and never repairs, so a human who plays the ship well will hold longer and one who ignores ammo will hold less; the targets are bands, not a promise.
 - Results are noisy per seed (the wave direction comes from the seed): two turrets were no better than one on the default seed and four held the longest. The targets compare one against three and use ranges for that reason.
-- Not decided here: repairs, walls or other ways to protect machines, targeting rules, difficulty settings.
+- Not decided here: targeting rules, difficulty settings.
 
 ## Alternatives considered
 - **Per-wave hit point growth:** smooth, but it would also have changed the early waves and needs another field on every enemy.

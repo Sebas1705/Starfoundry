@@ -34,6 +34,7 @@ public partial class Gallery : Node3D
         ("research_lab", () => Models.Machine("core:research_lab")),
         ("depot", () => Models.Machine("core:depot")),
         ("turret", () => Models.Machine("core:turret")),
+        ("wall", () => Models.Machine("core:wall")),
         ("ship", Models.Ship),
         ("enemy_scout", () => Models.Enemy(0)),
         ("enemy_striker", () => Models.Enemy(1)),
@@ -122,7 +123,7 @@ public partial class Gallery : Node3D
 
     private void BuildModels()
     {
-        string[] ids = { "core:extractor", "core:drill", "core:smelter", "core:assembler", "core:research_lab", "core:depot", "core:turret" };
+        string[] ids = { "core:extractor", "core:drill", "core:smelter", "core:assembler", "core:research_lab", "core:depot", "core:turret", "core:wall" };
         var tile = new StandardMaterial3D { AlbedoColor = new Color(0.12f, 0.14f, 0.19f), Roughness = 0.9f };
         for (int i = 0; i < ids.Length; i++)
         {

@@ -440,6 +440,7 @@ public partial class Play : Node3D
         Reject.Depleted => L("why.depleted"),
         Reject.ResearchUnavailable => L("why.researchUnavailable"),
         Reject.NotDiscovered => L("why.notDiscovered"),
+        Reject.NotDamaged => L("why.notDamaged"),
         Reject.OnCooldown => L("why.onCooldown"),
         Reject.NoLane => L("why.noLane"),
         Reject.NotInASystem => L("why.notInSystem"),

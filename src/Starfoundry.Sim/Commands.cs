@@ -102,6 +102,12 @@ public sealed record LinkDeposit(int Machine, int Deposit) : Command;
 
 public sealed record UnlinkDeposit(int Machine) : Command;
 
+/// <summary>
+/// Restores a damaged machine to full hit points. In campaign mode the ship must be within building range and the hold
+/// pays half the build cost scaled by the share of hit points missing (at least one of each item); in sandbox it is free.
+/// </summary>
+public sealed record Repair(int Machine) : Command;
+
 /// <summary>Several commands applied atomically: either all succeed or the world is left untouched.</summary>
 public sealed record Batch(Command[] Commands) : Command;
 
@@ -173,6 +179,9 @@ public enum Reject
 
     /// <summary>The deposit is still hidden: scan near it first.</summary>
     NotDiscovered,
+
+    /// <summary>The machine has all its hit points.</summary>
+    NotDamaged,
 }
 
 /// <summary>Outcome of one submitted command.</summary>

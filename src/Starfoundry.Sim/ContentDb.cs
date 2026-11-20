@@ -26,6 +26,9 @@ public enum MachineRole
 
     /// <summary>Shoots enemies in range using ammo items delivered by belts.</summary>
     Turret = 5,
+
+    /// <summary>A tough building with no recipe or belts. Enemies in its system attack the nearest wall before anything else.</summary>
+    Wall = 6,
 }
 
 /// <summary>How a turret fires. One ammo item is used per shot.</summary>
@@ -233,6 +236,7 @@ public sealed class ContentDb
                         "ship" => MachineRole.Ship,
                         "depot" => MachineRole.Depot,
                         "turret" => MachineRole.Turret,
+                        "wall" => MachineRole.Wall,
                         _ => throw new InvalidDataException($"Machine '{id}' has an unknown role."),
                     } : throw new InvalidDataException($"Machine '{id}' role must be a string.");
                 }
@@ -280,8 +284,8 @@ public sealed class ContentDb
                 var outputs = Stacks(e, "outputs", id, itemIds, allowEmpty: false, max: MaxStack);
 
                 var role = machines[machine].Role;
-                if (role is MachineRole.Lab or MachineRole.Depot or MachineRole.Turret)
-                    throw new InvalidDataException($"Recipe '{id}' targets a lab, depot or turret, which have no recipes.");
+                if (role is MachineRole.Lab or MachineRole.Depot or MachineRole.Turret or MachineRole.Wall)
+                    throw new InvalidDataException($"Recipe '{id}' targets a lab, depot, turret or wall, which have no recipes.");
                 if (role == MachineRole.Drill && (inputs.Length != 0 || outputs.Length != 1))
                     throw new InvalidDataException($"Drill recipe '{id}' must have no inputs and exactly one output.");
 

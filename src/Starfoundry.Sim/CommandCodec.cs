@@ -13,7 +13,7 @@ public static class CommandCodec
         TagPlaceMachine = 10, TagRemoveMachine = 11, TagSetRecipe = 12,
         TagConnectToMachine = 13, TagConnectFromMachine = 14, TagDisconnectMachine = 15,
         TagStartMining = 16, TagStopMining = 17, TagSetShipRecipe = 18, TagSetResearch = 19,
-        TagLinkDeposit = 20, TagUnlinkDeposit = 21, TagSetMovement = 22, TagScan = 23, TagJump = 24, TagSetWeapons = 25;
+        TagLinkDeposit = 20, TagUnlinkDeposit = 21, TagSetMovement = 22, TagScan = 23, TagJump = 24, TagSetWeapons = 25, TagRepair = 26;
 
     private static readonly byte[] Magic = Encoding.ASCII.GetBytes("SFCL");
 
@@ -47,7 +47,7 @@ public static class CommandCodec
                 or PlaceMachine or RemoveMachine or SetRecipe
                 or ConnectToMachine or ConnectFromMachine or DisconnectMachine
                 or StartMining or StopMining or SetShipRecipe or SetResearch or LinkDeposit or UnlinkDeposit or SetMovement
-                or Scan or Jump or SetWeapons:
+                or Scan or Jump or SetWeapons or Repair:
                 return true;
             default:
                 return false;
@@ -132,6 +132,9 @@ public static class CommandCodec
             case UnlinkDeposit ud:
                 w.Write(TagUnlinkDeposit); w.Write(ud.Machine);
                 break;
+            case Repair rp:
+                w.Write(TagRepair); w.Write(rp.Machine);
+                break;
             case SetMovement mv:
                 w.Write(TagSetMovement); w.Write(mv.Dx); w.Write(mv.Dy); w.Write(mv.Dz);
                 break;
@@ -197,6 +200,7 @@ public static class CommandCodec
             case TagSetResearch: return new SetResearch(r.ReadInt32());
             case TagLinkDeposit: return new LinkDeposit(r.ReadInt32(), r.ReadInt32());
             case TagUnlinkDeposit: return new UnlinkDeposit(r.ReadInt32());
+            case TagRepair: return new Repair(r.ReadInt32());
             case TagSetMovement: return new SetMovement(r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
             case TagScan: return new Scan();
             case TagJump: return new Jump(r.ReadInt32());
