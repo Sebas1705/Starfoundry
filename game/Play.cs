@@ -35,7 +35,7 @@ public partial class Play : Node3D
 
     // Rendering
     private Camera3D _camera = null!;
-    private float _yaw = 0.2f, _distance = 15f;
+    private float _yaw = 0.2f, _distance = DefaultDistance;
     private Vector3 _target = new(7f, 0f, 2f);
     private MultiMeshInstance3D? _slabNode, _itemNode;
     private MultiMesh _items = null!;
