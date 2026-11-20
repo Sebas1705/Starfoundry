@@ -232,6 +232,91 @@ public class ContentTests
         Assert.NotEqual(h, ContentDb.FromJson(RichGalaxy.Replace("\"count\":2}]}", "\"count\":3}]}")).Hash);
     }
 
+    private const string GunMachine =
+        "{\"id\":\"t:gun\",\"role\":\"turret\",\"hp\":50,\"signature\":0,\"turret\":{\"range_cells\":10,\"damage\":5,\"interval_ticks\":10,\"ammo_item\":\"t:b\",\"ammo_cap\":10}}";
+
+    private const string ThreatPart =
+        ",\"threat\":{\"alert_max\":1000,\"signature_threshold\":5,\"decay_per_tick\":1,\"alert_after_wave\":100,\"warning_seconds\":10," +
+        "\"node_distance_cells\":50,\"max_enemies\":10,\"ship_hull\":50,\"ship_weapon\":{\"range_cells\":20,\"damage\":3,\"interval_ticks\":8}," +
+        "\"respawn_seconds\":3}," +
+        "\"enemies\":[{\"id\":\"t:bug\",\"hp\":10,\"speed\":10,\"damage\":2,\"range_cells\":2,\"interval_ticks\":10}]," +
+        "\"waves\":[{\"enemy\":\"t:bug\",\"base\":1,\"per_wave\":1}]";
+
+    private static readonly string RichThreat =
+        Rich.Replace("{\"id\":\"t:ship\",\"role\":\"ship\"}", "{\"id\":\"t:ship\",\"role\":\"ship\"}," + GunMachine)[..^1] + ThreatPart + "}";
+
+    [Fact]
+    public void ThreatEnemiesWavesAndTurretsLoad()
+    {
+        var c = ContentDb.FromJson(RichThreat);
+        var gun = c.Machines[c.MachineIndex("t:gun")];
+        Assert.Equal(MachineRole.Turret, gun.Role);
+        Assert.Equal(new TurretDef(10, 5, 10, c.ItemIndex("t:b"), 10), gun.Turret);
+        Assert.Equal((50, 0), (gun.Hp, gun.Signature));
+        Assert.Equal(100, c.Machines[c.MachineIndex("t:m")].Hp); // defaults
+        Assert.Equal(new ThreatRules(1000, 5, 1, 100, 300, 50, 10, 50, 20, 3, 8, 90), c.Threat);
+        Assert.Equal(new EnemyDef(0, "t:bug", 10, 10, 2, 2, 10), Assert.Single(c.Enemies));
+        Assert.Equal(new WaveSpec(0, 1, 1), Assert.Single(c.Waves));
+    }
+
+    [Theory]
+    [InlineData("\"hp\":50", "\"hp\":0", "hp")]
+    [InlineData("\"signature\":0,\"turret\"", "\"signature\":1001,\"turret\"", "signature")]
+    [InlineData("\"range_cells\":10,\"damage\":5", "\"range_cells\":0,\"damage\":5", "range_cells")]
+    [InlineData("\"ammo_item\":\"t:b\"", "\"ammo_item\":\"t:zz\"", "ammo")]
+    [InlineData("\"ammo_cap\":10}", "\"ammo_cap\":10,\"extra\":1}", "Unknown property")]
+    [InlineData(",\"turret\":{\"range_cells\":10,\"damage\":5,\"interval_ticks\":10,\"ammo_item\":\"t:b\",\"ammo_cap\":10}", "", "needs turret data")]
+    [InlineData("{\"id\":\"t:m\",\"cost\"", "{\"id\":\"t:m\",\"turret\":{\"range_cells\":1,\"damage\":1,\"interval_ticks\":1,\"ammo_item\":\"t:b\",\"ammo_cap\":1},\"cost\"", "not a turret")]
+    [InlineData("\"machine\":\"t:m\",\"inputs\":[{\"item\":\"t:a\",\"count\":1}]", "\"machine\":\"t:gun\",\"inputs\":[{\"item\":\"t:a\",\"count\":1}]", "turret")]
+    [InlineData("\"alert_max\":1000", "\"alert_max\":99", "alert_max")]
+    [InlineData("\"alert_after_wave\":100", "\"alert_after_wave\":1000", "alert_after_wave")]
+    [InlineData("\"warning_seconds\":10", "\"warning_seconds\":0", "warning_seconds")]
+    [InlineData("\"node_distance_cells\":50", "\"node_distance_cells\":9", "node_distance_cells")]
+    [InlineData("\"node_distance_cells\":50", "\"node_distance_cells\":141", "node_distance_cells")]
+    [InlineData("\"max_enemies\":10", "\"max_enemies\":0", "max_enemies")]
+    [InlineData("\"max_enemies\":10", "\"max_enemies\":201", "max_enemies")]
+    [InlineData("\"ship_hull\":50", "\"ship_hull\":0", "ship_hull")]
+    [InlineData("\"ship_weapon\":{\"range_cells\":20,\"damage\":3,\"interval_ticks\":8},", "", "ship_weapon")]
+    [InlineData("\"respawn_seconds\":3", "\"respawn_seconds\":0", "respawn_seconds")]
+    [InlineData("\"speed\":10", "\"speed\":0", "speed")]
+    [InlineData("\"speed\":10", "\"speed\":201", "speed")]
+    [InlineData("\"hp\":10,\"speed\"", "\"hp\":0,\"speed\"", "hp")]
+    [InlineData("\"id\":\"t:bug\"", "\"id\":\"t:m\"", "used twice")]
+    [InlineData("\"enemy\":\"t:bug\"", "\"enemy\":\"t:nope\"", "unknown enemy")]
+    [InlineData("\"base\":1,\"per_wave\":1", "\"base\":0,\"per_wave\":0", "never")]
+    [InlineData("\"enemies\":[{\"id\":\"t:bug\",\"hp\":10,\"speed\":10,\"damage\":2,\"range_cells\":2,\"interval_ticks\":10}]", "\"enemies\":[]", "unknown enemy")]
+    [InlineData(",\"threat\":{\"alert_max\":1000", ",\"threatx\":{\"alert_max\":1000", "Unknown property")]
+    public void InvalidThreatContentIsRejected(string find, string replace, string messagePart)
+    {
+        Assert.Contains(find, RichThreat);
+        var e = Assert.Throws<InvalidDataException>(() => ContentDb.FromJson(RichThreat.Replace(find, replace)));
+        Assert.Contains(messagePart, e.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ThreatNeedsATurretAndEnemiesNeedAThreat()
+    {
+        // No turret machine to defend with.
+        string noGun = Rich[..^1] + ThreatPart + "}";
+        var e = Assert.Throws<InvalidDataException>(() => ContentDb.FromJson(noGun));
+        Assert.Contains("turret", e.Message, StringComparison.OrdinalIgnoreCase);
+
+        // Enemies without a threat section.
+        int start = ThreatPart.IndexOf(",\"enemies\"", StringComparison.Ordinal);
+        string noThreat = Rich.Replace("{\"id\":\"t:ship\",\"role\":\"ship\"}", "{\"id\":\"t:ship\",\"role\":\"ship\"}," + GunMachine)[..^1] + ThreatPart[start..] + "}";
+        Assert.Throws<InvalidDataException>(() => ContentDb.FromJson(noThreat));
+    }
+
+    [Fact]
+    public void ThreatDataChangesTheHash()
+    {
+        ulong h = ContentDb.FromJson(RichThreat).Hash;
+        Assert.NotEqual(h, ContentDb.FromJson(RichThreat.Replace("\"max_enemies\":10", "\"max_enemies\":11")).Hash);
+        Assert.NotEqual(h, ContentDb.FromJson(RichThreat.Replace("\"damage\":5", "\"damage\":6")).Hash);
+        Assert.NotEqual(h, ContentDb.FromJson(RichThreat.Replace("\"base\":1", "\"base\":2")).Hash);
+        Assert.NotEqual(h, ContentDb.FromJson(RichThreat.Replace("\"hp\":50", "\"hp\":51")).Hash);
+    }
+
     [Fact]
     public void RichContentChangesTheHash()
     {

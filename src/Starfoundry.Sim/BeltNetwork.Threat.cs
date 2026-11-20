@@ -208,10 +208,11 @@ public sealed partial class BeltNetwork
                 long rx = tx - e.X, ry = ty - e.Y, rz = tz - e.Z;
                 long dist2 = rx * rx + ry * ry + rz * rz;
                 long range = (long)def.RangeCells * Units.CellUnits;
+                long dist = IntMath.ISqrt(dist2);
 
-                if (dist2 > range * range)
+                // A few units of tolerance: integer steps can stop just short of the exact range and must not stall there.
+                if (dist > range + 3)
                 {
-                    long dist = IntMath.ISqrt(dist2);
                     long step = Math.Min(def.Speed, dist - range);
                     e.X += (int)(rx * step / dist);
                     e.Y += (int)(ry * step / dist);
