@@ -22,7 +22,7 @@
 ## Consequences
 - Benefits: a long-term sink for plates that makes every upgrade bonus keep growing; the cost curve is data; the change is mostly a flag becoming a number.
 - Costs: the cost of the later levels is large (the eighth level of overclock costs about 2,450 plates); the scripted player's single plate line takes about an hour for the first level.
-- Findings that matter for balance: the assembler fills its first output belt before its second, so a lab that is always researching takes almost all the plates of its line and leaves nothing for a second output; a player who researches continuously needs a plate line for the lab and another for building.
+- Findings that matter for balance: researching continuously keeps a plate line running, which drains the home deposit (4,000 ore) in under two hours; a first draft also showed that a machine with two outputs gave everything to one belt (fixed, see [fair outputs and the home ore](../prototypes/fair-outputs-and-ore.md)).
 - Not measured: whether the shipped nodes help the defence. In the scripted runs they arrive after the first loss or not at all, so they are placeholders until a human play-test or a longer-lived scripted defence says otherwise.
 - Not decided here: carbon in upgrade costs, repeatable upgrades for the ship, a cap on the total bonus, research queues.
 
