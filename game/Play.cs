@@ -88,16 +88,19 @@ public partial class Play : Node3D
         _content = ContentDb.FromFile(path);
         _exploreDemo = args.Contains("--explore-demo");
         _saveTest = args.Contains("--save-test");
+        string? st = args.FirstOrDefault(a => a.StartsWith("--stress="));
+        if (st is not null && int.TryParse(st["--stress=".Length..], out int sn)) _stressMachines = Math.Clamp(sn, 1, 5000);
         // A generated galaxy: the same seed always gives the same systems. Home's deposits start revealed; scan to find the rest.
         // The Remnant are on in the game and the threat demo; the production and exploration demos run without them.
-        bool threats = !(args.Contains("--demo") || _exploreDemo);
-        _gameMode = _exploreDemo || _threatDemo ? GameMode.Sandbox : GameMode.Campaign;
+        bool threats = !(args.Contains("--demo") || _exploreDemo) && _stressMachines == 0;
+        _gameMode = _exploreDemo || _threatDemo || _stressMachines > 0 ? GameMode.Sandbox : GameMode.Campaign;
         _threatsOn = threats;
         _world = SimWorld.CreateGalaxy(_content, _gameMode, GalaxySeed, threats);
         _world.Network.EnsurePlayer(Player); // the ship starts at the origin, inside Home
         // For screenshots: finish every research that carries a bonus, so the upgrade line of the status panel shows.
         if (args.Contains("--grant-upgrades"))
             foreach (var node in _content.Research.Where(r => r.Bonuses.Length > 0)) _world.Network.GrantResearch(node.Index);
+        if (_stressMachines > 0) BuildStressBase();
         _selectedDeposit = RevealedDeposits().FirstOrDefault();
 
         BuildPalette();
