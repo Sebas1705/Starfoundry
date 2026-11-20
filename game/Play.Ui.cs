@@ -143,7 +143,7 @@ public partial class Play
 
         // The build bar.
         var bar = new HBoxContainer();
-        for (int i = 0; i < _palette.Count && i < 10; i++)
+        for (int i = 0; i < _palette.Count && i < 11; i++)
         {
             int index = i;
             var b = MakeButton("", () => SelectBuild(index), toggle: true, minWidth: 104);
@@ -347,6 +347,9 @@ public partial class Play
         foreach (int id in targets) Send(new Repair(id));
     }
 
+    /// <summary>The key that picks build item i: 1 to 9, then 0, then Q.</summary>
+    private static string KeyLabel(int i) => i < 9 ? (i + 1).ToString() : i == 9 ? "0" : "Q";
+
     private void UpdateButtons()
     {
         // Build bar.
@@ -359,7 +362,7 @@ public partial class Play
             string name = item.IsBelt ? L("ui.belt", (int)item.Tier + 1) : MachineName(item.Machine);
             string costText = cost.Length == 0 ? L("ui.free") : string.Join(" ", cost.Select(s => $"{s.Count} {ItemName(s.Item)}"));
             var b = _buildButtons[i];
-            b.Text = $"{(i + 1) % 10}  {name}\n{(locked ? L("ui.locked") : costText + (item.IsBelt ? L("ui.perCell") : ""))}";
+            b.Text = $"{KeyLabel(i)}  {name}\n{(locked ? L("ui.locked") : costText + (item.IsBelt ? L("ui.perCell") : ""))}";
             b.Disabled = locked;
             b.SetPressedNoSignal(_tool == ToolMode.Build && _selected == i);
             b.Modulate = !locked && !affordable ? new Color(1f, 0.75f, 0.7f) : Colors.White;
@@ -648,7 +651,8 @@ public partial class Play
     {
         int digit = (int)(k.Keycode - Key.Key1);
         if (k.Keycode == Key.Key0) digit = 9;
-        if (digit >= 0 && digit < Math.Min(10, _palette.Count)) { SelectBuild(digit); return; }
+        if (k.Keycode == Key.Q) digit = 10;
+        if (digit >= 0 && digit < Math.Min(11, _palette.Count)) { SelectBuild(digit); return; }
 
         switch (k.Keycode)
         {
@@ -839,6 +843,11 @@ public partial class Play
                 return L("status.depotOk");
             case MachineRole.Wall:
                 return L("status.wall");
+            case MachineRole.Repairer:
+            {
+                var rep = def.Repairer!;
+                return m.InputItems > 0 ? L("status.repairerReady", rep.RangeCells, m.InputItems, rep.ItemCap) : L("status.repairerEmpty");
+            }
             case MachineRole.Turret:
                 var t = def.Turret!;
                 return m.InputItems > 0 ? L("status.turretReady", m.InputItems, t.AmmoCap) : L("status.turretEmpty");

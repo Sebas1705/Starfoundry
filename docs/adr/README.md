@@ -15,6 +15,7 @@ One decision per file, `NNNN-slug.md`. An accepted ADR is never rewritten; add a
 | [0009](0009-pacing-targets-measured-by-a-scripted-player-and-a-per-item-depot-cap.md) | Pacing targets are measured by a scripted player; depots deliver at most 40 percent of the hold per item | proposed | 2026-11-20 |
 | [0010](0010-waves-can-start-later-and-the-ramp-is-measured-per-turret.md) | Waves can start later, and the wave ramp is measured against the number of fed turrets | proposed | 2026-11-20 |
 | [0011](0011-walls-draw-enemies-and-repairs-restore-hit-points.md) | Walls draw enemies, repairs restore hit points | proposed | 2026-11-20 |
+| [0012](0012-repair-bays-heal-slowly-from-a-belt-fed-item.md) | Repair bays heal slowly from a belt-fed item | proposed | 2026-11-20 |
 
 ## Template
 ```markdown

@@ -20,7 +20,7 @@
 - Benefits: a second way to defend that uses plates and attention instead of an ammo line; hit points stop being a one-way street; the decoy rule is simple to explain and to test.
 - Costs: walls do not block movement, they only draw fire, so placement matters only through the turrets' reach and the enemies' approach side; a player who repairs mid-fight is much stronger than one who does not (21 to 28 waves against 15 to 19 in the scripted runs), by design but worth watching.
 - A wall near the turrets can pull a whole wave towards them; one far from the turrets does nothing but delay.
-- Not decided here: shields, walls that block enemies, automatic repair (a repair drone or machine), repairing the ship hull, wall variants.
+- Not decided here: shields, walls that block enemies, repairing the ship hull, wall variants. (Automatic repair was added in [ADR 0012](0012-repair-bays-heal-slowly-from-a-belt-fed-item.md).)
 
 ## Alternatives considered
 - **Walls as pure hit-point sponges around every machine:** needs a notion of cover and line of fire the simulation does not have.

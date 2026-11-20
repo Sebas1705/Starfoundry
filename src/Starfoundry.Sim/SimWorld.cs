@@ -470,7 +470,7 @@ public sealed class SimWorld
             {
                 int mach = Resolve(cfm.Machine, machines), seg = Resolve(cfm.Segment, created);
                 if (!Network.IsMachineAlive(mach)) return Reject.UnknownMachine;
-                if (Network.Content!.Machines[Network.GetMachineInfo(mach).Type].Role == MachineRole.Wall) return Reject.WrongRole;
+                if (Network.Content!.Machines[Network.GetMachineInfo(mach).Type].Role is MachineRole.Wall or MachineRole.Repairer) return Reject.WrongRole;
                 if (!Network.IsAlive(seg)) return Reject.UnknownSegment;
                 if (Network.IsFedByMachine(seg, mach)) return Reject.AlreadyConnected;
                 var s = Network.GetSegmentInfo(seg);

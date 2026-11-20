@@ -55,6 +55,9 @@ public sealed class BalanceBot
     /// <summary>How many walls to put around the base (0 to 4), once the first turret stands.</summary>
     public int Walls { get; init; }
 
+    /// <summary>How many repair bays to build (0 to 2), each fed ingots by a second output of a smelter.</summary>
+    public int Bays { get; init; }
+
     /// <summary>When the player presses repair: never, only when no enemy is alive, or whenever anything is damaged.</summary>
     public RepairMode Repairs { get; init; } = RepairMode.Never;
 
@@ -224,7 +227,7 @@ public sealed class BalanceBot
 
         // More turrets, each with its own ammo line: one drill and smelter only make enough ammo for one turret firing
         // all the time. They cost plates, and the plate line feeds the lab, so once Logistics is done the lab goes back to a depot.
-        if (Turrets >= 2 || Walls > 0)
+        if (Turrets >= 2 || Walls > 0 || Bays > 0)
         {
             _steps.Add(() => Net.IsResearched(_c.ResearchIndex("core:logistics")));
             _steps.Add(() => Try(new RemoveMachine(_ids["lab"]), out _));
@@ -241,6 +244,17 @@ public sealed class BalanceBot
                 _wallsBuilt++; // from now on Maintain puts this wall back whenever it is lost
                 return true;
             });
+        }
+        // Repair bays take ingots from a second output of the first two smelters, which also feed the depots.
+        if (Bays >= 1)
+        {
+            Link("bay1.belt", 4, -1, 4, "l1.smelter");
+            Machine_("bay1", 8, -1, "core:repair_bay", null, () => Do(new ConnectToMachine(_ids["bay1.belt"], _ids["bay1"])));
+        }
+        if (Bays >= 2)
+        {
+            Link("bay2.belt", 4, 2, 4, "l2.smelter");
+            Machine_("bay2", 8, 2, "core:repair_bay", null, () => Do(new ConnectToMachine(_ids["bay2.belt"], _ids["bay2"])));
         }
         if (Turrets >= 2)
         {

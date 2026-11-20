@@ -63,6 +63,9 @@ public sealed partial class BeltNetwork
 
     /// <summary>Walls destroyed so far; they are built to be lost, so they are not counted in <see cref="MachinesLost"/>.</summary>
     public long WallsLost { get; private set; }
+
+    /// <summary>Hit points restored by repairers so far.</summary>
+    public long AutoRepaired { get; private set; }
     public long ShipsLost { get; private set; }
     public long AmmoFired { get; private set; }
 
@@ -135,6 +138,50 @@ public sealed partial class BeltNetwork
         s.PopFront();
         s.Passed++;
         return true;
+    }
+
+    private bool TryFeedRepairer(Machine m, BeltSegment s, int item)
+    {
+        var def = Content!.Machines[m.Type].Repairer!;
+        if (item != def.Item || m.In[item] >= def.ItemCap) return false;
+        m.In[item]++;
+        s.PopFront();
+        s.Passed++;
+        return true;
+    }
+
+    /// <summary>Repairers (machine id order): each interval, heal the most damaged machine in range and use one item.</summary>
+    private void StepRepairers()
+    {
+        foreach (var m in _machines)
+        {
+            if (m is null) continue;
+            var def = Content!.Machines[m.Type].Repairer;
+            if (def is null) continue;
+            if (m.TurretCooldown > 0) m.TurretCooldown--;
+            if (m.TurretCooldown > 0 || m.In[def.Item] <= 0) continue;
+
+            long range = (long)def.RangeCells * Units.CellUnits;
+            Machine? best = null;
+            foreach (var t in _machines)
+            {
+                if (t is null) continue;
+                int max = Content.Machines[t.Type].Hp;
+                if (t.Hp >= max) continue;
+                long dx = (long)(t.X - m.X) * Units.CellUnits, dy = (long)(t.Y - m.Y) * Units.CellUnits, dz = (long)(t.Z - m.Z) * Units.CellUnits;
+                if (dx * dx + dy * dy + dz * dz > range * range) continue;
+                // Lowest share of hit points first; the lowest id wins ties.
+                if (best is null || (long)t.Hp * Content.Machines[best.Type].Hp < (long)best.Hp * max) best = t;
+            }
+            if (best is null) continue;
+
+            int before = best.Hp;
+            best.Hp = Math.Min(Content.Machines[best.Type].Hp, best.Hp + def.Heal);
+            AutoRepaired += best.Hp - before;
+            m.In[def.Item]--;
+            MachineInputsConsumed++;
+            m.TurretCooldown = def.IntervalTicks;
+        }
     }
 
     // ---- the tick ----------------------------------------------------------------------------------
@@ -252,6 +299,8 @@ public sealed partial class BeltNetwork
             m.TurretCooldown = turret.IntervalTicks;
             _shots.Add(new ShotEvent(ShotKind.Turret, (int)cx, (int)cy, (int)cz, target.X, target.Y, target.Z));
         }
+
+        StepRepairers();
 
         // Ship weapons (player id order).
         foreach (var p in _players.Values)
@@ -408,6 +457,7 @@ public sealed partial class BeltNetwork
         EnemiesKilled = other.EnemiesKilled;
         MachinesLost = other.MachinesLost;
         WallsLost = other.WallsLost;
+        AutoRepaired = other.AutoRepaired;
         ShipsLost = other.ShipsLost;
         AmmoFired = other.AmmoFired;
         _destroyedMachines.Clear();
@@ -417,7 +467,7 @@ public sealed partial class BeltNetwork
 
     private void MixThreat(Action<long> mix)
     {
-        mix(WavesSpawned); mix(EnemiesSpawned); mix(EnemiesKilled); mix(MachinesLost); mix(WallsLost); mix(ShipsLost); mix(AmmoFired); mix(_nextEnemyId);
+        mix(WavesSpawned); mix(EnemiesSpawned); mix(EnemiesKilled); mix(MachinesLost); mix(WallsLost); mix(AutoRepaired); mix(ShipsLost); mix(AmmoFired); mix(_nextEnemyId);
         foreach (var t in _threat) { mix(t.Alert); mix(t.Wave); mix(t.Warning); }
         mix(_enemies.Count);
         foreach (var e in _enemies) { mix(e.Id); mix(e.Type); mix(e.System); mix(e.X); mix(e.Y); mix(e.Z); mix(e.Hp); mix(e.Cooldown); }
@@ -430,7 +480,7 @@ public sealed partial class BeltNetwork
         if (!ThreatActive)
         {
             if (_enemies.Count != 0) Fail("enemies exist while threats are inactive");
-            if (WavesSpawned != 0 || MachinesLost != 0 || WallsLost != 0) Fail("threat counters changed while threats are inactive");
+            if (WavesSpawned != 0 || MachinesLost != 0 || WallsLost != 0 || AutoRepaired != 0) Fail("threat counters changed while threats are inactive");
             return;
         }
 

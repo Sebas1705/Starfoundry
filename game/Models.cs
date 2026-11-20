@@ -68,6 +68,7 @@ public static class Models
         "core:depot" => BuildDepot(),
         "core:turret" => BuildTurret(),
         "core:wall" => BuildWall(),
+        "core:repair_bay" => BuildRepairBay(),
         _ => BuildCrate(),
     };
 
@@ -672,6 +673,34 @@ public static class Models
             mb.C(Hull).Prism(new(0, 0.07f, 0), 0.155f, 0.165f, 0.012f, 8);
             mb.C(Steel).Beam(new(0, 0.02f, 0), new(0, 0.17f, 0), 0.02f);
             mb.C(Purple).Prism(new(0, 0.165f, 0), 0.03f, 0.0f, 0.04f, 6);
+        });
+        return r;
+    }
+
+    private static Node3D BuildRepairBay()
+    {
+        var r = NewMachine("RepairBay");
+        Add(r, "Body", "repairbay.body", Body(), mb =>
+        {
+            Plinth(mb, Green);
+            mb.C(GreenDk).Block(new(0, Y0 + 0.11f, 0), new(0.70f, 0.22f, 0.70f), 0.92f, 0.92f);
+            mb.C(Hull).Block(new(0, Y0 + 0.23f, 0), new(0.52f, 0.04f, 0.52f));
+            // a white medical cross on the roof and a mast with the beacon dish
+            mb.C(White).Block(new(0, Y0 + 0.255f, 0), new(0.30f, 0.012f, 0.08f));
+            mb.C(White).Block(new(0, Y0 + 0.255f, 0), new(0.08f, 0.012f, 0.30f));
+            mb.C(Steel).Prism(new(-0.22f, Y0 + 0.22f, -0.22f), 0.035f, 0.025f, 0.34f, 6);
+            foreach (float s in new[] { -1f, 1f })
+                mb.C(Steel).Block(new(0.30f * s, Y0 + 0.10f, 0.0f), new(0.08f, 0.16f, 0.30f));
+        });
+        var dish = Pivot(r, "Dish", new(-0.22f, Y0 + 0.58f, -0.22f));
+        Add(dish, "Beacon", "repairbay.dish", Body(), mb =>
+        {
+            mb.At(default, Deg(0, 0, 0)).C(Panel).Prism(new(0, 0, 0), 0.12f, 0.03f, 0.07f, 8);
+        });
+        Add(r, "GlowLight", "repairbay.light", Glow(new Color(0.35f, 1f, 0.6f), 2.6f), mb =>
+        {
+            mb.Torus(new(0, Y0 + 0.235f, 0), 0.30f, 0.012f, 12, 3);
+            mb.Sphere(new(-0.22f, Y0 + 0.60f, -0.22f), new(0.04f, 0.03f, 0.04f), 3, 6);
         });
         return r;
     }
