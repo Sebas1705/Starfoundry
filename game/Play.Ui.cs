@@ -45,8 +45,9 @@ public partial class Play
     private ProgressBar _holdBar = null!;
     private readonly List<Button> _buildButtons = new();
     private Button _btnMine = null!, _btnRefine = null!, _btnScan = null!, _btnMap = null!, _btnWeapons = null!, _btnResearch = null!;
+    private Button _btnRepair = null!;
     private Button _btnJump = null!, _btnLang = null!, _btnHelp = null!, _btnObjectives = null!;
-    private Button _inspPrev = null!, _inspNext = null!, _inspRemove = null!;
+    private Button _inspPrev = null!, _inspNext = null!, _inspRemove = null!, _inspRepair = null!;
 
     private static string L(string key, params object[] args) => Loc.T(key, args);
 
@@ -136,12 +137,13 @@ public partial class Play
         _btnMap = MakeButton("", () => _mapOpen = !_mapOpen, toggle: true, minWidth: 170);
         _btnWeapons = MakeButton("", ToggleWeapons, toggle: true, minWidth: 170);
         _btnResearch = MakeButton("", CycleResearch, minWidth: 170);
-        foreach (var b in new[] { _btnMine, _btnRefine, _btnScan, _btnMap, _btnWeapons, _btnResearch }) actions.AddChild(b);
+        _btnRepair = MakeButton("", RepairAll, minWidth: 170);
+        foreach (var b in new[] { _btnMine, _btnRefine, _btnScan, _btnMap, _btnWeapons, _btnRepair, _btnResearch }) actions.AddChild(b);
         _actions = MakePanel(actions);
 
         // The build bar.
         var bar = new HBoxContainer();
-        for (int i = 0; i < _palette.Count && i < 9; i++)
+        for (int i = 0; i < _palette.Count && i < 10; i++)
         {
             int index = i;
             var b = MakeButton("", () => SelectBuild(index), toggle: true, minWidth: 104);
@@ -197,6 +199,8 @@ public partial class Play
         _inspRemove = MakeButton("", () => { if (_selMachine >= 0) Send(new RemoveMachine(_selMachine)); _selMachine = -1; }, minWidth: 100);
         inspButtons.AddChild(_inspPrev);
         inspButtons.AddChild(_inspNext);
+        _inspRepair = MakeButton("", () => { if (_selMachine >= 0) Send(new Repair(_selMachine)); }, minWidth: 100);
+        inspButtons.AddChild(_inspRepair);
         inspButtons.AddChild(_inspRemove);
         insp.AddChild(_inspectorTitle);
         insp.AddChild(_inspectorBody);
@@ -320,6 +324,29 @@ public partial class Play
         sb.Append(L("hud.threat", th.Signature, rules.SignatureThreshold, state, ship)).Append('\n');
     }
 
+    /// <summary>Damaged machines the ship can reach, worst first.</summary>
+    private List<int> DamagedInRange()
+    {
+        var list = new List<int>();
+        for (int id = 0; id < Net.MachineIdLimit; id++)
+        {
+            if (!Net.IsMachineAlive(id)) continue;
+            var m = Net.GetMachineInfo(id);
+            if (m.Hp >= _content.Machines[m.Type].Hp) continue;
+            if (!_world.InBuildRange(Player, m.X, m.Y, m.Z)) continue;
+            list.Add(id);
+        }
+        return list.OrderBy(id => Net.GetMachineInfo(id).Hp / (float)_content.Machines[Net.GetMachineInfo(id).Type].Hp).ToList();
+    }
+
+    /// <summary>Repairs every damaged machine in reach, worst first; the hold pays and what it cannot pay for stays damaged.</summary>
+    private void RepairAll()
+    {
+        var targets = DamagedInRange();
+        if (targets.Count == 0) { Toast(L("toast.nothingToRepair")); return; }
+        foreach (int id in targets) Send(new Repair(id));
+    }
+
     private void UpdateButtons()
     {
         // Build bar.
@@ -332,7 +359,7 @@ public partial class Play
             string name = item.IsBelt ? L("ui.belt", (int)item.Tier + 1) : MachineName(item.Machine);
             string costText = cost.Length == 0 ? L("ui.free") : string.Join(" ", cost.Select(s => $"{s.Count} {ItemName(s.Item)}"));
             var b = _buildButtons[i];
-            b.Text = $"{i + 1}  {name}\n{(locked ? L("ui.locked") : costText + (item.IsBelt ? L("ui.perCell") : ""))}";
+            b.Text = $"{(i + 1) % 10}  {name}\n{(locked ? L("ui.locked") : costText + (item.IsBelt ? L("ui.perCell") : ""))}";
             b.Disabled = locked;
             b.SetPressedNoSignal(_tool == ToolMode.Build && _selected == i);
             b.Modulate = !locked && !affordable ? new Color(1f, 0.75f, 0.7f) : Colors.White;
@@ -366,6 +393,12 @@ public partial class Play
         _btnWeapons.Text = player.Armed ? L("btn.weaponsOff") : L("btn.weapons");
         _btnWeapons.SetPressedNoSignal(player.Armed);
         _btnWeapons.TooltipText = L("tip.weapons");
+
+        var damagedNow = DamagedInRange();
+        _btnRepair.Visible = Net.ThreatActive;
+        _btnRepair.Text = L("btn.repair", damagedNow.Count);
+        _btnRepair.Disabled = damagedNow.Count == 0;
+        _btnRepair.TooltipText = damagedNow.Count == 0 ? L("tip.repairNone") : L("tip.repair", Stacks(damagedNow.SelectMany(id => Net.RepairCost(id)).GroupBy(s => s.Item).Select(g => new ItemStack(g.Key, g.Sum(s => s.Count))).ToArray()));
 
         _btnResearch.Text = Net.CurrentResearch >= 0 ? L("btn.researchNext") : L("btn.research");
         _btnResearch.TooltipText = L("tip.research");
@@ -614,7 +647,8 @@ public partial class Play
     private void OnKey(InputEventKey k)
     {
         int digit = (int)(k.Keycode - Key.Key1);
-        if (digit >= 0 && digit < Math.Min(9, _palette.Count)) { SelectBuild(digit); return; }
+        if (k.Keycode == Key.Key0) digit = 9;
+        if (digit >= 0 && digit < Math.Min(10, _palette.Count)) { SelectBuild(digit); return; }
 
         switch (k.Keycode)
         {
@@ -634,6 +668,7 @@ public partial class Play
             case Key.Z: _cursorY--; break;
             case Key.X: _cursorY++; break;
             case Key.M: ToggleMining(); break;
+            case Key.E: RepairAll(); break;
             case Key.Bracketleft: CycleDeposit(-1); break;
             case Key.Bracketright: CycleDeposit(1); break;
             case Key.K: Send(new Scan()); break;
@@ -802,6 +837,8 @@ public partial class Play
                     if (Net.HoldCount(Player, item.Index) >= PlayerRules.DepotItemCap)
                         return L("status.depotCap", Loc.Name("item", item.Id), PlayerRules.DepotItemCap);
                 return L("status.depotOk");
+            case MachineRole.Wall:
+                return L("status.wall");
             case MachineRole.Turret:
                 var t = def.Turret!;
                 return m.InputItems > 0 ? L("status.turretReady", m.InputItems, t.AmmoCap) : L("status.turretEmpty");
@@ -847,6 +884,9 @@ public partial class Play
         var options = RecipesFor(m.Type);
         _inspPrev.Visible = _inspNext.Visible = options.Count > 1;
         _inspRemove.Text = L("insp.remove", Stacks(def.Cost));
+        bool damaged = m.Hp < def.Hp;
+        _inspRepair.Visible = damaged;
+        if (damaged) _inspRepair.Text = L("insp.repair", Stacks(Net.RepairCost(_selMachine)));
     }
 
     private List<int> RecipesFor(int machineType) =>

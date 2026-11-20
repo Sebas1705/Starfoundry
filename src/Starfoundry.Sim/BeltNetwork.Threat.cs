@@ -60,6 +60,9 @@ public sealed partial class BeltNetwork
     public long EnemiesSpawned { get; private set; }
     public long EnemiesKilled { get; private set; }
     public long MachinesLost { get; private set; }
+
+    /// <summary>Walls destroyed so far; they are built to be lost, so they are not counted in <see cref="MachinesLost"/>.</summary>
+    public long WallsLost { get; private set; }
     public long ShipsLost { get; private set; }
     public long AmmoFired { get; private set; }
 
@@ -199,7 +202,7 @@ public sealed partial class BeltNetwork
                     if (d <= best) { best = d; ship = p; }
                 }
 
-                Machine? machine = ship is null ? PickTargetMachine(e.System) : null;
+                Machine? machine = ship is null ? NearestWall(e) ?? PickTargetMachine(e.System) : null;
                 if (ship is null && machine is null) continue;
 
                 long tx = ship?.X ?? machine!.X * (long)Units.CellUnits + Units.CellUnits / 2;
@@ -283,6 +286,35 @@ public sealed partial class BeltNetwork
         return best;
     }
 
+    /// <summary>The wall nearest to the enemy in its system (lowest id on ties), or null when there is none.</summary>
+    private Machine? NearestWall(Enemy e)
+    {
+        Machine? best = null;
+        long bestD = long.MaxValue;
+        foreach (var m in _machines)
+        {
+            if (m is null || Content!.Machines[m.Type].Role != MachineRole.Wall || SystemOfMachine(m) != e.System) continue;
+            long dx = m.X * (long)Units.CellUnits + Units.CellUnits / 2 - e.X, dy = m.Y * (long)Units.CellUnits + Units.CellUnits / 2 - e.Y,
+                dz = m.Z * (long)Units.CellUnits + Units.CellUnits / 2 - e.Z;
+            long d = dx * dx + dy * dy + dz * dz;
+            if (d < bestD) { bestD = d; best = m; }
+        }
+        return best;
+    }
+
+    /// <summary>Items that restore a damaged machine to full: half its build cost scaled by the missing share, at least one of each item. Empty if it is undamaged.</summary>
+    public ItemStack[] RepairCost(int machine)
+    {
+        var m = _machines[machine]!;
+        var def = Content!.Machines[m.Type];
+        int missing = def.Hp - m.Hp;
+        if (missing <= 0) return System.Array.Empty<ItemStack>();
+        return def.Cost.Select(s => new ItemStack(s.Item, Math.Max(1, (int)(((long)s.Count * missing + 2L * def.Hp - 1) / (2L * def.Hp))))).ToArray();
+    }
+
+    /// <summary>Sets a machine's hit points back to its maximum.</summary>
+    public void RepairMachine(int machine) => _machines[machine]!.Hp = Content!.Machines[_machines[machine]!.Type].Hp;
+
     /// <summary>The machine with the highest signature in the system (lowest id on ties); machines with no signature count last.</summary>
     private Machine? PickTargetMachine(int system)
     {
@@ -302,7 +334,8 @@ public sealed partial class BeltNetwork
         m.Hp -= damage;
         if (m.Hp > 0) return;
         _destroyedMachines.Add(new DestroyedMachine(m.Id, m.X, m.Y, m.Z));
-        MachinesLost++;
+        if (Content!.Machines[m.Type].Role == MachineRole.Wall) WallsLost++;
+        else MachinesLost++;
         RemoveMachine(m.Id);
     }
 
@@ -374,6 +407,7 @@ public sealed partial class BeltNetwork
         EnemiesSpawned = other.EnemiesSpawned;
         EnemiesKilled = other.EnemiesKilled;
         MachinesLost = other.MachinesLost;
+        WallsLost = other.WallsLost;
         ShipsLost = other.ShipsLost;
         AmmoFired = other.AmmoFired;
         _destroyedMachines.Clear();
@@ -383,7 +417,7 @@ public sealed partial class BeltNetwork
 
     private void MixThreat(Action<long> mix)
     {
-        mix(WavesSpawned); mix(EnemiesSpawned); mix(EnemiesKilled); mix(MachinesLost); mix(ShipsLost); mix(AmmoFired); mix(_nextEnemyId);
+        mix(WavesSpawned); mix(EnemiesSpawned); mix(EnemiesKilled); mix(MachinesLost); mix(WallsLost); mix(ShipsLost); mix(AmmoFired); mix(_nextEnemyId);
         foreach (var t in _threat) { mix(t.Alert); mix(t.Wave); mix(t.Warning); }
         mix(_enemies.Count);
         foreach (var e in _enemies) { mix(e.Id); mix(e.Type); mix(e.System); mix(e.X); mix(e.Y); mix(e.Z); mix(e.Hp); mix(e.Cooldown); }
@@ -396,7 +430,7 @@ public sealed partial class BeltNetwork
         if (!ThreatActive)
         {
             if (_enemies.Count != 0) Fail("enemies exist while threats are inactive");
-            if (WavesSpawned != 0 || MachinesLost != 0) Fail("threat counters changed while threats are inactive");
+            if (WavesSpawned != 0 || MachinesLost != 0 || WallsLost != 0) Fail("threat counters changed while threats are inactive");
             return;
         }
 

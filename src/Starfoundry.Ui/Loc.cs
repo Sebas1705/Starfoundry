@@ -61,6 +61,7 @@ public static class Loc
         ["machine.core:research_lab"] = ("laboratorio", "research lab"),
         ["machine.core:depot"] = ("depósito", "depot"),
         ["machine.core:turret"] = ("torreta", "turret"),
+        ["machine.core:wall"] = ("muro", "wall"),
         ["machine.core:micro_refinery"] = ("microrrefinería", "micro-refinery"),
 
         ["recipe.core:mine_iron"] = ("extraer hierro", "mine iron"),
@@ -104,6 +105,9 @@ public static class Loc
         ["btn.weaponsOff"] = ("Armas ACTIVAS  [V]", "Weapons ON  [V]"),
         ["btn.research"] = ("Elegir investigación  [T]", "Choose research  [T]"),
         ["btn.researchNext"] = ("Cambiar investigación  [T]", "Change research  [T]"),
+        ["btn.repair"] = ("Reparar ({0})  [E]", "Repair ({0})  [E]"),
+        ["tip.repair"] = ("Repara todas las máquinas dañadas a tu alcance. Cuesta la mitad de lo que costó construirlas, en proporción a la vida que les falta: {0}.", "Repairs every damaged machine within reach. It costs half the build cost, in proportion to the hit points missing: {0}."),
+        ["tip.repairNone"] = ("No hay máquinas dañadas a tu alcance.", "No damaged machines within reach."),
         ["btn.jump"] = ("Saltar  [J]", "Jump  [J]"),
         ["btn.help"] = ("Ayuda [F1]", "Help [F1]"),
         ["btn.hideSteps"] = ("Ocultar pasos [O]", "Hide steps [O]"),
@@ -137,6 +141,7 @@ public static class Loc
         ["tip.role.lab"] = ("Consume lo que pide la investigación elegida.", "Consumes what the chosen research needs."),
         ["tip.role.depot"] = ("Mete en tu bodega todo lo que le llega por cinta.", "Puts everything that reaches it by belt into your hold."),
         ["tip.role.turret"] = ("Dispara a los enemigos; gasta munición que llega por cinta.", "Shoots enemies; uses ammo delivered by belt."),
+        ["tip.role.wall"] = ("Los enemigos atacan el muro más cercano antes que cualquier otra máquina. Repáralo para que dure.", "Enemies attack the nearest wall before any other machine. Repair it to keep it standing."),
         ["tip.role.ship"] = ("Va en la nave.", "Lives on the ship."),
         ["tip.belt"] = ("Cinta Mk{0}: {1} celdas, {2} objetos encima", "Belt Mk{0}: {1} cells, {2} items on it"),
         ["tip.deposit"] = ("Yacimiento de {0}: quedan {1} de {2}.\nClic para elegirlo; M para minarlo.",
@@ -187,6 +192,7 @@ public static class Loc
         ["insp.recipe"] = ("Receta: {0}", "Recipe: {0}"),
         ["insp.takes"] = ("Consume: {0}", "Takes: {0}"),
         ["insp.makes"] = ("Produce: {0} cada {1} s", "Makes: {0} every {1} s"),
+        ["insp.repair"] = ("Reparar ({0})", "Repair ({0})"),
         ["insp.remove"] = ("Demoler (devuelve {0})", "Demolish (refunds {0})"),
 
         // ---- machine status ----
@@ -202,6 +208,7 @@ public static class Loc
         ["status.depotOk"] = ("entrega a tu bodega", "delivering to your hold"),
         ["status.depotCap"] = ("tienes {1} de {0}, lo máximo que entrega un depósito: gasta algunos para seguir", "you hold {1} {0}, the most a depot delivers: spend some to continue"),
         ["status.depotFull"] = ("bodega llena: esperando sitio", "hold full: waiting for room"),
+        ["status.wall"] = ("atrae a los enemigos: ponlo delante de la base, al alcance de las torretas", "draws enemies: put it in front of the base, within reach of the turrets"),
         ["status.turretReady"] = ("munición {0}/{1}", "ammo {0}/{1}"),
         ["status.turretEmpty"] = ("sin munición: llévale munición por cinta", "out of ammo: bring it ammo by belt"),
 
@@ -214,6 +221,7 @@ public static class Loc
         ["why.unknownDeposit"] = ("Ese yacimiento no existe", "No such deposit"),
         ["why.depleted"] = ("Ese yacimiento está agotado", "That deposit is empty"),
         ["why.researchUnavailable"] = ("Esa investigación no está disponible", "That research is not available"),
+        ["why.notDamaged"] = ("No está dañada", "It is not damaged"),
         ["why.notDiscovered"] = ("Aún no lo has descubierto: escanea (K) cerca", "Not discovered yet: scan (K) near it"),
         ["why.onCooldown"] = ("El escáner se está recargando", "The scanner is recharging"),
         ["why.noLane"] = ("No hay ruta desde este sistema a ese", "No lane from this system to that one"),
@@ -236,6 +244,7 @@ public static class Loc
         ["toast.oneRecipe"] = ("Esta máquina solo tiene una receta disponible.", "This machine has only one recipe available."),
         ["toast.nothingToResearch"] = ("No queda nada por investigar.", "Nothing left to research."),
         ["toast.recipe"] = ("Receta: {0}", "Recipe: {0}"),
+        ["toast.nothingToRepair"] = ("Nada que reparar al alcance.", "Nothing to repair within reach."),
         ["toast.scanNone"] = ("Escaneo: nada nuevo al alcance.", "Scan: nothing new in range."),
         ["toast.scanFound"] = ("Escaneo: {0} yacimiento(s) descubierto(s).", "Scan: {0} deposit(s) revealed."),
         ["toast.jumpCharging"] = ("Cargando el salto a {0}...", "Charging the jump to {0}..."),
@@ -290,9 +299,9 @@ public static class Loc
             "  W A S D   volar según la cámara        Espacio / C   subir / bajar\n" +
             "  M   minar (vuela primero al yacimiento)      F   refinería       K   escanear       V   armas\n\n" +
             "Construcción\n" +
-            "  1-9   elegir qué construir (otra vez para guardarlo)       Esc   dejar de construir\n" +
+            "  1-9, 0   elegir qué construir (otra vez para guardarlo)       Esc   dejar de construir\n" +
             "  Tab   cambiar receta       R   girar cintas sueltas       Z / X   cambiar de capa\n" +
-            "  Con el puntero, clic en una máquina: ver su estado y cambiar su receta.\n\n" +
+            "  Con el puntero, clic en una máquina: ver su estado y cambiar su receta.\n  E   reparar todas las máquinas dañadas a tu alcance (cuesta la mitad de su coste, en proporción al daño)\n\n" +
             "Otros\n" +
             "  T   elegir investigación      G   mapa estelar (flechas y J para saltar)\n" +
             "  P   pausa       + / -   velocidad       L   idioma       O   pasos       [ ]   cambiar yacimiento",
@@ -306,9 +315,9 @@ public static class Loc
             "  W A S D   fly relative to the camera        Space / C   up / down\n" +
             "  M   mine (flies to the deposit first)      F   refinery       K   scan       V   weapons\n\n" +
             "Building\n" +
-            "  1-9   choose what to build (again to put it away)       Esc   stop building\n" +
+            "  1-9, 0   choose what to build (again to put it away)       Esc   stop building\n" +
             "  Tab   change recipe       R   rotate single belts       Z / X   change layer\n" +
-            "  With the pointer, click a machine: see its status and change its recipe.\n\n" +
+            "  With the pointer, click a machine: see its status and change its recipe.\n  E   repair every damaged machine within reach (half the build cost, in proportion to the damage)\n\n" +
             "Other\n" +
             "  T   choose research      G   star map (arrows and J to jump)\n" +
             "  P   pause       + / -   speed       L   language       O   steps       [ ]   change deposit"),

@@ -110,6 +110,22 @@
       }
     },
     {
+      "id": "core:wall",
+      "role": "wall",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 12
+        },
+        {
+          "item": "core:iron_plate",
+          "count": 4
+        }
+      ],
+      "hp": 400,
+      "signature": 0
+    },
+    {
       "id": "core:micro_refinery",
       "role": "ship"
     }

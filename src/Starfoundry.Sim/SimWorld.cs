@@ -454,6 +454,7 @@ public sealed class SimWorld
                 if (!Network.IsAlive(seg)) return Reject.UnknownSegment;
                 if (!Network.IsMachineAlive(mach)) return Reject.UnknownMachine;
                 if (Network.FeedsMachine(seg, mach)) return Reject.AlreadyConnected;
+                if (Network.Content!.Machines[Network.GetMachineInfo(mach).Type].Role == MachineRole.Wall) return Reject.WrongRole;
                 var f = Network.GetSegmentInfo(seg);
                 var m = Network.GetMachineInfo(mach);
                 int lastX = f.OriginX + f.DirX * (f.LengthCells - 1);
@@ -469,6 +470,7 @@ public sealed class SimWorld
             {
                 int mach = Resolve(cfm.Machine, machines), seg = Resolve(cfm.Segment, created);
                 if (!Network.IsMachineAlive(mach)) return Reject.UnknownMachine;
+                if (Network.Content!.Machines[Network.GetMachineInfo(mach).Type].Role == MachineRole.Wall) return Reject.WrongRole;
                 if (!Network.IsAlive(seg)) return Reject.UnknownSegment;
                 if (Network.IsFedByMachine(seg, mach)) return Reject.AlreadyConnected;
                 var s = Network.GetSegmentInfo(seg);
@@ -477,6 +479,23 @@ public sealed class SimWorld
                 if (Network.MachineOutputCount(mach) >= 2) return Reject.MachineOutputsFull;
                 if (Network.IsFedByAnyMachine(seg) || Network.InputCount(seg) > 0 || Network.HasSource(seg)) return Reject.SegmentConflict;
                 Network.ConnectFromMachine(mach, seg);
+                return Reject.None;
+            }
+
+            case Repair rp:
+            {
+                int mach = Resolve(rp.Machine, machines);
+                if (!Network.IsMachineAlive(mach)) return Reject.UnknownMachine;
+                var m = Network.GetMachineInfo(mach);
+                if (m.Hp >= Network.Content!.Machines[m.Type].Hp) return Reject.NotDamaged;
+                if (Campaign)
+                {
+                    if (!InBuildRange(player, m.X, m.Y, m.Z)) return Reject.OutOfRange;
+                    var cost = Network.RepairCost(mach);
+                    if (!Network.CanPay(player, cost)) return Reject.NotEnoughItems;
+                    Network.Pay(player, cost);
+                }
+                Network.RepairMachine(mach);
                 return Reject.None;
             }
 

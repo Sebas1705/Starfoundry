@@ -17,17 +17,22 @@ while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "content", "co
 if (dir is null) { Console.Error.WriteLine("content/core.json not found"); return 1; }
 
 var content = ContentDb.FromFile(Path.Combine(dir.FullName, "content", "core.json"));
-int observe = 0, turrets = 1;
+int observe = 0, turrets = 1, walls = 0;
+var repairs = RepairMode.Never;
 foreach (var a in args)
 {
     if (a.StartsWith("--observe=")) observe = int.Parse(a["--observe=".Length..]) * 60;
     else if (a.StartsWith("--turrets=")) turrets = int.Parse(a["--turrets=".Length..]);
+    else if (a.StartsWith("--walls=")) walls = int.Parse(a["--walls=".Length..]);
+    else if (a.StartsWith("--repairs=")) repairs = Enum.Parse<RepairMode>(a["--repairs=".Length..], ignoreCase: true);
 }
 var report = new BalanceBot(content, seed)
 {
     ActionDelaySeconds = delay,
     ObserveAfterSeconds = observe,
     Turrets = turrets,
+    Walls = walls,
+    Repairs = repairs,
     Trace = args.Contains("--trace") ? Console.Out : null,
 }.Run(minutes * 60);
 Console.WriteLine($"Balance run: action delay {delay} s, seed {seed}\n");

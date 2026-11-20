@@ -42,6 +42,6 @@ One fed turret is overrun between the 8th and the 14th wave (seeds 20261120, 1, 
 ## Known limitations
 - Two turrets were no better than one on the default seed and on seed 2: the direction of a wave decides which machines are in reach, and the effect is noisy. The targets compare one against three for that reason.
 - Still a scripted player: it never repairs, never rebuilds a lost machine and never moves the ship in a fight. A human can hold longer (dodging, rebuilding) or shorter (no ammo planning).
-- A high-hit-point target is the only reason to build more than a few turrets: no walls, repairs, shields or other tools yet.
+- The only answers to bigger waves were more turrets; [walls and repairs](walls-and-repairs.md) add a second one.
 - Seed 5 cannot place the extra ammo lines (a drill out of reach of the home deposit), so ramp tests use other seeds.
 - Waves beyond about 25 and the carbon, exploration and jump parts of the economy remain unmeasured.

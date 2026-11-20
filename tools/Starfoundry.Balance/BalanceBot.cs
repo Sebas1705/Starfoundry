@@ -4,6 +4,8 @@ using Starfoundry.Ui;
 namespace Starfoundry.Balance;
 
 /// <summary>The state of the base when a wave spawned.</summary>
+public enum RepairMode { Never, BetweenWaves, Always }
+
 public sealed record WaveEntry(int Index, double Seconds, int Enemies, long MachinesLost, long ShipsLost, int Turrets);
 
 /// <summary>What one balance run measured. Times are simulated seconds since the start of the run.</summary>
@@ -17,6 +19,7 @@ public sealed class BalanceReport
     public double Seconds { get; set; }
     public long MachinesLost { get; set; }
     public long Waves { get; set; }
+    public long WallsLost { get; set; }
     public long EnemiesKilled { get; set; }
     public bool Finished { get; set; }
     public List<WaveEntry> WaveLog { get; } = new();
@@ -48,6 +51,12 @@ public sealed class BalanceBot
 
     /// <summary>How many fed turrets the base gets (1, 2 or 4).</summary>
     public int Turrets { get; init; } = 1;
+
+    /// <summary>How many walls to put around the base (0 to 4), once the first turret stands.</summary>
+    public int Walls { get; init; }
+
+    /// <summary>When the player presses repair: never, only when no enemy is alive, or whenever anything is damaged.</summary>
+    public RepairMode Repairs { get; init; } = RepairMode.Never;
 
     /// <summary>Stop as soon as a machine is destroyed; enough to find the first wave the defence cannot hold.</summary>
     public bool StopAtFirstLoss { get; init; }
@@ -215,11 +224,26 @@ public sealed class BalanceBot
 
         // More turrets, each with its own ammo line: one drill and smelter only make enough ammo for one turret firing
         // all the time. They cost plates, and the plate line feeds the lab, so once Logistics is done the lab goes back to a depot.
-        if (Turrets >= 2)
+        if (Turrets >= 2 || Walls > 0)
         {
             _steps.Add(() => Net.IsResearched(_c.ResearchIndex("core:logistics")));
             _steps.Add(() => Try(new RemoveMachine(_ids["lab"]), out _));
             Machine_("plates.depot", 12, 3, "core:depot", null, () => Do(new ConnectToMachine(_ids["l2.b3"], _ids["plates.depot"])));
+        }
+        // Walls on four sides, inside the turrets' reach: enemies go for the nearest one, so it does not matter which side they come from.
+        for (int i = 0; i < Walls; i++)
+        {
+            var (wx, wz) = WallSpots[i];
+            _wallSpots.Add((wx, wz));
+            _steps.Add(() =>
+            {
+                if (!Try(new PlaceMachine(wx, 0, wz, Machine("core:wall"), -1), out _)) return false;
+                _wallsBuilt++; // from now on Maintain puts this wall back whenever it is lost
+                return true;
+            });
+        }
+        if (Turrets >= 2)
+        {
             int[] rows = { 9, -3, 12, -6 };
             for (int i = 0; i < Turrets - 1; i++)
             {
@@ -230,6 +254,29 @@ public sealed class BalanceBot
             }
         }
     }
+
+    private static readonly (int X, int Z)[] WallSpots = { (-3, 3), (6, -9), (6, 15), (18, 3) };
+    private readonly List<(int X, int Z)> _wallSpots = new();
+
+    /// <summary>
+    /// What a player does between and during fights: put a destroyed wall back and press repair. Runs once a second
+    /// and only spends what is in the hold.
+    /// </summary>
+    private void Maintain()
+    {
+        if (_wallSpots.Count == 0 && Repairs == RepairMode.Never) return;
+        bool fighting = Net.EnemyCount > 0;
+        if (!fighting)
+            for (int i = 0; i < _wallsBuilt; i++)
+                _w.Submit(0, new PlaceMachine(_wallSpots[i].X, 0, _wallSpots[i].Z, Machine("core:wall"), -1));
+        if (Repairs == RepairMode.Never || (fighting && Repairs == RepairMode.BetweenWaves)) return;
+        for (int id = 0; id < Net.MachineIdLimit; id++)
+            if (Net.IsMachineAlive(id) && Net.GetMachineInfo(id).Hp < _c.Machines[Net.GetMachineInfo(id).Type].Hp)
+                _w.Submit(0, new Repair(id));
+        // The commands are applied by the next tick; rejections (no items, not damaged, cell taken) are expected and ignored.
+    }
+
+    private int _wallsBuilt;
 
     private void Steer((int X, int Y, int Z) target)
     {
@@ -303,6 +350,7 @@ public sealed class BalanceBot
                 else if (_step > 0) _report.WaitingForItemsSeconds += 1;
             }
             ManageMining();
+            Maintain();
             _w.Step(Units.TicksPerSecond);
             Record();
             if (Trace is not null && sec % 30 == 0)
@@ -320,6 +368,7 @@ public sealed class BalanceBot
         _report.Seconds = _w.Tick / (double)Units.TicksPerSecond;
         _report.MachinesLost = Net.MachinesLost;
         _report.Waves = Net.WavesSpawned;
+        _report.WallsLost = Net.WallsLost;
         _report.EnemiesKilled = Net.EnemiesKilled;
         if (!_report.Finished) _report.Stuck = $"script step {_step}/{_steps.Count}, next objective {_objectives.Current}";
         _w.ValidateInvariants();
@@ -344,6 +393,8 @@ public sealed class BalanceBot
         lines.Add($"| Hold full (total) | {r.HoldFullSeconds:F0} s |");
         lines.Add($"| Waiting for items (total) | {r.WaitingForItemsSeconds:F0} s |");
         lines.Add($"| Waves seen / enemies killed | {r.Waves} / {r.EnemiesKilled} |");
+        lines.Add($"| First machine lost during wave | {(r.FirstLossWave is int fl ? fl.ToString() : "none")} |");
+        lines.Add($"| Walls lost | {r.WallsLost} |");
         lines.Add($"| Machines lost | {r.MachinesLost} |");
         lines.Add($"| Run length | {T(r.Seconds)}{(r.Finished ? "" : " (not finished: " + r.Stuck + ")")} |");
         return string.Join("\n", lines);

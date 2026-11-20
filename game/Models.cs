@@ -67,6 +67,7 @@ public static class Models
         "core:research_lab" => BuildLab(),
         "core:depot" => BuildDepot(),
         "core:turret" => BuildTurret(),
+        "core:wall" => BuildWall(),
         _ => BuildCrate(),
     };
 
@@ -671,6 +672,32 @@ public static class Models
             mb.C(Hull).Prism(new(0, 0.07f, 0), 0.155f, 0.165f, 0.012f, 8);
             mb.C(Steel).Beam(new(0, 0.02f, 0), new(0, 0.17f, 0), 0.02f);
             mb.C(Purple).Prism(new(0, 0.165f, 0), 0.03f, 0.0f, 0.04f, 6);
+        });
+        return r;
+    }
+
+    private static Node3D BuildWall()
+    {
+        var r = NewMachine("Wall");
+        Add(r, "Body", "wall.body", Body(), mb =>
+        {
+            Plinth(mb, YellowDk);
+            // A thick armoured slab on the plinth, with a bevelled top and hazard stripes.
+            mb.C(HullLight).Block(new(0, Y0 + 0.18f, 0), new(0.90f, 0.36f, 0.34f), 0.92f, 0.82f);
+            mb.C(Steel).Block(new(0, Y0 + 0.37f, 0), new(0.86f, 0.05f, 0.30f), 0.9f, 0.8f);
+            foreach (float s in new[] { -1f, 1f })
+            {
+                mb.C(Hull).Block(new(s * 0.36f, Y0 + 0.30f, 0), new(0.14f, 0.40f, 0.38f), 0.9f, 0.9f);
+                foreach (float t in new[] { -1f, 1f })
+                {
+                    mb.C(Yellow).Block(new(s * 0.14f, Y0 + 0.14f, t * 0.175f), new(0.20f, 0.07f, 0.012f));
+                }
+            }
+        });
+        Add(r, "GlowLight", "wall.light", Glow(new Color(1f, 0.8f, 0.15f), 2.4f), mb =>
+        {
+            foreach (float s in new[] { -1f, 1f })
+                mb.Sphere(new(s * 0.36f, Y0 + 0.52f, 0), new(0.04f, 0.03f, 0.04f), 3, 6);
         });
         return r;
     }

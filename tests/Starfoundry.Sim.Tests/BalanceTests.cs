@@ -65,9 +65,12 @@ public class BalanceTests
     }
 
     /// <summary>The wave during which a base with this many fed turrets (each with its own ammo line) first loses a machine.</summary>
-    private static int FirstLossWave(int turrets, ulong seed) =>
-        new BalanceBot(TestContent.Core, seed) { ActionDelaySeconds = 15, Turrets = turrets, StopAtFirstLoss = true, ObserveAfterSeconds = 4 * 60 * 60 }
-            .Run(4 * 60 * 60).FirstLossWave ?? int.MaxValue;
+    private static int FirstLossWave(int turrets, ulong seed, int walls = 0, RepairMode repairs = RepairMode.Never) =>
+        new BalanceBot(TestContent.Core, seed)
+        {
+            ActionDelaySeconds = 15, Turrets = turrets, Walls = walls, Repairs = repairs,
+            StopAtFirstLoss = true, ObserveAfterSeconds = 6 * 60 * 60,
+        }.Run(6 * 60 * 60).FirstLossWave ?? int.MaxValue;
 
     [Theory]
     [InlineData(20261120UL)]
@@ -87,6 +90,27 @@ public class BalanceTests
     {
         int one = FirstLossWave(1, seed), three = FirstLossWave(3, seed);
         Assert.True(three >= one + 2, $"one turret held until wave {one}, three until wave {three}");
+    }
+
+    [Theory]
+    [InlineData(20261120UL)]
+    [InlineData(1UL)]
+    public void FourWallsBuyAtLeastThreeMoreWavesEvenWithoutRepairs(ulong seed)
+    {
+        int bare = FirstLossWave(1, seed), walled = FirstLossWave(1, seed, walls: 4);
+        Assert.True(walled >= bare + 3, $"no walls held until wave {bare}, four walls until wave {walled}");
+    }
+
+    [Theory]
+    [InlineData(20261120UL)]
+    [InlineData(1UL)]
+    public void RepairingDuringTheFightsBuysMuchMore(ulong seed)
+    {
+        int bare = FirstLossWave(1, seed);
+        int never = FirstLossWave(1, seed, walls: 4, RepairMode.Never);
+        int always = FirstLossWave(1, seed, walls: 4, RepairMode.Always);
+        Assert.True(always >= bare + 8, $"no walls held until wave {bare}, four walls with repairs until wave {always}");
+        Assert.True(always >= never + 2, $"without repairs {never}, with repairs {always}");
     }
 
     [Theory]
