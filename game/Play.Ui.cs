@@ -228,6 +228,7 @@ public partial class Play
         UpdatePlayLog();
         AutosaveTick();
         if (_saveTest) SaveSelfTest();
+        if (_stressMachines > 0) StressTick(dt);
         if (!_demo)
         {
             _tips ??= new Tips(_content);
@@ -399,6 +400,58 @@ public partial class Play
             GD.PrintErr("LOAD failed: " + e.Message);
             Toast(L("toast.loadFailed", e.Message));
         }
+    }
+
+    // ---- stress test ---------------------------------------------------------------------------
+
+    private int _stressMachines;
+    private int _stressFrame;
+    private readonly List<double> _stressFrames = new();
+    private readonly List<double> _stressProcess = new();
+
+    /// <summary>
+    /// <c>--stress=N</c>: a sandbox base of N machines of every kind in a grid and belts with moving items, seen from far enough
+    /// to take it all in, to measure what the renderer costs. Prints the average and worst frame time and quits.
+    /// </summary>
+    private void BuildStressBase()
+    {
+        var kinds = _content.Machines.Where(m => m.Role != MachineRole.Ship).ToList();
+        int side = (int)Math.Ceiling(Math.Sqrt(_stressMachines));
+        int placed = 0;
+        for (int i = 0; i < _stressMachines; i++)
+        {
+            var def = kinds[i % kinds.Count];
+            int recipe = _content.Recipes.FirstOrDefault(r => r.Machine == def.Index)?.Index ?? -1;
+            _world.Submit(Player, new PlaceMachine((i % side) * 2 - side, 0, (i / side) * 2 - side, def.Index, recipe));
+            if (++placed % 200 == 0) _world.Step();
+        }
+        _world.Step();
+        // Belts with sources and sinks between the rows, so items move on screen.
+        for (int row = 0; row < Math.Min(40, side); row++)
+        {
+            _world.Submit(Player, new PlaceSegment(-side, 0, row * 2 * 2 + 1 - side, Dir.PosX, Math.Min(side * 2, 60), BeltTier.Mk1));
+        }
+        _world.Step();
+        for (int id = 0; id < _world.Network.SegmentIdLimit; id++)
+            if (_world.Network.IsAlive(id))
+            {
+                _world.Submit(Player, new SetSource(id, new ushort[] { 0 }));
+                _world.Submit(Player, new SetSink(id));
+            }
+        _world.Step();
+        _distance = 40 + side * 1.6f;
+        DisplayServer.WindowSetVsyncMode(DisplayServer.VSyncMode.Disabled); // measure what the work costs, not the refresh rate
+        GD.Print($"STRESS built machines={_world.Network.MachineCount} segments={_world.Network.SegmentCount}");
+    }
+
+    private void StressTick(double delta)
+    {
+        _stressFrame++;
+        if (_stressFrame > 60) { _stressFrames.Add(delta * 1000.0); _stressProcess.Add(Performance.GetMonitor(Performance.Monitor.TimeProcess) * 1000.0); } // the first frames build the scene
+        if (_stressFrames.Count < 300) return;
+        var sorted = _stressFrames.OrderBy(x => x).ToList();
+        GD.Print($"STRESS machines={_world.Network.MachineCount} frames={sorted.Count} avg_ms={sorted.Average():F2} process_ms={_stressProcess.Average():F2} p95_ms={sorted[(int)(sorted.Count * 0.95)]:F2} worst_ms={sorted[^1]:F2} fps={1000.0 / sorted.Average():F0}");
+        GetTree().Quit();
     }
 
     private int _saveTestFrame;

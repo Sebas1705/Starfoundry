@@ -141,15 +141,18 @@ public static class Models
         {
             var g = a.Glows[i];
             if (!Valid(g.Mi)) continue;
-            a.Own(g);
-            if (g.Mat == null) continue;
-            bool engine = g.Mi.Name.ToString().StartsWith("GlowEngine", StringComparison.Ordinal);
+            bool engine = g.IsEngine;
             float f;
             if (engine) f = active ? 0.85f + 0.3f * MathF.Sin(t * 24f + i) : 0.45f;
             else f = active ? 0.8f + 0.35f * MathF.Sin(t * 3f + i * 1.3f) : 0.2f;
             f *= 1f - dmg * 0.65f;
             if (dmg > 0.2f) f *= 1f - dmg * 0.4f * (0.5f + 0.5f * MathF.Sin(t * 23f + i * 1.7f)); // failing, flickering lights
-            g.Mat.EmissionEnergyMultiplier = g.Energy * MathF.Max(0f, f);
+            f = MathF.Max(0f, f);
+            if (!float.IsNaN(g.LastF) && MathF.Abs(g.LastF - f) < 0.01f) continue; // nothing visible changed: no engine calls
+            g.LastF = f;
+            a.Own(g);
+            if (g.Mat == null) continue;
+            g.Mat.EmissionEnergyMultiplier = g.Energy * f;
             if (engine) g.Mi.Scale = new Vector3(active ? 1f + 0.18f * MathF.Sin(t * 30f) : 0.6f, 1f, 1f);
         }
     }
@@ -174,6 +177,8 @@ public static class Models
         var a = GetAnim(model);
         float d = Math.Clamp(damage01, 0f, 1f);
         a.Damage = d;
+        if (MathF.Abs(d - a.AppliedDamage) < 0.01f) return; // unchanged (most machines, most of the time): leave the shared materials alone
+        a.AppliedDamage = d;
         foreach (var rec in a.All)
         {
             if (!Valid(rec.Mi)) continue;
@@ -203,7 +208,8 @@ public static class Models
     {
         public MeshInstance3D Mi = null!;
         public StandardMaterial3D? Mat;
-        public bool IsGlow, Owned;
+        public bool IsGlow, IsEngine, Owned;
+        public float LastF = float.NaN; // the last glow factor written, so unchanged lights cost nothing
         public Color Albedo;
         public float Energy, Rough, Metal;
     }
@@ -216,6 +222,7 @@ public static class Models
         public Vector3 ArmBase;
         public double Last = double.NaN;
         public float Work, Damage;
+        public float AppliedDamage; // the damage the materials were last set to
         private readonly float[] _angles = new float[4];
 
         public float Spin(int slot, float speed, float dt) => _angles[slot] += speed * dt;
@@ -268,7 +275,7 @@ public static class Models
             }
             if (c is MeshInstance3D mi)
             {
-                var rec = new Rec { Mi = mi, IsGlow = name.StartsWith("Glow", StringComparison.Ordinal) };
+                var rec = new Rec { Mi = mi, IsGlow = name.StartsWith("Glow", StringComparison.Ordinal), IsEngine = name.StartsWith("GlowEngine", StringComparison.Ordinal) };
                 if (mi.Mesh?.SurfaceGetMaterial(0) is StandardMaterial3D m)
                 {
                     rec.Albedo = m.AlbedoColor;

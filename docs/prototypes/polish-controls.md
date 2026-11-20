@@ -59,7 +59,7 @@ Every machine, the ship, both enemy types and the deposits now have a procedural
 - `game/Gallery.tscn` shows every model, clean and damaged (`-- --focus=machines|units|ships --shot=out.png`), and `--export-models=<dir>` writes them as `.glb` (committed under `game/assets/models`, about 0.8 MB, not loaded by the game: they are for inspection and future use).
 - Triangle counts are 200 to 450 per model (the deposit about 970).
 
-Limitations: machines, enemies and the ship are individual nodes, not MultiMesh instances, so a very large factory will cost more than the old boxes (not measured yet); the build ghost is still a box; damaged colours skew pink on blue and yellow parts; the animations were checked in single frames, not as motion.
+Limitations: machines, enemies and the ship are individual nodes, not MultiMesh instances, so a very large factory will cost more than the old boxes (measured since: see [render performance](render-performance.md)); the build ghost is still a box; damaged colours skew pink on blue and yellow parts; the animations were checked in single frames, not as motion.
 
 ### The brute
 ![The brute next to the striker, ship and scout, clean and damaged](brute-model.png)
