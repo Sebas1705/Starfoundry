@@ -130,20 +130,7 @@ public partial class Play : Node3D
 
     private void BuildScene()
     {
-        AddChild(new WorldEnvironment
-        {
-            Environment = new Godot.Environment
-            {
-                BackgroundMode = Godot.Environment.BGMode.Color,
-                BackgroundColor = new Color(0.03f, 0.04f, 0.08f),
-                AmbientLightSource = Godot.Environment.AmbientSource.Color,
-                AmbientLightColor = new Color(0.55f, 0.6f, 0.75f),
-                AmbientLightEnergy = 0.75f,
-            },
-        });
-        var sun = new DirectionalLight3D { LightEnergy = 1.1f };
-        AddChild(sun);
-        sun.RotationDegrees = new Vector3(-55, -30, 0);
+        Ambience.Build(this, Ambience.SystemSeed(GalaxySeed, Net.CurrentSystem(Player))); // sky, sun light and dust
 
         _camera = new Camera3D { Far = 500f };
         AddChild(_camera);
@@ -226,6 +213,7 @@ public partial class Play : Node3D
         _ship.Rotation = new Vector3(0, _shipYaw, 0);
         _ship.Position = pos;
         _ship.Visible = !(Net.HasPlayer(Player) && Net.GetPlayerInfo(Player).RespawnRemaining > 0); // hidden while being rebuilt
+        Ambience.Retint(Ambience.SystemSeed(GalaxySeed, Net.CurrentSystem(Player))); // no-op unless the system changed
         _buildRange.Position = pos;
         _mineRange.Position = pos;
         // After a jump the camera snaps to the ship instead of flying hundreds of cells.
