@@ -293,6 +293,7 @@ public partial class Play
                 : Net.HasAbility(Ability.Jump) ? L("hud.jumpReady") : L("hud.jumpLocked");
             sb.Append(L("hud.system", where, Enumerable.Range(0, galaxy.Systems.Count).Count(Net.IsSystemVisited), galaxy.Systems.Count, jump)).Append('\n');
             ThreatHud(sb, cur);
+            OreWarning(sb);
         }
 
         if (Net.CurrentResearch >= 0)
@@ -327,6 +328,22 @@ public partial class Play
         string ship = p.RespawnRemaining > 0 ? L("hud.rebuilding", (p.RespawnRemaining / (float)Units.TicksPerSecond).ToString("F0", Loc.Culture))
             : L("hud.hull", p.Hull, Net.ShipMaxHull);
         sb.Append(L("hud.threat", th.Signature, rules.SignatureThreshold, state, ship)).Append('\n');
+    }
+
+    private readonly HashSet<(int System, int Item)> _lowOreWarned = new();
+
+    /// <summary>A status line, and a toast the first time, when an ore of the current system is running low.</summary>
+    private void OreWarning(StringBuilder sb)
+    {
+        int system = Net.CurrentSystem(Player);
+        foreach (var item in _content.Items)
+        {
+            int pct = OreRunway.PercentLeft(Net, Player, item.Index);
+            if (!OreRunway.IsLow(pct)) continue;
+            string name = Loc.Name("item", item.Id);
+            sb.Append(L("hud.oreLow", name, pct)).Append('\n');
+            if (_lowOreWarned.Add((system, item.Index))) Toast(L("toast.oreLow", name, pct));
+        }
     }
 
     /// <summary>A research name, with the level for repeatable nodes (the level being researched when next is true, the level reached otherwise).</summary>

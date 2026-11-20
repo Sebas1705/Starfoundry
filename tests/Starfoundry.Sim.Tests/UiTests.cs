@@ -97,6 +97,51 @@ public class UiTests
     }
 
     [Fact]
+    public void TheOreRunwayShrinksAsTheDepositIsMinedAndWarnsAtAQuarter()
+    {
+        var w = new SimWorld(C, GameMode.Campaign);
+        int ore = C.ItemIndex("core:iron_ore"), carbon = C.ItemIndex("core:carbon");
+        w.Network.AddDeposit(ore, 60); // the hold keeps 60, so mining can take it all
+        Assert.Equal(100, OreRunway.PercentLeft(w.Network, 0, ore));
+        Assert.Equal(-1, OreRunway.PercentLeft(w.Network, 0, carbon)); // no carbon deposit is known
+        Assert.False(OreRunway.IsLow(-1));
+        Assert.False(OreRunway.IsLow(100));
+
+        w.Submit(0, new StartMining(0));
+        w.Step(15 * 30); // 30 ore at 2 a second is 15 seconds
+        Assert.InRange(OreRunway.PercentLeft(w.Network, 0, ore), 48, 51);
+        Assert.False(OreRunway.IsLow(OreRunway.PercentLeft(w.Network, 0, ore)));
+
+        w.Step(15 * 20); // 20 more
+        int pct = OreRunway.PercentLeft(w.Network, 0, ore);
+        Assert.InRange(pct, 15, 18);
+        Assert.True(OreRunway.IsLow(pct));
+        Assert.True(OreRunway.IsLow(OreRunway.LowPercent));
+        Assert.False(OreRunway.IsLow(OreRunway.LowPercent + 1));
+    }
+
+    [Fact]
+    public void TheOreRunwayOnlyCountsTheSystemTheShipIsIn()
+    {
+        var w = SimWorld.CreateGalaxy(C, GameMode.Sandbox, 20261120UL);
+        w.Network.EnsurePlayer(0);
+        int ore = C.ItemIndex("core:iron_ore");
+        Assert.Equal(100, OreRunway.PercentLeft(w.Network, 0, ore)); // the home iron, untouched
+
+        // Jump to a neighbour that makes iron and scan it.
+        var g = w.Network.Galaxy!;
+        int target = g.Systems[0].Lanes.First(n => C.Archetypes[g.Systems[n].Archetype].Deposits.Any(d => d.Item == ore));
+        w.Submit(0, new Jump(target));
+        w.Step(ExplorationRules.JumpChargeTicks + 5);
+        Assert.Equal(target, w.Network.CurrentSystem(0));
+        Assert.Equal(-1, OreRunway.PercentLeft(w.Network, 0, ore)); // nothing revealed here yet: home's ore does not leak in
+
+        w.Submit(0, new Scan());
+        w.Step();
+        Assert.Equal(100, OreRunway.PercentLeft(w.Network, 0, ore)); // untouched ore of the new system, not the mined home deposit
+    }
+
+    [Fact]
     public void FreshWorldStartsAtTheFirstObjective()
     {
         var w = new SimWorld(C, GameMode.Campaign);
