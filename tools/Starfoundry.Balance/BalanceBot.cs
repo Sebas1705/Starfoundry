@@ -6,6 +6,8 @@ namespace Starfoundry.Balance;
 /// <summary>The state of the base when a wave spawned.</summary>
 public enum RepairMode { Never, BetweenWaves, Always }
 
+public enum UpgradePath { Defence, Ship }
+
 public sealed record WaveEntry(int Index, double Seconds, int Enemies, long MachinesLost, long ShipsLost, int Turrets);
 
 /// <summary>What one balance run measured. Times are simulated seconds since the start of the run.</summary>
@@ -55,8 +57,11 @@ public sealed class BalanceBot
     /// <summary>How many walls to put around the base (0 to 4), once the first turret stands.</summary>
     public int Walls { get; init; }
 
-    /// <summary>How many defence upgrades to research after Logistics (0 to 4), in order: calibration, plating, loader, field repair.</summary>
+    /// <summary>How many defence upgrades to research after Logistics (0 to 6), in order: calibration, plating, loader, field repair, ship armour, ship cannon.</summary>
     public int Upgrades { get; init; }
+
+    /// <summary>Which upgrades come first: the turret and repair line, or the ship line (armour and cannon right after their predecessors).</summary>
+    public UpgradePath Path { get; init; } = UpgradePath.Defence;
 
     /// <summary>How many repair bays to build (0 to 2), each fed ingots by a second output of a smelter.</summary>
     public int Bays { get; init; }
@@ -305,7 +310,9 @@ public sealed class BalanceBot
 
     private int _wallsBuilt;
 
-    private static readonly string[] UpgradeOrder = { "core:turret_calibration", "core:reinforced_plating", "core:rapid_loader", "core:field_repair" };
+    private static readonly string[] DefenceOrder = { "core:turret_calibration", "core:reinforced_plating", "core:rapid_loader", "core:field_repair", "core:ship_armor", "core:ship_cannon" };
+    private static readonly string[] ShipOrder = { "core:turret_calibration", "core:reinforced_plating", "core:ship_armor", "core:ship_cannon", "core:rapid_loader", "core:field_repair" };
+    private string[] UpgradeOrder => Path == UpgradePath.Ship ? ShipOrder : DefenceOrder;
 
     /// <summary>Keeps the lab busy with the next defence upgrade once Logistics is done.</summary>
     private void ResearchUpgrades()

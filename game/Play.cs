@@ -92,6 +92,9 @@ public partial class Play : Node3D
         bool threats = !(args.Contains("--demo") || _exploreDemo);
         _world = SimWorld.CreateGalaxy(_content, _exploreDemo || _threatDemo ? GameMode.Sandbox : GameMode.Campaign, GalaxySeed, threats);
         _world.Network.EnsurePlayer(Player); // the ship starts at the origin, inside Home
+        // For screenshots: finish every research that carries a bonus, so the upgrade line of the status panel shows.
+        if (args.Contains("--grant-upgrades"))
+            foreach (var node in _content.Research.Where(r => r.Bonuses.Length > 0)) _world.Network.GrantResearch(node.Index);
         _selectedDeposit = RevealedDeposits().FirstOrDefault();
 
         BuildPalette();

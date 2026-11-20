@@ -305,8 +305,9 @@ public partial class Play
             string.Join(", ", _content.Research.Where(r => Net.IsResearched(r.Index)).Select(r => Loc.Name("research", r.Id))))).Append('\n');
 
         int bDmg = Net.BonusPercent(BonusKind.TurretDamage), bRate = Net.BonusPercent(BonusKind.TurretRate),
-            bHp = Net.BonusPercent(BonusKind.MachineHp), bHeal = Net.BonusPercent(BonusKind.RepairHeal);
-        if (bDmg + bRate + bHp + bHeal > 0) sb.Append(L("hud.defense", bDmg, bRate, bHp, bHeal)).Append('\n');
+            bHp = Net.BonusPercent(BonusKind.MachineHp), bHeal = Net.BonusPercent(BonusKind.RepairHeal),
+            bHull = Net.BonusPercent(BonusKind.ShipHull), bGun = Net.BonusPercent(BonusKind.ShipDamage);
+        if (bDmg + bRate + bHp + bHeal + bHull + bGun > 0) sb.Append(L("hud.defense", bDmg, bRate, bHp, bHeal, bHull, bGun)).Append('\n');
 
         if (_demo) sb.Append(L("hud.speed", _demoSpeed));
         else if (_speed != 1 || _paused) sb.Append(_paused ? L("hud.paused") : L("hud.speed", _speed));
@@ -324,7 +325,7 @@ public partial class Play
             : L("hud.alert", 100 * th.Alert / Math.Max(1, th.AlertMax));
         var p = Net.GetPlayerInfo(Player);
         string ship = p.RespawnRemaining > 0 ? L("hud.rebuilding", (p.RespawnRemaining / (float)Units.TicksPerSecond).ToString("F0", Loc.Culture))
-            : L("hud.hull", p.Hull, rules.ShipHull);
+            : L("hud.hull", p.Hull, Net.ShipMaxHull);
         sb.Append(L("hud.threat", th.Signature, rules.SignatureThreshold, state, ship)).Append('\n');
     }
 

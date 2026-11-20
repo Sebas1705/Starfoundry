@@ -85,6 +85,12 @@ public enum BonusKind
 
     /// <summary>Repairers restore more hit points per use.</summary>
     RepairHeal = 3,
+
+    /// <summary>The ship's hull points go up; the ship keeps its share of the new maximum.</summary>
+    ShipHull = 4,
+
+    /// <summary>The ship weapon does more damage per shot.</summary>
+    ShipDamage = 5,
 }
 
 public sealed record Bonus(BonusKind Kind, int Percent);
@@ -422,6 +428,8 @@ public sealed class ContentDb
                                 "turret_rate" => BonusKind.TurretRate,
                                 "machine_hp" => BonusKind.MachineHp,
                                 "repair_heal" => BonusKind.RepairHeal,
+                                "ship_hull" => BonusKind.ShipHull,
+                                "ship_damage" => BonusKind.ShipDamage,
                                 _ => throw new InvalidDataException($"Research '{id}' has an unknown bonus kind."),
                             };
                             if (bonuses.Any(x => x.Kind == kind)) throw new InvalidDataException($"Research '{id}' lists a bonus kind twice.");

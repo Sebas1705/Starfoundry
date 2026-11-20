@@ -446,6 +446,44 @@
           "percent": 100
         }
       ]
+    },
+    {
+      "id": "core:ship_armor",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 200
+        }
+      ],
+      "requires": [
+        "core:reinforced_plating"
+      ],
+      "unlocks": [],
+      "bonuses": [
+        {
+          "kind": "ship_hull",
+          "percent": 50
+        }
+      ]
+    },
+    {
+      "id": "core:ship_cannon",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 250
+        }
+      ],
+      "requires": [
+        "core:turret_calibration"
+      ],
+      "unlocks": [],
+      "bonuses": [
+        {
+          "kind": "ship_damage",
+          "percent": 50
+        }
+      ]
     }
   ],
   "galaxy": {
