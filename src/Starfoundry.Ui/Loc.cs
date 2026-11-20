@@ -63,6 +63,7 @@ public static class Loc
         ["machine.core:turret"] = ("torreta", "turret"),
         ["machine.core:wall"] = ("muro", "wall"),
         ["machine.core:repair_bay"] = ("taller de reparación", "repair bay"),
+        ["machine.core:unloader"] = ("puerto de carga", "cargo port"),
         ["machine.core:micro_refinery"] = ("microrrefinería", "micro-refinery"),
 
         ["recipe.core:mine_iron"] = ("extraer hierro", "mine iron"),
@@ -153,6 +154,7 @@ public static class Loc
         ["tip.role.turret"] = ("Dispara a los enemigos; gasta munición que llega por cinta.", "Shoots enemies; uses ammo delivered by belt."),
         ["tip.role.wall"] = ("Los enemigos atacan el muro más cercano antes que cualquier otra máquina. Repáralo para que dure.", "Enemies attack the nearest wall before any other machine. Repair it to keep it standing."),
         ["tip.role.repairer"] = ("Repara poco a poco las máquinas dañadas cercanas, gastando lingotes que le llegan por cinta.", "Slowly repairs damaged machines nearby, using ingots delivered by belt."),
+        ["tip.role.unloader"] = ("Saca lingotes de tu bodega y los pone en una cinta, sin tocar los últimos 10. Así lo que mines en otro sistema puede alimentar una fábrica lejos de él.", "Takes ingots out of your hold and puts them on a belt, leaving the last 10. What you mine in another system can feed a factory far from it."),
         ["tip.role.ship"] = ("Va en la nave.", "Lives on the ship."),
         ["tip.belt"] = ("Cinta Mk{0}: {1} celdas, {2} objetos encima", "Belt Mk{0}: {1} cells, {2} items on it"),
         ["tip.deposit"] = ("Yacimiento de {0}: quedan {1} de {2}.\nClic para elegirlo; M para minarlo.",
@@ -224,6 +226,9 @@ public static class Loc
         ["status.depotFull"] = ("bodega llena: esperando sitio", "hold full: waiting for room"),
         ["status.repairerReady"] = ("listo: repara las máquinas a menos de {0} celdas (lingotes {1}/{2})", "ready: repairs machines within {0} cells (ingots {1}/{2})"),
         ["status.repairerEmpty"] = ("sin lingotes: llévale lingotes por cinta", "out of ingots: bring it ingots by belt"),
+        ["status.unloaderReady"] = ("saca lingotes de tu bodega (quedan {0}, reserva {1})", "unloading ingots from your hold ({0} left, reserve {1})"),
+        ["status.unloaderEmpty"] = ("tu bodega no tiene más de {0} lingotes: no saca ninguno", "your hold has no more than {0} ingots: nothing to unload"),
+        ["status.unloaderNoBelt"] = ("sin cinta de salida: conecta una", "no output belt: connect one"),
         ["status.wall"] = ("atrae a los enemigos: ponlo delante de la base, al alcance de las torretas", "draws enemies: put it in front of the base, within reach of the turrets"),
         ["status.turretReady"] = ("munición {0}/{1}", "ammo {0}/{1}"),
         ["status.turretEmpty"] = ("sin munición: llévale munición por cinta", "out of ammo: bring it ammo by belt"),
@@ -319,7 +324,7 @@ public static class Loc
             "  W A S D   volar según la cámara        Espacio / C   subir / bajar\n" +
             "  M   minar (vuela primero al yacimiento)      F   refinería       K   escanear       V   armas\n\n" +
             "Construcción\n" +
-            "  1-9, 0, Q   elegir qué construir (otra vez para guardarlo)       Esc   dejar de construir\n" +
+            "  1-9, 0, Q, B   elegir qué construir (otra vez para guardarlo)       Esc   dejar de construir\n" +
             "  Tab   cambiar receta       R   girar cintas sueltas       Z / X   cambiar de capa\n" +
             "  Con el puntero, clic en una máquina: ver su estado y cambiar su receta.\n  E   reparar todas las máquinas dañadas a tu alcance (cuesta la mitad de su coste, en proporción al daño)\n\n" +
             "Otros\n" +
@@ -335,7 +340,7 @@ public static class Loc
             "  W A S D   fly relative to the camera        Space / C   up / down\n" +
             "  M   mine (flies to the deposit first)      F   refinery       K   scan       V   weapons\n\n" +
             "Building\n" +
-            "  1-9, 0, Q   choose what to build (again to put it away)       Esc   stop building\n" +
+            "  1-9, 0, Q, B   choose what to build (again to put it away)       Esc   stop building\n" +
             "  Tab   change recipe       R   rotate single belts       Z / X   change layer\n" +
             "  With the pointer, click a machine: see its status and change its recipe.\n  E   repair every damaged machine within reach (half the build cost, in proportion to the damage)\n\n" +
             "Other\n" +

@@ -143,7 +143,7 @@ public partial class Play
 
         // The build bar.
         var bar = new HBoxContainer();
-        for (int i = 0; i < _palette.Count && i < 11; i++)
+        for (int i = 0; i < _palette.Count && i < 12; i++)
         {
             int index = i;
             var b = MakeButton("", () => SelectBuild(index), toggle: true, minWidth: 104);
@@ -378,7 +378,7 @@ public partial class Play
     }
 
     /// <summary>The key that picks build item i: 1 to 9, then 0, then Q.</summary>
-    private static string KeyLabel(int i) => i < 9 ? (i + 1).ToString() : i == 9 ? "0" : "Q";
+    private static string KeyLabel(int i) => i < 9 ? (i + 1).ToString() : i == 9 ? "0" : i == 10 ? "Q" : "B";
 
     private void UpdateButtons()
     {
@@ -682,7 +682,8 @@ public partial class Play
         int digit = (int)(k.Keycode - Key.Key1);
         if (k.Keycode == Key.Key0) digit = 9;
         if (k.Keycode == Key.Q) digit = 10;
-        if (digit >= 0 && digit < Math.Min(11, _palette.Count)) { SelectBuild(digit); return; }
+        if (k.Keycode == Key.B) digit = 11;
+        if (digit >= 0 && digit < Math.Min(12, _palette.Count)) { SelectBuild(digit); return; }
 
         switch (k.Keycode)
         {
@@ -873,6 +874,13 @@ public partial class Play
                 return L("status.depotOk");
             case MachineRole.Wall:
                 return L("status.wall");
+            case MachineRole.Unloader:
+            {
+                var un = def.Unloader!;
+                if (Net.MachineOutputCount(m.Id) == 0) return L("status.unloaderNoBelt");
+                int held = Net.HoldCount(Player, un.Item);
+                return held > un.Reserve ? L("status.unloaderReady", held, un.Reserve) : L("status.unloaderEmpty", un.Reserve);
+            }
             case MachineRole.Repairer:
             {
                 var rep = def.Repairer!;

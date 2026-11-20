@@ -406,6 +406,39 @@ public sealed partial class BeltNetwork
         return p;
     }
 
+    /// <summary>
+    /// Unloaders (machine id order): every interval, move one item from the owner's hold to an output belt while the hold
+    /// keeps more than the reserve. The item enters the belts like a source's, and leaves the hold like a payment.
+    /// </summary>
+    private void StepUnloaders()
+    {
+        if (Content is null) return;
+        foreach (var m in _machines)
+        {
+            if (m is null) continue;
+            var def = Content.Machines[m.Type].Unloader;
+            if (def is null) continue;
+            if (m.TurretCooldown > 0) m.TurretCooldown--;
+            if (m.TurretCooldown > 0 || m.OutCount == 0 || m.Owner < 0 || !_players.TryGetValue(m.Owner, out var p)) continue;
+            if (p.Hold[def.Item] <= def.Reserve) continue;
+
+            for (int k = 0; k < m.OutCount; k++)
+            {
+                int index = (m.RoundRobin + k) % m.OutCount;
+                var belt = _segs[m.OutBelts[index]]!;
+                if (!belt.CanAccept) continue;
+                p.Hold[def.Item]--;
+                p.HoldTotal--;
+                HoldOut++;
+                Spawned++;
+                belt.PushTail(belt.Count == 0 ? 0 : belt.TailPos - Units.ItemSpacing, (ushort)def.Item);
+                m.RoundRobin = (index + 1) % m.OutCount;
+                m.TurretCooldown = def.IntervalTicks;
+                break;
+            }
+        }
+    }
+
     private void AddToHold(Player p, int item, int count)
     {
         p.Hold[item] += count;

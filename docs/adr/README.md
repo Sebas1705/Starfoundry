@@ -18,6 +18,7 @@ One decision per file, `NNNN-slug.md`. An accepted ADR is never rewritten; add a
 | [0012](0012-repair-bays-heal-slowly-from-a-belt-fed-item.md) | Repair bays heal slowly from a belt-fed item | proposed | 2026-11-20 |
 | [0013](0013-defence-upgrades-are-research-bonuses.md) | Defence upgrades are research bonuses | proposed | 2026-11-20 |
 | [0014](0014-repeatable-research-with-rising-cost.md) | Repeatable research with rising cost | proposed | 2026-11-20 |
+| [0015](0015-cargo-ports-unload-the-hold-onto-belts.md) | Cargo ports unload the hold onto belts | proposed | 2026-11-20 |
 
 ## Template
 ```markdown
