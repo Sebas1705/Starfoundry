@@ -408,6 +408,7 @@ public sealed partial class BeltNetwork
         p.MineProgress = 0;
         p.JumpTarget = -1;
         p.JumpRemaining = 0;
+        p.ClearThrust();
         ShipsLost++;
         StructureVersion++;
     }

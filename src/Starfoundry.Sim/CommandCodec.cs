@@ -13,7 +13,7 @@ public static class CommandCodec
         TagPlaceMachine = 10, TagRemoveMachine = 11, TagSetRecipe = 12,
         TagConnectToMachine = 13, TagConnectFromMachine = 14, TagDisconnectMachine = 15,
         TagStartMining = 16, TagStopMining = 17, TagSetShipRecipe = 18, TagSetResearch = 19,
-        TagLinkDeposit = 20, TagUnlinkDeposit = 21, TagSetMovement = 22, TagScan = 23, TagJump = 24, TagSetWeapons = 25, TagRepair = 26;
+        TagLinkDeposit = 20, TagUnlinkDeposit = 21, TagSetMovement = 22, TagScan = 23, TagJump = 24, TagSetWeapons = 25, TagRepair = 26, TagSetThrust = 27;
 
     private static readonly byte[] Magic = Encoding.ASCII.GetBytes("SFCL");
 
@@ -46,7 +46,7 @@ public static class CommandCodec
                 or ClearSource or SetSink or ClearSink
                 or PlaceMachine or RemoveMachine or SetRecipe
                 or ConnectToMachine or ConnectFromMachine or DisconnectMachine
-                or StartMining or StopMining or SetShipRecipe or SetResearch or LinkDeposit or UnlinkDeposit or SetMovement
+                or StartMining or StopMining or SetShipRecipe or SetResearch or LinkDeposit or UnlinkDeposit or SetMovement or SetThrust
                 or Scan or Jump or SetWeapons or Repair:
                 return true;
             default:
@@ -138,6 +138,9 @@ public static class CommandCodec
             case SetMovement mv:
                 w.Write(TagSetMovement); w.Write(mv.Dx); w.Write(mv.Dy); w.Write(mv.Dz);
                 break;
+            case SetThrust th:
+                w.Write(TagSetThrust); w.Write(th.Dx); w.Write(th.Dy); w.Write(th.Dz);
+                break;
             case Scan:
                 w.Write(TagScan);
                 break;
@@ -202,6 +205,7 @@ public static class CommandCodec
             case TagUnlinkDeposit: return new UnlinkDeposit(r.ReadInt32());
             case TagRepair: return new Repair(r.ReadInt32());
             case TagSetMovement: return new SetMovement(r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
+            case TagSetThrust: return new SetThrust(r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
             case TagScan: return new Scan();
             case TagJump: return new Jump(r.ReadInt32());
             case TagSetWeapons: return new SetWeapons(r.ReadBoolean());
