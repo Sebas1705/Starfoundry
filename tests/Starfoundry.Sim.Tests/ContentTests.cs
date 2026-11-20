@@ -21,9 +21,9 @@ public class ContentTests
     public void CoreContentLoadsWithExpectedShape()
     {
         var c = TestContent.Core;
-        Assert.Equal(4, c.Items.Count);
-        Assert.Equal(7, c.Machines.Count);
-        Assert.Equal(7, c.Recipes.Count);
+        Assert.Equal(5, c.Items.Count);
+        Assert.Equal(8, c.Machines.Count);
+        Assert.Equal(8, c.Recipes.Count);
         Assert.Equal(4, c.Research.Count);
         Assert.Equal(new GalaxyRules(12, 800, 2, 150), c.Galaxy);
         Assert.Equal(4, c.Archetypes.Count);

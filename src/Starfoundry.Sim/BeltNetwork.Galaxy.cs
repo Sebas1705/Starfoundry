@@ -33,6 +33,7 @@ public sealed partial class BeltNetwork
         _known = new bool[galaxy.Systems.Count];
         _visited = new bool[galaxy.Systems.Count];
         MarkVisited(0);
+        InitThreat();
         StructureVersion++;
     }
 

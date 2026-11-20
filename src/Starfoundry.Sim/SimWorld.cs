@@ -44,10 +44,10 @@ public sealed class SimWorld
     /// Deposits of the home system start revealed; the others stay hidden until scanned. Replays and peers must create
     /// the world with the same arguments (the log header stores mode, content hash and seed).
     /// </summary>
-    public static SimWorld CreateGalaxy(ContentDb content, GameMode mode, ulong seed)
+    public static SimWorld CreateGalaxy(ContentDb content, GameMode mode, ulong seed, bool threats = false)
     {
         var galaxy = Galaxy.Generate(content, seed);
-        var net = new BeltNetwork(content, mode);
+        var net = new BeltNetwork(content, mode, threats);
         foreach (var d in galaxy.Deposits)
             net.AddDeposit(d.Item, d.Amount, d.X, d.Y, d.Z, revealed: d.System == 0);
         net.SetGalaxy(galaxy);
@@ -98,6 +98,9 @@ public sealed class SimWorld
             _results.Add(Apply(player, command));
         }
         Network.Step();
+
+        // Machines destroyed by enemies leave their cells free.
+        foreach (var d in Network.TakeDestroyedMachines()) _cells.Remove(Key(d.X, d.Y, d.Z));
     }
 
     public void Step(int ticks)
@@ -351,6 +354,10 @@ public sealed class SimWorld
                 Network.StartMining(player, sm.Deposit);
                 return Reject.None;
             }
+
+            case SetWeapons sw:
+                Network.SetWeapons(player, sw.Armed);
+                return Reject.None;
 
             case Scan:
                 if (Network.Content is null) return Reject.NoContent;

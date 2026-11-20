@@ -1,140 +1,336 @@
 {
   "schema": 1,
   "items": [
-    { "id": "core:iron_ore" },
-    { "id": "core:iron_ingot" },
-    { "id": "core:iron_plate" },
-    { "id": "core:carbon" }
+    {
+      "id": "core:iron_ore"
+    },
+    {
+      "id": "core:iron_ingot"
+    },
+    {
+      "id": "core:iron_plate"
+    },
+    {
+      "id": "core:carbon"
+    },
+    {
+      "id": "core:ammo"
+    }
   ],
   "machines": [
-    { "id": "core:extractor", "sandbox_only": true },
+    {
+      "id": "core:extractor",
+      "sandbox_only": true,
+      "hp": 80,
+      "signature": 2
+    },
     {
       "id": "core:drill",
       "role": "drill",
-      "cost": [{ "item": "core:iron_ingot", "count": 6 }]
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 6
+        }
+      ],
+      "hp": 80,
+      "signature": 2
     },
     {
       "id": "core:smelter",
-      "cost": [{ "item": "core:iron_ingot", "count": 8 }]
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 8
+        }
+      ],
+      "hp": 100,
+      "signature": 3
     },
     {
       "id": "core:assembler",
-      "cost": [{ "item": "core:iron_ingot", "count": 12 }]
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 12
+        }
+      ],
+      "hp": 100,
+      "signature": 3
     },
     {
       "id": "core:research_lab",
       "role": "lab",
       "cost": [
-        { "item": "core:iron_ingot", "count": 10 },
-        { "item": "core:iron_plate", "count": 4 }
-      ]
+        {
+          "item": "core:iron_ingot",
+          "count": 10
+        },
+        {
+          "item": "core:iron_plate",
+          "count": 4
+        }
+      ],
+      "hp": 120,
+      "signature": 4
     },
     {
       "id": "core:depot",
       "role": "depot",
-      "cost": [{ "item": "core:iron_ingot", "count": 5 }]
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 5
+        }
+      ],
+      "hp": 80,
+      "signature": 1
     },
-    { "id": "core:micro_refinery", "role": "ship" }
+    {
+      "id": "core:turret",
+      "role": "turret",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 10
+        },
+        {
+          "item": "core:iron_plate",
+          "count": 4
+        }
+      ],
+      "hp": 120,
+      "signature": 0,
+      "turret": {
+        "range_cells": 18,
+        "damage": 8,
+        "interval_ticks": 15,
+        "ammo_item": "core:ammo",
+        "ammo_cap": 20
+      }
+    },
+    {
+      "id": "core:micro_refinery",
+      "role": "ship"
+    }
   ],
   "recipes": [
     {
       "id": "core:mine_iron",
       "machine": "core:extractor",
       "inputs": [],
-      "outputs": [{ "item": "core:iron_ore", "count": 1 }],
-      "time_s": 1.0
+      "outputs": [
+        {
+          "item": "core:iron_ore",
+          "count": 1
+        }
+      ],
+      "time_s": 1
     },
     {
       "id": "core:mine_carbon",
       "machine": "core:extractor",
       "inputs": [],
-      "outputs": [{ "item": "core:carbon", "count": 1 }],
-      "time_s": 1.0
+      "outputs": [
+        {
+          "item": "core:carbon",
+          "count": 1
+        }
+      ],
+      "time_s": 1
     },
     {
       "id": "core:drill_iron",
       "machine": "core:drill",
       "inputs": [],
-      "outputs": [{ "item": "core:iron_ore", "count": 1 }],
-      "time_s": 2.0
+      "outputs": [
+        {
+          "item": "core:iron_ore",
+          "count": 1
+        }
+      ],
+      "time_s": 2
     },
     {
       "id": "core:drill_carbon",
       "machine": "core:drill",
       "inputs": [],
-      "outputs": [{ "item": "core:carbon", "count": 1 }],
-      "time_s": 2.0
+      "outputs": [
+        {
+          "item": "core:carbon",
+          "count": 1
+        }
+      ],
+      "time_s": 2
     },
     {
       "id": "core:smelt_iron",
       "machine": "core:smelter",
-      "inputs": [{ "item": "core:iron_ore", "count": 1 }],
-      "outputs": [{ "item": "core:iron_ingot", "count": 1 }],
-      "time_s": 2.0
+      "inputs": [
+        {
+          "item": "core:iron_ore",
+          "count": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "core:iron_ingot",
+          "count": 1
+        }
+      ],
+      "time_s": 2
     },
     {
       "id": "core:iron_plate",
       "machine": "core:assembler",
-      "inputs": [{ "item": "core:iron_ingot", "count": 2 }],
-      "outputs": [{ "item": "core:iron_plate", "count": 1 }],
-      "time_s": 2.0
+      "inputs": [
+        {
+          "item": "core:iron_ingot",
+          "count": 2
+        }
+      ],
+      "outputs": [
+        {
+          "item": "core:iron_plate",
+          "count": 1
+        }
+      ],
+      "time_s": 2
+    },
+    {
+      "id": "core:make_ammo",
+      "machine": "core:assembler",
+      "inputs": [
+        {
+          "item": "core:iron_ingot",
+          "count": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "core:ammo",
+          "count": 4
+        }
+      ],
+      "time_s": 1
     },
     {
       "id": "core:ship_smelt",
       "machine": "core:micro_refinery",
-      "inputs": [{ "item": "core:iron_ore", "count": 1 }],
-      "outputs": [{ "item": "core:iron_ingot", "count": 1 }],
-      "time_s": 2.0
+      "inputs": [
+        {
+          "item": "core:iron_ore",
+          "count": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "core:iron_ingot",
+          "count": 1
+        }
+      ],
+      "time_s": 2
     }
   ],
   "belts": [
     {
       "id": "core:belt_mk1",
       "tier": "mk1",
-      "cost_per_cell": [{ "item": "core:iron_ingot", "count": 1 }]
+      "cost_per_cell": [
+        {
+          "item": "core:iron_ingot",
+          "count": 1
+        }
+      ]
     },
     {
       "id": "core:belt_mk2",
       "tier": "mk2",
-      "cost_per_cell": [{ "item": "core:iron_plate", "count": 1 }]
+      "cost_per_cell": [
+        {
+          "item": "core:iron_plate",
+          "count": 1
+        }
+      ]
     },
     {
       "id": "core:belt_mk3",
       "tier": "mk3",
-      "cost_per_cell": [{ "item": "core:iron_plate", "count": 2 }]
+      "cost_per_cell": [
+        {
+          "item": "core:iron_plate",
+          "count": 2
+        }
+      ]
     }
   ],
   "research": [
     {
       "id": "core:logistics",
-      "cost": [{ "item": "core:iron_plate", "count": 10 }],
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 10
+        }
+      ],
       "requires": [],
-      "unlocks": ["core:belt_mk2"]
+      "unlocks": [
+        "core:belt_mk2"
+      ]
     },
     {
       "id": "core:carbon_drilling",
-      "cost": [{ "item": "core:iron_plate", "count": 15 }],
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 15
+        }
+      ],
       "requires": [],
-      "unlocks": ["core:drill_carbon"]
+      "unlocks": [
+        "core:drill_carbon"
+      ]
     },
     {
       "id": "core:advanced_logistics",
       "cost": [
-        { "item": "core:iron_plate", "count": 40 },
-        { "item": "core:carbon", "count": 10 }
+        {
+          "item": "core:iron_plate",
+          "count": 40
+        },
+        {
+          "item": "core:carbon",
+          "count": 10
+        }
       ],
-      "requires": ["core:logistics", "core:carbon_drilling"],
-      "unlocks": ["core:belt_mk3"]
+      "requires": [
+        "core:logistics",
+        "core:carbon_drilling"
+      ],
+      "unlocks": [
+        "core:belt_mk3"
+      ]
     },
     {
       "id": "core:jump_drive",
       "cost": [
-        { "item": "core:iron_plate", "count": 30 },
-        { "item": "core:carbon", "count": 10 }
+        {
+          "item": "core:iron_plate",
+          "count": 30
+        },
+        {
+          "item": "core:carbon",
+          "count": 10
+        }
       ],
-      "requires": ["core:logistics", "core:carbon_drilling"],
+      "requires": [
+        "core:logistics",
+        "core:carbon_drilling"
+      ],
       "unlocks": [],
-      "abilities": ["jump"]
+      "abilities": [
+        "jump"
+      ]
     }
   ],
   "galaxy": {
@@ -148,39 +344,182 @@
       "id": "core:home",
       "home": true,
       "weight": 0,
-      "distance_cells": [6, 12],
+      "distance_cells": [
+        6,
+        12
+      ],
       "deposits": [
-        { "item": "core:iron_ore", "count": [1, 1], "amount": [4000, 4000] },
-        { "item": "core:carbon", "count": [1, 1], "amount": [1500, 1500] }
+        {
+          "item": "core:iron_ore",
+          "count": [
+            1,
+            1
+          ],
+          "amount": [
+            4000,
+            4000
+          ]
+        },
+        {
+          "item": "core:carbon",
+          "count": [
+            1,
+            1
+          ],
+          "amount": [
+            1500,
+            1500
+          ]
+        }
       ]
     },
     {
       "id": "core:dense_belt",
       "weight": 3,
-      "distance_cells": [12, 45],
+      "distance_cells": [
+        12,
+        45
+      ],
       "deposits": [
-        { "item": "core:iron_ore", "count": [3, 5], "amount": [600, 1200] },
-        { "item": "core:carbon", "count": [1, 2], "amount": [300, 700] }
+        {
+          "item": "core:iron_ore",
+          "count": [
+            3,
+            5
+          ],
+          "amount": [
+            600,
+            1200
+          ]
+        },
+        {
+          "item": "core:carbon",
+          "count": [
+            1,
+            2
+          ],
+          "amount": [
+            300,
+            700
+          ]
+        }
       ]
     },
     {
       "id": "core:sparse_belt",
       "weight": 2,
-      "distance_cells": [20, 60],
+      "distance_cells": [
+        20,
+        60
+      ],
       "deposits": [
-        { "item": "core:iron_ore", "count": [1, 2], "amount": [1500, 2500] },
-        { "item": "core:carbon", "count": [1, 1], "amount": [800, 1200] }
+        {
+          "item": "core:iron_ore",
+          "count": [
+            1,
+            2
+          ],
+          "amount": [
+            1500,
+            2500
+          ]
+        },
+        {
+          "item": "core:carbon",
+          "count": [
+            1,
+            1
+          ],
+          "amount": [
+            800,
+            1200
+          ]
+        }
       ]
     },
     {
       "id": "core:carbon_rich",
       "weight": 2,
-      "distance_cells": [10, 40],
+      "distance_cells": [
+        10,
+        40
+      ],
       "deposits": [
-        { "item": "core:carbon", "count": [3, 4], "amount": [700, 1400] },
-        { "item": "core:iron_ore", "count": [1, 1], "amount": [500, 900] }
+        {
+          "item": "core:carbon",
+          "count": [
+            3,
+            4
+          ],
+          "amount": [
+            700,
+            1400
+          ]
+        },
+        {
+          "item": "core:iron_ore",
+          "count": [
+            1,
+            1
+          ],
+          "amount": [
+            500,
+            900
+          ]
+        }
       ]
     }
   ],
-  "jump_cost": [{ "item": "core:carbon", "count": 5 }]
+  "jump_cost": [
+    {
+      "item": "core:carbon",
+      "count": 5
+    }
+  ],
+  "threat": {
+    "alert_max": 18000,
+    "signature_threshold": 8,
+    "decay_per_tick": 1,
+    "alert_after_wave": 4000,
+    "warning_seconds": 30,
+    "node_distance_cells": 70,
+    "max_enemies": 24,
+    "ship_hull": 100,
+    "ship_weapon": {
+      "range_cells": 25,
+      "damage": 6,
+      "interval_ticks": 10
+    },
+    "respawn_seconds": 5
+  },
+  "enemies": [
+    {
+      "id": "core:scout",
+      "hp": 20,
+      "speed": 24,
+      "damage": 4,
+      "range_cells": 3,
+      "interval_ticks": 20
+    },
+    {
+      "id": "core:striker",
+      "hp": 60,
+      "speed": 18,
+      "damage": 12,
+      "range_cells": 4,
+      "interval_ticks": 30
+    }
+  ],
+  "waves": [
+    {
+      "enemy": "core:scout",
+      "base": 2,
+      "per_wave": 1
+    },
+    {
+      "enemy": "core:striker",
+      "base": 0,
+      "per_wave": 1
+    }
+  ]
 }

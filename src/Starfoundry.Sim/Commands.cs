@@ -88,6 +88,9 @@ public sealed record SetResearch(int Node) : Command;
 /// moving every tick until a new intent is set, so a held key is one command on press and one on release.</summary>
 public sealed record SetMovement(int Dx, int Dy, int Dz) : Command;
 
+/// <summary>Switches the commanding player's ship weapon on or off. While on it fires at the nearest enemy in range.</summary>
+public sealed record SetWeapons(bool Armed) : Command;
+
 /// <summary>Fires the commanding player's scanner: hidden deposits within range of the ship are revealed.</summary>
 public sealed record Scan : Command;
 
