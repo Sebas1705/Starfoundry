@@ -126,6 +126,29 @@
       "signature": 0
     },
     {
+      "id": "core:repair_bay",
+      "role": "repairer",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 14
+        },
+        {
+          "item": "core:iron_plate",
+          "count": 6
+        }
+      ],
+      "hp": 120,
+      "signature": 1,
+      "repairer": {
+        "range_cells": 14,
+        "heal": 20,
+        "interval_ticks": 30,
+        "item": "core:iron_ingot",
+        "item_cap": 20
+      }
+    },
+    {
       "id": "core:micro_refinery",
       "role": "ship"
     }

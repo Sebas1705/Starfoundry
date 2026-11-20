@@ -252,6 +252,7 @@ public sealed partial class BeltNetwork
         if (role == MachineRole.Lab) return TryFeedLab(s, type);
         if (role == MachineRole.Depot) return TryFeedDepot(m, s, type);
         if (role == MachineRole.Turret) return TryFeedTurret(m, s, type);
+        if (role == MachineRole.Repairer) return TryFeedRepairer(m, s, type);
         if (m.Recipe < 0) return false;
         if (type >= m.In.Length) return false;
 
@@ -315,8 +316,10 @@ public sealed partial class BeltNetwork
 
             if (m.Hp < 1 || m.Hp > content.Machines[m.Type].Hp) Fail($"machine {id} hit points {m.Hp} out of range");
             var turret = content.Machines[m.Type].Turret;
-            if (turret is null && m.TurretCooldown != 0) Fail($"machine {id} is not a turret but has a cooldown");
+            var repairer = content.Machines[m.Type].Repairer;
+            if (turret is null && repairer is null && m.TurretCooldown != 0) Fail($"machine {id} is not a turret or repairer but has a cooldown");
             if (turret is not null && (m.TurretCooldown < 0 || m.TurretCooldown > turret.IntervalTicks)) Fail($"machine {id} turret cooldown out of range");
+            if (repairer is not null && (m.TurretCooldown < 0 || m.TurretCooldown > repairer.IntervalTicks)) Fail($"machine {id} repairer cooldown out of range");
 
             if (m.Recipe == -1)
             {
@@ -328,6 +331,15 @@ public sealed partial class BeltNetwork
                         if (m.In[i] < 0 || m.In[i] > cap) Fail($"turret {id} holds {m.In[i]} of item {i} (cap {cap})");
                     }
                     if (m.HeldOutputs > 0 || m.Crafting) Fail($"turret {id} has outputs or is crafting");
+                }
+                else if (repairer is not null)
+                {
+                    for (int i = 0; i < m.In.Length; i++)
+                    {
+                        int cap = i == repairer.Item ? repairer.ItemCap : 0;
+                        if (m.In[i] < 0 || m.In[i] > cap) Fail($"repairer {id} holds {m.In[i]} of item {i} (cap {cap})");
+                    }
+                    if (m.HeldOutputs > 0 || m.Crafting) Fail($"repairer {id} has outputs or is crafting");
                 }
                 else if (m.HeldInputs + m.HeldOutputs > 0 || m.Crafting) Fail($"machine {id} has no recipe but holds items or is crafting");
             }

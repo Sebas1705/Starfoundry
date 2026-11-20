@@ -42,4 +42,4 @@ One fed turret, seeds 20261120 and 1: four walls hold at least 3 waves longer th
 - Nobody has played it by hand: the repair key and button, the build bar with ten items and the wall model were seen in screenshots of the bot-driven demos only; repair during a real fight has not been tried.
 - A wall does not block movement or shots, it only draws fire; walls far from the turrets only delay.
 - The scripted player repairs everything every second, which a person will not; the "always" row is an upper bound.
-- No automatic repair, shields or ship repairs.
+- Shields and ship repairs are not there; automatic repair came later with the [repair bay](repair-bays.md).

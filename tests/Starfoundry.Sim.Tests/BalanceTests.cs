@@ -113,6 +113,27 @@ public class BalanceTests
         Assert.True(always >= never + 2, $"without repairs {never}, with repairs {always}");
     }
 
+    /// <summary>Walls and machines lost over the first stretch of waves, with the walls rebuilt whenever one falls.</summary>
+    private static BalanceReport WallUpkeep(int bays, ulong seed) =>
+        new BalanceBot(TestContent.Core, seed)
+        {
+            ActionDelaySeconds = 15, Turrets = 1, Walls = 4, Bays = bays, Repairs = RepairMode.Never,
+            ObserveAfterSeconds = 100 * 60,
+        }.Run(130 * 60);
+
+    [Theory]
+    [InlineData(20261120UL)]
+    [InlineData(1UL)]
+    public void TwoRepairBaysCutTheWallsLostByAQuarterOrMoreWithoutAnyManualRepair(ulong seed)
+    {
+        var bare = WallUpkeep(0, seed);
+        var bays = WallUpkeep(2, seed);
+        Assert.Equal(0, bare.MachinesLost);
+        Assert.Equal(0, bays.MachinesLost);
+        Assert.True(bays.WallsLost * 4 <= bare.WallsLost * 3, $"walls lost: {bare.WallsLost} without bays, {bays.WallsLost} with two");
+        Assert.True(bays.WallsLost > 0, "the bays slow the wear, they do not stop it");
+    }
+
     [Theory]
     [InlineData(1UL)]
     [InlineData(2UL)]

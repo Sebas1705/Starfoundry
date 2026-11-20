@@ -29,10 +29,16 @@ public enum MachineRole
 
     /// <summary>A tough building with no recipe or belts. Enemies in its system attack the nearest wall before anything else.</summary>
     Wall = 6,
+
+    /// <summary>Repairs damaged machines in range over time, using an item (ingots) delivered by belts.</summary>
+    Repairer = 7,
 }
 
 /// <summary>How a turret fires. One ammo item is used per shot.</summary>
 public sealed record TurretDef(int RangeCells, int Damage, int IntervalTicks, int AmmoItem, int AmmoCap);
+
+/// <summary>How a repairer works: every interval it restores <c>Heal</c> hit points to the most damaged machine in range and uses one item.</summary>
+public sealed record RepairerDef(int RangeCells, int Heal, int IntervalTicks, int Item, int ItemCap);
 
 /// <summary>An enemy type. Speed is in units per tick (240 units per cell).</summary>
 public sealed record EnemyDef(int Index, string Id, int Hp, int Speed, int Damage, int RangeCells, int IntervalTicks);
@@ -57,7 +63,7 @@ public sealed record ThreatRules(
 /// <param name="Hp">Hit points; a machine at zero is destroyed.</param>
 /// <param name="Signature">What the machine adds to its system's signature, which attracts waves.</param>
 public sealed record MachineDef(
-    int Index, string Id, MachineRole Role, ItemStack[] Cost, bool SandboxOnly, int Hp = 100, int Signature = 0, TurretDef? Turret = null);
+    int Index, string Id, MachineRole Role, ItemStack[] Cost, bool SandboxOnly, int Hp = 100, int Signature = 0, TurretDef? Turret = null, RepairerDef? Repairer = null);
 
 /// <param name="TimeTicks">Crafting time in simulation ticks (converted once at load from seconds).</param>
 public sealed record RecipeDef(int Index, string Id, int Machine, ItemStack[] Inputs, ItemStack[] Outputs, int TimeTicks);
@@ -220,7 +226,7 @@ public sealed class ContentDb
             var machineIds = new Dictionary<string, int>();
             foreach (var e in Array(root, "machines"))
             {
-                RequireObject(e, "machine", "id", "role", "cost", "sandbox_only", "hp", "signature", "turret");
+                RequireObject(e, "machine", "id", "role", "cost", "sandbox_only", "hp", "signature", "turret", "repairer");
                 string id = Id(e, "machine");
                 if (!machineIds.TryAdd(id, machines.Count)) throw new InvalidDataException($"Duplicate machine '{id}'.");
                 if (!allIds.Add(id)) throw new InvalidDataException($"Id '{id}' is used twice across machines, recipes, belts and research.");
@@ -237,6 +243,7 @@ public sealed class ContentDb
                         "depot" => MachineRole.Depot,
                         "turret" => MachineRole.Turret,
                         "wall" => MachineRole.Wall,
+                        "repairer" => MachineRole.Repairer,
                         _ => throw new InvalidDataException($"Machine '{id}' has an unknown role."),
                     } : throw new InvalidDataException($"Machine '{id}' role must be a string.");
                 }
@@ -264,7 +271,18 @@ public sealed class ContentDb
                         Int(tu, "interval_ticks", id, 1, 600), ammoIndex, Int(tu, "ammo_cap", id, 1, 1000));
                 }
                 else if (role == MachineRole.Turret) throw new InvalidDataException($"Turret '{id}' needs turret data.");
-                machines.Add(new MachineDef(machines.Count, id, role, cost, sandboxOnly, hp, signature, turretDef));
+                RepairerDef? repairerDef = null;
+                if (e.TryGetProperty("repairer", out var rp))
+                {
+                    if (role != MachineRole.Repairer) throw new InvalidDataException($"Machine '{id}' has repairer data but is not a repairer.");
+                    RequireObject(rp, "repairer", "range_cells", "heal", "interval_ticks", "item", "item_cap");
+                    string fuel = Str(rp, "item", id);
+                    if (!itemIds.TryGetValue(fuel, out int fuelIndex)) throw new InvalidDataException($"Repairer '{id}' uses unknown item '{fuel}'.");
+                    repairerDef = new RepairerDef(Int(rp, "range_cells", id, 1, 100), Int(rp, "heal", id, 1, 10_000),
+                        Int(rp, "interval_ticks", id, 1, 600), fuelIndex, Int(rp, "item_cap", id, 1, 1000));
+                }
+                else if (role == MachineRole.Repairer) throw new InvalidDataException($"Repairer '{id}' needs repairer data.");
+                machines.Add(new MachineDef(machines.Count, id, role, cost, sandboxOnly, hp, signature, turretDef, repairerDef));
             }
 
             var recipes = new List<RecipeDef>();
@@ -284,8 +302,8 @@ public sealed class ContentDb
                 var outputs = Stacks(e, "outputs", id, itemIds, allowEmpty: false, max: MaxStack);
 
                 var role = machines[machine].Role;
-                if (role is MachineRole.Lab or MachineRole.Depot or MachineRole.Turret or MachineRole.Wall)
-                    throw new InvalidDataException($"Recipe '{id}' targets a lab, depot, turret or wall, which have no recipes.");
+                if (role is MachineRole.Lab or MachineRole.Depot or MachineRole.Turret or MachineRole.Wall or MachineRole.Repairer)
+                    throw new InvalidDataException($"Recipe '{id}' targets a lab, depot, turret, wall or repairer, which have no recipes.");
                 if (role == MachineRole.Drill && (inputs.Length != 0 || outputs.Length != 1))
                     throw new InvalidDataException($"Drill recipe '{id}' must have no inputs and exactly one output.");
 
@@ -613,6 +631,7 @@ public sealed class ContentDb
         {
             MixStr(m.Id); Mix((int)m.Role); MixStacks(m.Cost); Mix(m.SandboxOnly ? 1 : 0); Mix(m.Hp); Mix(m.Signature);
             if (m.Turret is { } t) { Mix(t.RangeCells); Mix(t.Damage); Mix(t.IntervalTicks); Mix(t.AmmoItem); Mix(t.AmmoCap); }
+            if (m.Repairer is { } rp) { Mix(rp.RangeCells); Mix(rp.Heal); Mix(rp.IntervalTicks); Mix(rp.Item); Mix(rp.ItemCap); }
             else Mix(-1);
         }
         Mix(Recipes.Count);
