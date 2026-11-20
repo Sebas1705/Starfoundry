@@ -226,6 +226,8 @@ public partial class Play
     {
         _objectives.Update(Net, Player);
         UpdatePlayLog();
+        AutosaveTick();
+        if (_saveTest) SaveSelfTest();
         if (!_demo)
         {
             _tips ??= new Tips(_content);
@@ -343,6 +345,122 @@ public partial class Play
         string ship = p.RespawnRemaining > 0 ? L("hud.rebuilding", (p.RespawnRemaining / (float)Units.TicksPerSecond).ToString("F0", Loc.Culture))
             : L("hud.hull", p.Hull, Net.ShipMaxHull);
         sb.Append(L("hud.threat", th.Signature, rules.SignatureThreshold, state, ship)).Append('\n');
+    }
+
+    // ---- saving and loading -------------------------------------------------------------------
+
+    private GameMode _gameMode = GameMode.Campaign;
+    private bool _threatsOn = true;
+    private double _lastAutosave;
+    private bool _saveTest;
+
+    private static string SavePath(string name) => $"user://saves/{name}.sfsave";
+
+    /// <summary>Writes the game (its command log) to <c>user://saves</c>. A save is small and loads by replaying it.</summary>
+    private void SaveGameToDisk(string name, bool silent)
+    {
+        if (_demo) return;
+        try
+        {
+            DirAccess.MakeDirRecursiveAbsolute(ProjectSettings.GlobalizePath("user://saves"));
+            var ms = new System.IO.MemoryStream();
+            SaveGame.Write(ms, _world, _content, _gameMode, GalaxySeed, _threatsOn, Player);
+            using var f = Godot.FileAccess.Open(SavePath(name), Godot.FileAccess.ModeFlags.Write);
+            if (f is null) throw new System.IO.IOException(Godot.FileAccess.GetOpenError().ToString());
+            f.StoreBuffer(ms.ToArray());
+            if (!silent) Toast(L("toast.saved", PlayLog.Format(Net.Tick / (double)Units.TicksPerSecond)));
+        }
+        catch (Exception e)
+        {
+            GD.PrintErr("SAVE failed: " + e.Message);
+            Toast(L("toast.saveFailed", e.Message));
+        }
+    }
+
+    /// <summary>Loads the quick save (or the autosave when there is none) by replaying it; the game freezes for a second or two.</summary>
+    private void LoadGameFromDisk(string? slot = null)
+    {
+        if (_demo) return;
+        string name = slot ?? (Godot.FileAccess.FileExists(SavePath("quicksave")) ? "quicksave" : "autosave");
+        if (!Godot.FileAccess.FileExists(SavePath(name))) { Toast(L("toast.noSave")); return; }
+        try
+        {
+            byte[] bytes = Godot.FileAccess.GetFileAsBytes(SavePath(name));
+            var world = SaveGame.Read(new System.IO.MemoryStream(bytes), _content, out var info);
+            if (info.GalaxySeed != GalaxySeed) throw new System.IO.InvalidDataException("The save is from another galaxy.");
+            _world = world;
+            _gameMode = info.Mode;
+            _threatsOn = info.Threats;
+            ResetAfterLoad();
+            Toast(L("toast.loaded", PlayLog.Format(info.Ticks / (double)Units.TicksPerSecond)));
+        }
+        catch (Exception e)
+        {
+            GD.PrintErr("LOAD failed: " + e.Message);
+            Toast(L("toast.loadFailed", e.Message));
+        }
+    }
+
+    private int _saveTestFrame;
+    private ulong _saveTestChecksum;
+    private long _saveTestTick;
+
+    /// <summary>
+    /// <c>--save-test</c>: plays a few commands, saves, changes the world, loads, and prints whether the loaded world is
+    /// the saved one. A way to see saving and loading work in the real game without pressing keys.
+    /// </summary>
+    private void SaveSelfTest()
+    {
+        _saveTestFrame++;
+        if (_saveTestFrame == 20) Send(new Scan());
+        if (_saveTestFrame == 80)
+        {
+            _saveTestChecksum = _world.Checksum();
+            _saveTestTick = _world.Tick;
+            SaveGameToDisk("selftest", silent: true);
+        }
+        if (_saveTestFrame == 100) ToggleRefinery(); // the world moves on after the save
+        if (_saveTestFrame == 140)
+        {
+            bool changed = _world.Checksum() != _saveTestChecksum;
+            LoadGameFromDisk("selftest");
+            bool same = _world.Checksum() == _saveTestChecksum && _world.Tick == _saveTestTick;
+            GD.Print($"SAVETEST changed_after_save={changed} loaded_matches_save={same} tick={_world.Tick}");
+            GetTree().Quit();
+        }
+    }
+
+    /// <summary>The interface state that belonged to the old world goes; what the new world shows is rebuilt.</summary>
+    private void ResetAfterLoad()
+    {
+        _structureVersion = -1; // rebuilds belts, machines and deposits from the loaded world
+        _selMachine = -1;
+        _waypoint = null;
+        _pendingMine = false;
+        _tool = ToolMode.Pointer;
+        _selectedDeposit = RevealedDeposits().FirstOrDefault();
+        _objectives = new ObjectiveTracker(_content);
+        _tips = null;
+        _lowOreWarned.Clear();
+        _warned = false;
+        if (_playLog is not null)
+        {
+            _logFile?.StoreLine($"-- loaded a save at game time {PlayLog.Format(Net.Tick / (double)Units.TicksPerSecond)}");
+            _logFile?.Flush();
+            _playLog = new PlayLog(_content);
+            _playLog.Update(Net, Player); // what was already done is not news
+        }
+    }
+
+    /// <summary>Every five minutes of real time a played game saves itself to the autosave slot.</summary>
+    private void AutosaveTick()
+    {
+        if (_demo) return;
+        double now = Time.GetTicksMsec() / 1000.0;
+        if (_lastAutosave == 0) { _lastAutosave = now; return; }
+        if (now - _lastAutosave < 300) return;
+        _lastAutosave = now;
+        SaveGameToDisk("autosave", silent: true);
     }
 
     // ---- play log -----------------------------------------------------------------------------
@@ -753,6 +871,8 @@ public partial class Play
                 else _waypoint = null;
                 break;
             case Key.F1: _helpOpen = !_helpOpen; break;
+            case Key.F6: SaveGameToDisk("quicksave", silent: false); break;
+            case Key.F9: LoadGameFromDisk(); break;
             case Key.L: ToggleLanguage(); break;
             case Key.O: _objectivesOpen = !_objectivesOpen; break;
             case Key.Home: RecenterCamera(); break;

@@ -101,6 +101,9 @@ public sealed partial class BalanceBot
         _objectives = new ObjectiveTracker(content);
     }
 
+    /// <summary>The world the bot plays in, for inspecting or saving it after a run.</summary>
+    public SimWorld World => _w;
+
     private BeltNetwork Net => _w.Network;
     private int Item(string id) => _c.ItemIndex(id);
     private int Machine(string id) => _c.MachineIndex(id);

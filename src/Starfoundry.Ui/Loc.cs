@@ -273,6 +273,11 @@ public static class Loc
         ["toast.recipe"] = ("Receta: {0}", "Recipe: {0}"),
         ["toast.nothingToRepair"] = ("Nada que reparar al alcance.", "Nothing to repair within reach."),
         ["toast.oreLow"] = ("Se acaba el yacimiento: queda un {1}% de {0} en este sistema.", "The deposit is running out: {1}% of the {0} is left in this system."),
+        ["toast.saved"] = ("Partida guardada (tiempo de juego {0}). F9 la carga.", "Game saved (game time {0}). F9 loads it."),
+        ["toast.loaded"] = ("Partida cargada (tiempo de juego {0}).", "Game loaded (game time {0})."),
+        ["toast.noSave"] = ("No hay ninguna partida guardada. F6 guarda.", "There is no saved game. F6 saves."),
+        ["toast.saveFailed"] = ("No se pudo guardar: {0}", "Could not save: {0}"),
+        ["toast.loadFailed"] = ("No se pudo cargar: {0}", "Could not load: {0}"),
         ["toast.scanNone"] = ("Escaneo: nada nuevo al alcance.", "Scan: nothing new in range."),
         ["toast.scanFound"] = ("Escaneo: {0} yacimiento(s) descubierto(s).", "Scan: {0} deposit(s) revealed."),
         ["toast.jumpCharging"] = ("Cargando el salto a {0}...", "Charging the jump to {0}..."),
@@ -335,7 +340,7 @@ public static class Loc
             "  Con el puntero, clic en una máquina: ver su estado y cambiar su receta.\n  E   reparar todas las máquinas dañadas a tu alcance (cuesta la mitad de su coste, en proporción al daño)\n\n" +
             "Otros\n" +
             "  T   elegir investigación      G   mapa estelar (flechas y J para saltar)\n" +
-            "  P   pausa       + / -   velocidad       L   idioma       O   pasos       [ ]   cambiar yacimiento",
+            "  P   pausa       + / -   velocidad       L   idioma       O   pasos       [ ]   cambiar yacimiento\n  F6   guardar       F9   cargar (se guarda sola cada 5 minutos)",
             "CONTROLS   (F1 to close)\n\n" +
             "Mouse\n" +
             "  Left click    pointer: inspect a machine, pick a deposit, fly to that spot\n" +
@@ -351,6 +356,6 @@ public static class Loc
             "  With the pointer, click a machine: see its status and change its recipe.\n  E   repair every damaged machine within reach (half the build cost, in proportion to the damage)\n\n" +
             "Other\n" +
             "  T   choose research      G   star map (arrows and J to jump)\n" +
-            "  P   pause       + / -   speed       L   language       O   steps       [ ]   change deposit"),
+            "  P   pause       + / -   speed       L   language       O   steps       [ ]   change deposit\n  F6   save       F9   load (it also saves itself every 5 minutes)"),
     };
 }
