@@ -64,7 +64,7 @@ If your times are far from these, that is the interesting result: write down wha
 - Whether the camera, the autopilot and the drag-to-build felt right.
 - Whether the waves felt fair, too slow or too fast, and when you first lost something.
 - Whether you ever ran out of ore or ended up with a full hold.
-- Send the play log with the notes.
+- Send the play log with the notes. If you closed the game, the autosave or quick save can bring you back.
 
 ## Known limits
 - The numbers in the log are game time, not wall-clock time, and follow the speed you set with `+` and `-`.
@@ -72,3 +72,6 @@ If your times are far from these, that is the interesting result: write down wha
 
 ## Hints
 After the twelve guided steps the game teaches the rest with hints that appear when the situation happens, once each and at least 25 seconds apart, as long messages at the bottom: turrets without ammo during a wave, damaged machines (repair with `E`), the first loss without walls, an idle lab, the defence upgrades once Logistics is done and the cargo port once the jump drive is researched and the home ore is low. Each hint shown is a `Tip` line in the play log. If a hint came too early, too late or not at all, that is worth noting.
+
+## Saving
+`F6` saves, `F9` loads, and a played game saves itself to an autosave every five minutes of real time. The files are in the `saves` folder next to `playlogs` (`%APPDATA%\Godot\app_userdata\Starfoundry Belt Prototype\saves`). A save is the log of what you did and is replayed when loaded, which takes a second or two for an hour-long base ([ADR 0016](adr/0016-saves-are-the-command-log-replayed.md)). If the game says a save cannot be loaded, keep the file and tell me: it means the game changed since it was made. After a load the guided steps are recomputed and a hint may show again. The play log notes the load.

@@ -87,10 +87,13 @@ public partial class Play : Node3D
         string path = ProjectSettings.GlobalizePath("res://../content/core.json");
         _content = ContentDb.FromFile(path);
         _exploreDemo = args.Contains("--explore-demo");
+        _saveTest = args.Contains("--save-test");
         // A generated galaxy: the same seed always gives the same systems. Home's deposits start revealed; scan to find the rest.
         // The Remnant are on in the game and the threat demo; the production and exploration demos run without them.
         bool threats = !(args.Contains("--demo") || _exploreDemo);
-        _world = SimWorld.CreateGalaxy(_content, _exploreDemo || _threatDemo ? GameMode.Sandbox : GameMode.Campaign, GalaxySeed, threats);
+        _gameMode = _exploreDemo || _threatDemo ? GameMode.Sandbox : GameMode.Campaign;
+        _threatsOn = threats;
+        _world = SimWorld.CreateGalaxy(_content, _gameMode, GalaxySeed, threats);
         _world.Network.EnsurePlayer(Player); // the ship starts at the origin, inside Home
         // For screenshots: finish every research that carries a bonus, so the upgrade line of the status panel shows.
         if (args.Contains("--grant-upgrades"))
