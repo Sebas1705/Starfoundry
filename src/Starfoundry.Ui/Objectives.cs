@@ -16,6 +16,7 @@ public enum Objective
     Research,
     Scan,
     Defend,
+    Expand,
 }
 
 public sealed record ObjectiveState(Objective Objective, bool Done)
@@ -75,6 +76,12 @@ public sealed class ObjectiveTracker
         Mark(Objective.Research, () => net.ResearchedCount > 0);
         Mark(Objective.Scan, () => net.ScanCooldown(player) > 0);
         Mark(Objective.Defend, () => AnyMachine(net, m => _content.Machines[m.Type].Role == MachineRole.Turret && m.InputItems > 0));
+        Mark(Objective.Expand, () =>
+        {
+            for (int i = 1; i < net.SystemCount; i++)
+                if (net.IsSystemVisited(i)) return true;
+            return false;
+        });
     }
 
     private void Mark(Objective o, Func<bool> test)
