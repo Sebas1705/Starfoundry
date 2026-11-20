@@ -301,6 +301,9 @@ public static class Loc
         ["obj.defend"] = ("Defiende tu base", "Defend your base"),
         ["obj.defend.hint"] = ("Las máquinas hacen ruido y atraen oleadas. Construye una Torreta (9) y llévale munición por cinta.",
                                "Machines make noise and attract waves. Build a Turret (9) and bring it ammo by belt."),
+        ["obj.expand"] = ("Salta a otro sistema", "Jump to another system"),
+        ["obj.expand.hint"] = ("El yacimiento de casa se agota en un par de horas. Investiga la perforación de carbono y el motor de salto (T), escanea (K) y salta (G, J) a un sistema con hierro.",
+                               "The home deposit runs out in a couple of hours. Research carbon drilling and the jump drive (T), scan (K) and jump (G, J) to a system with iron."),
 
         // ---- help overlay ----
         ["help.text"] = (

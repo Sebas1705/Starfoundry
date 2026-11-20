@@ -20,7 +20,7 @@ var content = ContentDb.FromFile(Path.Combine(dir.FullName, "content", "core.jso
 int observe = 0, turrets = 1, walls = 0, bays = 0, upgrades = 0;
 var repairs = RepairMode.Never;
 var path = UpgradePath.Defence;
-bool extraPlates = false;
+bool extraPlates = false, expand = false;
 string granted = "";
 foreach (var a in args)
 {
@@ -30,6 +30,7 @@ foreach (var a in args)
     else if (a.StartsWith("--bays=")) bays = int.Parse(a["--bays=".Length..]);
     else if (a.StartsWith("--upgrades=")) upgrades = int.Parse(a["--upgrades=".Length..]);
     else if (a == "--extra-plates") extraPlates = true;
+    else if (a == "--expand") expand = true;
     else if (a.StartsWith("--grant=")) granted = a["--grant=".Length..];
 
     else if (a.StartsWith("--path=")) path = Enum.Parse<UpgradePath>(a["--path=".Length..], ignoreCase: true);
@@ -45,6 +46,7 @@ var report = new BalanceBot(content, seed)
     Upgrades = upgrades,
     Path = path,
     ExtraPlateLine = extraPlates,
+    Expand = expand,
     Granted = granted,
 
     Repairs = repairs,

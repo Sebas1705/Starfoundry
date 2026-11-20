@@ -14,6 +14,13 @@ public sealed record WaveEntry(int Index, double Seconds, int Enemies, long Mach
 public sealed class BalanceReport
 {
     public Dictionary<string, double> Milestones { get; } = new();
+    /// <summary>Free-form timeline lines (expansion milestones), each with the home iron left at that moment.</summary>
+    public List<string> Notes { get; } = new();
+    /// <summary>Iron left in the home deposit at each expansion milestone.</summary>
+    public Dictionary<string, int> HomeIronLeft { get; } = new();
+    /// <summary>Items the remote depots delivered after the remote lines were built, and the remote deposit's ore left at the end.</summary>
+    public long RemoteDelivered { get; set; }
+    public int RemoteIronLeft { get; set; } = -1;
     public double? FirstWaveWarning { get; set; }
     public double? FirstWave { get; set; }
     public double HoldFullSeconds { get; set; }
@@ -35,7 +42,7 @@ public sealed class BalanceReport
 /// when each milestone happens. It is a lower bound for a human: it never hesitates, so <see cref="ActionDelaySeconds"/>
 /// adds a pause after every action to stand in for clicking and thinking.
 /// </summary>
-public sealed class BalanceBot
+public sealed partial class BalanceBot
 {
     private readonly ContentDb _c;
     private readonly SimWorld _w;
@@ -103,7 +110,7 @@ public sealed class BalanceBot
     {
         _w.Submit(0, c);
         _w.Step();
-        return _w.LastResults.Single();
+        return _w.LastResults.Last();
     }
 
     /// <summary>Runs a command that must succeed, except that a lack of items means "try again later".</summary>
@@ -244,13 +251,13 @@ public sealed class BalanceBot
         if (Turrets >= 2 || Walls > 0 || Bays > 0)
         {
             _steps.Add(() => Net.IsResearched(_c.ResearchIndex("core:logistics")));
-            if (Upgrades > 0 && ExtraPlateLine)
+            if (Keeping && ExtraPlateLine)
             {
                 // The lab keeps the first plate line for research; a second line feeds the hold for building.
                 Row("p2", -3, "core:iron_plate");
                 Machine_("p2.depot", 12, -3, "core:depot", null, () => Do(new ConnectToMachine(_ids["p2.b3"], _ids["p2.depot"])));
             }
-            else if (Upgrades > 0)
+            else if (Keeping)
             {
                 // The lab stays for the upgrades, so the plates for building come from a second output of the assembler.
                 // The assembler fills its first output first, so while the lab is researching almost nothing reaches the hold.
@@ -330,10 +337,13 @@ public sealed class BalanceBot
     /// <summary>Keeps the lab busy with the next defence upgrade once Logistics is done.</summary>
     private void ResearchUpgrades()
     {
-        if (Upgrades == 0 || Net.CurrentResearch >= 0 || !Net.IsResearched(_c.ResearchIndex("core:logistics"))) return;
-        for (int i = 0; i < Upgrades && i < UpgradeOrder.Length; i++)
+        if (!Keeping || Net.CurrentResearch >= 0 || !Net.IsResearched(_c.ResearchIndex("core:logistics"))) return;
+        var queue = new List<string>();
+        if (Expand) { queue.Add("core:carbon_drilling"); queue.Add("core:jump_drive"); }
+        queue.AddRange(UpgradeOrder.Take(Upgrades));
+        foreach (var id in queue)
         {
-            int node = _c.ResearchIndex(UpgradeOrder[i]);
+            int node = _c.ResearchIndex(id);
             if (Net.CanResearch(node)) { _w.Submit(0, new SetResearch(node)); return; }
         }
     }
@@ -354,6 +364,7 @@ public sealed class BalanceBot
     /// </summary>
     private void ManageMining()
     {
+        if (_expanding) return;
         if (_ironDeposit < 0 || _step == 0) return;
         int total = Net.GetPlayerInfo(0).HoldTotal;
         int ore = Net.HoldCount(0, Item("core:iron_ore"));
@@ -412,6 +423,7 @@ public sealed class BalanceBot
             }
             ManageMining();
             Maintain();
+            Expansion();
             _w.Step(Units.TicksPerSecond);
             Record();
             if (Trace is not null && sec % 30 == 0)
@@ -420,7 +432,7 @@ public sealed class BalanceBot
                 Trace.WriteLine($"{sec / 60}:{sec % 60:00} step={_step}/{_steps.Count} ship=({Net.GetPlayerInfo(0).X / Units.CellUnits},{Net.GetPlayerInfo(0).Y / Units.CellUnits},{Net.GetPlayerInfo(0).Z / Units.CellUnits}) hold[{Net.GetPlayerInfo(0).HoldTotal}] {hold} machines={Net.MachineCount} lost={Net.MachinesLost} waves={Net.WavesSpawned} delivered={Net.DepotDelivered} iron_left={(_ironDeposit >= 0 ? Net.DepositRemaining(_ironDeposit) : -1)}");
             }
             if (StopAtFirstLoss && _report.FirstLossWave is not null) break;
-            if (_step >= _steps.Count && Net.IsResearched(logistics) && _objectives.Current is null)
+            if (_step >= _steps.Count && Net.IsResearched(logistics) && (_objectives.Current is null || (_objectives.Current == Objective.Expand && !Expand)))
             {
                 if (!_report.Finished) { _report.Finished = true; _finishedAt = sec; }
                 if (sec - _finishedAt >= ObserveAfterSeconds) break;
@@ -429,6 +441,7 @@ public sealed class BalanceBot
         _report.Seconds = _w.Tick / (double)Units.TicksPerSecond;
         _report.MachinesLost = Net.MachinesLost;
         _report.Waves = Net.WavesSpawned;
+        if (Expand && _remoteDeposit >= 0) { _report.RemoteDelivered = RemoteDelivered; _report.RemoteIronLeft = Net.DepositRemaining(_remoteDeposit); }
         _report.WallsLost = Net.WallsLost;
         _report.EnemiesKilled = Net.EnemiesKilled;
         if (!_report.Finished) _report.Stuck = $"script step {_step}/{_steps.Count}, next objective {_objectives.Current}";
@@ -456,6 +469,8 @@ public sealed class BalanceBot
         lines.Add($"| Waves seen / enemies killed | {r.Waves} / {r.EnemiesKilled} |");
         lines.Add($"| First machine lost during wave | {(r.FirstLossWave is int fl ? fl.ToString() : "none")} |");
         lines.Add($"| Walls lost | {r.WallsLost} |");
+        foreach (var n in r.Notes) lines.Add($"| Expansion | {n} |");
+        if (r.RemoteIronLeft >= 0) lines.Add($"| Remote deposit | {r.RemoteIronLeft} ore left at the end, {r.RemoteDelivered} items delivered by depots since |");
         lines.Add($"| Machines lost | {r.MachinesLost} |");
         lines.Add($"| Run length | {T(r.Seconds)}{(r.Finished ? "" : " (not finished: " + r.Stuck + ")")} |");
         return string.Join("\n", lines);

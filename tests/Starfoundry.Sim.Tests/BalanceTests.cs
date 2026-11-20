@@ -163,6 +163,28 @@ public class BalanceTests
         Assert.InRange(repair, 40 * 60, 110 * 60);                  // all four inside the first two hours
     }
 
+    private static BalanceReport Expansion(ulong seed) =>
+        new BalanceBot(TestContent.Core, seed)
+        {
+            ActionDelaySeconds = 15, Turrets = 1, Walls = 4, Bays = 2, ExtraPlateLine = true, Expand = true,
+            ObserveAfterSeconds = 40 * 60,
+        }.Run(150 * 60);
+
+    [Theory]
+    [InlineData(20261120UL)]
+    [InlineData(1UL)]
+    public void APlayerCanLeaveTheHomeOreBehindInAboutFortyMinutesWithMostOfItLeft(ulong seed)
+    {
+        var r = Expansion(seed);
+        double Done(string key) => r.Milestones["Expansion: " + key];
+        Assert.InRange(Done("Jump drive"), 30 * 60, 45 * 60);          // two researches' worth of plates after Logistics
+        Assert.InRange(Done("Remote lines") - Done("Arrived"), 60, 5 * 60);
+        Assert.True(Done("Home again") > Done("Remote lines"));
+        Assert.InRange(Done("Home again"), 35 * 60, 50 * 60);
+        Assert.True(r.HomeIronLeft["Expansion: Remote lines"] >= 0.4 * 4000, "only " + r.HomeIronLeft["Expansion: Remote lines"] + " of the home ore left");
+        Assert.True(r.Milestones.ContainsKey("Expand"), "the guided step is ticked off by the first jump");
+    }
+
     [Theory]
     [InlineData(1UL)]
     [InlineData(2UL)]

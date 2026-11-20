@@ -16,7 +16,7 @@ A first-time player should be able to open the game and know what to do without 
 | Build bar | Cost per item, locked items greyed, items you cannot afford in red; shrinks to fit narrow windows |
 | Ghost | The build preview turns red and the reason appears in plain language (overlap, out of range, locked, not enough items) |
 | Inspector | Click a machine: status line (working, waiting for inputs, output blocked, no recipe, out of ammo...), recipe, refund, and a demolish button |
-| Guided steps | Eleven steps from "fly to the iron deposit" to "defend your base", ticked off by watching the simulation; hideable with `O` |
+| Guided steps | Twelve steps (the last, to jump to another system, was added with the [expansion](expansion.md)) from "fly to the iron deposit" to "defend your base", ticked off by watching the simulation; hideable with `O` |
 | Language | Spanish and English for every string (`L` toggles; defaults to the system locale). Game data names come from the same table |
 | Hold | A red bar and a toast warn when the hold is full and mining or depots stop |
 
