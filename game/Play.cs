@@ -37,17 +37,18 @@ public partial class Play : Node3D
     private Camera3D _camera = null!;
     private float _yaw = 0.2f, _distance = 15f;
     private Vector3 _target = new(7f, 0f, 2f);
-    private MultiMeshInstance3D? _slabNode, _itemNode, _machineNode;
+    private MultiMeshInstance3D? _slabNode, _itemNode;
     private MultiMesh _items = null!;
-    private MultiMesh? _machines;
+    private Node3D? _machineRoot;
+    private readonly Dictionary<int, Node3D> _machineModels = new();
+    private double _animTime;
     private float[] _itemBuf = Array.Empty<float>();
-    private float[] _machineBuf = Array.Empty<float>();
     private ItemSample[] _samples = Array.Empty<ItemSample>();
     private int _sampleCount;
     private int[] _machineIds = Array.Empty<int>();
     private (float Ox, float Oy, float Oz, float Dx, float Dy, float Dz, int Length, int Speed)[] _segs = Array.Empty<(float, float, float, float, float, float, int, int)>();
     private int _structureVersion = -1;
-    private readonly List<MeshInstance3D> _depositNodes = new();
+    private readonly List<Node3D> _depositNodes = new();
     private MeshInstance3D _ghost = null!, _dragGhost = null!;
 
     // Interaction
@@ -157,22 +158,14 @@ public partial class Play : Node3D
         {
             var color = Net.DepositItem(d) == _content.ItemIndex("core:iron_ore") ? new Color(0.65f, 0.4f, 0.3f) : new Color(0.25f, 0.25f, 0.28f);
             var (dx, dy, dz) = Net.DepositPosition(d);
-            var n = new MeshInstance3D
-            {
-                Mesh = new SphereMesh { Radius = 1.5f, Height = 3f },
-                MaterialOverride = new StandardMaterial3D { AlbedoColor = color, Roughness = 0.9f },
-                Position = new Vector3(dx, dy, dz),
-            };
+            var n = Models.Deposit(color, d);
+            n.Position = new Vector3(dx, dy, dz);
             AddChild(n);
             _depositNodes.Add(n);
         }
 
         // The ship, with discs showing where it can build (big) and mine (small).
-        _ship = new MeshInstance3D
-        {
-            Mesh = new BoxMesh { Size = new Vector3(0.8f, 0.35f, 1.3f) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.9f, 0.9f, 0.95f), Roughness = 0.4f },
-        };
+        _ship = Models.Ship();
         AddChild(_ship);
         _buildRange = RangeDisc(PlayerRules.BuildRangeCells, new Color(0.4f, 0.7f, 1f, 0.07f));
         _mineRange = RangeDisc(PlayerRules.MineRangeCells, new Color(1f, 0.6f, 0.2f, 0.12f));
@@ -208,6 +201,17 @@ public partial class Play : Node3D
     private void UpdateShip(float alpha, float dt)
     {
         var pos = ShipPosition(_demo ? 0f : alpha);
+        // The nose points where the ship is heading; it eases round and holds its heading while parked.
+        if (Net.HasPlayer(Player))
+        {
+            var pi = Net.GetPlayerInfo(Player);
+            if (pi.MoveX != 0 || pi.MoveZ != 0)
+                _shipYaw = Mathf.LerpAngle(_shipYaw, MathF.Atan2(-pi.MoveZ, pi.MoveX), 1f - MathF.Exp(-10f * dt));
+            bool thrusting = pi.MoveX != 0 || pi.MoveY != 0 || pi.MoveZ != 0;
+            Models.Animate(_ship, _animTime, thrusting);
+            Models.SetDamage(_ship, 0f);
+        }
+        _ship.Rotation = new Vector3(0, _shipYaw, 0);
         _ship.Position = pos;
         _ship.Visible = !(Net.HasPlayer(Player) && Net.GetPlayerInfo(Player).RespawnRemaining > 0); // hidden while being rebuilt
         _buildRange.Position = pos;
@@ -218,7 +222,9 @@ public partial class Play : Node3D
         UpdateShipControl();
     }
 
-    private MeshInstance3D _ship = null!, _buildRange = null!, _mineRange = null!;
+    private Node3D _ship = null!;
+    private MeshInstance3D _buildRange = null!, _mineRange = null!;
+    private float _shipYaw;
     private (int X, int Y, int Z) _lastIntent;
 
     private void PlaceCamera()
@@ -248,7 +254,7 @@ public partial class Play : Node3D
     {
         _slabNode?.QueueFree();
         _itemNode?.QueueFree();
-        _machineNode?.QueueFree();
+        _machineRoot?.QueueFree();
 
         _segs = new (float, float, float, float, float, float, int, int)[Net.SegmentIdLimit];
         var alive = new List<int>();
@@ -294,56 +300,52 @@ public partial class Play : Node3D
         AddChild(_itemNode);
 
         _machineIds = Enumerable.Range(0, Net.MachineIdLimit).Where(Net.IsMachineAlive).ToArray();
-        _machines = new MultiMesh
+        _machineRoot = new Node3D();
+        AddChild(_machineRoot);
+        _machineModels.Clear();
+        foreach (int id in _machineIds)
         {
-            TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true,
-            Mesh = new BoxMesh { Size = Vector3.One, Material = VertexMaterial() }, InstanceCount = _machineIds.Length,
-        };
-        _machineBuf = new float[_machineIds.Length * FloatsPerItem];
-        _machineNode = new MultiMeshInstance3D { Multimesh = _machines };
-        AddChild(_machineNode);
+            var m = Net.GetMachineInfo(id);
+            var model = Models.Machine(_content.Machines[m.Type].Id);
+            model.Position = CellCenter(m.X, m.Y, m.Z);
+            _machineRoot.AddChild(model);
+            _machineModels[id] = model;
+        }
 
         _structureVersion = Net.StructureVersion;
     }
 
-    private Color MachineColor(MachineInfo m, bool dim)
-    {
-        var role = _content.Machines[m.Type].Role;
-        if (role == MachineRole.Turret)
-        {
-            var t = new Color(0.95f, 0.85f, 0.2f) * (m.InputItems > 0 ? 1f : 0.45f); // dim when out of ammo
-            return Damaged(m, new Color(t.R, t.G, t.B));
-        }
-        var c = role switch
-        {
-            MachineRole.Drill => new Color(0.85f, 0.55f, 0.20f),
-            MachineRole.Lab => new Color(0.65f, 0.35f, 0.85f),
-            MachineRole.Depot => new Color(0.30f, 0.75f, 0.45f),
-            _ => _content.Machines[m.Type].Id == "core:smelter" ? new Color(0.80f, 0.25f, 0.20f) : new Color(0.25f, 0.45f, 0.85f),
-        };
-        float k = dim ? 0.45f : 1f;
-        return Damaged(m, new Color(c.R * k, c.G * k, c.B * k));
-    }
-
-    /// <summary>Tints a machine red as it loses hit points.</summary>
-    private Color Damaged(MachineInfo m, Color c)
-    {
-        float max = _content.Machines[m.Type].Hp;
-        float lost = max <= 0 ? 0f : 1f - Math.Clamp(m.Hp / max, 0f, 1f);
-        return new Color(Mathf.Lerp(c.R, 1f, lost * 0.7f), Mathf.Lerp(c.G, 0.1f, lost * 0.8f), Mathf.Lerp(c.B, 0.1f, lost * 0.8f));
-    }
-
     private void UpdateMachines()
     {
-        if (_machines is null) return;
-        for (int i = 0; i < _machineIds.Length; i++)
+        if (_machineRoot is null) return;
+        var enemies = _content.Threat is null ? null : Net.Enemies();
+        foreach (int id in _machineIds)
         {
-            var m = Net.GetMachineInfo(_machineIds[i]);
-            var role = _content.Machines[m.Type].Role;
-            bool active = m.Crafting || (role == MachineRole.Lab && Net.CurrentResearch >= 0) || role == MachineRole.Depot;
-            Write(_machineBuf, i * FloatsPerItem, Vector3.One * 0.9f, CellCenter(m.X, m.Y, m.Z), MachineColor(m, !active));
+            if (!_machineModels.TryGetValue(id, out var model) || !Net.IsMachineAlive(id)) continue;
+            var m = Net.GetMachineInfo(id);
+            var def = _content.Machines[m.Type];
+            bool active = m.Crafting || (def.Role == MachineRole.Lab && Net.CurrentResearch >= 0) || def.Role == MachineRole.Depot
+                || (def.Role == MachineRole.Drill && m.Deposit >= 0);
+            if (def.Role == MachineRole.Turret) active = m.InputItems > 0; // a dark turret has no ammo
+            Models.Animate(model, _animTime, active);
+            float max = def.Hp;
+            Models.SetDamage(model, max <= 0 ? 0f : 1f - Math.Clamp(m.Hp / max, 0f, 1f));
+
+            if (def.Role == MachineRole.Turret && enemies is not null && enemies.Count > 0)
+            {
+                // Turrets track the nearest enemy; they hold their last aim when none is around.
+                var at = model.Position;
+                float best = float.MaxValue;
+                Vector3 target = at;
+                foreach (var e in enemies)
+                {
+                    var p = new Vector3(e.X, e.Y, e.Z) / CellUnits;
+                    float d2 = (p - at).LengthSquared();
+                    if (d2 < best) { best = d2; target = p; }
+                }
+                if (best < 30f * 30f) Models.Aim(model, target);
+            }
         }
-        _machines.Buffer = _machineBuf;
     }
 
     private void UpdateDeposits()
@@ -685,6 +687,7 @@ public partial class Play : Node3D
         }
         _items.VisibleInstanceCount = _sampleCount;
         _items.Buffer = _itemBuf;
+        _animTime += delta;
         UpdateMachines();
         UpdateEnemies((float)delta);
         UpdateDeposits();
@@ -792,8 +795,8 @@ public partial class Play : Node3D
     // ---- threat: enemies, shots and warnings ---------------------------------------------------------------
 
     private bool _threatDemo;
-    private MultiMesh? _enemyMesh;
-    private float[] _enemyBuf = Array.Empty<float>();
+    private Node3D? _enemyRoot;
+    private readonly List<(int Type, Node3D Node)> _enemyModels = new();
     private readonly List<(MeshInstance3D Node, float Life)> _fx = new();
     private StandardMaterial3D _fxTurret = null!, _fxShip = null!, _fxEnemy = null!;
     private long _lastWaves, _lastLost, _lastShipsLost;
@@ -804,14 +807,8 @@ public partial class Play : Node3D
     private void BuildThreatVisuals()
     {
         if (_content.Threat is null) return;
-        _enemyMesh = new MultiMesh
-        {
-            TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true,
-            Mesh = new BoxMesh { Size = Vector3.One, Material = VertexMaterial() },
-            InstanceCount = _content.Threat.MaxEnemies, VisibleInstanceCount = 0,
-        };
-        _enemyBuf = new float[_content.Threat.MaxEnemies * FloatsPerItem];
-        AddChild(new MultiMeshInstance3D { Multimesh = _enemyMesh });
+        _enemyRoot = new Node3D();
+        AddChild(_enemyRoot);
 
         StandardMaterial3D Beam(Color c) => new() { AlbedoColor = c, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded };
         _fxTurret = Beam(new Color(1f, 0.9f, 0.3f));
@@ -821,17 +818,32 @@ public partial class Play : Node3D
 
     private void UpdateEnemies(float dt)
     {
-        if (_enemyMesh is null) return;
+        if (_enemyRoot is null) return;
         var list = Net.Enemies();
+        var shipPos = ShipPosition(0f);
+        // A small pool: slot i shows enemy i; a slot is rebuilt only when the enemy type in it changes.
         for (int i = 0; i < list.Count; i++)
         {
             var e = list[i];
-            var color = e.Type == 0 ? new Color(1f, 0.35f, 0.25f) : new Color(0.8f, 0.2f, 0.75f);
-            Write(_enemyBuf, i * FloatsPerItem, Vector3.One * (e.Type == 0 ? 0.5f : 0.8f),
-                new Vector3(e.X, e.Y, e.Z) / CellUnits, color);
+            while (_enemyModels.Count <= i) _enemyModels.Add((-1, null!));
+            var (type, node) = _enemyModels[i];
+            if (type != e.Type)
+            {
+                node?.QueueFree();
+                node = Models.Enemy(e.Type);
+                _enemyRoot.AddChild(node);
+                _enemyModels[i] = (e.Type, node);
+            }
+            var pos = new Vector3(e.X, e.Y, e.Z) / CellUnits;
+            var toShip = shipPos - pos;
+            if (new Vector2(toShip.X, toShip.Z).LengthSquared() > 0.01f)
+                node.Rotation = new Vector3(0, Mathf.LerpAngle(node.Rotation.Y, MathF.Atan2(-toShip.Z, toShip.X), 1f - MathF.Exp(-8f * dt)), 0);
+            node.Position = pos;
+            node.Visible = true;
+            Models.Animate(node, _animTime, true);
         }
-        _enemyMesh.VisibleInstanceCount = list.Count;
-        _enemyMesh.Buffer = _enemyBuf;
+        for (int i = list.Count; i < _enemyModels.Count; i++)
+            if (_enemyModels[i].Node is not null) _enemyModels[i].Node.Visible = false;
 
         // Beams from the shots of the last tick fade quickly.
         for (int i = _fx.Count - 1; i >= 0; i--)

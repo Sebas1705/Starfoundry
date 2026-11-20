@@ -1,6 +1,6 @@
 # Prototype P8: loop polish and intuitive controls
 
-Status: in progress (2026-11-20). Builds on the [playable loop](playable-loop.md), [world and ship](world-and-ship.md) and [threat and combat](threat-and-combat.md).
+Status: done, awaiting a human play-test (2026-11-20). Builds on the [playable loop](playable-loop.md), [world and ship](world-and-ship.md) and [threat and combat](threat-and-combat.md).
 
 ![The new interface in Spanish, bot-played](polish-ui.png)
 
@@ -46,3 +46,17 @@ The results match those recorded before the interface rewrite, so the new layer 
 - Nobody has played this by hand yet: the controls were exercised through the bots and screenshots. Mouse feel (camera orbit speed, autopilot arrival, drag thresholds) needs a human pass.
 - The balance pass is still pending: the numbers are placeholders and the first-hour pacing has not been tuned.
 - Only 1280x720 was checked by screenshot; very small or very wide windows are untested.
+
+## 3D models
+![Model gallery: machines clean and damaged, ship, enemies and deposits](models-gallery.png)
+
+Every machine, the ship, both enemy types and the deposits now have a procedural low-poly model (`game/Models.cs`): flat-shaded meshes with vertex colours, generated from code, no art pipeline needed. Machines are one grid cell, the ship, enemies and deposits are free-flying with the nose along +X.
+
+- `Models.Animate` spins drill augers, rocks the extractor beam, slides the assembler carriage, turns the lab ring and dish, and pulses the emissive parts; idle machines freeze and dim, so a stalled line is visible at a glance.
+- `Models.SetDamage` darkens a machine towards red as it loses hit points.
+- `Models.Aim` points a turret head and barrel at the nearest enemy.
+- The ship turns to its heading; enemies face the ship.
+- `game/Gallery.tscn` shows every model, clean and damaged (`-- --focus=machines|units|ships --shot=out.png`), and `--export-models=<dir>` writes them as `.glb` (committed under `game/assets/models`, about 0.8 MB, not loaded by the game: they are for inspection and future use).
+- Triangle counts are 200 to 450 per model (the deposit about 970).
+
+Limitations: machines, enemies and the ship are individual nodes, not MultiMesh instances, so a very large factory will cost more than the old boxes (not measured yet); the build ghost is still a box; damaged colours skew pink on blue and yellow parts; the animations were checked in single frames, not as motion.
