@@ -60,3 +60,8 @@ Every machine, the ship, both enemy types and the deposits now have a procedural
 - Triangle counts are 200 to 450 per model (the deposit about 970).
 
 Limitations: machines, enemies and the ship are individual nodes, not MultiMesh instances, so a very large factory will cost more than the old boxes (not measured yet); the build ghost is still a box; damaged colours skew pink on blue and yellow parts; the animations were checked in single frames, not as motion.
+
+### The brute
+![The brute next to the striker, ship and scout, clean and damaged](brute-model.png)
+
+The heavy enemy of the [wave ramp](wave-ramp.md) has its own model (`Models.Enemy(2)`): a wide bronze slab with a steel ram prow, armoured flanks with amber stripes, two shoulder guns, an amber core and three engines. 216 triangles, exported as `enemy_brute.glb`. It animates like the other enemies (engines and core pulse) and takes damage tint. Seen in the gallery only: the game builds with it and the demos still pass, but no demo reaches the wave where it first appears, so it has not been seen in a fight.

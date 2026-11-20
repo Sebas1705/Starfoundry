@@ -11,7 +11,7 @@ After the balance pass, one fed turret and the ship weapon held every wave for a
 | Content format | A wave line can have `from_wave`: it holds `base + per_wave * (wave - from_wave)` enemies from that wave on, none before. Part of the content hash |
 | Enemies | New **brute**: 300 hit points, speed 10, damage 30 every 40 ticks, range 5. One arrives from wave 4, a second from wave 8, a third from wave 12 |
 | Defence | Turret damage 8 to 12; turret ammo buffer 20 to 60 shots; enemy cap 24 to 60 |
-| Game | The brute is shown as a scaled-up striker with its own name (es "bruto"); a model of its own is future work |
+| Game | The brute has its own name (es "bruto") and its own model, see [the models](polish-controls.md) |
 | Balance simulator | `--turrets=N` builds N fed turrets, each with its own drill, smelter and assembler line (extra turrets cost plates, so the lab goes back to a depot after Logistics); `--waves` prints one row per wave; the ship retreats to the base after the first turret, since at the deposit it would be out of the turrets' reach |
 
 ```powershell
@@ -42,6 +42,6 @@ One fed turret is overrun between the 8th and the 14th wave (seeds 20261120, 1, 
 ## Known limitations
 - Two turrets were no better than one on the default seed and on seed 2: the direction of a wave decides which machines are in reach, and the effect is noisy. The targets compare one against three for that reason.
 - Still a scripted player: it never repairs, never rebuilds a lost machine and never moves the ship in a fight. A human can hold longer (dodging, rebuilding) or shorter (no ammo planning).
-- The brute has no model of its own and a high-hit-point target is the only reason to build more than a few turrets: no walls, repairs, shields or other tools yet.
+- A high-hit-point target is the only reason to build more than a few turrets: no walls, repairs, shields or other tools yet.
 - Seed 5 cannot place the extra ammo lines (a drill out of reach of the home deposit), so ramp tests use other seeds.
 - Waves beyond about 25 and the carbon, exploration and jump parts of the economy remain unmeasured.

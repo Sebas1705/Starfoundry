@@ -37,6 +37,7 @@ public partial class Gallery : Node3D
         ("ship", Models.Ship),
         ("enemy_scout", () => Models.Enemy(0)),
         ("enemy_striker", () => Models.Enemy(1)),
+        ("enemy_brute", () => Models.Enemy(2)),
         ("deposit", () => Models.Deposit(new Color(0.4f, 0.7f, 1f), 3)),
     };
 
@@ -146,9 +147,10 @@ public partial class Gallery : Node3D
             ("ship", Models.Ship, -1.6f, 0.15f, true),
             ("scout", () => Models.Enemy(0), 0f, 0.15f, true),
             ("striker", () => Models.Enemy(1), 1.5f, 0.15f, true),
-            ("deposit", () => Models.Deposit(new Color(0.4f, 0.7f, 1f), 3), 4.4f, 0.7f, true),
-            ("deposit B", () => Models.Deposit(new Color(1f, 0.6f, 0.2f), 11), 8.2f, 0.7f, false),
-            ("deposit C", () => Models.Deposit(new Color(0.5f, 1f, 0.5f), 5), 12f, 0.7f, false),
+            ("brute", () => Models.Enemy(2), 3.4f, 0.15f, true),
+            ("deposit", () => Models.Deposit(new Color(0.4f, 0.7f, 1f), 3), 6.2f, 0.7f, true),
+            ("deposit B", () => Models.Deposit(new Color(1f, 0.6f, 0.2f), 11), 10f, 0.7f, false),
+            ("deposit C", () => Models.Deposit(new Color(0.5f, 1f, 0.5f), 5), 13.8f, 0.7f, false),
         };
         foreach (var u in units)
         {
