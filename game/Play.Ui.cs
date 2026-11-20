@@ -225,6 +225,7 @@ public partial class Play
     private void UpdateUi(float dt)
     {
         _objectives.Update(Net, Player);
+        UpdatePlayLog();
 
         var size = GetViewport().GetVisibleRect().Size;
         UpdateHold();
@@ -328,6 +329,48 @@ public partial class Play
         string ship = p.RespawnRemaining > 0 ? L("hud.rebuilding", (p.RespawnRemaining / (float)Units.TicksPerSecond).ToString("F0", Loc.Culture))
             : L("hud.hull", p.Hull, Net.ShipMaxHull);
         sb.Append(L("hud.threat", th.Signature, rules.SignatureThreshold, state, ship)).Append('\n');
+    }
+
+    // ---- play log -----------------------------------------------------------------------------
+
+    private PlayLog? _playLog;
+    private Godot.FileAccess? _logFile;
+
+    /// <summary>
+    /// A played game (not a demo) writes its milestones to <c>user://playlogs</c> as they happen, in the same names as the
+    /// balance simulator's report, so a play-test leaves numbers behind. The path is printed once.
+    /// </summary>
+    private void StartPlayLog()
+    {
+        _playLog = new PlayLog(_content);
+        try
+        {
+            string dir = ProjectSettings.GlobalizePath("user://playlogs");
+            DirAccess.MakeDirRecursiveAbsolute(dir);
+            string path = $"user://playlogs/playlog-{DateTime.Now:yyyyMMdd-HHmmss}.txt";
+            _logFile = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Write);
+            GD.Print("PLAYLOG " + ProjectSettings.GlobalizePath(path));
+        }
+        catch (Exception e) { GD.PrintErr("PLAYLOG unavailable: " + e.Message); _logFile = null; }
+    }
+
+    private void UpdatePlayLog()
+    {
+        if (_playLog is null) return;
+        foreach (var e in _playLog.Update(Net, Player))
+        {
+            _logFile?.StoreLine(PlayLog.Line(e));
+            _logFile?.Flush();
+        }
+    }
+
+    private void FinishPlayLog()
+    {
+        if (_playLog is null || _logFile is null) return;
+        _logFile.StoreLine($"-- ended at {PlayLog.Format(Net.Tick / (double)Units.TicksPerSecond)}, hold full for {_playLog.HoldFullSeconds:F0} s");
+        _logFile.Flush();
+        _logFile.Close();
+        _logFile = null;
     }
 
     private readonly HashSet<(int System, int Item)> _lowOreWarned = new();

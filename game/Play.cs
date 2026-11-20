@@ -102,6 +102,7 @@ public partial class Play : Node3D
         BuildUi();
         BuildThreatVisuals();
         RebuildGeometry();
+        if (!_demo) StartPlayLog();
         if (!_demo) Toast(L("toast.welcome"));
     }
 
@@ -677,6 +678,11 @@ public partial class Play : Node3D
     }
 
     private int _finishCountdown;
+
+    public override void _Notification(int what)
+    {
+        if (what == NotificationWMCloseRequest || what == NotificationPredelete) FinishPlayLog();
+    }
 
     public override void _Process(double delta)
     {

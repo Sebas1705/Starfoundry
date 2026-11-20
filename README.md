@@ -10,6 +10,7 @@ This is an **original design**. Genre-level mechanics (mine, refine, belt, autom
 
 | Read | For |
 | --- | --- |
+| [docs/playtest.md](docs/playtest.md) | Run the game, what to try, and how the play log compares with the scripted player |
 | [docs/00-vision.md](docs/00-vision.md) | Pillars, audience, scope, non-goals |
 | [docs/specs/01-core-loop.md](docs/specs/01-core-loop.md) | The moment-to-moment and long-term loop |
 | [docs/specs/02-factory-logistics.md](docs/specs/02-factory-logistics.md) | Machines, belts, power, throughput rules |
