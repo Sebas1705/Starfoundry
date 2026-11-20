@@ -243,7 +243,7 @@ public class ThrustTests
     }
 
     [Fact]
-    public void Jump_clears_thrust()
+    public void Jump_clears_thrust_at_start_and_keeps_later_thrust()
     {
         var w = SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed);
         int target = w.Network.Galaxy!.Systems[0].Lanes[0];
@@ -263,11 +263,12 @@ public class ThrustTests
 
         while (w.Network.JumpRemaining(0) > 0) w.Step();
         var after = Info(w);
-        Assert.Equal((0, 0, 0), (after.ThrustX, after.ThrustY, after.ThrustZ));
+        // Like an axis intent, thrust given during the charge applies once the ship arrives.
+        Assert.Equal((0, 1024, 0), (after.ThrustX, after.ThrustY, after.ThrustZ));
         var sys = w.Network.Galaxy!.Systems[target];
         Assert.Equal((sys.X * Units.CellUnits, sys.Y * Units.CellUnits, sys.Z * Units.CellUnits), (after.X, after.Y, after.Z));
         w.Step(10);
-        Assert.Equal((after.X, after.Y, after.Z), (Info(w).X, Info(w).Y, Info(w).Z));
+        Assert.True(Info(w).Y > after.Y);
         w.ValidateInvariants();
     }
 }

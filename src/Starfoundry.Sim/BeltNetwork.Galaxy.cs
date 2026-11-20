@@ -122,7 +122,6 @@ public sealed partial class BeltNetwork
         p.Z = s.Z * Units.CellUnits;
         p.MiningDeposit = -1;
         p.MineProgress = 0;
-        p.ClearThrust();
         MarkVisited(p.JumpTarget);
         p.JumpTarget = -1;
         StructureVersion++;
