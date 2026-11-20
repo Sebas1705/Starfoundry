@@ -17,6 +17,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Starfoundry.Sim\Starfoundry.Sim.csproj" />
     <ProjectReference Include="..\..\src\Starfoundry.Ui\Starfoundry.Ui.csproj" />
+    <ProjectReference Include="..\..\tools\Starfoundry.Balance\Starfoundry.Balance.csproj" />
   </ItemGroup>
 
   <ItemGroup>

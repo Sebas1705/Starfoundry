@@ -27,6 +27,16 @@ public class LoopTests
 
     private const int Hand = 0;
 
+    // Costs come from the content so these tests follow balance changes.
+    private static int Cost(string machine, string item) =>
+        C.Machines[C.MachineIndex(machine)].Cost.Where(s => s.Item == C.ItemIndex(item)).Sum(s => s.Count);
+    private static readonly int SmelterCost = Cost("core:smelter", "core:iron_ingot");
+    private static readonly int DepotCost = Cost("core:depot", "core:iron_ingot");
+    private static readonly int ChainCost = Cost("core:drill", "core:iron_ingot") + SmelterCost
+        + Cost("core:assembler", "core:iron_ingot") + Cost("core:research_lab", "core:iron_ingot");
+    private static readonly int LabPlates = Cost("core:research_lab", "core:iron_plate");
+    private static readonly int LogisticsPlates = C.Research[Logistics].Cost.Sum(s => s.Count);
+
     /// <summary>A campaign world with an iron deposit (id 0) and a carbon deposit (id 1).</summary>
     private static SimWorld Campaign(int ironAmount = 500)
     {
@@ -80,7 +90,7 @@ public class LoopTests
 
         // Refining swaps ore for ingots one for one, so it frees no room. Spending ingots does.
         Ok(w, new SetShipRecipe(ShipSmelt));
-        w.Step(8 * 2 * 60 + 10); // eight ingots
+        w.Step(SmelterCost * 2 * 60 + 10); // enough ingots for a smelter
         Assert.Equal(PlayerRules.HoldCapacity, w.Network.MinedByHand);
         Ok(w, new PlaceMachine(0, 0, 0, C.MachineIndex("core:smelter"), SmeltIron)); // costs 8 ingots
         w.Step(300);
@@ -193,19 +203,20 @@ public class LoopTests
         Assert.Equal(Reject.NotEnoughItems, Run(w, new PlaceMachine(0, 0, 0, Smelter, SmeltIron)).Reject);
         Assert.Equal(0, w.Network.MachineCount);
 
-        w.Network.GiveItems(Hand, Ingot, 10);
+        int start = SmelterCost + 2;
+        w.Network.GiveItems(Hand, Ingot, start);
         int m = Ok(w, new PlaceMachine(0, 0, 0, Smelter, SmeltIron));
-        Assert.Equal(2, w.Network.HoldCount(Hand, Ingot)); // smelter costs 8 ingots
+        Assert.Equal(2, w.Network.HoldCount(Hand, Ingot)); // the smelter costs SmelterCost ingots
 
         Ok(w, new RemoveMachine(m));
-        Assert.Equal(10, w.Network.HoldCount(Hand, Ingot));
+        Assert.Equal(start, w.Network.HoldCount(Hand, Ingot));
 
         // A belt costs one ingot per cell.
         Ok(w, Belt(0, 1, 0, Dir.PosX, 4));
-        Assert.Equal(6, w.Network.HoldCount(Hand, Ingot));
-        Assert.Equal(Reject.NotEnoughItems, Run(w, Belt(0, 2, 0, Dir.PosX, 7)).Reject);
+        Assert.Equal(start - 4, w.Network.HoldCount(Hand, Ingot));
+        Assert.Equal(Reject.NotEnoughItems, Run(w, Belt(0, 2, 0, Dir.PosX, start - 4 + 1)).Reject);
         Ok(w, new RemoveSegment(0));
-        Assert.Equal(10, w.Network.HoldCount(Hand, Ingot));
+        Assert.Equal(start, w.Network.HoldCount(Hand, Ingot));
         w.ValidateInvariants();
     }
 
@@ -213,15 +224,15 @@ public class LoopTests
     public void CostsAreChargedToTheCommandingPlayer()
     {
         var w = Campaign();
-        w.Network.GiveItems(0, Ingot, 20);
-        w.Network.GiveItems(1, Ingot, 20);
+        w.Network.GiveItems(0, Ingot, SmelterCost + 12);
+        w.Network.GiveItems(1, Ingot, SmelterCost + 12);
         Ok(w, new PlaceMachine(0, 0, 0, Smelter, SmeltIron), player: 1);
-        Assert.Equal(20, w.Network.HoldCount(0, Ingot));
+        Assert.Equal(SmelterCost + 12, w.Network.HoldCount(0, Ingot));
         Assert.Equal(12, w.Network.HoldCount(1, Ingot));
 
         // Whoever removes it gets the refund.
         Ok(w, new RemoveMachine(0), player: 0);
-        Assert.Equal(28, w.Network.HoldCount(0, Ingot));
+        Assert.Equal(2 * SmelterCost + 12, w.Network.HoldCount(0, Ingot));
         w.ValidateInvariants();
     }
 
@@ -298,8 +309,8 @@ public class LoopTests
     private static SimWorld WorldWithPlateChainIntoALab()
     {
         var w = Campaign(ironAmount: 5000);
-        w.Network.GiveItems(Hand, Ingot, 80);
-        w.Network.GiveItems(Hand, PlateItem, 8);
+        w.Network.GiveItems(Hand, Ingot, ChainCost + 20);
+        w.Network.GiveItems(Hand, PlateItem, LabPlates + 4);
         var r = Run(w, new Batch(new Command[]
         {
             new PlaceMachine(0, 0, 0, Drill, DrillIron),    // machine -1
@@ -320,11 +331,11 @@ public class LoopTests
     public void AnAutomatedChainFeedsALabAndFinishesResearch()
     {
         var w = WorldWithPlateChainIntoALab();
-        Assert.Equal(80 - 6 - 8 - 12 - 10 - 12, w.Network.HoldCount(Hand, Ingot)); // drill, smelter, assembler, lab and 3 belts of 4 cells
-        Assert.Equal(8 - 4, w.Network.HoldCount(Hand, PlateItem));            // the lab costs 10 ingots and 4 plates
-        Ok(w, new SetResearch(Logistics));                                    // 10 plates
+        Assert.Equal(20 - 12, w.Network.HoldCount(Hand, Ingot)); // drill, smelter, assembler and lab, then 3 belts of 4 cells
+        Assert.Equal(4, w.Network.HoldCount(Hand, PlateItem));
+        Ok(w, new SetResearch(Logistics));
 
-        for (int t = 0; t < 30 * 200 && !w.Network.IsResearched(Logistics); t++)
+        for (int t = 0; t < 30 * 900 && !w.Network.IsResearched(Logistics); t++)
         {
             w.Step();
             if (t % 11 == 0) w.ValidateInvariants();
@@ -332,7 +343,7 @@ public class LoopTests
 
         Assert.True(w.Network.IsResearched(Logistics));
         Assert.Equal(-1, w.Network.CurrentResearch);
-        Assert.Equal(10, w.Network.ResearchItemsUsed);
+        Assert.Equal(LogisticsPlates, w.Network.ResearchItemsUsed);
         Assert.True(w.Network.DrilledTotal >= 20, "plates come from ore: 2 ingots each");
         Assert.Equal(5000 - w.Network.DrilledTotal, w.Network.DepositRemaining(0));
         w.ValidateInvariants();
@@ -381,7 +392,7 @@ public class LoopTests
     {
         var w = WorldWithPlateChainIntoALab();
         Ok(w, new SetResearch(Logistics));
-        for (int t = 0; t < 30 * 200 && !w.Network.IsResearched(Logistics); t++) w.Step();
+        for (int t = 0; t < 30 * 900 && !w.Network.IsResearched(Logistics); t++) w.Step();
         Assert.True(w.Network.IsResearched(Logistics));
 
         Assert.Equal(Reject.ResearchUnavailable, Run(w, new SetResearch(Logistics)).Reject);
@@ -442,12 +453,12 @@ public class LoopTests
     private static SimWorld WorldWithDrillAndDepot(int ironAmount = 500)
     {
         var w = Campaign(ironAmount);
-        w.Network.GiveItems(Hand, Ingot, 20);
+        w.Network.GiveItems(Hand, Ingot, 40); // a drill, 3 belt cells and a depot
         var r = Run(w, new Batch(new Command[]
         {
-            new PlaceMachine(0, 0, 0, Drill, DrillIron),               // 6
-            Belt(1, 0, 0, Dir.PosX, 3),                                // 3
-            new PlaceMachine(4, 0, 0, C.MachineIndex("core:depot"), -1), // 5
+            new PlaceMachine(0, 0, 0, Drill, DrillIron),
+            Belt(1, 0, 0, Dir.PosX, 3),
+            new PlaceMachine(4, 0, 0, C.MachineIndex("core:depot"), -1),
             new LinkDeposit(-1, 0),
             new ConnectFromMachine(-1, -1), new ConnectToMachine(-1, -2),
         }));
@@ -459,7 +470,8 @@ public class LoopTests
     public void ADepotDeliversIntoTheHoldOfWhoeverBuiltIt()
     {
         var w = WorldWithDrillAndDepot();
-        Assert.Equal(6, w.Network.HoldCount(Hand, Ingot)); // 20 - 6 - 3 - 5
+        int left = 40 - Cost("core:drill", "core:iron_ingot") - 3 - DepotCost;
+        Assert.Equal(left, w.Network.HoldCount(Hand, Ingot));
 
         w.Step(30 * 30); // one ore every 2 seconds, plus belt travel
         int ore = w.Network.HoldCount(Hand, Ore);
@@ -474,15 +486,16 @@ public class LoopTests
         // Delivered ore can be refined on the ship right away: the loop closes.
         Ok(w, new SetShipRecipe(ShipSmelt));
         w.Step(600);
-        Assert.True(w.Network.HoldCount(Hand, Ingot) > 6);
+        Assert.True(w.Network.HoldCount(Hand, Ingot) > left);
     }
 
     [Fact]
-    public void AFullHoldBacksUpTheBeltInsteadOfLosingItems()
+    public void ADepotStopsAtThePerItemCapAndTheBeltBacksUpInsteadOfLosingItems()
     {
         var w = WorldWithDrillAndDepot();
-        w.Step(30 * 200); // far more ore than the hold can take
-        Assert.Equal(PlayerRules.HoldCapacity, w.Network.HoldTotal(Hand));
+        w.Step(30 * 200); // far more ore than the cap
+        Assert.Equal(PlayerRules.DepotItemCap, w.Network.HoldCount(Hand, Ore));
+        Assert.True(w.Network.HoldTotal(Hand) < PlayerRules.HoldCapacity, "one item type never takes the whole hold");
         long delivered = w.Network.DepotDelivered;
 
         w.Step(600);
@@ -490,11 +503,21 @@ public class LoopTests
         Assert.True(w.Network.CountOn(0) > 0, "the belt holds the ore back");
         w.ValidateInvariants();
 
-        // Spending items makes room and the flow resumes.
-        w.Network.GiveItems(Hand, Ingot, 2); // the hold is full of ore: top up the ingots for the 8-ingot smelter
-        Ok(w, new PlaceMachine(0, 2, 0, Smelter, SmeltIron)); // 8 ingots
-        w.Step(300);
+        // Using the ore frees the cap and the flow resumes: the ship refinery eats it.
+        Ok(w, new SetShipRecipe(ShipSmelt));
+        w.Step(600);
         Assert.True(w.Network.DepotDelivered > delivered);
+        w.ValidateInvariants();
+    }
+
+    [Fact]
+    public void AFullHoldStillStopsDepotsWhateverTheItem()
+    {
+        var w = WorldWithDrillAndDepot();
+        w.Network.GiveItems(Hand, PlateItem, PlayerRules.HoldCapacity); // fill the hold with something else
+        long delivered = w.Network.DepotDelivered;
+        w.Step(600);
+        Assert.Equal(delivered, w.Network.DepotDelivered);
         w.ValidateInvariants();
     }
 
@@ -505,7 +528,7 @@ public class LoopTests
         // Another player removing the depot gets the refund; deliveries stop.
         w.Network.GiveItems(1, Ingot, 1);
         Ok(w, new RemoveMachine(1), player: 1);
-        Assert.Equal(1 + 5, w.Network.HoldCount(1, Ingot));
+        Assert.Equal(1 + DepotCost, w.Network.HoldCount(1, Ingot));
         long delivered = w.Network.DepotDelivered;
         w.Step(300);
         Assert.Equal(delivered, w.Network.DepotDelivered);

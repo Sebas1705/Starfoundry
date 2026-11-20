@@ -12,6 +12,7 @@ One decision per file, `NNNN-slug.md`. An accepted ADR is never rewritten; add a
 | [0006](0006-ship-movement-as-intent-commands-and-ranges.md) | Ship movement as intent commands, with mining and build ranges | proposed | 2026-11-20 |
 | [0007](0007-galaxy-as-regions-of-one-space-with-deterministic-generation.md) | The galaxy is a set of regions of one shared space, generated deterministically | proposed | 2026-11-20 |
 | [0008](0008-remnant-threat-as-signature-driven-waves.md) | The Remnant threat: signature fills an alert meter, the meter sends waves | proposed | 2026-11-20 |
+| [0009](0009-pacing-targets-measured-by-a-scripted-player-and-a-per-item-depot-cap.md) | Pacing targets are measured by a scripted player; depots deliver at most 40 percent of the hold per item | proposed | 2026-11-20 |
 
 ## Template
 ```markdown
