@@ -157,21 +157,21 @@ public static class Loc
         ["tip.role.unloader"] = ("Saca lingotes de tu bodega y los pone en una cinta, sin tocar los últimos 10. Así lo que mines en otro sistema puede alimentar una fábrica lejos de él.", "Takes ingots out of your hold and puts them on a belt, leaving the last 10. What you mine in another system can feed a factory far from it."),
         ["tip.role.ship"] = ("Va en la nave.", "Lives on the ship."),
         ["tip.belt"] = ("Cinta Mk{0}: {1} celdas, {2} objetos encima", "Belt Mk{0}: {1} cells, {2} items on it"),
-        ["tip.deposit"] = ("Yacimiento de {0}: quedan {1} de {2}.\nClic para elegirlo; M para minarlo.",
-                           "{0} deposit: {1} of {2} left.\nClick to select it; M to mine it."),
+        ["tip.deposit"] = ("Yacimiento de {0}: quedan {1} de {2}.\nClic izquierdo para elegirlo; M para minarlo.",
+                           "{0} deposit: {1} of {2} left.\nLeft click to select it; M to mine it."),
         ["tip.enemy"] = ("Enemigo: {0}  (vida {1})", "Enemy: {0}  (HP {1})"),
 
         // ---- hints under the bar ----
-        ["hint.pointer"] = ("Clic: inspeccionar una máquina, elegir un yacimiento o volar a ese punto.   Elige algo en la barra de abajo (1-9) para construir.   F1: ayuda",
-                            "Click: inspect a machine, pick a deposit or fly to that spot.   Choose something in the bar below (1-9) to build.   F1: help"),
-        ["hint.buildBelt"] = ("Construyendo: {0}. Clic y arrastra para tender una línea.   Clic derecho: demoler.   R: girar.   Esc: dejar de construir",
-                              "Building: {0}. Click and drag to lay a line.   Right-click: demolish.   R: rotate.   Esc: stop building"),
-        ["hint.buildMachine"] = ("Construyendo: {0}. Clic para colocarlo.   Clic derecho: demoler.   Tab: cambiar receta.   Esc: dejar de construir",
-                                 "Building: {0}. Click to place it.   Right-click: demolish.   Tab: change recipe.   Esc: stop building"),
+        ["hint.pointer"] = ("Ratón: mirar   WASD: volar   Espacio/C: subir/bajar   Clic: inspeccionar lo que apuntas   1-9: construir   Tab: soltar el ratón   F1: ayuda",
+                            "Mouse: look   WASD: fly   Space/C: up/down   Click: inspect what you aim at   1-9: build   Tab: free the mouse   F1: help"),
+        ["hint.buildBelt"] = ("Construyendo: {0}. Apunta al suelo; clic, mueve la mirilla y suelta para tender una línea.   Clic derecho: demoler.   R: girar.   Esc: dejar de construir",
+                              "Building: {0}. Aim at the ground; click, move the crosshair and release to lay a line.   Right-click: demolish.   R: rotate.   Esc: stop building"),
+        ["hint.buildMachine"] = ("Construyendo: {0}. Apunta al suelo y haz clic para colocarlo.   Clic derecho: demoler.   Y: cambiar receta.   Esc: dejar de construir",
+                                 "Building: {0}. Aim at the ground and click to place it.   Right-click: demolish.   Y: change recipe.   Esc: stop building"),
 
         // ---- status panel ----
         ["hud.hold"] = ("Bodega {0}/{1}", "Hold {0}/{1}"),
-        ["hud.noDeposit"] = ("Sin yacimiento elegido: haz clic en una roca o pulsa M.", "No deposit selected: click a rock or press M."),
+        ["hud.noDeposit"] = ("Sin yacimiento elegido: apunta a una roca y haz clic, o pulsa M.", "No deposit selected: aim at a rock and click, or press M."),
         ["hud.depositSelected"] = ("Yacimiento elegido: {0} (quedan {1}), a {2} celdas", "Selected deposit: {0} ({1} left), {2} cells away"),
         ["hud.mining"] = ("Minando {0} (quedan {1})", "Mining {0} ({1} left)"),
         ["hud.miningOut"] = ("Minería de {0} en pausa: la nave está lejos del yacimiento", "Mining {0} paused: the ship is too far from the deposit"),
@@ -221,7 +221,7 @@ public static class Loc
         ["status.working"] = ("trabajando", "working"),
         ["status.waitingInputs"] = ("esperando materiales por cinta", "waiting for inputs by belt"),
         ["status.outputBlocked"] = ("salida bloqueada: la cinta está llena o no está conectada", "output blocked: the belt is full or not connected"),
-        ["status.noRecipe"] = ("sin receta: elige una (Tab o botones)", "no recipe: choose one (Tab or the buttons)"),
+        ["status.noRecipe"] = ("sin receta: elige una (Tab y luego los botones)", "no recipe: choose one (Tab, then the buttons)"),
         ["status.drillUnlinked"] = ("sin yacimiento: construye a menos de 16 celdas de uno descubierto", "no deposit: build within 16 cells of a discovered one"),
         ["status.drillEmpty"] = ("el yacimiento se ha agotado", "the deposit is empty"),
         ["status.drillIdle"] = ("esperando para taladrar", "waiting to drill"),
@@ -293,18 +293,18 @@ public static class Loc
         ["obj.allDone"] = ("Todos los pasos hechos. Explora, amplía y mantén la base defendida.",
                            "All steps done. Explore, expand and keep the base defended."),
         ["obj.fly"] = ("Vuela hasta el yacimiento de hierro", "Fly to the iron deposit"),
-        ["obj.fly.hint"] = ("Haz clic en la roca marrón o pulsa M: la nave vuela sola.", "Click the brown rock or press M: the ship flies there by itself."),
+        ["obj.fly.hint"] = ("Mira la roca marrón y vuela hacia ella con W, o pulsa M: la nave vuela sola.", "Look at the brown rock and fly to it with W, or press M: the ship flies there by itself."),
         ["obj.mine"] = ("Mina 5 minerales", "Mine 5 ore"),
         ["obj.mine.hint"] = ("Pulsa M una vez (o el botón Minar): vuela y mina sola a 2 minerales por segundo. Otra M la para.", "Press M once (or the Mine button): it flies there and mines by itself at 2 ore per second. Another M stops it."),
         ["obj.refine"] = ("Consigue 3 lingotes de hierro", "Get 3 iron ingots"),
         ["obj.refine.hint"] = ("Pulsa F para encender la refinería de la nave: convierte mineral en lingotes, despacio.",
                                "Press F to switch the ship's refinery on: it turns ore into ingots, slowly."),
         ["obj.drill"] = ("Construye un taladro junto al yacimiento", "Build a drill next to the deposit"),
-        ["obj.drill.hint"] = ("Elige Taladro en la barra (4) y haz clic en una celda a menos de 16 celdas del yacimiento. Cuesta lingotes.",
-                              "Choose Drill in the bar (4) and click a cell within 16 cells of the deposit. It costs ingots."),
+        ["obj.drill.hint"] = ("Elige Taladro en la barra (4) y apunta al suelo a menos de 16 celdas del yacimiento (mira hacia abajo); clic para colocarlo. Cuesta lingotes.",
+                              "Choose Drill in the bar (4), aim at the ground within 16 cells of the deposit (look down) and click to place it. It costs ingots."),
         ["obj.smelter"] = ("Construye un horno", "Build a smelter"),
-        ["obj.smelter.hint"] = ("Elige Horno (5) y colócalo delante del taladro; une ambos con cintas (1) arrastrando.",
-                                "Choose Smelter (5) and place it in front of the drill; join them with belts (1) by dragging."),
+        ["obj.smelter.hint"] = ("Elige Horno (5) y colócalo delante del taladro; une ambos con cintas (1): clic, mueve la mirilla y suelta.",
+                                "Choose Smelter (5) and place it in front of the drill; join them with belts (1): click, move the crosshair and release."),
         ["obj.depot"] = ("Entrega lingotes a tu bodega", "Deliver ingots to your hold"),
         ["obj.depot.hint"] = ("Tiende cintas desde el horno hasta un Depósito (8): mete en tu bodega todo lo que le llega.",
                               "Lay belts from the smelter to a Depot (8): it puts everything that arrives into your hold."),
@@ -328,33 +328,35 @@ public static class Loc
         ["help.text"] = (
             "CONTROLES   (F1 para cerrar)\n\n" +
             "Ratón\n" +
-            "  Clic izquierdo   puntero: inspeccionar una máquina, elegir un yacimiento, volar a ese punto\n" +
-            "                   construyendo: colocar (arrastra para tender cintas)\n" +
-            "  Clic derecho     demoler lo que hay bajo el ratón (se devuelve el coste)\n" +
-            "  Rueda            zoom        Arrastrar con botón central o derecho   girar la cámara        Inicio   recentrar\n\n" +
+            "  Mover el ratón   mirar (la vista es la cabina de la nave); la mirilla del centro es tu puntería\n" +
+            "  Clic izquierdo   inspeccionar lo que apuntas o elegir un yacimiento\n" +
+            "                   construyendo: apunta al suelo y coloca (cintas: clic, mueve la mirilla, suelta)\n" +
+            "  Clic derecho     demoler lo que apuntas (se devuelve el coste)\n" +
+            "  Tab              soltar el ratón para usar los botones (clic en el juego para volver a mirar)\n\n" +
             "Nave\n" +
-            "  W A S D   volar según la cámara        Espacio / C   subir / bajar\n" +
+            "  W S   avanzar / retroceder hacia donde miras     A D   desplazarse a los lados     Espacio / C   subir / bajar\n" +
             "  M   minar (vuela primero al yacimiento)      F   refinería       K   escanear       V   armas\n\n" +
             "Construcción\n" +
             "  1-9, 0, Q, B   elegir qué construir (otra vez para guardarlo)       Esc   dejar de construir\n" +
-            "  Tab   cambiar receta       R   girar cintas sueltas       Z / X   cambiar de capa\n" +
-            "  Con el puntero, clic en una máquina: ver su estado y cambiar su receta.\n  E   reparar todas las máquinas dañadas a tu alcance (cuesta la mitad de su coste, en proporción al daño)\n\n" +
+            "  Y   cambiar receta       R   girar cintas sueltas       Z / X   cambiar de capa\n" +
+            "  Clic en una máquina sin herramienta: ver su estado y cambiar su receta (Tab para usar sus botones).\n  E   reparar todas las máquinas dañadas a tu alcance (cuesta la mitad de su coste, en proporción al daño)\n\n" +
             "Otros\n" +
             "  T   elegir investigación      G   mapa estelar (flechas y J para saltar)\n" +
             "  P   pausa       + / -   velocidad       L   idioma       O   pasos       [ ]   cambiar yacimiento\n  F6   guardar       F9   cargar (se guarda sola cada 5 minutos)",
             "CONTROLS   (F1 to close)\n\n" +
             "Mouse\n" +
-            "  Left click    pointer: inspect a machine, pick a deposit, fly to that spot\n" +
-            "                building: place (drag to lay belts)\n" +
-            "  Right click   demolish what is under the mouse (the cost is refunded)\n" +
-            "  Wheel         zoom        Middle or right drag   turn the camera        Home   recentre\n\n" +
+            "  Move the mouse   look (the view is the ship's cockpit); the centre crosshair is your aim\n" +
+            "  Left click       inspect what you aim at or pick a deposit\n" +
+            "                   building: aim at the ground and place (belts: click, move the crosshair, release)\n" +
+            "  Right click      demolish what you aim at (the cost is refunded)\n" +
+            "  Tab              free the mouse to use the buttons (click in the game to look again)\n\n" +
             "Ship\n" +
-            "  W A S D   fly relative to the camera        Space / C   up / down\n" +
+            "  W S   forward / back where you look     A D   strafe     Space / C   up / down\n" +
             "  M   mine (flies to the deposit first)      F   refinery       K   scan       V   weapons\n\n" +
             "Building\n" +
             "  1-9, 0, Q, B   choose what to build (again to put it away)       Esc   stop building\n" +
-            "  Tab   change recipe       R   rotate single belts       Z / X   change layer\n" +
-            "  With the pointer, click a machine: see its status and change its recipe.\n  E   repair every damaged machine within reach (half the build cost, in proportion to the damage)\n\n" +
+            "  Y   change recipe       R   rotate single belts       Z / X   change layer\n" +
+            "  With no tool, click a machine: see its status and change its recipe (Tab to use its buttons).\n  E   repair every damaged machine within reach (half the build cost, in proportion to the damage)\n\n" +
             "Other\n" +
             "  T   choose research      G   star map (arrows and J to jump)\n" +
             "  P   pause       + / -   speed       L   language       O   steps       [ ]   change deposit\n  F6   save       F9   load (it also saves itself every 5 minutes)"),

@@ -13,8 +13,9 @@ Open the `game/` folder in Godot and press F5. The game opens in Spanish or Engl
 
 ## The first ten minutes
 1. Follow the steps in the panel at the top right. Each one ticks off by itself.
-2. Fly to the brown rock (click it or press `M`), mine, press `F` for the ship refinery.
-3. Build a drill (`4`), a smelter (`5`), a depot (`8`) and join them with belts (`1`, drag). Click a machine to see its status and change its recipe.
+   The game is played in first person: the mouse looks (the cursor is captured), `W`/`S` fly along the view, `A`/`D` strafe, `Space`/`C` go up and down. `Tab` frees the cursor for the buttons (click in the game to look again); `Esc` leaves a build tool, then frees the cursor. The top-down camera is gone.
+2. Fly to the brown rock (look at it and press `W`, or press `M` to fly there on autopilot), mine, press `F` for the ship refinery.
+3. Build a drill (`4`), a smelter (`5`), a depot (`8`) and join them with belts (`1`): look down at the ground and the crosshair picks the cell (it turns red when you cannot place there); click to place, for belts press, move the crosshair and release. Right click demolishes, `R` rotates, `Y` changes the recipe of the item you are placing. Click a machine with no tool to see its status; `Tab` then lets you use its buttons.
 4. Make plates with an assembler (`6`), build a lab (`7`), press `T` and pick Logistics.
 5. When the warning says a wave is coming, build a turret (`9`) fed with ammo by belt, and switch your weapon on (`V`).
 

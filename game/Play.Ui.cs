@@ -27,15 +27,17 @@ public partial class Play
     private int _selMachine = -1;
     private Vector3? _waypoint;
     private bool _pendingMine;
-    // Closer and steeper than the first version: machines were tiny and the deposit hid what stood behind it.
-    private const float DefaultPitch = 1.15f, DefaultDistance = 10f;
-    private float _pitch = DefaultPitch;
+    private const float DefaultDistance = 10f; // overview camera of the scripted modes
+    private const float MouseSensitivity = 0.0025f; // radians per pixel
+    private const float MaxPitch = 85f * MathF.PI / 180f;
+    private bool _wantCapture = true; // the player's wish; the cursor is also released while a panel is open or the window is unfocused
+    private bool _mouseLook; // true while the cursor is captured and the mouse turns the ship's view
+    private (int X, int Y, int Z) _lastThrust;
+    private double _lastThrustAt;
     private bool _helpOpen;
     private bool _objectivesOpen = true;
     private bool _holdWasFull;
     private double _holdFullAgain;
-    private bool _rmbDown, _rmbDragged, _mmbDown;
-    private Vector2 _rmbStart;
     private ObjectiveTracker _objectives = null!;
 
     // ---- nodes -------------------------------------------------------------------------------------
@@ -46,6 +48,7 @@ public partial class Play
     private Label _statusLabel = null!, _holdItems = null!, _modeHint = null!, _toastText = null!, _objectivesText = null!, _tooltipLabel = null!;
     private Label _inspectorTitle = null!, _inspectorBody = null!, _helpText = null!;
     private ProgressBar _holdBar = null!;
+    private Crosshair _crosshair = null!;
     private readonly List<Button> _buildButtons = new();
     private Button _btnMine = null!, _btnRefine = null!, _btnScan = null!, _btnMap = null!, _btnWeapons = null!, _btnResearch = null!;
     private Button _btnRepair = null!;
@@ -217,7 +220,10 @@ public partial class Play
         _helpPanel = MakePanel(_helpText);
         _helpPanel.Visible = false;
 
-        // World tooltip that follows the mouse.
+        _crosshair = new Crosshair { Visible = false };
+        _uiRoot.AddChild(_crosshair);
+
+        // World tooltip, anchored just below and right of the crosshair.
         _tooltipLabel = MakeText(13);
         _tooltipLabel.AddThemeColorOverride("font_outline_color", Colors.Black);
         _tooltipLabel.AddThemeConstantOverride("outline_size", 5);
@@ -228,6 +234,7 @@ public partial class Play
 
     private void UpdateUi(float dt)
     {
+        UpdateCapture();
         _objectives.Update(Net, Player);
         UpdatePlayLog();
         AutosaveTick();
@@ -451,7 +458,7 @@ public partial class Play
                 _world.Submit(Player, new SetSink(id));
             }
         _world.Step();
-        _distance = _stressClose ? 22f : 40 + side * 1.6f; // --stress-close: the view a player really has, a small part of a big base
+        _overviewDistance = _stressClose ? 22f : 40 + side * 1.6f; // --stress-close: the view a player really has, a small part of a big base
         DisplayServer.WindowSetVsyncMode(DisplayServer.VSyncMode.Disabled); // measure what the work costs, not the refresh rate
         GD.Print($"STRESS built machines={_world.Network.MachineCount} segments={_world.Network.SegmentCount}");
     }
@@ -795,10 +802,12 @@ public partial class Play
         var helpSize = _helpPanel.GetCombinedMinimumSize();
         _helpPanel.Position = new Vector2((size.X - helpSize.X) / 2f, (size.Y - helpSize.Y) / 2f - 40);
 
-        // The tooltip follows the mouse and stays on screen.
-        var mouse = GetViewport().GetMousePosition();
-        _tooltipLabel.Visible = _tooltipLabel.Text.Length > 0 && !_demo;
-        _tooltipLabel.Position = new Vector2(Math.Min(mouse.X + 16, size.X - _tooltipLabel.Size.X - 8), Math.Min(mouse.Y + 18, size.Y - _tooltipLabel.Size.Y - 8));
+        // The crosshair sits at the screen centre and the tooltip beside it, kept on screen.
+        _crosshair.Visible = _mouseLook && !_demo;
+        _crosshair.Position = (size - _crosshair.Size) / 2f;
+        var centre = size / 2f;
+        _tooltipLabel.Visible = _tooltipLabel.Text.Length > 0 && !_demo && _mouseLook;
+        _tooltipLabel.Position = new Vector2(Math.Clamp(centre.X + 24, 8, Math.Max(8, size.X - _tooltipLabel.Size.X - 8)), Math.Clamp(centre.Y + 24, 8, Math.Max(8, size.Y - _tooltipLabel.Size.Y - 8)));
     }
 
     // ---- selecting tools ------------------------------------------------------------------------------
@@ -819,17 +828,9 @@ public partial class Play
         Toast(L("toast.language"));
     }
 
-    private void RecenterCamera()
-    {
-        _yaw = 0.2f;
-        _pitch = DefaultPitch;
-        _distance = DefaultDistance;
-        _target = ShipPosition(0f);
-    }
-
     // ---- mouse and keyboard ------------------------------------------------------------------------------
 
-    private bool OverUi() => GetViewport().GuiGetHoveredControl() is { } c && c != _uiRoot;
+    private bool OverUi() => !_mouseLook && GetViewport().GuiGetHoveredControl() is { } c && c != _uiRoot;
 
     public override void _UnhandledInput(InputEvent e)
     {
@@ -851,48 +852,52 @@ public partial class Play
 
     private void OnMouseButton(InputEventMouseButton mb)
     {
+        if (!mb.Pressed && mb.ButtonIndex != MouseButton.Left) return;
+        // A click while the cursor is free (and no panel is open) takes the mouse back instead of acting in the world.
+        if (!_mouseLook)
+        {
+            if (mb.Pressed && mb.ButtonIndex == MouseButton.Left && !PanelOpen()) _wantCapture = true;
+            _dragStart = null;
+            return;
+        }
         switch (mb.ButtonIndex)
         {
-            case MouseButton.WheelUp when mb.Pressed: _distance = Mathf.Max(4f, _distance * 0.8f); break;
-            case MouseButton.WheelDown when mb.Pressed: _distance = Mathf.Min(90f, _distance * 1.25f); break;
-            case MouseButton.Middle: _mmbDown = mb.Pressed; break;
             case MouseButton.Right:
-                if (mb.Pressed) { _rmbDown = true; _rmbDragged = false; _rmbStart = mb.Position; }
-                else
-                {
-                    // A click demolishes what is under the mouse; a drag was only turning the camera.
-                    if (_rmbDown && !_rmbDragged && CellUnderMouse() is { } cell) RemoveAt(cell);
-                    _rmbDown = false;
-                }
+                // Right click demolishes what the crosshair is on.
+                if (_hover.Kind == HoverKind.Machine) RemoveAt(CellOfMachine(_hover.Id));
+                else if (CellUnderAim() is { } cell) RemoveAt(cell);
                 break;
             case MouseButton.Left:
-                if (mb.Pressed) _dragStart = _tool == ToolMode.Build ? CellUnderMouse() : null;
+                if (mb.Pressed) _dragStart = _tool == ToolMode.Build ? CellUnderAim() : null;
                 else OnLeftRelease();
                 break;
         }
     }
 
+    private (int X, int Y, int Z) CellOfMachine(int id)
+    {
+        var m = Net.GetMachineInfo(id);
+        return (m.X, m.Y, m.Z);
+    }
+
     private void OnMouseMotion(InputEventMouseMotion mm)
     {
-        if (_rmbDown && (mm.Position - _rmbStart).Length() > 6f) _rmbDragged = true;
-        if (_mmbDown || (_rmbDown && _rmbDragged))
-        {
-            _yaw -= mm.Relative.X * 0.005f;
-            _pitch = Mathf.Clamp(_pitch + mm.Relative.Y * 0.005f, 0.35f, 1.5f);
-        }
+        if (!_mouseLook) return;
+        _yaw -= mm.Relative.X * MouseSensitivity;
+        _pitch = Mathf.Clamp(_pitch - mm.Relative.Y * MouseSensitivity, -MaxPitch, MaxPitch);
     }
 
     private void OnLeftRelease()
     {
         if (_tool == ToolMode.Build)
         {
-            if (_dragStart is { } start && CellUnderMouse() is { } end)
+            if (_dragStart is { } start && CellUnderAim() is { } end)
                 PlaceSelectedAt(end, _palette[_selected].IsBelt ? start : null);
             _dragStart = null;
             return;
         }
 
-        // Pointer: inspect machines, pick deposits, fly to the ground.
+        // Pointer: inspect machines and pick deposits.
         switch (_hover.Kind)
         {
             case HoverKind.Machine:
@@ -903,18 +908,39 @@ public partial class Play
                 _selMachine = -1;
                 Toast(L("toast.depositSelected", ItemName(Net.DepositItem(_hover.Id))));
                 break;
-            case HoverKind.Ground:
-                _selMachine = -1;
-                if (CellUnderMouse() is { } c)
-                {
-                    var ship = ShipPosition(0f);
-                    _waypoint = new Vector3(c.X + 0.5f, ship.Y, c.Z + 0.5f);
-                    _pendingMine = false;
-                }
-                break;
             default:
                 _selMachine = -1;
                 break;
+        }
+    }
+
+    // ---- cursor capture ------------------------------------------------------------------------------------
+
+    /// <summary>Panels that need the pointer: the help overlay and the star map.</summary>
+    private bool PanelOpen() => _helpOpen || (_mapOpen && Net.Galaxy is not null);
+
+    /// <summary>Releases or captures the mouse so it matches what the player wants and what is on screen.</summary>
+    private void UpdateCapture()
+    {
+        bool interactive = !_demo && _stressMachines == 0 && !_saveTest;
+        bool focused = DisplayServer.WindowIsFocused();
+        if (!focused) _wantCapture = false; // clicking in the window takes it back
+        bool want = interactive && _wantCapture && focused && !PanelOpen();
+        if (want == _mouseLook) return;
+        SetMouseCapture(want);
+    }
+
+    private void SetMouseCapture(bool on)
+    {
+        _mouseLook = on;
+        Input.MouseMode = on ? Input.MouseModeEnum.Captured : Input.MouseModeEnum.Visible;
+        if (!on)
+        {
+            // Letting go of the mouse stops the ship and any autopilot run: no thrust is left running unattended.
+            _waypoint = null;
+            _pendingMine = false;
+            _dragStart = null;
+            SendThrust((0, 0, 0), force: true);
         }
     }
 
@@ -933,15 +959,15 @@ public partial class Play
                 else if (_selMachine >= 0) _selMachine = -1;
                 else if (_tool == ToolMode.Build) _tool = ToolMode.Pointer;
                 else if (_mapOpen) _mapOpen = false;
-                else _waypoint = null;
+                else { _waypoint = null; _pendingMine = false; _wantCapture = false; } // last: let go of the mouse
                 break;
             case Key.F1: _helpOpen = !_helpOpen; break;
             case Key.F6: SaveGameToDisk("quicksave", silent: false); break;
             case Key.F9: LoadGameFromDisk(); break;
             case Key.L: ToggleLanguage(); break;
             case Key.O: _objectivesOpen = !_objectivesOpen; break;
-            case Key.Home: RecenterCamera(); break;
-            case Key.Tab: CycleRecipe(); break;
+            case Key.Tab: _wantCapture = !_wantCapture; break; // free the cursor to use the buttons, or take it back
+            case Key.Y: CycleRecipe(); break;
             case Key.R: _dir = _dir switch { Dir.PosX => Dir.PosZ, Dir.PosZ => Dir.NegX, Dir.NegX => Dir.NegZ, _ => Dir.PosX }; Toast(L("toast.beltFacing", _dir.ToString())); break;
             case Key.Z: _cursorY--; break;
             case Key.X: _cursorY++; break;
@@ -965,47 +991,74 @@ public partial class Play
 
     // ---- ship control ------------------------------------------------------------------------------------
 
-    /// <summary>Keys fly the ship relative to the camera (snapped to the nearest world axis); a click flies to a point.</summary>
+    /// <summary>
+    /// Turns a direction into the integer thrust of <see cref="SetThrust"/>: normalised so it is never longer than 1, scaled by 1024,
+    /// and guaranteed to satisfy <see cref="PlayerRules.ThrustInRange"/> whatever the float rounding does.
+    /// </summary>
+    private static (int X, int Y, int Z) ToThrust(Vector3 v)
+    {
+        if (v.LengthSquared() > 1f) v = v.Normalized();
+        var t = ((int)MathF.Round(v.X * 1024f), (int)MathF.Round(v.Y * 1024f), (int)MathF.Round(v.Z * 1024f));
+        if (!PlayerRules.ThrustInRange(t.Item1, t.Item2, t.Item3)) t = ((int)(v.X * 1024f), (int)(v.Y * 1024f), (int)(v.Z * 1024f)); // truncate: never longer
+        while (!PlayerRules.ThrustInRange(t.Item1, t.Item2, t.Item3)) t = (t.Item1 * 15 / 16, t.Item2 * 15 / 16, t.Item3 * 15 / 16);
+        return t;
+    }
+
+    private void SendThrust((int X, int Y, int Z) thrust, bool force = false)
+    {
+        if (!force && thrust == _lastThrust) return;
+        double now = Time.GetTicksMsec() / 1000.0;
+        // The simulation takes one command per tick at most (30 a second): keep a changing direction from flooding the queue; a stop is never held back.
+        if (!force && thrust != (0, 0, 0) && now - _lastThrustAt < 1.0 / 30.0) return;
+        _lastThrust = thrust;
+        _lastThrustAt = now;
+        Send(new SetThrust(thrust.X, thrust.Y, thrust.Z));
+    }
+
+    /// <summary>
+    /// W/S fly along the view, A/D strafe along the camera's right, Space/C go up and down; the sum is normalised and sent as thrust
+    /// whenever the integer vector changes. M's autopilot steers toward its waypoint the same way.
+    /// </summary>
     private void UpdateShipControl()
     {
         if (_demo) return;
 
-        int forward = (Input.IsKeyPressed(Key.W) ? 1 : 0) - (Input.IsKeyPressed(Key.S) ? 1 : 0);
-        int right = (Input.IsKeyPressed(Key.D) ? 1 : 0) - (Input.IsKeyPressed(Key.A) ? 1 : 0);
-        int up = (Input.IsKeyPressed(Key.Space) ? 1 : 0) - (Input.IsKeyPressed(Key.C) ? 1 : 0);
+        // A jump or respawn clears the thrust in the simulation: send held keys again once the ship can move.
+        if (Net.HasPlayer(Player) && _world.PendingCommands == 0)
+        {
+            var pi = Net.GetPlayerInfo(Player);
+            if (pi.JumpRemaining == 0 && pi.RespawnRemaining == 0 && (pi.ThrustX, pi.ThrustY, pi.ThrustZ) != _lastThrust) _lastThrust = (int.MinValue, 0, 0);
+        }
 
-        (int X, int Y, int Z) intent;
-        if (forward != 0 || right != 0 || up != 0)
+        var thrust = (0, 0, 0);
+        if (_mouseLook)
         {
-            _waypoint = null;
-            _pendingMine = false;
-            float snapped = MathF.Round(_yaw / (MathF.PI / 2f)) * (MathF.PI / 2f);
-            int fx = (int)MathF.Round(-MathF.Sin(snapped)), fz = (int)MathF.Round(-MathF.Cos(snapped));
-            int rx = (int)MathF.Round(MathF.Cos(snapped)), rz = (int)MathF.Round(-MathF.Sin(snapped));
-            intent = (Math.Clamp(fx * forward + rx * right, -1, 1), up, Math.Clamp(fz * forward + rz * right, -1, 1));
+            int forward = (Input.IsKeyPressed(Key.W) ? 1 : 0) - (Input.IsKeyPressed(Key.S) ? 1 : 0);
+            int right = (Input.IsKeyPressed(Key.D) ? 1 : 0) - (Input.IsKeyPressed(Key.A) ? 1 : 0);
+            int up = (Input.IsKeyPressed(Key.Space) ? 1 : 0) - (Input.IsKeyPressed(Key.C) ? 1 : 0);
+            if (forward != 0 || right != 0 || up != 0)
+            {
+                _waypoint = null; // flying by hand takes over from the autopilot
+                _pendingMine = false;
+                thrust = ToThrust(CockpitForward() * forward + CockpitRight() * right + Vector3.Up * up);
+            }
         }
-        else if (_waypoint is { } wp)
+        if (thrust == (0, 0, 0) && _waypoint is { } wp)
         {
-            var p = ShipPosition(0f);
-            static int Axis(float diff) => MathF.Abs(diff) > 0.45f ? Math.Sign(diff) : 0;
-            intent = (Axis(wp.X - p.X), Axis(wp.Y - p.Y), Axis(wp.Z - p.Z));
-            if (intent == (0, 0, 0)) _waypoint = null; // arrived
+            var to = wp - ShipPosition(0f);
+            if (to.Length() < 0.25f) _waypoint = null; // arrived
+            else thrust = ToThrust(to.Normalized());
         }
-        else intent = (0, 0, 0);
 
         if (_pendingMine && Net.IsDeposit(_selectedDeposit) && Net.InMineRange(Player, _selectedDeposit))
         {
             _pendingMine = false;
             _waypoint = null;
-            intent = (0, 0, 0);
+            thrust = (0, 0, 0);
             Send(new StartMining(_selectedDeposit));
         }
 
-        if (intent != _lastIntent)
-        {
-            _lastIntent = intent;
-            Send(new SetMovement(intent.X, intent.Y, intent.Z));
-        }
+        SendThrust(thrust, force: thrust == (0, 0, 0) && _lastThrust != (0, 0, 0));
     }
 
     /// <summary>The M button: fly to the selected deposit if needed, then mine it.</summary>
@@ -1049,18 +1102,50 @@ public partial class Play
         return d2 <= radius * radius;
     }
 
+    /// <summary>Ray against the axis-aligned box of one grid cell whose minimum corner is <paramref name="min"/>.</summary>
+    private static bool RayHitsBox(Vector3 origin, Vector3 dir, Vector3 min, out float t)
+    {
+        float t0 = 0f, t1 = float.MaxValue;
+        t = 0f;
+        for (int a = 0; a < 3; a++)
+        {
+            float o = origin[a], d = dir[a], lo = min[a], hi = min[a] + 1f;
+            if (MathF.Abs(d) < 1e-6f) { if (o < lo || o > hi) return false; continue; }
+            float ta = (lo - o) / d, tb = (hi - o) / d;
+            if (ta > tb) (ta, tb) = (tb, ta);
+            t0 = MathF.Max(t0, ta);
+            t1 = MathF.Min(t1, tb);
+            if (t0 > t1) return false;
+        }
+        t = t0;
+        return true;
+    }
+
+    private (int X, int Y, int Z)? _aimCell;
+
     private void UpdateHover()
     {
         _tooltipLabel.Text = "";
         _hover = new Hover(HoverKind.None, -1, "");
-        if (_demo || OverUi()) return;
+        _aimCell = null;
+        if (_demo || !_mouseLook) return; // only the crosshair aims; a free cursor is for the buttons
 
-        var mouse = GetViewport().GetMousePosition();
-        var origin = _camera.ProjectRayOrigin(mouse);
-        var dir = _camera.ProjectRayNormal(mouse);
+        var origin = AimOrigin();
+        var dir = AimDirection();
 
-        // Enemies first (small and dangerous), then deposits.
+        // Machines first: the ray against each machine's cell box (the sphere tests below suit the small, round things).
         float best = float.MaxValue;
+        foreach (int id in _machineIds)
+        {
+            if (!Net.IsMachineAlive(id)) continue;
+            var m = Net.GetMachineInfo(id);
+            if (RayHitsBox(origin, dir, new Vector3(m.X, m.Y, m.Z), out float tb) && tb < best)
+            {
+                best = tb;
+                _hover = new Hover(HoverKind.Machine, id, MachineSummary(id));
+            }
+        }
+        // Then enemies (small and dangerous) and deposits, whichever is nearer along the ray.
         foreach (var en in Net.Enemies())
         {
             var c = new Vector3(en.X, en.Y, en.Z) / CellUnits;
@@ -1082,10 +1167,14 @@ public partial class Play
             }
         }
 
-        if (_hover.Kind == HoverKind.None && CellUnderMouse() is { } cell)
+        if (CellUnderAim() is { } cell)
         {
             _cursor = cell;
-            var (kind, id) = _world.EntityAt(cell.X, cell.Y, cell.Z);
+            _aimCell = cell;
+        }
+        if (_hover.Kind == HoverKind.None && _aimCell is { } aimed)
+        {
+            var (kind, id) = _world.EntityAt(aimed.X, aimed.Y, aimed.Z);
             if (kind == SimWorld.EntityKind.Machine) _hover = new Hover(HoverKind.Machine, id, MachineSummary(id));
             else if (kind == SimWorld.EntityKind.Segment)
             {
@@ -1230,13 +1319,15 @@ public partial class Play
 
     private void UpdateGhost()
     {
-        bool build = _tool == ToolMode.Build && !_demo && _hover.Kind != HoverKind.None && !OverUi();
+        bool build = _tool == ToolMode.Build && !_demo && _mouseLook && _aimCell is not null;
         _ghost.Visible = build;
+        _crosshair.Tint = Crosshair.Normal;
         if (!build) { _dragGhost.Visible = false; return; }
 
-        var c = _cursor;
+        var c = _aimCell!.Value;
         _ghost.Position = CellCenter(c.X, c.Y, c.Z);
         string? problem = PlacementProblem(c);
+        _crosshair.Tint = problem is null ? Crosshair.Normal : Crosshair.Invalid;
         ((StandardMaterial3D)_ghost.MaterialOverride).AlbedoColor = problem is null ? new Color(0.4f, 1f, 0.5f, 0.4f) : new Color(1f, 0.3f, 0.25f, 0.4f);
         if (problem is not null) _tooltipLabel.Text = problem;
         else if (_dragStart is null && _palette[_selected].IsBelt)
