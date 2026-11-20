@@ -54,7 +54,10 @@ Act for the commanding player ([ADR 0005](../adr/0005-campaign-economy-hold-cost
 | `LinkDeposit(machine, deposit)` / `UnlinkDeposit(machine)` | Point a drill at a deposit | UnknownMachine, WrongRole, UnknownDeposit |
 | `SetMovement(dx, dy, dz)` | Ship movement intent, -1, 0 or 1 per world axis; the ship keeps moving until the next intent ([ADR 0006](../adr/0006-ship-movement-as-intent-commands-and-ranges.md)) | InvalidArgument |
 
-`StartMining` also needs the ship within 6 cells of the deposit (OutOfRange). In campaign mode, placing or removing belts and machines needs the ship within 24 cells (OutOfRange).
+| `Scan` | Reveals hidden deposits within 80 cells of the ship; 5 second cooldown. `CommandResult.RevealedDeposits` lists them | NoContent, OnCooldown |
+| `Jump(system)` | Charges a 3 second jump along a lane from inside a system to a known system; the ship is frozen until it arrives at the anchor. Campaign: needs the Jump Drive research and pays the jump cost ([ADR 0007](../adr/0007-galaxy-as-regions-of-one-space-with-deterministic-generation.md)) | NoGalaxy, UnknownSystem, Locked, Busy, NotInASystem, InvalidArgument (already there), NoLane, NotEnoughItems |
+
+`StartMining` and `LinkDeposit` need the deposit to be revealed (NotDiscovered); `LinkDeposit` also needs the drill within 16 cells of it (OutOfRange). `StartMining` also needs the ship within 6 cells of the deposit (OutOfRange). In campaign mode, placing or removing belts and machines needs the ship within 24 cells (OutOfRange).
 
 In **campaign** mode the build commands also enforce costs and locks: `PlaceSegment` and `PlaceMachine` take their cost from the commanding player's hold (NotEnoughItems), reject locked belt tiers, machines and recipes (Locked), and `RemoveSegment` and `RemoveMachine` refund it. `SetSource` and the free extractor are sandbox only. Ship machine types cannot be placed in the world (NotPlaceable).
 
@@ -66,7 +69,7 @@ In **campaign** mode the build commands also enforce costs and locks: `PlaceSegm
 - Malformed commands (nulls, oversized, nested more than 4 levels in the encoding) throw at `Submit`, because they could never be logged. Game-rule problems are never exceptions.
 
 ## Log, codec and replay
-- Log header: magic `SFCL`, format version (3), content hash, game mode, entry count. Compare the hash with `ContentDb.Hash` before replaying. A replay starts from a world built the same way as the original (same mode, content and starting deposits and grants).
+- Log header: magic `SFCL`, format version (4), content hash, game mode, galaxy seed, entry count. Compare the hash with `ContentDb.Hash` before replaying. A replay starts from a world built the same way as the original (same mode, content, galaxy seed, and starting deposits and grants), for example `SimWorld.CreateGalaxy(content, mode, seed)`.
 - `CommandCodec` encodes commands and logs: little-endian, magic `SFCL`, version byte, bounded sizes, strict decoding (unknown tags, truncation, bad order and trailing bytes are errors).
 - `SimWorld.Replay(log, ticks)` rebuilds a world from an empty one; the result has the same checksum as the original. Replaying a prefix reproduces intermediate states.
 - The checksum covers geometry, wiring, items and counters, so it doubles as the co-op desync check.

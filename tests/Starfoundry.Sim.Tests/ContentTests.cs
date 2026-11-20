@@ -24,7 +24,13 @@ public class ContentTests
         Assert.Equal(4, c.Items.Count);
         Assert.Equal(7, c.Machines.Count);
         Assert.Equal(7, c.Recipes.Count);
-        Assert.Equal(3, c.Research.Count);
+        Assert.Equal(4, c.Research.Count);
+        Assert.Equal(new GalaxyRules(12, 800, 2, 150), c.Galaxy);
+        Assert.Equal(4, c.Archetypes.Count);
+        Assert.Single(c.Archetypes, a => a.IsHome);
+        Assert.Equal(new ItemStack(c.ItemIndex("core:carbon"), 5), Assert.Single(c.JumpCost));
+        Assert.True(c.AbilityGated[(int)Ability.Jump]);
+        Assert.Equal(new[] { Ability.Jump }, c.Research[c.ResearchIndex("core:jump_drive")].UnlockAbilities);
 
         var smelt = c.Recipes[c.RecipeIndex("core:smelt_iron")];
         Assert.Equal(c.MachineIndex("core:smelter"), smelt.Machine);
@@ -146,6 +152,84 @@ public class ContentTests
         Assert.Contains(find, Rich);
         var e = Assert.Throws<InvalidDataException>(() => ContentDb.FromJson(Rich.Replace(find, replace)));
         Assert.Contains(messagePart, e.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static readonly string GalaxyPart = System.Text.RegularExpressions.Regex.Replace("""
+        ,"galaxy":{"system_count":6,"spacing_cells":800,"lanes_per_system":2,"system_radius_cells":150},
+         "archetypes":[
+           {"id":"t:home","home":true,"weight":0,"distance_cells":[5,10],"deposits":[{"item":"t:a","count":[1,1],"amount":[100,100]}]},
+           {"id":"t:belt","weight":2,"distance_cells":[10,40],"deposits":[{"item":"t:a","count":[1,3],"amount":[50,200]}]}],
+         "jump_cost":[{"item":"t:b","count":2}]}
+        """, @"\s+", "");
+
+    private static readonly string RichGalaxy = Rich[..^1] + GalaxyPart;
+
+    [Fact]
+    public void GalaxyArchetypesAndJumpCostLoad()
+    {
+        var c = ContentDb.FromJson(RichGalaxy);
+        Assert.Equal(new GalaxyRules(6, 800, 2, 150), c.Galaxy);
+        Assert.Equal(2, c.Archetypes.Count);
+        Assert.True(c.Archetypes[0].IsHome);
+        Assert.Equal(new DepositSpec(c.ItemIndex("t:a"), 1, 3, 50, 200), c.Archetypes[1].Deposits[0]);
+        Assert.Equal(new ItemStack(c.ItemIndex("t:b"), 2), Assert.Single(c.JumpCost));
+    }
+
+    [Theory]
+    [InlineData("\"system_count\":6", "\"system_count\":1", "system_count")]
+    [InlineData("\"system_count\":6", "\"system_count\":65", "system_count")]
+    [InlineData("\"system_count\":6", "\"system_count\":\"6\"", "system_count")]
+    [InlineData("\"spacing_cells\":800", "\"spacing_cells\":99", "spacing_cells")]
+    [InlineData("\"spacing_cells\":800", "\"spacing_cells\":2001", "spacing_cells")]
+    [InlineData("\"lanes_per_system\":2", "\"lanes_per_system\":0", "lanes_per_system")]
+    [InlineData("\"lanes_per_system\":2", "\"lanes_per_system\":5", "lanes_per_system")]
+    [InlineData("\"system_radius_cells\":150", "\"system_radius_cells\":19", "system_radius_cells")]
+    [InlineData("\"galaxy\":{", "\"galaxy\":{\"extra\":1,", "Unknown property")]
+    [InlineData("\"home\":true,\"weight\":0", "\"home\":false,\"weight\":1", "exactly one home")]
+    [InlineData("\"id\":\"t:belt\",\"weight\":2", "\"id\":\"t:belt\",\"home\":true,\"weight\":0", "exactly one home")]
+    [InlineData("\"weight\":2", "\"weight\":0", "weight")]
+    [InlineData("\"weight\":2", "\"weight\":-1", "weight")]
+    [InlineData("\"distance_cells\":[5,10]", "\"distance_cells\":[0,10]", "distance_cells")]
+    [InlineData("\"distance_cells\":[5,10]", "\"distance_cells\":[10,5]", "distance_cells")]
+    [InlineData("\"distance_cells\":[10,40]", "\"distance_cells\":[10,200]", "radius")]
+    [InlineData("\"distance_cells\":[10,40]", "\"distance_cells\":[10]", "distance_cells")]
+    [InlineData("\"distance_cells\":[10,40]", "\"distance_cells\":[10,\"x\"]", "distance_cells")]
+    [InlineData("\"count\":[1,3]", "\"count\":[1,17]", "count")]
+    [InlineData("\"amount\":[50,200]", "\"amount\":[0,200]", "amount")]
+    [InlineData("\"item\":\"t:a\",\"count\":[1,3]", "\"item\":\"t:zz\",\"count\":[1,3]", "unknown item")]
+    [InlineData("\"deposits\":[{\"item\":\"t:a\",\"count\":[1,3],\"amount\":[50,200]}]", "\"deposits\":[]", "deposit specs")]
+    [InlineData("\"id\":\"t:belt\"", "\"id\":\"t:m\"", "used twice")]
+    [InlineData("\"jump_cost\":[{\"item\":\"t:b\"", "\"jump_cost\":[{\"item\":\"t:nope\"", "unknown item")]
+    public void InvalidGalaxyContentIsRejected(string find, string replace, string messagePart)
+    {
+        Assert.Contains(find, RichGalaxy);
+        var e = Assert.Throws<InvalidDataException>(() => ContentDb.FromJson(RichGalaxy.Replace(find, replace)));
+        Assert.Contains(messagePart, e.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ArchetypesNeedAGalaxyAndAbilitiesMustBeKnown()
+    {
+        string noGalaxy = RichGalaxy.Replace("\"galaxy\":{\"system_count\":6,\"spacing_cells\":800,\"lanes_per_system\":2,\"system_radius_cells\":150},", "");
+        Assert.Throws<InvalidDataException>(() => ContentDb.FromJson(noGalaxy));
+
+        string unknownAbility = Rich.Replace("\"unlocks\":[\"t:belt2\",\"t:dr\"]", "\"unlocks\":[\"t:belt2\"],\"abilities\":[\"fly\"]");
+        Assert.Throws<InvalidDataException>(() => ContentDb.FromJson(unknownAbility));
+        string twice = Rich.Replace("\"unlocks\":[\"t:belt2\",\"t:dr\"]", "\"unlocks\":[\"t:belt2\"],\"abilities\":[\"jump\",\"jump\"]");
+        Assert.Throws<InvalidDataException>(() => ContentDb.FromJson(twice));
+
+        // A node may unlock only an ability.
+        string onlyAbility = Rich.Replace("\"unlocks\":[\"t:belt2\",\"t:dr\"]", "\"unlocks\":[],\"abilities\":[\"jump\"]");
+        Assert.True(ContentDb.FromJson(onlyAbility).AbilityGated[(int)Ability.Jump]);
+    }
+
+    [Fact]
+    public void GalaxyDataChangesTheHash()
+    {
+        ulong h = ContentDb.FromJson(RichGalaxy).Hash;
+        Assert.NotEqual(h, ContentDb.FromJson(RichGalaxy.Replace("\"system_count\":6", "\"system_count\":7")).Hash);
+        Assert.NotEqual(h, ContentDb.FromJson(RichGalaxy.Replace("\"amount\":[50,200]", "\"amount\":[50,201]")).Hash);
+        Assert.NotEqual(h, ContentDb.FromJson(RichGalaxy.Replace("\"count\":2}]}", "\"count\":3}]}")).Hash);
     }
 
     [Fact]

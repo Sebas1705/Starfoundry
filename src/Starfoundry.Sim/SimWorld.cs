@@ -39,6 +39,23 @@ public sealed class SimWorld
 
     public GameMode Mode => Network.Mode;
 
+    /// <summary>
+    /// Creates a world with a generated galaxy: the same content and seed always give the same systems and deposits.
+    /// Deposits of the home system start revealed; the others stay hidden until scanned. Replays and peers must create
+    /// the world with the same arguments (the log header stores mode, content hash and seed).
+    /// </summary>
+    public static SimWorld CreateGalaxy(ContentDb content, GameMode mode, ulong seed)
+    {
+        var galaxy = Galaxy.Generate(content, seed);
+        var net = new BeltNetwork(content, mode);
+        foreach (var d in galaxy.Deposits)
+            net.AddDeposit(d.Item, d.Amount, d.X, d.Y, d.Z, revealed: d.System == 0);
+        net.SetGalaxy(galaxy);
+        return new SimWorld(net);
+    }
+
+    private readonly List<int> _revealed = new();
+
     /// <summary>Wraps an existing network (for example a scenario), indexing the cells its segments and machines occupy.</summary>
     public SimWorld(BeltNetwork network)
     {
@@ -157,11 +174,13 @@ public sealed class SimWorld
     {
         var created = new List<int>();
         var createdMachines = new List<int>();
+        _revealed.Clear();
         int failed = -1;
         Reject reject;
         if (command is Batch batch) reject = ApplyBatch(player, batch, created, createdMachines, out failed);
         else reject = ApplySingle(player, command, created, createdMachines);
-        return new CommandResult(Network.Tick, player, command, reject, created.ToArray(), failed, createdMachines.ToArray());
+        return new CommandResult(Network.Tick, player, command, reject, created.ToArray(), failed, createdMachines.ToArray(),
+            _revealed.ToArray());
     }
 
     private Reject ApplyBatch(int player, Batch batch, List<int> created, List<int> createdMachines, out int failedIndex)
@@ -185,6 +204,7 @@ public sealed class SimWorld
             foreach (var kv in cells) _cells.Add(kv.Key, kv.Value);
             created.Clear();
             createdMachines.Clear();
+            _revealed.Clear();
             failedIndex = i;
             return reject;
         }
@@ -325,9 +345,38 @@ public sealed class SimWorld
             {
                 if (Network.Content is null) return Reject.NoContent;
                 if (!Network.IsDeposit(sm.Deposit)) return Reject.UnknownDeposit;
+                if (!Network.IsDepositRevealed(sm.Deposit)) return Reject.NotDiscovered;
                 if (Network.DepositRemaining(sm.Deposit) <= 0) return Reject.Depleted;
                 if (!Network.InMineRange(player, sm.Deposit)) return Reject.OutOfRange;
                 Network.StartMining(player, sm.Deposit);
+                return Reject.None;
+            }
+
+            case Scan:
+                if (Network.Content is null) return Reject.NoContent;
+                if (Network.ScanCooldown(player) > 0) return Reject.OnCooldown;
+                _revealed.AddRange(Network.Scan(player));
+                return Reject.None;
+
+            case Jump j:
+            {
+                var galaxy = Network.Galaxy;
+                if (galaxy is null) return Reject.NoGalaxy;
+                if (!Network.IsSystem(j.System)) return Reject.UnknownSystem;
+                if (Campaign && !Network.HasAbility(Ability.Jump)) return Reject.Locked;
+                if (Network.JumpRemaining(player) > 0) return Reject.Busy;
+                int current = Network.CurrentSystem(player);
+                if (current < 0) return Reject.NotInASystem;
+                if (current == j.System) return Reject.InvalidArgument;
+                if (!galaxy.HasLane(current, j.System)) return Reject.NoLane;
+                if (!Network.IsSystemKnown(j.System)) return Reject.NotDiscovered;
+                if (Campaign)
+                {
+                    var cost = Network.Content!.JumpCost;
+                    if (!Network.CanPay(player, cost)) return Reject.NotEnoughItems;
+                    Network.Pay(player, cost);
+                }
+                Network.StartJump(player, j.System);
                 return Reject.None;
             }
 
@@ -373,6 +422,12 @@ public sealed class SimWorld
                 if (!Network.IsMachineAlive(id)) return Reject.UnknownMachine;
                 if (Network.Content!.Machines[Network.GetMachineInfo(id).Type].Role != MachineRole.Drill) return Reject.WrongRole;
                 if (!Network.IsDeposit(ld.Deposit)) return Reject.UnknownDeposit;
+                if (!Network.IsDepositRevealed(ld.Deposit)) return Reject.NotDiscovered;
+                var mi = Network.GetMachineInfo(id);
+                var dp = Network.DepositPosition(ld.Deposit);
+                long ddx = dp.X - (long)mi.X, ddy = dp.Y - (long)mi.Y, ddz = dp.Z - (long)mi.Z;
+                if (ddx * ddx + ddy * ddy + ddz * ddz > (long)ExplorationRules.DrillRangeCells * ExplorationRules.DrillRangeCells)
+                    return Reject.OutOfRange;
                 Network.LinkDeposit(id, ld.Deposit);
                 return Reject.None;
             }

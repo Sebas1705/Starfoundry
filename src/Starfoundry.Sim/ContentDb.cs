@@ -35,9 +35,31 @@ public sealed record RecipeDef(int Index, string Id, int Machine, ItemStack[] In
 /// <param name="CostPerCell">Items paid per cell of belt in campaign mode.</param>
 public sealed record BeltDef(BeltTier Tier, string Id, ItemStack[] CostPerCell);
 
+/// <summary>Abilities of the ship that research can unlock.</summary>
+public enum Ability
+{
+    /// <summary>Jumping along lanes between systems.</summary>
+    Jump = 0,
+}
+
 /// <param name="Requires">Research nodes that must be finished first.</param>
 public sealed record ResearchDef(
-    int Index, string Id, ItemStack[] Cost, int[] Requires, int[] UnlockMachines, int[] UnlockRecipes, BeltTier[] UnlockBelts);
+    int Index, string Id, ItemStack[] Cost, int[] Requires, int[] UnlockMachines, int[] UnlockRecipes, BeltTier[] UnlockBelts,
+    Ability[] UnlockAbilities);
+
+/// <param name="SystemCount">Systems in the galaxy, including home.</param>
+/// <param name="SpacingCells">Distance between neighbouring grid positions.</param>
+/// <param name="LanesPerSystem">Each system gets at least this many lanes (the graph is always connected).</param>
+/// <param name="SystemRadiusCells">A ship within this many cells of a system's anchor is in that system.</param>
+public sealed record GalaxyRules(int SystemCount, int SpacingCells, int LanesPerSystem, int SystemRadiusCells);
+
+/// <summary>How many deposits of an item an archetype creates and how rich they are (inclusive ranges).</summary>
+public sealed record DepositSpec(int Item, int CountMin, int CountMax, int AmountMin, int AmountMax);
+
+/// <param name="Weight">Relative chance of being picked for a system (home is never picked).</param>
+/// <param name="DistanceMin">Deposits are placed this far from the system anchor, in cells (inclusive range).</param>
+public sealed record ArchetypeDef(
+    int Index, string Id, int Weight, bool IsHome, int DistanceMin, int DistanceMax, DepositSpec[] Deposits);
 
 /// <summary>
 /// Immutable game content loaded from data files: items, machine types, recipes, belt costs and research.
@@ -72,15 +94,29 @@ public sealed class ContentDb
     public IReadOnlyList<bool> MachineGated { get; }
     public IReadOnlyList<bool> RecipeGated { get; }
     public IReadOnlyList<bool> BeltGated { get; }
+
+    /// <summary>True if the ability is unlocked by some research node (campaign mode needs that research).</summary>
+    public IReadOnlyList<bool> AbilityGated { get; }
+
+    /// <summary>Galaxy generation rules, or null if the content has none.</summary>
+    public GalaxyRules? Galaxy { get; }
+    public IReadOnlyList<ArchetypeDef> Archetypes { get; }
+
+    /// <summary>Items a jump costs, paid from the hold in campaign mode.</summary>
+    public ItemStack[] JumpCost { get; }
     public ulong Hash { get; }
 
-    private ContentDb(List<ItemDef> items, List<MachineDef> machines, List<RecipeDef> recipes, BeltDef?[] belts, List<ResearchDef> research)
+    private ContentDb(List<ItemDef> items, List<MachineDef> machines, List<RecipeDef> recipes, BeltDef?[] belts, List<ResearchDef> research,
+        GalaxyRules? galaxy, List<ArchetypeDef> archetypes, ItemStack[] jumpCost)
     {
         Items = items;
         Machines = machines;
         Recipes = recipes;
         Belts = belts;
         Research = research;
+        Galaxy = galaxy;
+        Archetypes = archetypes;
+        JumpCost = jumpCost;
         foreach (var i in items) _items.Add(i.Id, i.Index);
         foreach (var m in machines) _machines.Add(m.Id, m.Index);
         foreach (var r in recipes) _recipes.Add(r.Id, r.Index);
@@ -89,15 +125,18 @@ public sealed class ContentDb
         var mg = new bool[machines.Count];
         var rg = new bool[recipes.Count];
         var bg = new bool[3];
+        var ag = new bool[Enum.GetValues<Ability>().Length];
         foreach (var node in research)
         {
             foreach (int m in node.UnlockMachines) mg[m] = true;
             foreach (int r in node.UnlockRecipes) rg[r] = true;
             foreach (var b in node.UnlockBelts) bg[(int)b] = true;
+            foreach (var a in node.UnlockAbilities) ag[(int)a] = true;
         }
         MachineGated = mg;
         RecipeGated = rg;
         BeltGated = bg;
+        AbilityGated = ag;
         Hash = ComputeHash();
     }
 
@@ -120,7 +159,7 @@ public sealed class ContentDb
         using (doc)
         {
             var root = doc.RootElement;
-            RequireObject(root, "content", "schema", "items", "machines", "recipes", "belts", "research");
+            RequireObject(root, "content", "schema", "items", "machines", "recipes", "belts", "research", "galaxy", "archetypes", "jump_cost");
             if (!root.TryGetProperty("schema", out var schema) || schema.ValueKind != JsonValueKind.Number || schema.GetInt32() != 1)
                 throw new InvalidDataException("Unsupported or missing content schema (expected 1).");
 
@@ -234,7 +273,7 @@ public sealed class ContentDb
                 var pending = new List<(JsonElement Element, string Id)>();
                 foreach (var e in Array(root, "research"))
                 {
-                    RequireObject(e, "research node", "id", "cost", "requires", "unlocks");
+                    RequireObject(e, "research node", "id", "cost", "requires", "unlocks", "abilities");
                     string id = Id(e, "research node");
                     if (!researchIds.TryAdd(id, researchIds.Count)) throw new InvalidDataException($"Duplicate research '{id}'.");
                     if (!allIds.Add(id)) throw new InvalidDataException($"Id '{id}' is used twice across machines, recipes, belts and research.");
@@ -267,8 +306,20 @@ public sealed class ContentDb
                         else if (beltIds.TryGetValue(uid, out var tier)) { if (!ub.Contains(tier)) ub.Add(tier); }
                         else throw new InvalidDataException($"Research '{id}' unlocks unknown id '{uid}'.");
                     }
-                    if (um.Count + ur.Count + ub.Count == 0) throw new InvalidDataException($"Research '{id}' unlocks nothing.");
-                    research.Add(new ResearchDef(research.Count, id, cost, requires.ToArray(), um.ToArray(), ur.ToArray(), ub.ToArray()));
+                    var ua = new List<Ability>();
+                    if (e.TryGetProperty("abilities", out _))
+                    {
+                        foreach (var a in Array(e, "abilities"))
+                        {
+                            var ability = a.ValueKind == JsonValueKind.String && a.GetString() == "jump"
+                                ? Ability.Jump
+                                : throw new InvalidDataException($"Research '{id}' lists an unknown ability.");
+                            if (ua.Contains(ability)) throw new InvalidDataException($"Research '{id}' lists an ability twice.");
+                            ua.Add(ability);
+                        }
+                    }
+                    if (um.Count + ur.Count + ub.Count + ua.Count == 0) throw new InvalidDataException($"Research '{id}' unlocks nothing.");
+                    research.Add(new ResearchDef(research.Count, id, cost, requires.ToArray(), um.ToArray(), ur.ToArray(), ub.ToArray(), ua.ToArray()));
                 }
 
                 // Requirements must form a DAG, otherwise some node could never be researched.
@@ -286,8 +337,87 @@ public sealed class ContentDb
                 }
             }
 
-            return new ContentDb(items, machines, recipes, belts, research);
+            GalaxyRules? galaxy = null;
+            if (root.TryGetProperty("galaxy", out var g))
+            {
+                RequireObject(g, "galaxy", "system_count", "spacing_cells", "lanes_per_system", "system_radius_cells");
+                galaxy = new GalaxyRules(
+                    Int(g, "system_count", "galaxy", 2, MaxSystems),
+                    Int(g, "spacing_cells", "galaxy", 100, 2000),
+                    Int(g, "lanes_per_system", "galaxy", 1, 4),
+                    Int(g, "system_radius_cells", "galaxy", 20, 400));
+            }
+
+            var archetypes = new List<ArchetypeDef>();
+            if (root.TryGetProperty("archetypes", out _))
+            {
+                var archetypeIds = new HashSet<string>();
+                foreach (var e in Array(root, "archetypes"))
+                {
+                    RequireObject(e, "archetype", "id", "weight", "home", "distance_cells", "deposits");
+                    string id = Id(e, "archetype");
+                    if (!archetypeIds.Add(id)) throw new InvalidDataException($"Duplicate archetype '{id}'.");
+                    if (!allIds.Add(id)) throw new InvalidDataException($"Id '{id}' is used twice across machines, recipes, belts, research and archetypes.");
+
+                    bool home = false;
+                    if (e.TryGetProperty("home", out var h))
+                    {
+                        if (h.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) throw new InvalidDataException($"Archetype '{id}' home must be true or false.");
+                        home = h.GetBoolean();
+                    }
+                    int weight = Int(e, "weight", id, home ? 0 : 1, 1000);
+                    var (dmin, dmax) = Range(e, "distance_cells", id, 1, 400);
+
+                    var specs = new List<DepositSpec>();
+                    foreach (var s in Array(e, "deposits"))
+                    {
+                        RequireObject(s, "deposit spec", "item", "count", "amount");
+                        string item = Str(s, "item", $"deposits of '{id}'");
+                        if (!itemIds.TryGetValue(item, out int itemIndex)) throw new InvalidDataException($"Archetype '{id}' uses unknown item '{item}'.");
+                        var (cmin, cmax) = Range(s, "count", id, 0, 16);
+                        var (amin, amax) = Range(s, "amount", id, 1, 1_000_000);
+                        specs.Add(new DepositSpec(itemIndex, cmin, cmax, amin, amax));
+                    }
+                    if (specs.Count == 0 || specs.Count > 8) throw new InvalidDataException($"Archetype '{id}' needs 1 to 8 deposit specs.");
+                    archetypes.Add(new ArchetypeDef(archetypes.Count, id, weight, home, dmin, dmax, specs.ToArray()));
+                }
+            }
+
+            ItemStack[] jumpCost = System.Array.Empty<ItemStack>();
+            if (root.TryGetProperty("jump_cost", out _)) jumpCost = Stacks(root, "jump_cost", "jump_cost", itemIds, allowEmpty: true, max: MaxStack);
+
+            if (galaxy is not null)
+            {
+                if (archetypes.Count(a => a.IsHome) != 1) throw new InvalidDataException("A galaxy needs exactly one home archetype.");
+                if (!archetypes.Any(a => !a.IsHome && a.Weight > 0)) throw new InvalidDataException("A galaxy needs at least one non-home archetype with a weight.");
+                foreach (var a in archetypes)
+                    if (a.DistanceMax > galaxy.SystemRadiusCells) throw new InvalidDataException($"Archetype '{a.Id}' places deposits outside the system radius.");
+            }
+            else if (archetypes.Count > 0) throw new InvalidDataException("Archetypes need a galaxy section.");
+
+            return new ContentDb(items, machines, recipes, belts, research, galaxy, archetypes, jumpCost);
         }
+    }
+
+    public const int MaxSystems = 64;
+
+    private static int Int(JsonElement e, string name, string owner, int min, int max)
+    {
+        if (!e.TryGetProperty(name, out var v) || v.ValueKind != JsonValueKind.Number || !v.TryGetInt32(out int n) || n < min || n > max)
+            throw new InvalidDataException($"'{name}' in {owner} must be an integer from {min} to {max}.");
+        return n;
+    }
+
+    private static (int Min, int Max) Range(JsonElement e, string name, string owner, int min, int max)
+    {
+        if (!e.TryGetProperty(name, out var v) || v.ValueKind != JsonValueKind.Array || v.GetArrayLength() != 2)
+            throw new InvalidDataException($"'{name}' in {owner} must be [min, max].");
+        var items = v.EnumerateArray().ToArray();
+        if (items.Any(i => i.ValueKind != JsonValueKind.Number || !i.TryGetInt32(out _)))
+            throw new InvalidDataException($"'{name}' in {owner} must hold integers.");
+        int a = items[0].GetInt32(), b = items[1].GetInt32();
+        if (a < min || b > max || a > b) throw new InvalidDataException($"'{name}' in {owner} must satisfy {min} <= min <= max <= {max}.");
+        return (a, b);
     }
 
     public static ContentDb FromFile(string path) => FromJson(File.ReadAllText(path));
@@ -384,7 +514,21 @@ public sealed class ContentDb
             Mix(r.UnlockMachines.Length); foreach (int q in r.UnlockMachines) Mix(q);
             Mix(r.UnlockRecipes.Length); foreach (int q in r.UnlockRecipes) Mix(q);
             Mix(r.UnlockBelts.Length); foreach (var q in r.UnlockBelts) Mix((int)q);
+            Mix(r.UnlockAbilities.Length); foreach (var q in r.UnlockAbilities) Mix((int)q);
         }
+        if (Galaxy is { } g)
+        {
+            Mix(g.SystemCount); Mix(g.SpacingCells); Mix(g.LanesPerSystem); Mix(g.SystemRadiusCells);
+        }
+        else Mix(-1);
+        Mix(Archetypes.Count);
+        foreach (var a in Archetypes)
+        {
+            MixStr(a.Id); Mix(a.Weight); Mix(a.IsHome ? 1 : 0); Mix(a.DistanceMin); Mix(a.DistanceMax);
+            Mix(a.Deposits.Length);
+            foreach (var d in a.Deposits) { Mix(d.Item); Mix(d.CountMin); Mix(d.CountMax); Mix(d.AmountMin); Mix(d.AmountMax); }
+        }
+        MixStacks(JumpCost);
         return h;
     }
 }

@@ -16,6 +16,7 @@ namespace Starfoundry.Game;
 public partial class Play : Node3D
 {
     private const int Player = 0;
+    private const ulong GalaxySeed = 20261120UL;
     private const int FloatsPerItem = 16;
     private const float CellUnits = Units.CellUnits;
 
@@ -70,22 +71,24 @@ public partial class Play : Node3D
     private long _botStartedAt;
     private bool _botDone;
     private bool _outOfRangeSeen;
+    private int _scansDone, _depositsRevealed, _jumpsStarted;
     private (int X, int Y, int Z) _botIntent;
 
     public override void _Ready()
     {
         var args = OS.GetCmdlineUserArgs();
-        _demo = args.Contains("--demo");
+        _demo = args.Contains("--demo") || args.Contains("--explore-demo");
         _shotPath = args.FirstOrDefault(a => a.StartsWith("--shot="))?["--shot=".Length..];
         string? sp = args.FirstOrDefault(a => a.StartsWith("--speed="));
         if (sp != null && int.TryParse(sp["--speed=".Length..], out int s)) _demoSpeed = Math.Clamp(s, 1, 200);
 
         string path = ProjectSettings.GlobalizePath("res://../content/core.json");
         _content = ContentDb.FromFile(path);
-        _world = new SimWorld(_content, GameMode.Campaign);
-        _world.Network.AddDeposit(_content.ItemIndex("core:iron_ore"), 4000, -7, 1, 3);
-        _world.Network.AddDeposit(_content.ItemIndex("core:carbon"), 1500, -7, 1, -6);
-        _world.Network.EnsurePlayer(Player); // the ship starts at the origin
+        _exploreDemo = args.Contains("--explore-demo");
+        // A generated galaxy: the same seed always gives the same systems. Home's deposits start revealed; scan to find the rest.
+        _world = SimWorld.CreateGalaxy(_content, _exploreDemo ? GameMode.Sandbox : GameMode.Campaign, GalaxySeed);
+        _world.Network.EnsurePlayer(Player); // the ship starts at the origin, inside Home
+        _selectedDeposit = RevealedDeposits().FirstOrDefault();
 
         BuildPalette();
         BuildScene();
@@ -150,7 +153,13 @@ public partial class Play : Node3D
         _toastLabel = MakeLabel(layer, new Vector2(12, 540));
         _help = MakeLabel(layer, new Vector2(12, 640));
         _help.Text = "LMB drag: belt   LMB: place   RMB: remove   1-9: build item   Tab: recipe   R: rotate   Z/X: layer\n" +
-                     "WASD: fly   Space/C: up/down   wheel: zoom   M: mine   [ ]: deposit   F: refinery   T: research   P: pause   +/-: speed";
+                     "WASD: fly   Space/C: up/down   wheel: zoom   M: mine   [ ]: deposit   F: refinery   T: research   P: pause   +/-: speed\n" +
+                     "K: scan   G: star map   Up/Down: choose system   J: jump";
+
+        _map = new MapPanel { Position = new Vector2(940, 8), Visible = false };
+        layer.AddChild(_map);
+        _mapList = MakeLabel(layer, new Vector2(900, 336));
+        _mapList.Visible = false;
 
         // Deposits: spheres where the simulation says they are, shrinking as they run dry.
         for (int d = 0; d < Net.DepositCount; d++)
@@ -211,7 +220,8 @@ public partial class Play : Node3D
         _ship.Position = pos;
         _buildRange.Position = pos;
         _mineRange.Position = pos;
-        _target = _target.Lerp(pos, 1f - MathF.Exp(-6f * dt));
+        // After a jump the camera snaps to the ship instead of flying hundreds of cells.
+        _target = (_target - pos).LengthSquared() > 100f * 100f ? pos : _target.Lerp(pos, 1f - MathF.Exp(-6f * dt));
         PlaceCamera();
 
         if (_demo) return;
@@ -358,8 +368,73 @@ public partial class Play : Node3D
         {
             float f = Net.DepositInitial(d) == 0 ? 0 : (float)Net.DepositRemaining(d) / Net.DepositInitial(d);
             _depositNodes[d].Scale = Vector3.One * Mathf.Max(0.15f, 0.35f + 0.65f * f);
-            _depositNodes[d].Visible = Net.DepositRemaining(d) > 0;
+            _depositNodes[d].Visible = Net.IsDepositRevealed(d) && Net.DepositRemaining(d) > 0; // hidden until scanned
         }
+    }
+
+    /// <summary>Deposits the player knows about, nearest first, so the selection starts on the closest one.</summary>
+    private List<int> RevealedDeposits()
+    {
+        var ship = ShipPosition(0f);
+        return Enumerable.Range(0, Net.DepositCount)
+            .Where(d => Net.IsDepositRevealed(d) && Net.DepositRemaining(d) > 0)
+            .OrderBy(d => { var p = Net.DepositPosition(d); return (new Vector3(p.X, p.Y, p.Z) - ship).LengthSquared(); })
+            .ThenBy(d => d)
+            .ToList();
+    }
+
+    private void CycleDeposit(int step)
+    {
+        var list = RevealedDeposits().OrderBy(d => d).ToList();
+        if (list.Count == 0) { Toast("No known deposits here. Scan with K."); return; }
+        int i = list.IndexOf(_selectedDeposit);
+        _selectedDeposit = list[((i < 0 ? 0 : i + step) % list.Count + list.Count) % list.Count];
+    }
+
+    // ---- exploration --------------------------------------------------------------------------------
+
+    private MapPanel _map = null!;
+    private Label _mapList = null!;
+    private bool _mapOpen;
+    private int _selectedSystem = -1;
+    private bool _exploreDemo;
+
+    private IEnumerable<int> KnownSystems() => Enumerable.Range(0, Net.SystemCount).Where(Net.IsSystemKnown);
+
+    private void CycleSystem(int step)
+    {
+        var list = KnownSystems().ToList();
+        if (list.Count == 0) return;
+        int i = list.IndexOf(_selectedSystem);
+        _selectedSystem = list[((i < 0 ? 0 : i + step) % list.Count + list.Count) % list.Count];
+    }
+
+    private void SendJump()
+    {
+        if (_selectedSystem < 0) { Toast("Open the map with G and choose a system with Up/Down."); return; }
+        Send(new Jump(_selectedSystem));
+    }
+
+    private string SystemLine(int s)
+    {
+        var g = Net.Galaxy!;
+        var sys = g.Systems[s];
+        int cur = Net.CurrentSystem(Player);
+        var ship = ShipPosition(0f);
+        float dist = (new Vector3(sys.X, sys.Y, sys.Z) - ship).Length();
+        string status = Net.IsSystemVisited(s) ? "visited" : "known";
+        string lane = cur >= 0 && g.HasLane(cur, s) ? "lane" : "    ";
+        return $"{(s == _selectedSystem ? ">" : " ")}{(s == cur ? "*" : " ")} {sys.Name,-9} {Nice(_content.Archetypes[sys.Archetype].Id),-12} {dist,6:F0} cells  {status,-8} {lane}";
+    }
+
+    private void UpdateMap()
+    {
+        _map.Visible = _mapOpen;
+        _mapList.Visible = _mapOpen;
+        if (!_mapOpen || Net.Galaxy is null) return;
+        if (_selectedSystem < 0 || !Net.IsSystemKnown(_selectedSystem)) _selectedSystem = KnownSystems().FirstOrDefault();
+        _map.Show(Net.Galaxy, Net.IsSystemKnown, Net.IsSystemVisited, Net.CurrentSystem(Player), _selectedSystem);
+        _mapList.Text = "STAR MAP  (* you are here, > selected)\n" + string.Join("\n", KnownSystems().Select(SystemLine));
     }
 
     // ---- commands and results --------------------------------------------------------------------
@@ -378,6 +453,11 @@ public partial class Play : Node3D
         Reject.UnknownDeposit => "no such deposit",
         Reject.Depleted => "that deposit is empty",
         Reject.ResearchUnavailable => "research not available",
+        Reject.NotDiscovered => "not discovered yet: scan (K) near it",
+        Reject.OnCooldown => "the scanner is recharging",
+        Reject.NoLane => "no lane from this system to that one",
+        Reject.NotInASystem => "you are in deep space: fly back to a system",
+        Reject.Busy => "a jump is already charging",
         _ => r.ToString(),
     };
 
@@ -388,9 +468,22 @@ public partial class Play : Node3D
             if (!r.Ok)
             {
                 if (r.Reject == Reject.OutOfRange) _outOfRangeSeen = true;
-                if (r.Command is PlaceSegment or PlaceMachine or RemoveSegment or RemoveMachine or StartMining or SetResearch or SetShipRecipe)
+                if (r.Command is PlaceSegment or PlaceMachine or RemoveSegment or RemoveMachine or StartMining or SetResearch or SetShipRecipe
+                    or Scan or Jump)
                     Toast($"{r.Command.GetType().Name}: {Why(r.Reject)}");
                 continue;
+            }
+            if (r.Command is Scan)
+            {
+                _scansDone++;
+                _depositsRevealed += r.RevealedDeposits.Count;
+                Toast(r.RevealedDeposits.Count == 0 ? "Scan: nothing new in range." : $"Scan: {r.RevealedDeposits.Count} deposit(s) revealed.");
+                if (r.RevealedDeposits.Count > 0) _selectedDeposit = RevealedDeposits().FirstOrDefault();
+            }
+            else if (r.Command is Jump j)
+            {
+                _jumpsStarted++;
+                Toast($"Charging the jump to {Net.Galaxy!.Systems[j.System].Name}...");
             }
             if (r.Command is PlaceSegment && r.Created.Count == 1) AutoLinkSegment(r.Created[0]);
             else if (r.Command is PlaceMachine pm && r.CreatedMachines.Count == 1) AutoLinkMachine(r.CreatedMachines[0], pm);
@@ -456,10 +549,18 @@ public partial class Play : Node3D
         if (role == MachineRole.Drill)
         {
             var item = _content.Recipes[pm.Recipe].Outputs[0].Item;
+            // The best known deposit of that item that is within the drill's reach.
             int best = -1;
             for (int d = 0; d < Net.DepositCount; d++)
-                if (Net.DepositItem(d) == item && (best < 0 || Net.DepositRemaining(d) > Net.DepositRemaining(best))) best = d;
+            {
+                if (Net.DepositItem(d) != item || !Net.IsDepositRevealed(d) || Net.DepositRemaining(d) <= 0) continue;
+                var dp = Net.DepositPosition(d);
+                long dx = dp.X - mi.X, dy = dp.Y - mi.Y, dz = dp.Z - mi.Z;
+                if (dx * dx + dy * dy + dz * dz > (long)ExplorationRules.DrillRangeCells * ExplorationRules.DrillRangeCells) continue;
+                if (best < 0 || Net.DepositRemaining(d) > Net.DepositRemaining(best)) best = d;
+            }
             if (best >= 0) Send(new LinkDeposit(machine, best));
+            else Toast("No known deposit of that ore within reach of the drill. Scan (K) or build closer.");
         }
 
         bool fed = false;
@@ -577,8 +678,13 @@ public partial class Play : Node3D
                 case Key.Z: _cursorY--; break;
                 case Key.X: _cursorY++; break;
                 case Key.M: ToggleMining(); break;
-                case Key.Bracketleft: _selectedDeposit = (_selectedDeposit + Net.DepositCount - 1) % Net.DepositCount; break;
-                case Key.Bracketright: _selectedDeposit = (_selectedDeposit + 1) % Net.DepositCount; break;
+                case Key.Bracketleft: CycleDeposit(-1); break;
+                case Key.Bracketright: CycleDeposit(1); break;
+                case Key.K: Send(new Scan()); break;
+                case Key.G: _mapOpen = !_mapOpen; break;
+                case Key.J: SendJump(); break;
+                case Key.Up: CycleSystem(-1); break;
+                case Key.Down: CycleSystem(1); break;
                 case Key.F: ToggleRefinery(); break;
                 case Key.T: CycleResearch(); break;
                 case Key.P: _paused = !_paused; break;
@@ -618,14 +724,18 @@ public partial class Play : Node3D
         int ticks = _demo ? _demoSpeed : _speed;
         for (int i = 0; i < ticks; i++)
         {
-            if (_demo) BotThink();
+            if (_demo) { if (_exploreDemo) ExploreThink(); else BotThink(); }
             _world.Step();
             CollectResults();
             if (_botDone) break;
         }
         if (Net.StructureVersion != _structureVersion) RebuildGeometry();
         _sampleCount = Net.FillSamples(_samples);
-        if (_botDone && _finishCountdown == 0) _finishCountdown = 4; // let a few frames render before the screenshot
+        if (_botDone && _finishCountdown == 0)
+        {
+            if (_exploreDemo) _mapOpen = true;
+            _finishCountdown = 6; // let a few frames render before the screenshot
+        }
     }
 
     private int _finishCountdown;
@@ -646,6 +756,7 @@ public partial class Play : Node3D
         UpdateMachines();
         UpdateDeposits();
         UpdateShip(alpha, (float)delta);
+        UpdateMap();
 
         if (!_demo)
         {
@@ -659,7 +770,10 @@ public partial class Play : Node3D
             UpdateDragGhost();
         }
         UpdateHud();
-        if (_finishCountdown > 0 && --_finishCountdown == 0) FinishDemo();
+        if (_finishCountdown > 0 && --_finishCountdown == 0)
+        {
+            if (_exploreDemo) FinishExplore(); else FinishDemo();
+        }
     }
 
     private void UpdateDragGhost()
@@ -705,6 +819,17 @@ public partial class Play : Node3D
         bool inRange = Net.InMineRange(Player, _selectedDeposit);
         sb.Append($"SHIP ({ship.X:F1}, {ship.Y:F1}, {ship.Z:F1})   deposit {_selectedDeposit} is {distance:F1} cells away (mining range {PlayerRules.MineRangeCells}): " +
                   $"{(inRange ? "in range" : "out of range, fly closer")}   build range {PlayerRules.BuildRangeCells}").Append('\n');
+
+        if (Net.Galaxy is { } galaxy)
+        {
+            int cur = Net.CurrentSystem(Player);
+            string where = cur >= 0 ? $"{galaxy.Systems[cur].Name} ({Nice(_content.Archetypes[galaxy.Systems[cur].Archetype].Id)})" : "deep space";
+            string scanner = Net.ScanCooldown(Player) > 0 ? $"scanner recharging ({Net.ScanCooldown(Player) / (float)Units.TicksPerSecond:F0}s)" : "scanner ready (K)";
+            string drive = Net.JumpRemaining(Player) > 0
+                ? $"JUMPING to {galaxy.Systems[Net.JumpTarget(Player)].Name} in {Net.JumpRemaining(Player) / (float)Units.TicksPerSecond:F1}s"
+                : Net.HasAbility(Ability.Jump) ? "jump drive ready (G map, J jump)" : "jump drive locked: research Jump Drive";
+            sb.Append($"SYSTEM {where}   |   {scanner}   |   {drive}   |   visited {Enumerable.Range(0, galaxy.Systems.Count).Count(Net.IsSystemVisited)}/{galaxy.Systems.Count}").Append('\n');
+        }
 
         if (Net.CurrentResearch >= 0)
         {
@@ -800,6 +925,80 @@ public partial class Play : Node3D
             case 15: Step(true, () => Send(new SetResearch(logistics))); break;
             case 16: Step(Net.IsResearched(logistics), () => { _botDone = true; }); break;
         }
+    }
+
+    // ---- explore demo ------------------------------------------------------------------------------
+    // --explore-demo: a sandbox bot that scans, jumps lane by lane until seven systems are visited, then shows the map.
+
+    private readonly HashSet<int> _scannedHere = new();
+    private const int ExploreTarget = 7;
+
+    private void ExploreThink()
+    {
+        if (_botDone || _world.PendingCommands > 0 || Net.JumpRemaining(Player) > 0) return;
+        int cur = Net.CurrentSystem(Player);
+        if (cur < 0) { _botDone = true; return; }
+        if (_botStartedAt == 0) _botStartedAt = Math.Max(1, _world.Tick);
+
+        if (!_scannedHere.Contains(cur))
+        {
+            if (Net.ScanCooldown(Player) > 0) return; // wait for the scanner
+            _scannedHere.Add(cur);
+            Send(new Scan());
+            return;
+        }
+
+        int visited = Enumerable.Range(0, Net.SystemCount).Count(Net.IsSystemVisited);
+        if (visited >= ExploreTarget) { _botDone = true; return; }
+
+        int next = NextHop(cur);
+        if (next < 0) { _botDone = true; return; }
+        Send(new Jump(next));
+    }
+
+    /// <summary>First jump on the shortest path (over visited systems) to the nearest known system that has not been visited.</summary>
+    private int NextHop(int from)
+    {
+        var g = Net.Galaxy!;
+        var parent = new Dictionary<int, int> { [from] = -1 };
+        var queue = new Queue<int>();
+        queue.Enqueue(from);
+        while (queue.Count > 0)
+        {
+            int s = queue.Dequeue();
+            foreach (int n in g.Systems[s].Lanes)
+            {
+                if (parent.ContainsKey(n) || !Net.IsSystemKnown(n)) continue;
+                parent[n] = s;
+                if (!Net.IsSystemVisited(n))
+                {
+                    int hop = n;
+                    while (parent[hop] != from) hop = parent[hop];
+                    return hop;
+                }
+                queue.Enqueue(n);
+            }
+        }
+        return -1;
+    }
+
+    private void FinishExplore()
+    {
+        var net = Net;
+        int visited = Enumerable.Range(0, net.SystemCount).Count(net.IsSystemVisited);
+        int known = Enumerable.Range(0, net.SystemCount).Count(net.IsSystemKnown);
+        int revealed = Enumerable.Range(0, net.DepositCount).Count(net.IsDepositRevealed);
+        double seconds = (_world.Tick - _botStartedAt) / (double)Units.TicksPerSecond;
+        GD.Print($"EXPLORE visited={visited}/{net.SystemCount} known={known} scans={_scansDone} jumps={_jumpsStarted} " +
+                 $"deposits_revealed={revealed}/{net.DepositCount} sim_seconds={seconds:F0}");
+        try { _world.ValidateInvariants(); GD.Print("EXPLORE invariants=ok"); }
+        catch (Exception e) { GD.PrintErr("EXPLORE invariants=FAILED " + e.Message); }
+
+        _mapOpen = true;
+        UpdateMap();
+        UpdateHud();
+        if (_shotPath != null) GetViewport().GetTexture().GetImage().SavePng(_shotPath);
+        GetTree().Quit();
     }
 
     /// <summary>Flies the ship towards a cell (cells), sending a movement command only when the intent changes.</summary>
