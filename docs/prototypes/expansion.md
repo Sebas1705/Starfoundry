@@ -64,7 +64,7 @@ Measured with three fed turrets, four walls, two repair bays and four upgrades; 
 | 20261120 | 30 | 34 | 30 | 30 | 358 |
 | 1 | 30 | 35 | 30 | 31 | 400 |
 
-The home iron is gone at about 100 minutes in both runs. With the ports the turrets keep their ammo and the base survives four or five more waves, but the first loss stays at wave 30 or 31: the supply stops being the limit and the strength of the waves is. The remote deposits were barely touched (1,957 and 602 ore left of about 2,500 and 1,000 at the start).
+The home iron is gone at about 100 minutes in both runs. With the ports the turrets keep their ammo and the base survives four or five more waves, but the first loss stays at wave 30 or 31: the supply stops being the limit and the strength of the waves is. The remote lines delivered a few hundred items and the remote deposits were far from empty (1,957 and 602 ore left at the end).
 
 Pinned by a test (default seed): the ammo lines are switched, the remote lines deliver at least 200 items, and the base sees at least three more waves than without. Unit tests cover the role and its numbers, the unlock, moving ingots down to the reserve, never taking what a full belt cannot carry, taking only from its owner's hold, carrying only its item and needing a belt, refusing an input belt, feeding an assembler from the hold deterministically, and content validation. 349 tests.
 
