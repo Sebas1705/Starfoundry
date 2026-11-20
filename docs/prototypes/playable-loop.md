@@ -31,9 +31,9 @@ Result on this machine: Logistics researched after 2.9 simulated minutes (80 ore
 ## Known limitations
 - All numbers are placeholders; no balance pass yet.
 - The ship now flies and has ranges ([world and ship](world-and-ship.md)), but there is no collision, inertia or fuel, and the deposits are a fixed starter field.
-- English only in the HUD; es/en strings come with the UI work.
+- The HUD is now bilingual (es/en), see [polish and controls](polish-controls.md).
 - Mouse picking and the HUD were verified through the bot and screenshots, not by a human at the keyboard.
-- Hold capacity can trap a player who lets ore fill it (the HUD shows the hold but does not warn yet).
+- Hold capacity can trap a player who lets ore fill it; the interface now warns when it is full.
 - Machine inputs from several belts are still not served fairly, machines are one cell, and there is no power or heat.
 
 ## Run it

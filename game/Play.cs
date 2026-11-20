@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using Godot;
 using Starfoundry.Sim;
+using Starfoundry.Ui;
 
 namespace Starfoundry.Game;
 
@@ -36,19 +37,19 @@ public partial class Play : Node3D
     private Camera3D _camera = null!;
     private float _yaw = 0.2f, _distance = 15f;
     private Vector3 _target = new(7f, 0f, 2f);
-    private MultiMeshInstance3D? _slabNode, _itemNode, _machineNode;
+    private MultiMeshInstance3D? _slabNode, _itemNode;
     private MultiMesh _items = null!;
-    private MultiMesh? _machines;
+    private Node3D? _machineRoot;
+    private readonly Dictionary<int, Node3D> _machineModels = new();
+    private double _animTime;
     private float[] _itemBuf = Array.Empty<float>();
-    private float[] _machineBuf = Array.Empty<float>();
     private ItemSample[] _samples = Array.Empty<ItemSample>();
     private int _sampleCount;
     private int[] _machineIds = Array.Empty<int>();
     private (float Ox, float Oy, float Oz, float Dx, float Dy, float Dz, int Length, int Speed)[] _segs = Array.Empty<(float, float, float, float, float, float, int, int)>();
     private int _structureVersion = -1;
-    private readonly List<MeshInstance3D> _depositNodes = new();
+    private readonly List<Node3D> _depositNodes = new();
     private MeshInstance3D _ghost = null!, _dragGhost = null!;
-    private Label _hud = null!, _toastLabel = null!, _help = null!;
 
     // Interaction
     private readonly List<BuildItem> _palette = new();
@@ -95,9 +96,10 @@ public partial class Play : Node3D
 
         BuildPalette();
         BuildScene();
+        BuildUi();
         BuildThreatVisuals();
         RebuildGeometry();
-        Toast("Mine ore with M, refine it with F, build with 1-9. Everything costs items.");
+        if (!_demo) Toast(L("toast.welcome"));
     }
 
     // ---- setup ---------------------------------------------------------------------------------
@@ -151,41 +153,19 @@ public partial class Play : Node3D
         AddChild(_ghost);
         AddChild(_dragGhost);
 
-        var layer = new CanvasLayer();
-        AddChild(layer);
-        _hud = MakeLabel(layer, new Vector2(12, 8));
-        _toastLabel = MakeLabel(layer, new Vector2(12, 540));
-        _help = MakeLabel(layer, new Vector2(12, 640));
-        _help.Text = "LMB drag: belt   LMB: place   RMB: remove   1-9: build item   Tab: recipe   R: rotate   Z/X: layer\n" +
-                     "WASD: fly   Space/C: up/down   wheel: zoom   M: mine   [ ]: deposit   F: refinery   T: research   P: pause   +/-: speed\n" +
-                     "K: scan   G: star map   Up/Down: choose system   J: jump   V: weapons on/off";
-
-        _map = new MapPanel { Position = new Vector2(940, 8), Visible = false };
-        layer.AddChild(_map);
-        _mapList = MakeLabel(layer, new Vector2(900, 336));
-        _mapList.Visible = false;
-
         // Deposits: spheres where the simulation says they are, shrinking as they run dry.
         for (int d = 0; d < Net.DepositCount; d++)
         {
             var color = Net.DepositItem(d) == _content.ItemIndex("core:iron_ore") ? new Color(0.65f, 0.4f, 0.3f) : new Color(0.25f, 0.25f, 0.28f);
             var (dx, dy, dz) = Net.DepositPosition(d);
-            var n = new MeshInstance3D
-            {
-                Mesh = new SphereMesh { Radius = 1.5f, Height = 3f },
-                MaterialOverride = new StandardMaterial3D { AlbedoColor = color, Roughness = 0.9f },
-                Position = new Vector3(dx, dy, dz),
-            };
+            var n = Models.Deposit(color, d);
+            n.Position = new Vector3(dx, dy, dz);
             AddChild(n);
             _depositNodes.Add(n);
         }
 
         // The ship, with discs showing where it can build (big) and mine (small).
-        _ship = new MeshInstance3D
-        {
-            Mesh = new BoxMesh { Size = new Vector3(0.8f, 0.35f, 1.3f) },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.9f, 0.9f, 0.95f), Roughness = 0.4f },
-        };
+        _ship = Models.Ship();
         AddChild(_ship);
         _buildRange = RangeDisc(PlayerRules.BuildRangeCells, new Color(0.4f, 0.7f, 1f, 0.07f));
         _mineRange = RangeDisc(PlayerRules.MineRangeCells, new Color(1f, 0.6f, 0.2f, 0.12f));
@@ -221,6 +201,17 @@ public partial class Play : Node3D
     private void UpdateShip(float alpha, float dt)
     {
         var pos = ShipPosition(_demo ? 0f : alpha);
+        // The nose points where the ship is heading; it eases round and holds its heading while parked.
+        if (Net.HasPlayer(Player))
+        {
+            var pi = Net.GetPlayerInfo(Player);
+            if (pi.MoveX != 0 || pi.MoveZ != 0)
+                _shipYaw = Mathf.LerpAngle(_shipYaw, MathF.Atan2(-pi.MoveZ, pi.MoveX), 1f - MathF.Exp(-10f * dt));
+            bool thrusting = pi.MoveX != 0 || pi.MoveY != 0 || pi.MoveZ != 0;
+            Models.Animate(_ship, _animTime, thrusting);
+            Models.SetDamage(_ship, 0f);
+        }
+        _ship.Rotation = new Vector3(0, _shipYaw, 0);
         _ship.Position = pos;
         _ship.Visible = !(Net.HasPlayer(Player) && Net.GetPlayerInfo(Player).RespawnRemaining > 0); // hidden while being rebuilt
         _buildRange.Position = pos;
@@ -228,36 +219,17 @@ public partial class Play : Node3D
         // After a jump the camera snaps to the ship instead of flying hundreds of cells.
         _target = (_target - pos).LengthSquared() > 100f * 100f ? pos : _target.Lerp(pos, 1f - MathF.Exp(-6f * dt));
         PlaceCamera();
-
-        if (_demo) return;
-        // Held keys become movement intents; only changes are sent, so a held key is one command on press and one on release.
-        int dx = (Input.IsKeyPressed(Key.D) ? 1 : 0) - (Input.IsKeyPressed(Key.A) ? 1 : 0);
-        int dz = (Input.IsKeyPressed(Key.S) ? 1 : 0) - (Input.IsKeyPressed(Key.W) ? 1 : 0);
-        int dy = (Input.IsKeyPressed(Key.Space) ? 1 : 0) - (Input.IsKeyPressed(Key.C) ? 1 : 0);
-        if ((dx, dy, dz) != _lastIntent)
-        {
-            _lastIntent = (dx, dy, dz);
-            Send(new SetMovement(dx, dy, dz));
-        }
+        UpdateShipControl();
     }
 
-    private MeshInstance3D _ship = null!, _buildRange = null!, _mineRange = null!;
+    private Node3D _ship = null!;
+    private MeshInstance3D _buildRange = null!, _mineRange = null!;
+    private float _shipYaw;
     private (int X, int Y, int Z) _lastIntent;
-
-    private static Label MakeLabel(CanvasLayer layer, Vector2 pos)
-    {
-        var l = new Label { Position = pos };
-        l.AddThemeColorOverride("font_color", Colors.White);
-        l.AddThemeColorOverride("font_outline_color", Colors.Black);
-        l.AddThemeConstantOverride("outline_size", 5);
-        l.AddThemeFontSizeOverride("font_size", 15);
-        layer.AddChild(l);
-        return l;
-    }
 
     private void PlaceCamera()
     {
-        const float pitch = 0.95f; // radians above the horizon
+        float pitch = _pitch; // radians above the horizon
         var offset = new Vector3(MathF.Sin(_yaw) * MathF.Cos(pitch), MathF.Sin(pitch), MathF.Cos(_yaw) * MathF.Cos(pitch)) * _distance;
         _camera.LookAtFromPosition(_target + offset, _target);
     }
@@ -282,7 +254,7 @@ public partial class Play : Node3D
     {
         _slabNode?.QueueFree();
         _itemNode?.QueueFree();
-        _machineNode?.QueueFree();
+        _machineRoot?.QueueFree();
 
         _segs = new (float, float, float, float, float, float, int, int)[Net.SegmentIdLimit];
         var alive = new List<int>();
@@ -328,56 +300,52 @@ public partial class Play : Node3D
         AddChild(_itemNode);
 
         _machineIds = Enumerable.Range(0, Net.MachineIdLimit).Where(Net.IsMachineAlive).ToArray();
-        _machines = new MultiMesh
+        _machineRoot = new Node3D();
+        AddChild(_machineRoot);
+        _machineModels.Clear();
+        foreach (int id in _machineIds)
         {
-            TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true,
-            Mesh = new BoxMesh { Size = Vector3.One, Material = VertexMaterial() }, InstanceCount = _machineIds.Length,
-        };
-        _machineBuf = new float[_machineIds.Length * FloatsPerItem];
-        _machineNode = new MultiMeshInstance3D { Multimesh = _machines };
-        AddChild(_machineNode);
+            var m = Net.GetMachineInfo(id);
+            var model = Models.Machine(_content.Machines[m.Type].Id);
+            model.Position = CellCenter(m.X, m.Y, m.Z);
+            _machineRoot.AddChild(model);
+            _machineModels[id] = model;
+        }
 
         _structureVersion = Net.StructureVersion;
     }
 
-    private Color MachineColor(MachineInfo m, bool dim)
-    {
-        var role = _content.Machines[m.Type].Role;
-        if (role == MachineRole.Turret)
-        {
-            var t = new Color(0.95f, 0.85f, 0.2f) * (m.InputItems > 0 ? 1f : 0.45f); // dim when out of ammo
-            return Damaged(m, new Color(t.R, t.G, t.B));
-        }
-        var c = role switch
-        {
-            MachineRole.Drill => new Color(0.85f, 0.55f, 0.20f),
-            MachineRole.Lab => new Color(0.65f, 0.35f, 0.85f),
-            MachineRole.Depot => new Color(0.30f, 0.75f, 0.45f),
-            _ => _content.Machines[m.Type].Id == "core:smelter" ? new Color(0.80f, 0.25f, 0.20f) : new Color(0.25f, 0.45f, 0.85f),
-        };
-        float k = dim ? 0.45f : 1f;
-        return Damaged(m, new Color(c.R * k, c.G * k, c.B * k));
-    }
-
-    /// <summary>Tints a machine red as it loses hit points.</summary>
-    private Color Damaged(MachineInfo m, Color c)
-    {
-        float max = _content.Machines[m.Type].Hp;
-        float lost = max <= 0 ? 0f : 1f - Math.Clamp(m.Hp / max, 0f, 1f);
-        return new Color(Mathf.Lerp(c.R, 1f, lost * 0.7f), Mathf.Lerp(c.G, 0.1f, lost * 0.8f), Mathf.Lerp(c.B, 0.1f, lost * 0.8f));
-    }
-
     private void UpdateMachines()
     {
-        if (_machines is null) return;
-        for (int i = 0; i < _machineIds.Length; i++)
+        if (_machineRoot is null) return;
+        var enemies = _content.Threat is null ? null : Net.Enemies();
+        foreach (int id in _machineIds)
         {
-            var m = Net.GetMachineInfo(_machineIds[i]);
-            var role = _content.Machines[m.Type].Role;
-            bool active = m.Crafting || (role == MachineRole.Lab && Net.CurrentResearch >= 0) || role == MachineRole.Depot;
-            Write(_machineBuf, i * FloatsPerItem, Vector3.One * 0.9f, CellCenter(m.X, m.Y, m.Z), MachineColor(m, !active));
+            if (!_machineModels.TryGetValue(id, out var model) || !Net.IsMachineAlive(id)) continue;
+            var m = Net.GetMachineInfo(id);
+            var def = _content.Machines[m.Type];
+            bool active = m.Crafting || (def.Role == MachineRole.Lab && Net.CurrentResearch >= 0) || def.Role == MachineRole.Depot
+                || (def.Role == MachineRole.Drill && m.Deposit >= 0);
+            if (def.Role == MachineRole.Turret) active = m.InputItems > 0; // a dark turret has no ammo
+            Models.Animate(model, _animTime, active);
+            float max = def.Hp;
+            Models.SetDamage(model, max <= 0 ? 0f : 1f - Math.Clamp(m.Hp / max, 0f, 1f));
+
+            if (def.Role == MachineRole.Turret && enemies is not null && enemies.Count > 0)
+            {
+                // Turrets track the nearest enemy; they hold their last aim when none is around.
+                var at = model.Position;
+                float best = float.MaxValue;
+                Vector3 target = at;
+                foreach (var e in enemies)
+                {
+                    var p = new Vector3(e.X, e.Y, e.Z) / CellUnits;
+                    float d2 = (p - at).LengthSquared();
+                    if (d2 < best) { best = d2; target = p; }
+                }
+                if (best < 30f * 30f) Models.Aim(model, target);
+            }
         }
-        _machines.Buffer = _machineBuf;
     }
 
     private void UpdateDeposits()
@@ -404,7 +372,7 @@ public partial class Play : Node3D
     private void CycleDeposit(int step)
     {
         var list = RevealedDeposits().OrderBy(d => d).ToList();
-        if (list.Count == 0) { Toast("No known deposits here. Scan with K."); return; }
+        if (list.Count == 0) { Toast(L("toast.noDeposits")); return; }
         int i = list.IndexOf(_selectedDeposit);
         _selectedDeposit = list[((i < 0 ? 0 : i + step) % list.Count + list.Count) % list.Count];
     }
@@ -429,7 +397,7 @@ public partial class Play : Node3D
 
     private void SendJump()
     {
-        if (_selectedSystem < 0) { Toast("Open the map with G and choose a system with Up/Down."); return; }
+        if (_selectedSystem < 0) { Toast(L("toast.chooseSystem")); return; }
         Send(new Jump(_selectedSystem));
     }
 
@@ -440,9 +408,9 @@ public partial class Play : Node3D
         int cur = Net.CurrentSystem(Player);
         var ship = ShipPosition(0f);
         float dist = (new Vector3(sys.X, sys.Y, sys.Z) - ship).Length();
-        string status = Net.IsSystemVisited(s) ? "visited" : "known";
-        string lane = cur >= 0 && g.HasLane(cur, s) ? "lane" : "    ";
-        return $"{(s == _selectedSystem ? ">" : " ")}{(s == cur ? "*" : " ")} {sys.Name,-9} {Nice(_content.Archetypes[sys.Archetype].Id),-12} {dist,6:F0} cells  {status,-8} {lane}";
+        string status = Net.IsSystemVisited(s) ? L("map.visited") : L("map.known");
+        string lane = cur >= 0 && g.HasLane(cur, s) ? L("map.lane") : "";
+        return $"{(s == _selectedSystem ? ">" : " ")}{(s == cur ? "*" : " ")} {sys.Name,-9} {Loc.Name("arch", _content.Archetypes[sys.Archetype].Id),-14} {dist.ToString("F0", Loc.Culture),5} {status,-9} {lane}";
     }
 
     private void UpdateMap()
@@ -452,7 +420,7 @@ public partial class Play : Node3D
         if (!_mapOpen || Net.Galaxy is null) return;
         if (_selectedSystem < 0 || !Net.IsSystemKnown(_selectedSystem)) _selectedSystem = KnownSystems().FirstOrDefault();
         _map.Show(Net.Galaxy, Net.IsSystemKnown, Net.IsSystemVisited, Net.CurrentSystem(Player), _selectedSystem);
-        _mapList.Text = "STAR MAP  (* you are here, > selected)\n" + string.Join("\n", KnownSystems().Select(SystemLine));
+        _mapList.Text = L("map.title") + "\n" + string.Join("\n", KnownSystems().Select(SystemLine));
     }
 
     // ---- commands and results --------------------------------------------------------------------
@@ -463,19 +431,19 @@ public partial class Play : Node3D
 
     private static string Why(Reject r) => r switch
     {
-        Reject.NotEnoughItems => "not enough items in the hold",
-        Reject.Locked => "locked: research it first",
-        Reject.Overlap => "that cell is taken",
-        Reject.OutOfRange => "too far from the ship",
-        Reject.OutOfBounds => "out of bounds",
-        Reject.UnknownDeposit => "no such deposit",
-        Reject.Depleted => "that deposit is empty",
-        Reject.ResearchUnavailable => "research not available",
-        Reject.NotDiscovered => "not discovered yet: scan (K) near it",
-        Reject.OnCooldown => "the scanner is recharging",
-        Reject.NoLane => "no lane from this system to that one",
-        Reject.NotInASystem => "you are in deep space: fly back to a system",
-        Reject.Busy => "a jump is already charging",
+        Reject.NotEnoughItems => L("why.notEnough"),
+        Reject.Locked => L("why.locked"),
+        Reject.Overlap => L("why.overlap"),
+        Reject.OutOfRange => L("why.outOfRange"),
+        Reject.OutOfBounds => L("why.outOfBounds"),
+        Reject.UnknownDeposit => L("why.unknownDeposit"),
+        Reject.Depleted => L("why.depleted"),
+        Reject.ResearchUnavailable => L("why.researchUnavailable"),
+        Reject.NotDiscovered => L("why.notDiscovered"),
+        Reject.OnCooldown => L("why.onCooldown"),
+        Reject.NoLane => L("why.noLane"),
+        Reject.NotInASystem => L("why.notInSystem"),
+        Reject.Busy => L("why.busy"),
         _ => r.ToString(),
     };
 
@@ -488,20 +456,20 @@ public partial class Play : Node3D
                 if (r.Reject == Reject.OutOfRange) _outOfRangeSeen = true;
                 if (r.Command is PlaceSegment or PlaceMachine or RemoveSegment or RemoveMachine or StartMining or SetResearch or SetShipRecipe
                     or Scan or Jump)
-                    Toast($"{r.Command.GetType().Name}: {Why(r.Reject)}");
+                    Toast(Why(r.Reject));
                 continue;
             }
             if (r.Command is Scan)
             {
                 _scansDone++;
                 _depositsRevealed += r.RevealedDeposits.Count;
-                Toast(r.RevealedDeposits.Count == 0 ? "Scan: nothing new in range." : $"Scan: {r.RevealedDeposits.Count} deposit(s) revealed.");
+                Toast(r.RevealedDeposits.Count == 0 ? L("toast.scanNone") : L("toast.scanFound", r.RevealedDeposits.Count));
                 if (r.RevealedDeposits.Count > 0) _selectedDeposit = RevealedDeposits().FirstOrDefault();
             }
             else if (r.Command is Jump j)
             {
                 _jumpsStarted++;
-                Toast($"Charging the jump to {Net.Galaxy!.Systems[j.System].Name}...");
+                Toast(L("toast.jumpCharging", Net.Galaxy!.Systems[j.System].Name));
             }
             if (r.Command is PlaceSegment && r.Created.Count == 1) AutoLinkSegment(r.Created[0]);
             else if (r.Command is PlaceMachine pm && r.CreatedMachines.Count == 1) AutoLinkMachine(r.CreatedMachines[0], pm);
@@ -578,7 +546,7 @@ public partial class Play : Node3D
                 if (best < 0 || Net.DepositRemaining(d) > Net.DepositRemaining(best)) best = d;
             }
             if (best >= 0) Send(new LinkDeposit(machine, best));
-            else Toast("No known deposit of that ore within reach of the drill. Scan (K) or build closer.");
+            else Toast(L("toast.noDepositForDrill"));
         }
 
         bool fed = false;
@@ -615,10 +583,10 @@ public partial class Play : Node3D
         var item = _palette[_selected];
         if (item.IsBelt) return;
         var options = _content.Recipes.Where(r => r.Machine == item.Machine && !Net.IsRecipeLocked(r.Index)).Select(r => r.Index).ToList();
-        if (options.Count < 2) { Toast("This machine has only one recipe available."); return; }
+        if (options.Count < 2) { Toast(L("toast.oneRecipe")); return; }
         int cur = ChosenRecipe(item.Machine);
         _recipeChoice[item.Machine] = options[(options.IndexOf(cur) + 1) % options.Count];
-        Toast($"Recipe: {Nice(_content.Recipes[_recipeChoice[item.Machine]].Id)}");
+        Toast(L("toast.recipe", Loc.Name("recipe", _content.Recipes[_recipeChoice[item.Machine]].Id)));
     }
 
     private void PlaceSelectedAt((int X, int Y, int Z) cell, (int X, int Y, int Z)? dragStart)
@@ -664,60 +632,6 @@ public partial class Play : Node3D
         return ((int)MathF.Floor(hit.X), _cursorY, (int)MathF.Floor(hit.Z));
     }
 
-    public override void _UnhandledInput(InputEvent e)
-    {
-        if (_demo) return;
-
-        if (e is InputEventMouseButton mb)
-        {
-            if (mb.ButtonIndex == MouseButton.WheelUp && mb.Pressed) _distance = Mathf.Max(6f, _distance * 0.9f);
-            else if (mb.ButtonIndex == MouseButton.WheelDown && mb.Pressed) _distance = Mathf.Min(80f, _distance * 1.1f);
-            else if (mb.ButtonIndex == MouseButton.Left)
-            {
-                if (mb.Pressed) _dragStart = CellUnderMouse();
-                else if (_dragStart is { } start && CellUnderMouse() is { } end)
-                {
-                    PlaceSelectedAt(end, _palette[_selected].IsBelt ? start : null);
-                    _dragStart = null;
-                }
-                else _dragStart = null;
-            }
-            else if (mb.ButtonIndex == MouseButton.Right && mb.Pressed && CellUnderMouse() is { } cell) RemoveAt(cell);
-            PlaceCamera();
-        }
-        else if (e is InputEventKey { Pressed: true, Echo: false } k)
-        {
-            int digit = (int)(k.Keycode - Key.Key1);
-            if (digit >= 0 && digit < _palette.Count && digit < 9) _selected = digit;
-            switch (k.Keycode)
-            {
-                case Key.Tab: CycleRecipe(); break;
-                case Key.R: _dir = _dir switch { Dir.PosX => Dir.PosZ, Dir.PosZ => Dir.NegX, Dir.NegX => Dir.NegZ, _ => Dir.PosX }; Toast($"Single belts face {_dir}"); break;
-                case Key.Z: _cursorY--; break;
-                case Key.X: _cursorY++; break;
-                case Key.M: ToggleMining(); break;
-                case Key.Bracketleft: CycleDeposit(-1); break;
-                case Key.Bracketright: CycleDeposit(1); break;
-                case Key.K: Send(new Scan()); break;
-                case Key.V: ToggleWeapons(); break;
-                case Key.G: _mapOpen = !_mapOpen; break;
-                case Key.J: SendJump(); break;
-                case Key.Up: CycleSystem(-1); break;
-                case Key.Down: CycleSystem(1); break;
-                case Key.F: ToggleRefinery(); break;
-                case Key.T: CycleResearch(); break;
-                case Key.P: _paused = !_paused; break;
-                case Key.Equal: case Key.KpAdd: _speed = Math.Min(10, _speed + 1); break;
-                case Key.Minus: case Key.KpSubtract: _speed = Math.Max(1, _speed - 1); break;
-            }
-        }
-    }
-
-    private void ToggleMining()
-    {
-        if (Net.MiningDeposit(Player) == _selectedDeposit) Send(new StopMining());
-        else Send(new StartMining(_selectedDeposit));
-    }
 
     private void ToggleRefinery()
     {
@@ -729,7 +643,7 @@ public partial class Play : Node3D
     private void CycleResearch()
     {
         var options = Enumerable.Range(0, _content.Research.Count).Where(Net.CanResearch).ToList();
-        if (options.Count == 0) { Send(new SetResearch(-1)); Toast("Nothing left to research."); return; }
+        if (options.Count == 0) { Send(new SetResearch(-1)); Toast(L("toast.nothingToResearch")); return; }
         int cur = Net.CurrentResearch;
         int next = cur < 0 ? options[0] : options[(options.IndexOf(cur) + 1) % options.Count];
         Send(new SetResearch(next));
@@ -773,24 +687,16 @@ public partial class Play : Node3D
         }
         _items.VisibleInstanceCount = _sampleCount;
         _items.Buffer = _itemBuf;
+        _animTime += delta;
         UpdateMachines();
         UpdateEnemies((float)delta);
         UpdateDeposits();
         UpdateShip(alpha, (float)delta);
         UpdateMap();
 
-        if (!_demo)
-        {
-            if (CellUnderMouse() is { } c)
-            {
-                _cursor = c;
-                _ghost.Position = CellCenter(c.X, c.Y, c.Z);
-                bool reachable = _world.InBuildRange(Player, c.X, c.Y, c.Z);
-                ((StandardMaterial3D)_ghost.MaterialOverride).AlbedoColor = reachable ? new Color(1f, 0.95f, 0.4f, 0.35f) : new Color(1f, 0.25f, 0.2f, 0.35f);
-            }
-            UpdateDragGhost();
-        }
-        UpdateHud();
+        UpdateHover();
+        UpdateGhost();
+        UpdateUi((float)delta);
         if (_shotCountdown > 0 && --_shotCountdown == 0 && _shotPath != null)
             GetViewport().GetTexture().GetImage().SavePng(_shotPath);
         if (_finishCountdown > 0 && --_finishCountdown == 0)
@@ -814,73 +720,6 @@ public partial class Play : Node3D
         var from = CellCenter(a.X, a.Y, a.Z);
         _dragGhost.Position = from + (alongX ? new Vector3(sign * (len - 1) / 2f, 0, 0) : new Vector3(0, 0, sign * (len - 1) / 2f));
         _dragGhost.Scale = alongX ? new Vector3(len, 0.4f, 0.96f) : new Vector3(0.96f, 0.4f, len);
-    }
-
-    private string Items(ItemStack[] stacks) =>
-        stacks.Length == 0 ? "free" : string.Join(", ", stacks.Select(s => $"{s.Count} {Nice(_content.Items[s.Item].Id)}"));
-
-    private void UpdateHud()
-    {
-        var sb = new StringBuilder();
-        int cap = PlayerRules.HoldCapacity;
-        sb.Append($"HOLD {Net.HoldTotal(Player)}/{cap}:");
-        foreach (var item in _content.Items)
-        {
-            int n = Net.HoldCount(Player, item.Index);
-            if (n > 0) sb.Append($"  {Nice(item.Id)} {n}");
-        }
-        sb.Append('\n');
-
-        string mining = Net.MiningDeposit(Player) >= 0
-            ? $"mining deposit {Net.MiningDeposit(Player)} ({Nice(_content.Items[Net.DepositItem(Net.MiningDeposit(Player))].Id)}, {Net.DepositRemaining(Net.MiningDeposit(Player))} left)"
-            : $"hands idle, deposit {_selectedDeposit} selected ({Nice(_content.Items[Net.DepositItem(_selectedDeposit)].Id)}, {Net.DepositRemaining(_selectedDeposit)} left)";
-        string refinery = Net.HasPlayer(Player) && Net.GetPlayerInfo(Player).ShipRecipe >= 0
-            ? (Net.GetPlayerInfo(Player).ShipCrafting ? "refinery working" : "refinery waiting for ore") : "refinery off";
-        sb.Append($"{mining}   |   {refinery}   |   delivered by depots: {Net.DepotDelivered}").Append('\n');
-
-        var ship = ShipPosition(0f);
-        var dep = Net.DepositPosition(_selectedDeposit);
-        float distance = (new Vector3(dep.X, dep.Y, dep.Z) - ship).Length();
-        bool inRange = Net.InMineRange(Player, _selectedDeposit);
-        sb.Append($"SHIP ({ship.X:F1}, {ship.Y:F1}, {ship.Z:F1})   deposit {_selectedDeposit} is {distance:F1} cells away (mining range {PlayerRules.MineRangeCells}): " +
-                  $"{(inRange ? "in range" : "out of range, fly closer")}   build range {PlayerRules.BuildRangeCells}").Append('\n');
-
-        if (Net.Galaxy is { } galaxy)
-        {
-            int cur = Net.CurrentSystem(Player);
-            string where = cur >= 0 ? $"{galaxy.Systems[cur].Name} ({Nice(_content.Archetypes[galaxy.Systems[cur].Archetype].Id)})" : "deep space";
-            string scanner = Net.ScanCooldown(Player) > 0 ? $"scanner recharging ({Net.ScanCooldown(Player) / (float)Units.TicksPerSecond:F0}s)" : "scanner ready (K)";
-            string drive = Net.JumpRemaining(Player) > 0
-                ? $"JUMPING to {galaxy.Systems[Net.JumpTarget(Player)].Name} in {Net.JumpRemaining(Player) / (float)Units.TicksPerSecond:F1}s"
-                : Net.HasAbility(Ability.Jump) ? "jump drive ready (G map, J jump)" : "jump drive locked: research Jump Drive";
-            sb.Append($"SYSTEM {where}   |   {scanner}   |   {drive}   |   visited {Enumerable.Range(0, galaxy.Systems.Count).Count(Net.IsSystemVisited)}/{galaxy.Systems.Count}").Append('\n');
-            ThreatHud(sb, cur);
-        }
-
-        if (Net.CurrentResearch >= 0)
-        {
-            var node = _content.Research[Net.CurrentResearch];
-            sb.Append("RESEARCH " + Nice(node.Id) + ": " + string.Join(", ", node.Cost.Select(c =>
-                $"{Net.ResearchProgress(node.Index, c.Item)}/{c.Count} {Nice(_content.Items[c.Item].Id)}")) + "   (build a lab and feed it)\n");
-        }
-        else sb.Append("RESEARCH none selected (T to choose). Done: " +
-            (Net.ResearchedCount == 0 ? "nothing" : string.Join(", ", _content.Research.Where(r => Net.IsResearched(r.Index)).Select(r => Nice(r.Id)))) + "\n");
-
-        sb.Append('\n');
-        for (int i = 0; i < _palette.Count && i < 9; i++)
-        {
-            var b = _palette[i];
-            bool locked = b.IsBelt ? Net.IsBeltLocked(b.Tier) : Net.IsMachineLocked(b.Machine);
-            string cost = b.IsBelt ? Items(_content.Belts[(int)b.Tier]?.CostPerCell ?? Array.Empty<ItemStack>()) + " per cell" : Items(_content.Machines[b.Machine].Cost);
-            string recipe = !b.IsBelt && ChosenRecipe(b.Machine) >= 0 ? $" [{Nice(_content.Recipes[ChosenRecipe(b.Machine)].Id)}]" : "";
-            sb.Append($"{(i == _selected ? ">" : " ")} {i + 1}  {b.Label}{recipe}  ({cost}){(locked ? "  LOCKED" : "")}").Append('\n');
-        }
-        sb.Append($"layer {_cursorY}   cell ({_cursor.X}, {_cursor.Y}, {_cursor.Z})   speed x{(_demo ? _demoSpeed : _speed)}{(_paused ? "  PAUSED" : "")}");
-        _hud.Text = sb.ToString();
-
-        double now = Time.GetTicksMsec() / 1000.0;
-        _toasts.RemoveAll(t => t.Until < now);
-        _toastLabel.Text = string.Join("\n", _toasts.TakeLast(5).Select(t => t.Text));
     }
 
     // ---- demo bot ----------------------------------------------------------------------------------
@@ -956,8 +795,8 @@ public partial class Play : Node3D
     // ---- threat: enemies, shots and warnings ---------------------------------------------------------------
 
     private bool _threatDemo;
-    private MultiMesh? _enemyMesh;
-    private float[] _enemyBuf = Array.Empty<float>();
+    private Node3D? _enemyRoot;
+    private readonly List<(int Type, Node3D Node)> _enemyModels = new();
     private readonly List<(MeshInstance3D Node, float Life)> _fx = new();
     private StandardMaterial3D _fxTurret = null!, _fxShip = null!, _fxEnemy = null!;
     private long _lastWaves, _lastLost, _lastShipsLost;
@@ -968,14 +807,8 @@ public partial class Play : Node3D
     private void BuildThreatVisuals()
     {
         if (_content.Threat is null) return;
-        _enemyMesh = new MultiMesh
-        {
-            TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true,
-            Mesh = new BoxMesh { Size = Vector3.One, Material = VertexMaterial() },
-            InstanceCount = _content.Threat.MaxEnemies, VisibleInstanceCount = 0,
-        };
-        _enemyBuf = new float[_content.Threat.MaxEnemies * FloatsPerItem];
-        AddChild(new MultiMeshInstance3D { Multimesh = _enemyMesh });
+        _enemyRoot = new Node3D();
+        AddChild(_enemyRoot);
 
         StandardMaterial3D Beam(Color c) => new() { AlbedoColor = c, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded };
         _fxTurret = Beam(new Color(1f, 0.9f, 0.3f));
@@ -985,17 +818,32 @@ public partial class Play : Node3D
 
     private void UpdateEnemies(float dt)
     {
-        if (_enemyMesh is null) return;
+        if (_enemyRoot is null) return;
         var list = Net.Enemies();
+        var shipPos = ShipPosition(0f);
+        // A small pool: slot i shows enemy i; a slot is rebuilt only when the enemy type in it changes.
         for (int i = 0; i < list.Count; i++)
         {
             var e = list[i];
-            var color = e.Type == 0 ? new Color(1f, 0.35f, 0.25f) : new Color(0.8f, 0.2f, 0.75f);
-            Write(_enemyBuf, i * FloatsPerItem, Vector3.One * (e.Type == 0 ? 0.5f : 0.8f),
-                new Vector3(e.X, e.Y, e.Z) / CellUnits, color);
+            while (_enemyModels.Count <= i) _enemyModels.Add((-1, null!));
+            var (type, node) = _enemyModels[i];
+            if (type != e.Type)
+            {
+                node?.QueueFree();
+                node = Models.Enemy(e.Type);
+                _enemyRoot.AddChild(node);
+                _enemyModels[i] = (e.Type, node);
+            }
+            var pos = new Vector3(e.X, e.Y, e.Z) / CellUnits;
+            var toShip = shipPos - pos;
+            if (new Vector2(toShip.X, toShip.Z).LengthSquared() > 0.01f)
+                node.Rotation = new Vector3(0, Mathf.LerpAngle(node.Rotation.Y, MathF.Atan2(-toShip.Z, toShip.X), 1f - MathF.Exp(-8f * dt)), 0);
+            node.Position = pos;
+            node.Visible = true;
+            Models.Animate(node, _animTime, true);
         }
-        _enemyMesh.VisibleInstanceCount = list.Count;
-        _enemyMesh.Buffer = _enemyBuf;
+        for (int i = list.Count; i < _enemyModels.Count; i++)
+            if (_enemyModels[i].Node is not null) _enemyModels[i].Node.Visible = false;
 
         // Beams from the shots of the last tick fade quickly.
         for (int i = _fx.Count - 1; i >= 0; i--)
@@ -1037,13 +885,13 @@ public partial class Play : Node3D
         if (home.WarningRemaining >= 0 && !_warned)
         {
             _warned = true;
-            Toast($"Remnant signature detected: a wave arrives in {home.WarningRemaining / (float)Units.TicksPerSecond:F0}s. Arm turrets (belts of ammo) and your weapons (V).");
+            Toast(L("toast.waveWarning", (home.WarningRemaining / (float)Units.TicksPerSecond).ToString("F0", Loc.Culture)));
         }
         else if (home.WarningRemaining < 0) _warned = false;
 
-        if (Net.WavesSpawned > _lastWaves) { _lastWaves = Net.WavesSpawned; Toast($"Wave {Net.WavesSpawned} has arrived: {Net.EnemyCount} enemies."); }
-        if (Net.MachinesLost > _lastLost) { Toast($"A machine was destroyed ({Net.MachinesLost} lost in total)."); _lastLost = Net.MachinesLost; }
-        if (Net.ShipsLost > _lastShipsLost) { Toast("Your ship was destroyed. Rebuilding at the anchor..."); _lastShipsLost = Net.ShipsLost; }
+        if (Net.WavesSpawned > _lastWaves) { _lastWaves = Net.WavesSpawned; Toast(L("toast.waveArrived", Net.WavesSpawned, Net.EnemyCount)); }
+        if (Net.MachinesLost > _lastLost) { Toast(L("toast.machineLost", Net.MachinesLost)); _lastLost = Net.MachinesLost; }
+        if (Net.ShipsLost > _lastShipsLost) { Toast(L("toast.shipLost")); _lastShipsLost = Net.ShipsLost; }
     }
 
     private void ToggleWeapons()
@@ -1052,20 +900,6 @@ public partial class Play : Node3D
         Send(new SetWeapons(!on));
     }
 
-    private void ThreatHud(StringBuilder sb, int currentSystem)
-    {
-        if (!Net.ThreatActive) return;
-        var rules = _content.Threat!;
-        int sys = currentSystem >= 0 ? currentSystem : 0;
-        var th = Net.GetSystemThreat(sys);
-        string state = th.WarningRemaining >= 0 ? $"WAVE {th.Wave + 1} INCOMING in {th.WarningRemaining / (float)Units.TicksPerSecond:F0}s"
-            : th.Enemies > 0 ? $"{th.Enemies} enemies attacking"
-            : $"alert {100 * th.Alert / th.AlertMax}%";
-        var p = Net.GetPlayerInfo(Player);
-        string ship = p.RespawnRemaining > 0 ? $"SHIP REBUILDING {p.RespawnRemaining / (float)Units.TicksPerSecond:F0}s" : $"hull {p.Hull}/{rules.ShipHull}";
-        sb.Append($"THREAT signature {th.Signature} (calm up to {rules.SignatureThreshold})   {state}   |   {ship}   weapons {(p.Armed ? "ON" : "off")} (V)   |   " +
-                  $"killed {Net.EnemiesKilled}  lost {Net.MachinesLost} machines").Append('\n');
-    }
 
     // ---- threat demo -------------------------------------------------------------------------------
     // --threat-demo: a sandbox bot builds a loud base with two ammo-fed turrets, arms the ship, forces a wave and watches it.
@@ -1195,7 +1029,7 @@ public partial class Play : Node3D
 
         _mapOpen = true;
         UpdateMap();
-        UpdateHud();
+        UpdateUi(0f);
         if (_shotPath != null) GetViewport().GetTexture().GetImage().SavePng(_shotPath);
         GetTree().Quit();
     }
@@ -1224,7 +1058,7 @@ public partial class Play : Node3D
         try { _world.ValidateInvariants(); GD.Print("PLAY invariants=ok"); }
         catch (Exception e) { GD.PrintErr("PLAY invariants=FAILED " + e.Message); }
 
-        UpdateHud();
+        UpdateUi(0f);
         if (_shotPath != null) GetViewport().GetTexture().GetImage().SavePng(_shotPath);
         GetTree().Quit();
     }
