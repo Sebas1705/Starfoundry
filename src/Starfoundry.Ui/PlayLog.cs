@@ -82,6 +82,14 @@ public sealed class PlayLog
         return fresh;
     }
 
+    /// <summary>Adds an entry of the caller's own (for example a hint that was shown), stamped with the current time.</summary>
+    public PlayLogEntry Note(BeltNetwork net, string kind, string text)
+    {
+        var e = new PlayLogEntry(net.Tick / (double)Units.TicksPerSecond, kind, text);
+        _entries.Add(e);
+        return e;
+    }
+
     /// <summary>One line, for appending to a file as it happens.</summary>
     public static string Line(PlayLogEntry e) => $"{Format(e.Seconds)}  {e.Kind,-10} {e.Text}";
 

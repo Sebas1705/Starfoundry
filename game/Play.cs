@@ -431,7 +431,7 @@ public partial class Play : Node3D
 
     private void Send(Command c) => _world.Submit(Player, c);
 
-    private void Toast(string text) => _toasts.Add((Time.GetTicksMsec() / 1000.0 + 6.0, text));
+    private void Toast(string text, double seconds = 6.0) => _toasts.Add((Time.GetTicksMsec() / 1000.0 + seconds, text));
 
     private static string Why(Reject r) => r switch
     {

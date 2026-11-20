@@ -226,6 +226,20 @@ public partial class Play
     {
         _objectives.Update(Net, Player);
         UpdatePlayLog();
+        if (!_demo)
+        {
+            _tips ??= new Tips(_content);
+            var tip = _tips.Next(Net, Player);
+            if (tip is not null)
+            {
+                Toast(L(tip.Key, tip.Args), 14.0); // longer than a toast: these are lessons
+                if (_playLog is not null)
+                {
+                    _logFile?.StoreLine(PlayLog.Line(_playLog.Note(Net, "Tip", tip.Key)));
+                    _logFile?.Flush();
+                }
+            }
+        }
 
         var size = GetViewport().GetVisibleRect().Size;
         UpdateHold();
@@ -333,6 +347,7 @@ public partial class Play
 
     // ---- play log -----------------------------------------------------------------------------
 
+    private Tips? _tips;
     private PlayLog? _playLog;
     private Godot.FileAccess? _logFile;
 

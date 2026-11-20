@@ -38,7 +38,7 @@ A line has the time in the game (minutes:seconds of simulated time), a kind and 
 12:28 Wave       wave 1 arrived with 2 enemies alive
 ```
 
-The kinds are `Step` (a guided step), `Researched`, `Wave`, `Loss`, `Jump`, and a last line with how long the hold was completely full. The step names are the ones in the table below.
+The kinds are `Step` (a guided step), `Researched`, `Wave`, `Loss`, `Jump`, `Tip` (a hint the game showed you) and a last line with how long the hold was completely full. The step names are the ones in the table below.
 
 ## What the scripted player did
 A scripted player that never hesitates, with a pause of 15 seconds after every action, standing in for a first-time player (default seed, one fed turret). Compare your times with these; the targets in the tests (see the [balance pass](prototypes/balance-pass.md)) are bands around them.
@@ -69,3 +69,6 @@ If your times are far from these, that is the interesting result: write down wha
 ## Known limits
 - The numbers in the log are game time, not wall-clock time, and follow the speed you set with `+` and `-`.
 - A paused game does not advance the log.
+
+## Hints
+After the twelve guided steps the game teaches the rest with hints that appear when the situation happens, once each and at least 25 seconds apart, as long messages at the bottom: turrets without ammo during a wave, damaged machines (repair with `E`), the first loss without walls, an idle lab, the defence upgrades once Logistics is done and the cargo port once the jump drive is researched and the home ore is low. Each hint shown is a `Tip` line in the play log. If a hint came too early, too late or not at all, that is worth noting.
