@@ -221,13 +221,19 @@ public sealed partial class BeltNetwork
         return true;
     }
 
-    /// <summary>Puts at most one finished item on each belt the machine feeds, rotating which belt goes first.</summary>
+    /// <summary>
+    /// Puts at most one finished item on each belt the machine feeds. The belt that goes first rotates each time an item
+    /// is pushed (not each tick: a craft that ends on the same tick parity every time would otherwise always favour
+    /// the same belt), and a belt that cannot take an item is skipped.
+    /// </summary>
     private void PushOutputs(Machine m)
     {
         if (m.OutCount == 0) return;
+        int last = -1;
         for (int k = 0; k < m.OutCount; k++)
         {
-            var belt = _segs[m.OutBelts[(m.RoundRobin + k) % m.OutCount]]!;
+            int index = (m.RoundRobin + k) % m.OutCount;
+            var belt = _segs[m.OutBelts[index]]!;
             if (!belt.CanAccept) continue;
 
             int item = -1;
@@ -239,8 +245,9 @@ public sealed partial class BeltNetwork
 
             m.Out[item]--;
             belt.PushTail(belt.Count == 0 ? 0 : belt.TailPos - Units.ItemSpacing, (ushort)item);
+            last = index;
         }
-        m.RoundRobin = (m.RoundRobin + 1) % m.OutCount;
+        if (last >= 0) m.RoundRobin = (last + 1) % m.OutCount;
     }
 
     /// <summary>Hands the front item of a belt to the machine it feeds, if the machine can use it right now.</summary>

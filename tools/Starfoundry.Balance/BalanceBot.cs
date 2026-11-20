@@ -417,7 +417,7 @@ public sealed class BalanceBot
             if (Trace is not null && sec % 30 == 0)
             {
                 var hold = string.Join(" ", _c.Items.Select(i => $"{i.Id.Split(':')[1]}={Net.HoldCount(0, i.Index)}").Where(s => !s.EndsWith("=0")));
-                Trace.WriteLine($"{sec / 60}:{sec % 60:00} step={_step}/{_steps.Count} ship=({Net.GetPlayerInfo(0).X / Units.CellUnits},{Net.GetPlayerInfo(0).Y / Units.CellUnits},{Net.GetPlayerInfo(0).Z / Units.CellUnits}) hold[{Net.GetPlayerInfo(0).HoldTotal}] {hold} machines={Net.MachineCount} lost={Net.MachinesLost} waves={Net.WavesSpawned} delivered={Net.DepotDelivered}");
+                Trace.WriteLine($"{sec / 60}:{sec % 60:00} step={_step}/{_steps.Count} ship=({Net.GetPlayerInfo(0).X / Units.CellUnits},{Net.GetPlayerInfo(0).Y / Units.CellUnits},{Net.GetPlayerInfo(0).Z / Units.CellUnits}) hold[{Net.GetPlayerInfo(0).HoldTotal}] {hold} machines={Net.MachineCount} lost={Net.MachinesLost} waves={Net.WavesSpawned} delivered={Net.DepotDelivered} iron_left={(_ironDeposit >= 0 ? Net.DepositRemaining(_ironDeposit) : -1)}");
             }
             if (StopAtFirstLoss && _report.FirstLossWave is not null) break;
             if (_step >= _steps.Count && Net.IsResearched(logistics) && _objectives.Current is null)
