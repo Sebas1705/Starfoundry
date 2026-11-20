@@ -68,7 +68,7 @@ public partial class Play : Node3D
     private (int X, int Y, int Z)? _dragStart;
     private int _selectedDeposit;
     private readonly Dictionary<int, int> _recipeChoice = new();
-    private readonly List<(double Until, string Text)> _toasts = new();
+    private readonly ToastQueue _toasts = new();
     private int _speed = 1;
     private bool _paused;
 
@@ -457,7 +457,7 @@ void fragment() {
     private void CycleDeposit(int step)
     {
         var list = RevealedDeposits().OrderBy(d => d).ToList();
-        if (list.Count == 0) { Toast(L("toast.noDeposits")); return; }
+        if (list.Count == 0) { ToastLogistics(L("toast.noDeposits")); return; }
         int i = list.IndexOf(_selectedDeposit);
         _selectedDeposit = list[((i < 0 ? 0 : i + step) % list.Count + list.Count) % list.Count];
     }
@@ -512,7 +512,13 @@ void fragment() {
 
     private void Send(Command c) => _world.Submit(Player, c);
 
-    private void Toast(string text, double seconds = 6.0) => _toasts.Add((Time.GetTicksMsec() / 1000.0 + seconds, text));
+    private void Toast(string text, double seconds = 6.0, ToastCategory category = ToastCategory.Info) => _toasts.Add(text, category, Time.GetTicksMsec() / 1000.0, seconds);
+
+    private void ToastThreat(string text, double seconds = 6.0) => Toast(text, seconds, ToastCategory.Threat);
+
+    private void ToastLogistics(string text, double seconds = 6.0) => Toast(text, seconds, ToastCategory.Logistics);
+
+    private void ToastProduction(string text, double seconds = 6.0) => Toast(text, seconds, ToastCategory.Production);
 
     private static string Why(Reject r) => r switch
     {
@@ -542,14 +548,14 @@ void fragment() {
                 if (r.Reject == Reject.OutOfRange) _outOfRangeSeen = true;
                 if (r.Command is PlaceSegment or PlaceMachine or RemoveSegment or RemoveMachine or StartMining or SetResearch or SetShipRecipe
                     or Scan or Jump)
-                    Toast(Why(r.Reject));
+                    ToastLogistics(Why(r.Reject));
                 continue;
             }
             if (r.Command is Scan)
             {
                 _scansDone++;
                 _depositsRevealed += r.RevealedDeposits.Count;
-                Toast(r.RevealedDeposits.Count == 0 ? L("toast.scanNone") : L("toast.scanFound", r.RevealedDeposits.Count));
+                ToastProduction(r.RevealedDeposits.Count == 0 ? L("toast.scanNone") : L("toast.scanFound", r.RevealedDeposits.Count));
                 if (r.RevealedDeposits.Count > 0) _selectedDeposit = RevealedDeposits().FirstOrDefault();
             }
             else if (r.Command is Jump j)
@@ -632,7 +638,7 @@ void fragment() {
                 if (best < 0 || Net.DepositRemaining(d) > Net.DepositRemaining(best)) best = d;
             }
             if (best >= 0) Send(new LinkDeposit(machine, best));
-            else Toast(L("toast.noDepositForDrill"));
+            else ToastLogistics(L("toast.noDepositForDrill"));
         }
 
         bool fed = false;
@@ -672,7 +678,7 @@ void fragment() {
         if (options.Count < 2) { Toast(L("toast.oneRecipe")); return; }
         int cur = ChosenRecipe(item.Machine);
         _recipeChoice[item.Machine] = options[(options.IndexOf(cur) + 1) % options.Count];
-        Toast(L("toast.recipe", Loc.Name("recipe", _content.Recipes[_recipeChoice[item.Machine]].Id)));
+        ToastProduction(L("toast.recipe", Loc.Name("recipe", _content.Recipes[_recipeChoice[item.Machine]].Id)));
     }
 
     private void PlaceSelectedAt((int X, int Y, int Z) cell, (int X, int Y, int Z)? dragStart)
@@ -739,7 +745,7 @@ void fragment() {
     private void CycleResearch()
     {
         var options = Enumerable.Range(0, _content.Research.Count).Where(Net.CanResearch).ToList();
-        if (options.Count == 0) { Send(new SetResearch(-1)); Toast(L("toast.nothingToResearch")); return; }
+        if (options.Count == 0) { Send(new SetResearch(-1)); ToastProduction(L("toast.nothingToResearch")); return; }
         int cur = Net.CurrentResearch;
         int next = cur < 0 ? options[0] : options[(options.IndexOf(cur) + 1) % options.Count];
         Send(new SetResearch(next));
@@ -987,13 +993,13 @@ void fragment() {
         if (home.WarningRemaining >= 0 && !_warned)
         {
             _warned = true;
-            Toast(L("toast.waveWarning", (home.WarningRemaining / (float)Units.TicksPerSecond).ToString("F0", Loc.Culture)));
+            ToastThreat(L("toast.waveWarning", (home.WarningRemaining / (float)Units.TicksPerSecond).ToString("F0", Loc.Culture)));
         }
         else if (home.WarningRemaining < 0) _warned = false;
 
-        if (Net.WavesSpawned > _lastWaves) { _lastWaves = Net.WavesSpawned; Toast(L("toast.waveArrived", Net.WavesSpawned, Net.EnemyCount)); }
-        if (Net.MachinesLost > _lastLost) { Toast(L("toast.machineLost", Net.MachinesLost)); _lastLost = Net.MachinesLost; }
-        if (Net.ShipsLost > _lastShipsLost) { Toast(L("toast.shipLost")); _lastShipsLost = Net.ShipsLost; }
+        if (Net.WavesSpawned > _lastWaves) { _lastWaves = Net.WavesSpawned; ToastThreat(L("toast.waveArrived", Net.WavesSpawned, Net.EnemyCount)); }
+        if (Net.MachinesLost > _lastLost) { ToastThreat(L("toast.machineLost", Net.MachinesLost)); _lastLost = Net.MachinesLost; }
+        if (Net.ShipsLost > _lastShipsLost) { ToastThreat(L("toast.shipLost")); _lastShipsLost = Net.ShipsLost; }
     }
 
     private void ToggleWeapons()

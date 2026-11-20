@@ -197,6 +197,16 @@ public static class Loc
         ["hud.researchDone"] = ("Sin investigación elegida (T). Hecho: {0}", "No research selected (T). Done: {0}"),
         ["hud.speed"] = ("velocidad x{0}", "speed x{0}"),
         ["hud.paused"] = ("PAUSA", "PAUSED"),
+        ["hud.ess.hull"] = ("Casco {0}/{1}", "Hull {0}/{1}"),
+        ["hud.ess.step"] = ("Paso: {0}", "Step: {0}"),
+        ["hud.ess.more"] = ("H: más detalles", "H: more details"),
+        ["btn.details"] = ("Detalles (H)", "Details (H)"),
+        ["btn.detailsHide"] = ("Menos (H)", "Less (H)"),
+        ["hud.flightSpeed"] = ("{0} celdas/s", "{0} cells/s"),
+        ["hud.tool.pointer"] = ("Sin herramienta: clic inspecciona", "No tool: click inspects"),
+        ["hud.tool"] = ("{0}  -  {1}", "{0}  -  {1}"),
+        ["mark.dist"] = ("{0} celdas", "{0} cells"),
+        ["mark.base"] = ("Base", "Base"),
         ["hud.alert"] = ("alerta {0}%", "alert {0}%"),
         ["hud.enemies"] = ("{0} enemigos atacando", "{0} enemies attacking"),
         ["hud.waveIncoming"] = ("OLEADA {0} en {1} s", "WAVE {0} in {1} s"),
@@ -335,14 +345,14 @@ public static class Loc
             "  Tab              soltar el ratón para usar los botones (clic en el juego para volver a mirar)\n\n" +
             "Nave\n" +
             "  W S   avanzar / retroceder hacia donde miras     A D   desplazarse a los lados     Espacio / C   subir / bajar\n" +
-            "  M   minar (vuela primero al yacimiento)      F   refinería       K   escanear       V   armas\n\n" +
+            "  M   minar (vuela primero al yacimiento)      F   refinería       K   escanear       V   armas\n  Marcadores: yacimiento elegido, enemigo más cercano y tu base; en el borde de la pantalla señalan hacia dónde mirar\n\n" +
             "Construcción\n" +
             "  1-9, 0, Q, B   elegir qué construir (otra vez para guardarlo)       Esc   dejar de construir\n" +
             "  Y   cambiar receta       R   girar cintas sueltas       Z / X   cambiar de capa\n" +
             "  Clic en una máquina sin herramienta: ver su estado y cambiar su receta (Tab para usar sus botones).\n  E   reparar todas las máquinas dañadas a tu alcance (cuesta la mitad de su coste, en proporción al daño)\n\n" +
             "Otros\n" +
             "  T   elegir investigación      G   mapa estelar (flechas y J para saltar)\n" +
-            "  P   pausa       + / -   velocidad       L   idioma       O   pasos       [ ]   cambiar yacimiento\n  F6   guardar       F9   cargar (se guarda sola cada 5 minutos)",
+            "  P   pausa       + / -   velocidad       L   idioma       O   pasos       [ ]   cambiar yacimiento\n  H   más / menos detalles en el panel de estado       F6   guardar       F9   cargar (se guarda sola cada 5 minutos)",
             "CONTROLS   (F1 to close)\n\n" +
             "Mouse\n" +
             "  Move the mouse   look (the view is the ship's cockpit); the centre crosshair is your aim\n" +
@@ -352,13 +362,13 @@ public static class Loc
             "  Tab              free the mouse to use the buttons (click in the game to look again)\n\n" +
             "Ship\n" +
             "  W S   forward / back where you look     A D   strafe     Space / C   up / down\n" +
-            "  M   mine (flies to the deposit first)      F   refinery       K   scan       V   weapons\n\n" +
+            "  M   mine (flies to the deposit first)      F   refinery       K   scan       V   weapons\n  Markers: the selected deposit, the nearest enemy and your base; at the screen edge they point where to look\n\n" +
             "Building\n" +
             "  1-9, 0, Q, B   choose what to build (again to put it away)       Esc   stop building\n" +
             "  Y   change recipe       R   rotate single belts       Z / X   change layer\n" +
             "  With no tool, click a machine: see its status and change its recipe (Tab to use its buttons).\n  E   repair every damaged machine within reach (half the build cost, in proportion to the damage)\n\n" +
             "Other\n" +
             "  T   choose research      G   star map (arrows and J to jump)\n" +
-            "  P   pause       + / -   speed       L   language       O   steps       [ ]   change deposit\n  F6   save       F9   load (it also saves itself every 5 minutes)"),
+            "  P   pause       + / -   speed       L   language       O   steps       [ ]   change deposit\n  H   more / fewer details in the status panel       F6   save       F9   load (it also saves itself every 5 minutes)"),
     };
 }

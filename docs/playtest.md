@@ -74,5 +74,16 @@ If your times are far from these, that is the interesting result: write down wha
 ## Hints
 After the twelve guided steps the game teaches the rest with hints that appear when the situation happens, once each and at least 25 seconds apart, as long messages at the bottom: turrets without ammo during a wave, damaged machines (repair with `E`), the first loss without walls, an idle lab, the defence upgrades once Logistics is done and the cargo port once the jump drive is researched and the home ore is low. Each hint shown is a `Tip` line in the play log. If a hint came too early, too late or not at all, that is worth noting.
 
+## The HUD
+The first-person HUD keeps the view free and shows only what you need:
+- **Status (top left):** hull and alert, plus the step in progress when the steps panel is folded. `H` (or the Details button) opens the full block (selected deposit, system, threat noise, research, upgrades).
+- **Flight readout (top centre):** a heading strip (N is the world's -Z axis, E is +X) and the speed in cells per second.
+- **Markers:** the selected deposit, the nearest enemy and your base (the nearest cluster of machines, else the system anchor) get a name and a distance. In view they sit on the target; off to a side or behind, an arrow on the screen edge points toward it. They disappear when you are too close.
+- **Target panel:** aim the crosshair at a machine (no tool selected) for a compact panel with name, role, status, recipe and a hit-point bar. Click it to pin it in the inspector.
+- **Notifications:** at most three at a time, repeats grouped as "x3", coloured by category (green production, amber logistics, red threat, white info).
+- **Bottom strip:** the hold bar with item counts, the selected tool and its cost (green when affordable, red when short, grey when locked), and a one-line build palette on keys `1`-`9`, `0`, `Q`, `B`.
+
+Layout check: `Godot --path game --resolution 1280x720 -- --hud-shot=out.png [--hud-details]` saves the HUD of the played game after a second and quits. The projection, compass, toast and health-band logic live in `src/Starfoundry.Ui` (`Markers`, `Compass`, `ToastQueue`, `HudFormat`) and are covered by `HudTests`.
+
 ## Saving
 `F6` saves, `F9` loads, and a played game saves itself to an autosave every five minutes of real time. The files are in the `saves` folder next to `playlogs` (`%APPDATA%\Godot\app_userdata\Starfoundry Belt Prototype\saves`). A save is the log of what you did and is replayed when loaded, which takes a second or two for an hour-long base ([ADR 0016](adr/0016-saves-are-the-command-log-replayed.md)). If the game says a save cannot be loaded, keep the file and tell me: it means the game changed since it was made. After a load the guided steps are recomputed and a hint may show again. The play log notes the load.
