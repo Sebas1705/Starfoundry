@@ -27,7 +27,9 @@ public partial class Play
     private int _selMachine = -1;
     private Vector3? _waypoint;
     private bool _pendingMine;
-    private float _pitch = 0.95f;
+    // Closer and steeper than the first version: machines were tiny and the deposit hid what stood behind it.
+    private const float DefaultPitch = 1.15f, DefaultDistance = 10f;
+    private float _pitch = DefaultPitch;
     private bool _helpOpen;
     private bool _objectivesOpen = true;
     private bool _holdWasFull;
@@ -158,7 +160,8 @@ public partial class Play
         _modeHint.AddThemeConstantOverride("outline_size", 5);
         _uiRoot.AddChild(_modeHint);
 
-        _toastText = MakeText(15);
+        _toastText = MakeText(18);
+        _toastText.HorizontalAlignment = HorizontalAlignment.Center;
         _toastText.AddThemeColorOverride("font_outline_color", Colors.Black);
         _toastText.AddThemeConstantOverride("outline_size", 5);
         _uiRoot.AddChild(_toastText);
@@ -765,7 +768,7 @@ public partial class Play
         barSize = new Vector2(barSize.X * barScale, barSize.Y * barScale);
 
         _modeHint.Position = new Vector2(Math.Max(12, (size.X - _modeHint.Size.X) / 2f), _toolbar.Position.Y - 26);
-        _toastText.Position = new Vector2(12, _toolbar.Position.Y - 12 - _toastText.Size.Y - 28);
+        _toastText.Position = new Vector2(Math.Max(12, (size.X - _toastText.Size.X) / 2f), _toolbar.Position.Y - 12 - _toastText.Size.Y - 28);
 
         var objSize = _objectivesPanel.GetCombinedMinimumSize();
         _objectivesPanel.Position = new Vector2(size.X - objSize.X - 12, 10);
@@ -796,7 +799,7 @@ public partial class Play
     private void SelectBuild(int index)
     {
         if (index < 0 || index >= _palette.Count) return;
-        if (_tool == ToolMode.Build && _selected == index) { _tool = ToolMode.Pointer; return; } // pressing it again puts it away
+        // Pressing the same number again keeps it selected (Esc puts it away): a double press while building must not undo the choice.
         _selected = index;
         _tool = ToolMode.Build;
         _selMachine = -1;
@@ -812,8 +815,8 @@ public partial class Play
     private void RecenterCamera()
     {
         _yaw = 0.2f;
-        _pitch = 0.95f;
-        _distance = 15f;
+        _pitch = DefaultPitch;
+        _distance = DefaultDistance;
         _target = ShipPosition(0f);
     }
 
@@ -843,8 +846,8 @@ public partial class Play
     {
         switch (mb.ButtonIndex)
         {
-            case MouseButton.WheelUp when mb.Pressed: _distance = Mathf.Max(5f, _distance * 0.9f); break;
-            case MouseButton.WheelDown when mb.Pressed: _distance = Mathf.Min(90f, _distance * 1.1f); break;
+            case MouseButton.WheelUp when mb.Pressed: _distance = Mathf.Max(4f, _distance * 0.8f); break;
+            case MouseButton.WheelDown when mb.Pressed: _distance = Mathf.Min(90f, _distance * 1.25f); break;
             case MouseButton.Middle: _mmbDown = mb.Pressed; break;
             case MouseButton.Right:
                 if (mb.Pressed) { _rmbDown = true; _rmbDragged = false; _rmbStart = mb.Position; }
@@ -1005,6 +1008,7 @@ public partial class Play
         {
             _pendingMine = false;
             Send(new StopMining());
+            Toast(L("toast.miningStopped"), 4.0);
             return;
         }
         if (!Net.IsDeposit(_selectedDeposit) || !Net.IsDepositRevealed(_selectedDeposit))
