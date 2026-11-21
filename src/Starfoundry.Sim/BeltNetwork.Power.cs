@@ -102,7 +102,7 @@ public sealed partial class BeltNetwork
                 if (rem > 0) s.BurnRemaining[key] = rem; else s.BurnRemaining.Remove(key);
             }
             s.PowerProduction = production;
-            s.PowerDemand = demand.GetValueOrDefault(s.Id);
+            s.PowerDemand = demand.GetValueOrDefault(s.Id) + DroneDemand(s);
             s.Satisfaction = PowerRules.Satisfaction(production, s.PowerDemand, hasReactor);
         }
 

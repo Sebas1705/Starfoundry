@@ -222,6 +222,8 @@ public sealed partial class BeltNetwork
         var s = GetStructure(id);
         if (!s.ModuleMap.Remove((mx, my, mz))) throw new InvalidOperationException("No such module.");
         s.BurnRemaining.Remove((mx, my, mz)); // a removed reactor loses the hydrogen it was burning
+        s.DroneProgress.Remove((mx, my, mz));
+        if (s.DroneDeposit >= 0 && ModuleCount(s, ModuleKind.DroneBay) == 0) s.DroneDeposit = -1; // the last bay is gone: nothing mines
         StructureVersion++;
     }
 
@@ -298,6 +300,11 @@ public sealed partial class BeltNetwork
             if (!StructureRules) continue; // power state exists only under the structure rules
             mix(s.PowerProduction); mix(s.PowerDemand); mix(s.Satisfaction); mix(s.BurnRemaining.Count);
             foreach (var (m, rem) in s.BurnRemaining) { mix(m.Mx); mix(m.My); mix(m.Mz); mix(rem); }
+            if (s.DroneDeposit >= 0 || s.DroneProgress.Count > 0) // structures without drone work hash as before drones existed
+            {
+                mix(s.DroneDeposit); mix(s.DroneProgress.Count);
+                foreach (var (m, pr) in s.DroneProgress) { mix(m.Mx); mix(m.My); mix(m.Mz); mix(pr); }
+            }
         }
     }
 
@@ -315,6 +322,14 @@ public sealed partial class BeltNetwork
             {
                 if (!s.ModuleMap.TryGetValue(m, out var rk) || rk != ModuleKind.Reactor) Fail($"structure {id} burns a module {m} that is no reactor");
                 if (rem < 1 || rem > (Content?.Structures?.BurnIntervalTicks(ModuleKind.Reactor) ?? 0)) Fail($"structure {id} burn time {rem} out of range");
+            }
+            if (s.DroneDeposit != -1 && !IsDeposit(s.DroneDeposit)) Fail($"structure {id} drones mine an unknown deposit");
+            if (s.DroneDeposit >= 0 && ModuleCount(s, ModuleKind.DroneBay) == 0) Fail($"structure {id} has a drone assignment but no drone bay");
+            foreach (var (m, pr) in s.DroneProgress)
+            {
+                if (!s.ModuleMap.TryGetValue(m, out var dk) || dk != ModuleKind.DroneBay) Fail($"structure {id} has drone progress in a module {m} that is no drone bay");
+                if (s.DroneDeposit < 0 && pr > 0) Fail($"structure {id} has drone progress without a deposit");
+                if (pr < 1) Fail($"structure {id} drone progress {pr} out of range");
             }
             if (s.Satisfaction is < 0 or > PowerRules.FullSatisfaction) Fail($"structure {id} satisfaction {s.Satisfaction} out of range");
         }

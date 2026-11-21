@@ -34,7 +34,7 @@ public class ContentTests
         Assert.Equal(14, c.Items.Count);
         Assert.Equal(16, c.Machines.Count);
         Assert.Equal(17, c.Recipes.Count);
-        Assert.Equal(16, c.Research.Count);
+        Assert.Equal(17, c.Research.Count);
         Assert.Equal(new GalaxyRules(12, 800, 2, 150), c.Galaxy);
         Assert.Equal(8, c.Archetypes.Count);
         Assert.Single(c.Archetypes, a => a.IsHome);

@@ -2,7 +2,22 @@ namespace Starfoundry.Sim;
 
 public enum StructureKind { Ship, Station }
 
-public enum ModuleKind { Core, Cockpit, Engine, Reactor, Cargo, Workshop, Defence, Hull }
+public enum ModuleKind { Core, Cockpit, Engine, Reactor, Cargo, Workshop, Defence, Hull, DroneBay }
+
+/// <summary>Content ids of module kinds: the enum name in snake case (<c>DroneBay</c> is <c>drone_bay</c>).</summary>
+public static class ModuleKindIds
+{
+    public static string Id(ModuleKind kind)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (char c in kind.ToString())
+        {
+            if (char.IsUpper(c) && sb.Length > 0) sb.Append('_');
+            sb.Append(char.ToLowerInvariant(c));
+        }
+        return sb.ToString();
+    }
+}
 
 /// <summary>Bounds of a structure's local grid. Structure 0 (the legacy world) keeps the world limits instead.</summary>
 public static class StructureGrid
@@ -58,6 +73,12 @@ public sealed class Structure
     internal SortedDictionary<(int Mx, int My, int Mz), int> BurnRemaining { get; private set; } = new();
 
     /// <summary>Power produced, power demanded and the satisfaction (per mille) of the last tick. See <c>BeltNetwork.PowerStatus</c>.</summary>
+    /// <summary>The deposit this structure's drone bays mine, or -1. See <c>BeltNetwork.AssignedDeposit</c>.</summary>
+    internal int DroneDeposit = -1;
+
+    /// <summary>Progress per drone bay module, in per mille ticks (only bays with progress have an entry).</summary>
+    internal SortedDictionary<(int Mx, int My, int Mz), int> DroneProgress { get; private set; } = new();
+
     internal int PowerProduction, PowerDemand, Satisfaction = PowerRules.FullSatisfaction;
 
     internal Structure(int id, StructureKind kind, int owner, long ox, long oy, long oz)
@@ -70,6 +91,8 @@ public sealed class Structure
         var c = new Structure(Id, Kind, Owner, OriginX, OriginY, OriginZ);
         c.ModuleMap = new SortedDictionary<(int, int, int), ModuleKind>(ModuleMap);
         c.BurnRemaining = new SortedDictionary<(int, int, int), int>(BurnRemaining);
+        c.DroneDeposit = DroneDeposit;
+        c.DroneProgress = new SortedDictionary<(int, int, int), int>(DroneProgress);
         c.PowerProduction = PowerProduction; c.PowerDemand = PowerDemand; c.Satisfaction = Satisfaction;
         return c;
     }

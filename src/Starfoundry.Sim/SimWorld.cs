@@ -565,6 +565,24 @@ public sealed class SimWorld
             case FoundStation fs:
                 return FoundStationCore(player, fs);
 
+            case AssignDrones ad:
+            {
+                if (!Network.StructureRules) return Reject.NotAllowedHere;
+                var found = BuildableStructure(player, ad.Structure, out _);
+                if (found != Reject.None) return found;
+                if (ad.Deposit == -1)
+                {
+                    Network.AssignDrones(ad.Structure, -1);
+                    return Reject.None;
+                }
+                if (Network.DroneBays(ad.Structure) == 0) return Reject.NoDroneBay;
+                if (!Network.IsDeposit(ad.Deposit)) return Reject.UnknownDeposit;
+                if (!Network.IsDepositRevealed(ad.Deposit)) return Reject.NotDiscovered;
+                if (!Network.DepositInDroneRange(ad.Structure, ad.Deposit)) return Reject.OutOfRange;
+                Network.AssignDrones(ad.Structure, ad.Deposit);
+                return Reject.None;
+            }
+
             case RemoveModule rmod:
                 return RemoveModuleCore(player, rmod);
 
@@ -826,6 +844,7 @@ public sealed class SimWorld
         if (found != Reject.None) return found;
         if (!Enum.IsDefined(p.Kind)) return Reject.InvalidArgument;
         if (!StructureGrid.IsValidLocalModule(p.Mx, p.My, p.Mz)) return Reject.OutOfBounds;
+        if (p.Kind == ModuleKind.DroneBay && Campaign && !Network.HasAbility(Ability.DroneBay)) return Reject.Locked;
         if (s!.Modules.ContainsKey((p.Mx, p.My, p.Mz))) return Reject.Overlap;
         if (s.Modules.Count > 0)
         {

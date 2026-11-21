@@ -35,6 +35,9 @@ public enum Objective
 
     /// <summary>Structures only: the player added modules beyond the starter set.</summary>
     AddModule,
+
+    /// <summary>Structures only: a drone bay module exists in a structure of the player and has a deposit assigned.</summary>
+    Automate,
 }
 
 public sealed record ObjectiveState(Objective Objective, bool Done, bool StationRules = false)
@@ -75,7 +78,7 @@ public sealed class ObjectiveTracker
     private static readonly Objective[] StructuresOrder =
     {
         Objective.Fly, Objective.Mine, Objective.WatchFactory, Objective.FoundStation, Objective.MakeFuel, Objective.AddModule,
-        Objective.Research, Objective.Scan, Objective.Defend, Objective.Expand,
+        Objective.Research, Objective.Scan, Objective.Defend, Objective.Automate, Objective.Expand,
     };
 
     /// <summary>Modules of the starter ship; a player with more than this has added some.</summary>
@@ -147,6 +150,7 @@ public sealed class ObjectiveTracker
                 }
                 return total > StarterModuleCount;
             });
+            Mark(Objective.Automate, () => net.Structures().Any(st => st.Owner == player && net.DroneBays(st.Id) > 0 && net.AssignedDeposit(st.Id) >= 0));
         }
         else if (StationRules)
         {

@@ -139,6 +139,10 @@ public sealed record RemoveModuleIn(int Structure, int Mx, int My, int Mz) : Com
 /// core's volume must not overlap any other structure. The core's cost is paid from the hold in campaign mode. Needs structure rules.</summary>
 public sealed record FoundStation(int Wx, int Wy, int Wz) : Command;
 
+/// <summary>Assigns the deposit that the drone bays of a structure mine (-1 clears it). The deposit must be revealed and within the bays'
+/// range of the structure, and the structure needs a drone bay module. Needs structure rules.</summary>
+public sealed record AssignDrones(int Structure, int Deposit) : Command;
+
 /// <summary>Several commands applied atomically: either all succeed or the world is left untouched.</summary>
 public sealed record Batch(Command[] Commands) : Command;
 
@@ -231,6 +235,9 @@ public enum Reject
 
     /// <summary>With structure rules on, the ship structure needs a cockpit and an engine module before it can fly.</summary>
     NoCockpitOrEngine,
+
+    /// <summary>The structure has no drone bay module to give work to.</summary>
+    NoDroneBay,
 }
 
 /// <summary>Outcome of one submitted command.</summary>

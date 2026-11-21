@@ -110,6 +110,9 @@ public enum Ability
 {
     /// <summary>Jumping along lanes between systems.</summary>
     Jump = 0,
+
+    /// <summary>Placing drone bay modules.</summary>
+    DroneBay = 1,
 }
 
 /// <param name="Requires">Research nodes that must be finished first.</param>
@@ -472,9 +475,12 @@ public sealed class ContentDb
                     {
                         foreach (var a in Array(e, "abilities"))
                         {
-                            var ability = a.ValueKind == JsonValueKind.String && a.GetString() == "jump"
-                                ? Ability.Jump
-                                : throw new InvalidDataException($"Research '{id}' lists an unknown ability.");
+                            var ability = (a.ValueKind == JsonValueKind.String ? a.GetString() : null) switch
+                            {
+                                "jump" => Ability.Jump,
+                                "drone_bay" => Ability.DroneBay,
+                                _ => throw new InvalidDataException($"Research '{id}' lists an unknown ability."),
+                            };
                             if (ua.Contains(ability)) throw new InvalidDataException($"Research '{id}' lists an ability twice.");
                             ua.Add(ability);
                         }
@@ -689,15 +695,22 @@ public sealed class ContentDb
 
     private static StructureContent LoadStructures(JsonElement st, Dictionary<string, int> itemIds)
     {
-        var names = Enum.GetValues<ModuleKind>().Select(k => k.ToString().ToLowerInvariant()).ToArray();
+        var names = Enum.GetValues<ModuleKind>().Select(ModuleKindIds.Id).ToArray();
         RequireObject(st, "structures", names);
         var kinds = new ModuleKindDef[names.Length];
         for (int i = 0; i < names.Length; i++)
         {
             if (!st.TryGetProperty(names[i], out var k)) throw new InvalidDataException($"'structures' needs an entry for '{names[i]}'.");
             string owner = "structures." + names[i];
-            RequireObject(k, owner, "cost", "hp", "allows", "hold_capacity", "thrust_speed_percent", "power_output", "burn_interval_ticks");
+            RequireObject(k, owner, "cost", "hp", "allows", "hold_capacity", "thrust_speed_percent", "power_output", "burn_interval_ticks",
+                "drone_range_cells", "drone_interval_ticks", "power_use");
             bool isReactor = (ModuleKind)i == ModuleKind.Reactor;
+            bool isBay = (ModuleKind)i == ModuleKind.DroneBay;
+            if (!isBay && (k.TryGetProperty("drone_range_cells", out _) || k.TryGetProperty("drone_interval_ticks", out _) || k.TryGetProperty("power_use", out _)))
+                throw new InvalidDataException($"'drone_range_cells', 'drone_interval_ticks' and 'power_use' only belong to the drone bay, not {owner}.");
+            int droneRange = isBay ? (k.TryGetProperty("drone_range_cells", out _) ? Int(k, "drone_range_cells", owner, 1, 10_000) : 60) : 0;
+            int droneInterval = isBay ? (k.TryGetProperty("drone_interval_ticks", out _) ? Int(k, "drone_interval_ticks", owner, 1, 1_000_000) : 90) : 0;
+            int bayPower = isBay ? (k.TryGetProperty("power_use", out _) ? Int(k, "power_use", owner, 0, 100_000) : 20) : 0;
             if (!isReactor && (k.TryGetProperty("power_output", out _) || k.TryGetProperty("burn_interval_ticks", out _)))
                 throw new InvalidDataException($"'power_output' and 'burn_interval_ticks' only belong to the reactor, not {owner}.");
             int powerOutput = isReactor ? (k.TryGetProperty("power_output", out _) ? Int(k, "power_output", owner, 0, 100_000) : 100) : 0;
@@ -733,7 +746,7 @@ public sealed class ContentDb
             kinds[i] = new ModuleKindDef((ModuleKind)i,
                 Stacks(k, "cost", owner, itemIds, allowEmpty: false, max: MaxCostStack),
                 Int(k, "hp", owner, 1, 100_000), roles.ToArray(), belts,
-                Int(k, "hold_capacity", owner, 0, 100_000), Int(k, "thrust_speed_percent", owner, 0, 10_000), powerOutput, burnInterval);
+                Int(k, "hold_capacity", owner, 0, 100_000), Int(k, "thrust_speed_percent", owner, 0, 10_000), powerOutput, burnInterval, droneRange, droneInterval, bayPower);
         }
         return new StructureContent(kinds);
     }
@@ -759,7 +772,7 @@ public sealed class ContentDb
         List<RecipeDef> recipeDefs, Dictionary<string, BeltTier> beltIds, Dictionary<string, int> itemIds)
     {
         RequireObject(t, owner, "modules", "machines", "belts", "hold");
-        var kindNames = Enum.GetValues<ModuleKind>().ToDictionary(k => k.ToString().ToLowerInvariant());
+        var kindNames = Enum.GetValues<ModuleKind>().ToDictionary(ModuleKindIds.Id);
         var modules = new List<TemplateModule>();
         var moduleKinds = new Dictionary<(int, int, int), ModuleKind>();
         foreach (var e in Array(t, "modules"))
@@ -1024,6 +1037,7 @@ public sealed class ContentDb
                 Mix(k.AllowedRoles.Length); foreach (var r in k.AllowedRoles) Mix((int)r);
                 Mix(k.AllowsBelts ? 1 : 0); Mix(k.HoldCapacity); Mix(k.ThrustSpeedPercent);
                 if (k.PowerOutput != 0 || k.BurnIntervalTicks != 0) { Mix(k.PowerOutput); Mix(k.BurnIntervalTicks); }
+                if (k.DroneIntervalTicks != 0) { Mix(k.DroneRangeCells); Mix(k.DroneIntervalTicks); Mix(k.PowerUse); }
             }
         }
         else Mix(-1);
