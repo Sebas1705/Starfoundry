@@ -32,6 +32,9 @@ public sealed class Tips
 
         // In priority order: what hurts first, then what helps.
         if (!_shown.Contains("needEngine") && net.StructureRules && ShipMissingEngineOrCockpit(net, player)) return Show("needEngine", "learn.needEngine", now);
+        if (!_shown.Contains("noFuel") && net.StructureRules && ShipHasReactor(net, player) && HydrogenInHold(net, player) <= 3) return Show("noFuel", "learn.noFuel", now);
+        if (!_shown.Contains("lowPower") && net.StructureRules && net.ShipStructure(player) >= 0 && HydrogenInHold(net, player) == 0
+            && net.ShipPower(player).SatisfactionPermille < PowerRules.FullSatisfaction) return Show("lowPower", "learn.lowPower", now);
         if (!_shown.Contains("ammo") && TurretWithoutAmmoUnderAttack(net)) return Show("ammo", "learn.ammo", now);
         if (!_shown.Contains("repair") && AnyDamaged(net)) return Show("repair", "learn.repair", now);
         if (!_shown.Contains("walls") && net.MachinesLost > 0 && !Has(net, MachineRole.Wall)) return Show("walls", "learn.walls", now);
@@ -53,6 +56,17 @@ public sealed class Tips
             if (st.Owner != player || st.Kind != StructureKind.Ship || st.Modules.Count == 0) continue;
             if (!st.Modules.Values.Contains(ModuleKind.Engine) || !st.Modules.Values.Contains(ModuleKind.Cockpit)) return true;
         }
+        return false;
+    }
+
+    private int HydrogenInHold(BeltNetwork net, int player) =>
+        _content.FuelItem < 0 ? 0 : net.HoldCount(player, _content.FuelItem);
+
+    /// <summary>True when the player's ship structure has a reactor module (so its power runs on hydrogen).</summary>
+    private static bool ShipHasReactor(BeltNetwork net, int player)
+    {
+        foreach (var st in net.Structures())
+            if (st.Owner == player && st.Kind == StructureKind.Ship && st.Modules.Values.Contains(ModuleKind.Reactor)) return true;
         return false;
     }
 

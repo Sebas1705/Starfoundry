@@ -14,4 +14,5 @@ public sealed record TemplateBelt(int X, int Y, int Z, Dir Dir, int Length, Belt
 /// A structure that is built whole at world creation, at no cost: its modules, machines and belts in local cells.
 /// Part of the content (and so of the content hash); see <c>structure_templates</c> in the content file.
 /// </summary>
-public sealed record StructureTemplate(TemplateModule[] Modules, TemplateMachine[] Machines, TemplateBelt[] Belts);
+/// <param name="Hold">Items the owner's hold starts with (for example the starter ship's hydrogen).</param>
+public sealed record StructureTemplate(TemplateModule[] Modules, TemplateMachine[] Machines, TemplateBelt[] Belts, ItemStack[] Hold);

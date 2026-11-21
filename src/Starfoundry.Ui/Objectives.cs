@@ -30,6 +30,9 @@ public enum Objective
     /// <summary>Structures only: the player owns a station.</summary>
     FoundStation,
 
+    /// <summary>Structures only: a hydrogen cracker has made hydrogen, or the hold holds more than the starting stock.</summary>
+    MakeFuel,
+
     /// <summary>Structures only: the player added modules beyond the starter set.</summary>
     AddModule,
 }
@@ -71,12 +74,15 @@ public sealed class ObjectiveTracker
 
     private static readonly Objective[] StructuresOrder =
     {
-        Objective.Fly, Objective.Mine, Objective.WatchFactory, Objective.FoundStation, Objective.AddModule,
+        Objective.Fly, Objective.Mine, Objective.WatchFactory, Objective.FoundStation, Objective.MakeFuel, Objective.AddModule,
         Objective.Research, Objective.Scan, Objective.Defend, Objective.Expand,
     };
 
     /// <summary>Modules of the starter ship; a player with more than this has added some.</summary>
     public const int StarterModuleCount = 5;
+
+    /// <summary>Hydrogen the starter ship's hold starts with; more than this in the hold means the player made some.</summary>
+    public const int StarterHydrogen = 20;
 
     /// <param name="content">Game content.</param>
     /// <param name="stationRules">True when machines may only be built inside station modules (a different step list).</param>
@@ -127,6 +133,9 @@ public sealed class ObjectiveTracker
             Mark(Objective.WatchFactory, () => Has(net, player, "core:iron_plate", 1)
                 || AnyMachine(net, m => _content.Machines[m.Type].Id == "core:assembler" && m.OutputItems > 0));
             Mark(Objective.FoundStation, () => net.Structures().Any(st => st.Owner == player && st.Kind == StructureKind.Station));
+            Mark(Objective.MakeFuel, () =>
+                Has(net, player, "core:hydrogen", StarterHydrogen + 1)
+                || AnyMachine(net, m => _content.Machines[m.Type].Id == "core:hydrogen_cracker" && m.OutputItems > 0));
             Mark(Objective.AddModule, () =>
             {
                 int total = 0;

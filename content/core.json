@@ -39,6 +39,9 @@
     },
     {
       "id": "core:nickel_plate"
+    },
+    {
+      "id": "core:hydrogen"
     }
   ],
   "machines": [
@@ -69,7 +72,8 @@
         }
       ],
       "hp": 100,
-      "signature": 3
+      "signature": 3,
+      "power_use": 10
     },
     {
       "id": "core:assembler",
@@ -80,7 +84,8 @@
         }
       ],
       "hp": 100,
-      "signature": 3
+      "signature": 3,
+      "power_use": 15
     },
     {
       "id": "core:research_lab",
@@ -96,7 +101,8 @@
         }
       ],
       "hp": 120,
-      "signature": 4
+      "signature": 4,
+      "power_use": 20
     },
     {
       "id": "core:depot",
@@ -108,7 +114,8 @@
         }
       ],
       "hp": 80,
-      "signature": 1
+      "signature": 1,
+      "power_use": 1
     },
     {
       "id": "core:turret",
@@ -125,6 +132,7 @@
       ],
       "hp": 120,
       "signature": 0,
+      "power_use": 5,
       "turret": {
         "range_cells": 18,
         "damage": 12,
@@ -164,6 +172,7 @@
       ],
       "hp": 120,
       "signature": 1,
+      "power_use": 10,
       "repairer": {
         "range_cells": 14,
         "heal": 20,
@@ -183,6 +192,7 @@
       ],
       "hp": 80,
       "signature": 1,
+      "power_use": 2,
       "unloader": {
         "item": "core:iron_ingot",
         "interval_ticks": 30,
@@ -204,6 +214,7 @@
       ],
       "hp": 80,
       "signature": 1,
+      "power_use": 2,
       "unloader": {
         "item": "core:iron_ore",
         "interval_ticks": 30,
@@ -221,6 +232,7 @@
       ],
       "hp": 80,
       "signature": 1,
+      "power_use": 2,
       "unloader": {
         "item": "core:titanium_ore",
         "interval_ticks": 30,
@@ -238,8 +250,43 @@
       ],
       "hp": 80,
       "signature": 1,
+      "power_use": 2,
       "unloader": {
         "item": "core:nickel_ore",
+        "interval_ticks": 30,
+        "reserve": 0
+      }
+    },
+    {
+      "id": "core:hydrogen_cracker",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 20
+        },
+        {
+          "item": "core:iron_ingot",
+          "count": 10
+        }
+      ],
+      "hp": 100,
+      "signature": 2,
+      "power_use": 12
+    },
+    {
+      "id": "core:ice_unloader",
+      "role": "unloader",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 12
+        }
+      ],
+      "hp": 80,
+      "signature": 1,
+      "power_use": 2,
+      "unloader": {
+        "item": "core:ice",
         "interval_ticks": 30,
         "reserve": 0
       }
@@ -477,6 +524,23 @@
         }
       ],
       "time_s": 3
+    },
+    {
+      "id": "core:crack_ice",
+      "machine": "core:hydrogen_cracker",
+      "inputs": [
+        {
+          "item": "core:ice",
+          "count": 2
+        }
+      ],
+      "outputs": [
+        {
+          "item": "core:hydrogen",
+          "count": 1
+        }
+      ],
+      "time_s": 4
     }
   ],
   "belts": [
@@ -1207,7 +1271,9 @@
       "hp": 150,
       "allows": [],
       "hold_capacity": 0,
-      "thrust_speed_percent": 0
+      "thrust_speed_percent": 0,
+      "power_output": 100,
+      "burn_interval_ticks": 900
     },
     "cargo": {
       "cost": [{ "item": "core:iron_ingot", "count": 20 }],
@@ -1247,6 +1313,7 @@
         { "at": [0, 0, 3], "kind": "reactor" },
         { "at": [0, 0, 4], "kind": "engine" }
       ],
+      "hold": [{ "item": "core:hydrogen", "count": 20 }],
       "machines": [
         { "id": "ore_port", "machine": "core:ore_unloader", "at": [0, 1, 9] },
         { "id": "smelter", "machine": "core:smelter", "at": [3, 1, 9], "recipe": "core:smelt_iron" },

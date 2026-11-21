@@ -28,6 +28,9 @@ public static class StructureFlight
     /// <summary>Engine speed percentages are percent of <see cref="PlayerRules.MoveUnitsPerTick"/>: this is the denominator (100).</summary>
     public const int PercentScale = 100;
 
+    /// <summary>Denominator of the sub-unit flight remainders: the percent scale times the power satisfaction scale (1000).</summary>
+    public const int RemainderScale = PercentScale * 1000;
+
     /// <summary>The summed engine speed is clamped to this many percent of the base speed (4x).</summary>
     public const int MaxSpeedPercent = 400;
 }
@@ -51,6 +54,12 @@ public sealed class Structure
 
     public IReadOnlyDictionary<(int Mx, int My, int Mz), ModuleKind> Modules => ModuleMap;
 
+    /// <summary>Ticks left of the current burn per reactor module (only burning reactors have an entry).</summary>
+    internal SortedDictionary<(int Mx, int My, int Mz), int> BurnRemaining { get; private set; } = new();
+
+    /// <summary>Power produced, power demanded and the satisfaction (per mille) of the last tick. See <c>BeltNetwork.PowerStatus</c>.</summary>
+    internal int PowerProduction, PowerDemand, Satisfaction = PowerRules.FullSatisfaction;
+
     internal Structure(int id, StructureKind kind, int owner, long ox, long oy, long oz)
     {
         Id = id; Kind = kind; Owner = owner; OriginX = ox; OriginY = oy; OriginZ = oz;
@@ -60,6 +69,8 @@ public sealed class Structure
     {
         var c = new Structure(Id, Kind, Owner, OriginX, OriginY, OriginZ);
         c.ModuleMap = new SortedDictionary<(int, int, int), ModuleKind>(ModuleMap);
+        c.BurnRemaining = new SortedDictionary<(int, int, int), int>(BurnRemaining);
+        c.PowerProduction = PowerProduction; c.PowerDemand = PowerDemand; c.Satisfaction = Satisfaction;
         return c;
     }
 }
