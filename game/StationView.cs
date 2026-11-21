@@ -105,6 +105,14 @@ void fragment() {
     /// <summary>The root node of a structure (move it to move the ship), or null if it is not drawn.</summary>
     public Node3D? StructureRoot(int id) => _structs.TryGetValue(id, out var s) ? s.Root : null;
 
+    /// <summary>Shows or hides the pilot seat model of a structure's cockpit (hidden while seated, so it does not block the view).</summary>
+    public void SetSeatVisible(int structureId, bool visible)
+    {
+        if (!_structs.TryGetValue(structureId, out var sr)) return;
+        foreach (var (kind, node) in sr.Modules.Values)
+            if (kind == ModuleKind.Cockpit && node.GetNodeOrNull<Node3D>("Seat") is { } seat) seat.Visible = visible;
+    }
+
     /// <summary>Lights the engine flames of a structure.</summary>
     public void SetEngines(int structureId, bool active) => _thrust[structureId] = active;
 

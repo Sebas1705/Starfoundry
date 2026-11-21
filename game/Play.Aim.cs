@@ -19,7 +19,7 @@ public partial class Play
     private (int S, int Mx, int My, int Mz)? _structModuleAim;
     private (int X, int Y, int Z)? _foundAim;
 
-    private bool AimActive => _mouseLook || _stationDemo || _structuresShot;
+    private bool AimActive => _mouseLook || _stationDemo || _structuresShot || _walkShot;
 
     private bool StationSelected => _tool == ToolMode.Build && _palette[_selected].IsStation;
 

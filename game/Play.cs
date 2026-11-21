@@ -122,7 +122,9 @@ public partial class Play : Node3D
         // The Remnant are on in the game and the threat demo; the production and exploration demos run without them.
         _structuresShotPath = args.FirstOrDefault(a => a.StartsWith("--structures-shot="))?["--structures-shot=".Length..];
         _structuresShot = _structuresShotPath is not null;
-        bool threats = !(args.Contains("--demo") || _exploreDemo) && _stressMachines == 0 && !(_structuresShot && !args.Contains("--threats"));
+        _walkShotPath = args.FirstOrDefault(a => a.StartsWith("--walk-shot="))?["--walk-shot=".Length..];
+        _walkShot = _walkShotPath is not null;
+        bool threats = !(args.Contains("--demo") || _exploreDemo) && _stressMachines == 0 && !((_structuresShot || _walkShot) && !args.Contains("--threats"));
         _stationDemo = args.Contains("--station-demo");
         // --station-demo: a sandbox world with the station rules on and a scripted station, for screenshots of the build rules.
         _gameMode = _exploreDemo || _threatDemo || _stressMachines > 0 || (_stationDemo && !args.Contains("--station-campaign")) || args.Contains("--structure-demo")
@@ -490,7 +492,7 @@ void fragment() {
             _camera.LookAtFromPosition(mid + new Vector3(30f, 15f, 14f), mid);
             return;
         }
-        _camera.Position = shipPos + (ShipStruct >= 0 ? SeatOffset : CockpitOffset);
+        _camera.Position = shipPos + (ShipStruct >= 0 ? EyeLocal() : CockpitOffset);
         _camera.Rotation = new Vector3(_pitch, _yaw, 0f);
     }
 
@@ -997,7 +999,9 @@ void fragment() {
         UpdateMachines();
         UpdateEnemies((float)delta);
         UpdateDeposits();
+        UpdateBody((float)delta); // before the camera is placed by UpdateShip
         UpdateShip(alpha, (float)delta);
+        if (_walkShot) WalkShotFrame();
         if (!_structuresOn) _stationView.Sync(Net, Player, _cursorY);
         if (_structureDemo) StructureDemoTick();
         if (_structuresShot) StructuresShotFrame();

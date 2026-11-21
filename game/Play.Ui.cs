@@ -69,6 +69,7 @@ public partial class Play
     private readonly List<Button> _buildButtons = new();
     private Button _btnMine = null!, _btnRefine = null!, _btnScan = null!, _btnMap = null!, _btnWeapons = null!, _btnResearch = null!;
     private Button _btnRepair = null!;
+    private Label _seatPrompt = null!;
     private Button _btnJump = null!, _btnLang = null!, _btnHelp = null!, _btnObjectives = null!;
     private Button _inspPrev = null!, _inspNext = null!, _inspRemove = null!, _inspRepair = null!;
 
@@ -270,6 +271,13 @@ public partial class Play
         _tooltipLabel.AddThemeColorOverride("font_outline_color", Colors.Black);
         _tooltipLabel.AddThemeConstantOverride("outline_size", 5);
         _uiRoot.AddChild(_tooltipLabel);
+
+        // "E: sit" / "E: stand", centred just above the crosshair.
+        _seatPrompt = MakeText(15, new Color(1f, 0.9f, 0.5f));
+        _seatPrompt.AddThemeColorOverride("font_outline_color", Colors.Black);
+        _seatPrompt.AddThemeConstantOverride("outline_size", 6);
+        _seatPrompt.MouseFilter = Control.MouseFilterEnum.Ignore;
+        _uiRoot.AddChild(_seatPrompt);
 
         // Contextual panel for the machine under the crosshair: name, role, status, recipe and a hit-point bar.
         var target = new VBoxContainer();
@@ -758,6 +766,8 @@ public partial class Play
         _selMachine = -1;
         _waypoint = null;
         _pendingMine = false;
+        _seated = true; // the loaded world has its own ship and modules: start at the seat again
+        _bodyVolumesVersion = -1;
         _tool = ToolMode.Pointer;
         _selectedDeposit = RevealedDeposits().FirstOrDefault();
         _objectives = new ObjectiveTracker(_content, _stationRules, _structuresOn);
@@ -1013,7 +1023,7 @@ public partial class Play
             string name = ItemName(item);
             _modeHint.Text = L(item.IsStation ? "hint.foundStation" : item.IsModule && _structuresOn ? "hint.buildModuleKind" : item.IsModule ? "hint.buildModule" : item.IsBelt ? "hint.buildBelt" : "hint.buildMachine", name);
         }
-        else _modeHint.Text = L("hint.pointer");
+        else _modeHint.Text = L(Standing ? "hint.pointerWalk" : "hint.pointer");
     }
 
     private void UpdateObjectivesPanel()
@@ -1167,8 +1177,13 @@ public partial class Play
         _tooltipLabel.Visible = _tooltipLabel.Text.Length > 0 && !_demo && AimActive;
         _tooltipLabel.Position = new Vector2(Math.Clamp(centre.X + 24, 8, Math.Max(8, size.X - _tooltipLabel.Size.X - 8)), Math.Clamp(centre.Y + 24, 8, Math.Max(8, size.Y - _tooltipLabel.Size.Y - 8)));
 
+        _seatPrompt.Text = SeatPromptText();
+        _seatPrompt.Visible = _seatPrompt.Text.Length > 0 && AimActive;
+        _seatPrompt.ResetSize();
+        _seatPrompt.Position = new Vector2(centre.X - _seatPrompt.Size.X / 2f, centre.Y - 46f);
+
         _targetPanel.ResetSize();
-        var ts = _targetPanel.GetCombinedMinimumSize();
+        var ts =_targetPanel.GetCombinedMinimumSize();
         _targetPanel.Position = new Vector2(Math.Clamp(centre.X + 28, 8, Math.Max(8, size.X - ts.X - 8)), Math.Clamp(centre.Y + 28, 8, Math.Max(8, size.Y - ts.Y - barSize.Y - 14)));
         _markers.Size = size;
     }
@@ -1387,7 +1402,8 @@ public partial class Play
             case Key.Z: _cursorY--; break;
             case Key.X: _cursorY++; break;
             case Key.M: ToggleMining(); break;
-            case Key.E: RepairAll(); break;
+            case Key.E: ToggleSeat(); break;
+            case Key.Backspace: RepairAll(); break;
             case Key.Bracketleft: CycleDeposit(-1); break;
             case Key.Bracketright: CycleDeposit(1); break;
             case Key.K: Send(new Scan()); break;
@@ -1445,6 +1461,15 @@ public partial class Play
             if (pi.JumpRemaining == 0 && pi.RespawnRemaining == 0 && (pi.ThrustX, pi.ThrustY, pi.ThrustZ) != _lastThrust) _lastThrust = (int.MinValue, 0, 0);
         }
 
+        if (Standing)
+        {
+            // Standing: no flight. WASD walk (see UpdateBody); the autopilot is off and the ship holds still.
+            _waypoint = null;
+            _pendingMine = false;
+            SendThrust((0, 0, 0), force: _lastThrust != (0, 0, 0));
+            return;
+        }
+
         var thrust = (0, 0, 0);
         if (_mouseLook)
         {
@@ -1486,6 +1511,7 @@ public partial class Play
             ToastProduction(L("toast.miningStopped"), 4.0);
             return;
         }
+        if (Standing) { ToastLogistics(L("toast.sitToFly")); return; } // mining may need the autopilot: sit at the pilot seat first
         if (!Net.IsDeposit(_selectedDeposit) || !Net.IsDepositRevealed(_selectedDeposit))
         {
             var nearest = RevealedDeposits().FirstOrDefault(-1);

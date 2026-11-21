@@ -31,6 +31,7 @@ What changes if the game starts inside a modular ship whose factory keeps workin
 To be filled in by the pacing task
 
 ## Limits
-- Power, materials, walking inside, defence of structures and detailed visuals are later projects. Reactors and defence modules exist as kinds with minimal behaviour.
+- Walking: `E` stands you up from the pilot seat (and sits you down within about 2.6 cells of it); `WASD` walk (`Shift` runs, 4 and 7 cells per second, eye 1.7 cells above the module floor) in the local space of your ship, clamped to the union of its module boxes (adjacent modules of the same level connect; no jump, no gravity, machines are not obstacles, one level only). The body is client-only state, the sim is unchanged; flight and the autopilot are refused while standing. Walking inside stations is a later step; only the ship is walkable. `--walk-shot=path` saves the workshop, cargo and seat views. Repair moved to `Backspace`.
+- Power, materials, defence of structures and detailed visuals are later projects. Reactors and defence modules exist as kinds with minimal behaviour.
 - The balance bot does not play structures, so earlier balance numbers do not describe this mode.
 - No docking, one ship per player, no ship-to-ship transfer.
