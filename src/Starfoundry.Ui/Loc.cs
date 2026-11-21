@@ -190,10 +190,10 @@ public static class Loc
         ["tip.enemy"] = ("Enemigo: {0}  (vida {1})", "Enemy: {0}  (HP {1})"),
 
         // ---- hints under the bar ----
-        ["hint.pointer"] = ("Ratón: mirar   WASD: volar   Espacio/C: subir/bajar   Clic: inspeccionar lo que apuntas   1-9: construir   Tab: soltar el ratón   F1: ayuda",
-                            "Mouse: look   WASD: fly   Space/C: up/down   Click: inspect what you aim at   1-9: build   Tab: free the mouse   F1: help"),
-        ["hint.pointerWalk"] = ("Ratón: mirar   WASD: caminar   Mayús: correr   E: sentarte en el asiento (para volar)   Clic: inspeccionar lo que apuntas   1-9: construir   Tab: soltar el ratón   F1: ayuda",
-                                "Mouse: look   WASD: walk   Shift: run   E: sit at the pilot seat (to fly)   Click: inspect what you aim at   1-9: build   Tab: free the mouse   F1: help"),
+        ["hint.pointer"] = ("Ratón: mirar   WASD: volar   Espacio/C: subir/bajar   Clic: inspeccionar lo que apuntas   B: menú de construcción   1-9: acceso rápido   Tab: soltar el ratón   F1: ayuda",
+                            "Mouse: look   WASD: fly   Space/C: up/down   Click: inspect what you aim at   B: build menu   1-9: quick pick   Tab: free the mouse   F1: help"),
+        ["hint.pointerWalk"] = ("Ratón: mirar   WASD: caminar   Mayús: correr   E: sentarte en el asiento (para volar)   Clic: inspeccionar lo que apuntas   B: menú de construcción   1-9: acceso rápido   Tab: soltar el ratón   F1: ayuda",
+                                "Mouse: look   WASD: walk   Shift: run   E: sit at the pilot seat (to fly)   Click: inspect what you aim at   B: build menu   1-9: quick pick   Tab: free the mouse   F1: help"),
         ["hint.sit"] = ("E: sentarse", "E: sit"),
         ["hint.stand"] = ("E: levantarse", "E: stand"),
         ["toast.sitToFly"] = ("De pie no puedes pilotar ni usar el piloto automático: siéntate en el asiento del piloto (E).", "You cannot fly or use the autopilot standing up: sit at the pilot seat (E)."),
@@ -222,11 +222,11 @@ public static class Loc
         ["hud.researchNone"] = ("Sin investigación elegida (T).", "No research selected (T)."),
         ["hud.oreLow"] = ("Queda poco {0} en este sistema ({1}%): escanea (K) y salta (G, J) a otro sistema.", "Little {0} left in this system ({1}%): scan (K) and jump (G, J) to another system."),
         ["learn.ammo"] = ("Tus torretas no tienen munición. Hace falta una línea que la fabrique (ensamblador con la receta de munición) y una cinta hasta cada torreta.", "Your turrets have no ammo. They need a line that makes it (an assembler on the ammo recipe) and a belt to each turret."),
-        ["learn.repair"] = ("Hay máquinas dañadas. Pulsa Retroceso para repararlas (cuesta la mitad de lo que costaron) o construye un taller de reparación (Q) con una cinta de lingotes.", "Some machines are damaged. Press Backspace to repair them (half their build cost) or build a repair bay (Q) fed ingots by belt."),
-        ["learn.walls"] = ("Los enemigos atacan primero el muro más cercano. Pon muros (0) delante de la base, al alcance de las torretas, y repáralos con Retroceso durante la oleada.", "Enemies attack the nearest wall first. Put walls (0) in front of the base, within reach of the turrets, and repair them with Backspace during the wave."),
+        ["learn.repair"] = ("Hay máquinas dañadas. Pulsa Retroceso para repararlas (cuesta la mitad de lo que costaron) o construye un taller de reparación (menú B, Defensa) con una cinta de lingotes.", "Some machines are damaged. Press Backspace to repair them (half their build cost) or build a repair bay (B menu, Defence) fed ingots by belt."),
+        ["learn.walls"] = ("Los enemigos atacan primero el muro más cercano. Pon muros (menú B, Defensa) delante de la base, al alcance de las torretas, y repáralos con Retroceso durante la oleada.", "Enemies attack the nearest wall first. Put walls (B menu, Defence) in front of the base, within reach of the turrets, and repair them with Backspace during the wave."),
         ["learn.research"] = ("El laboratorio está parado. Pulsa T para elegir qué investigar y asegúrate de que le llegan placas por cinta.", "The lab is idle. Press T to choose what to research and make sure plates reach it by belt."),
         ["learn.upgrades"] = ("Hay mejoras de defensa por investigar (T): daño y cadencia de torretas, vida de las máquinas y reparación.", "There are defence upgrades to research (T): turret damage and fire rate, machine hit points and repair."),
-        ["learn.port"] = ("Con el motor de salto puedes construir un puerto de carga (B): saca lingotes de tu bodega a una cinta, así lo que mines en otro sistema alimenta tu fábrica.", "With the jump drive you can build a cargo port (B): it takes ingots out of your hold onto a belt, so what you mine in another system feeds your factory."),
+        ["learn.port"] = ("Con el motor de salto puedes construir un puerto de carga (menú B, Logística): saca lingotes de tu bodega a una cinta, así lo que mines en otro sistema alimenta tu fábrica.", "With the jump drive you can build a cargo port (B menu, Logistics): it takes ingots out of your hold onto a belt, so what you mine in another system feeds your factory."),
         ["hud.defense"] = ("Mejoras de defensa: daño de torretas +{0}%, cadencia +{1}%, vida de máquinas +{2}%, reparación +{3}%, casco de la nave +{4}%, arma de la nave +{5}%", "Defence upgrades: turret damage +{0}%, fire rate +{1}%, machine hit points +{2}%, repair +{3}%, ship hull +{4}%, ship weapon +{5}%"),
         ["hud.level"] = ("{0} (nivel {1}/{2})", "{0} (level {1}/{2})"),
         ["hud.researchDone"] = ("Sin investigación elegida (T). Hecho: {0}", "No research selected (T). Done: {0}"),
@@ -382,34 +382,34 @@ public static class Loc
         ["obj.refine.hint"] = ("Pulsa F para encender la refinería de la nave: convierte mineral en lingotes, despacio.",
                                "Press F to switch the ship's refinery on: it turns ore into ingots, slowly."),
         ["obj.drill"] = ("Construye un taladro junto al yacimiento", "Build a drill next to the deposit"),
-        ["obj.drill.hint"] = ("Elige Taladro en la barra (4) y apunta al suelo a menos de 16 celdas del yacimiento (mira hacia abajo); clic para colocarlo. Cuesta lingotes.",
-                              "Choose Drill in the bar (4), aim at the ground within 16 cells of the deposit (look down) and click to place it. It costs ingots."),
+        ["obj.drill.hint"] = ("Elige Taladro en el menú de construcción (B) y apunta al suelo a menos de 16 celdas del yacimiento (mira hacia abajo); clic para colocarlo. Cuesta lingotes.",
+                              "Choose Drill in the build menu (B), aim at the ground within 16 cells of the deposit (look down) and click to place it. It costs ingots."),
         ["obj.smelter"] = ("Construye un horno", "Build a smelter"),
-        ["obj.smelter.hint"] = ("Elige Horno (5) y colócalo delante del taladro; une ambos con cintas (1): clic al inicio y clic al final.",
-                                "Choose Smelter (5) and place it in front of the drill; join them with belts (1): click the start, then click the end."),
+        ["obj.smelter.hint"] = ("Elige Horno en el menú de construcción (B) y colócalo delante del taladro; une ambos con cintas (menú B, Logística): clic al inicio y clic al final.",
+                                "Choose Smelter in the build menu (B) and place it in front of the drill; join them with belts (B menu, Logistics): click the start, then click the end."),
         ["obj.depot"] = ("Entrega lingotes a tu bodega", "Deliver ingots to your hold"),
-        ["obj.depot.hint"] = ("Tiende cintas desde el horno hasta un Depósito (8): mete en tu bodega todo lo que le llega.",
-                              "Lay belts from the smelter to a Depot (8): it puts everything that arrives into your hold."),
+        ["obj.depot.hint"] = ("Tiende cintas desde el horno hasta un Depósito (menú B, Logística): mete en tu bodega todo lo que le llega.",
+                              "Lay belts from the smelter to a Depot (B menu, Logistics): it puts everything that arrives into your hold."),
         ["obj.assembler"] = ("Construye un ensamblador", "Build an assembler"),
-        ["obj.assembler.hint"] = ("Pon un Ensamblador (6) detrás de otro horno para fabricar placas.", "Put an Assembler (6) after another smelter to make plates."),
+        ["obj.assembler.hint"] = ("Pon un Ensamblador (menú B, Producción) detrás de otro horno para fabricar placas.", "Put an Assembler (B menu, Production) after another smelter to make plates."),
         ["obj.lab"] = ("Construye un laboratorio", "Build a research lab"),
-        ["obj.lab.hint"] = ("Un Laboratorio (7) recibe placas por cinta y investiga. Cuesta lingotes y placas.", "A Lab (7) takes plates by belt and researches. It costs ingots and plates."),
+        ["obj.lab.hint"] = ("Un Laboratorio (menú B, Producción) recibe placas por cinta y investiga. Cuesta lingotes y placas.", "A Lab (B menu, Production) takes plates by belt and researches. It costs ingots and plates."),
         ["obj.research"] = ("Termina una investigación", "Finish a research"),
         ["obj.research.hint"] = ("Pulsa T para elegir una y lleva placas al laboratorio por cinta.", "Press T to pick one and bring plates to the lab by belt."),
         ["obj.scan"] = ("Escanea en busca de yacimientos nuevos", "Scan for new deposits"),
         ["obj.scan.hint"] = ("Pulsa K: revela los yacimientos ocultos a menos de 80 celdas. Vuela lejos para encontrar más.",
                              "Press K: it reveals hidden deposits within 80 cells. Fly away to find more."),
         ["obj.defend"] = ("Defiende tu base", "Defend your base"),
-        ["obj.defend.hint"] = ("Las máquinas hacen ruido y atraen oleadas. Construye una Torreta (9) y llévale munición por cinta.",
-                               "Machines make noise and attract waves. Build a Turret (9) and bring it ammo by belt."),
+        ["obj.defend.hint"] = ("Las máquinas hacen ruido y atraen oleadas. Construye una Torreta (menú B, Defensa) y llévale munición por cinta.",
+                               "Machines make noise and attract waves. Build a Turret (B menu, Defence) and bring it ammo by belt."),
         ["obj.expand"] = ("Salta a otro sistema", "Jump to another system"),
         ["obj.expand.hint"] = ("El yacimiento de casa se agota en un par de horas. Investiga la perforación de carbono y el motor de salto (T), escanea (K) y salta (G, J) a un sistema con hierro.",
                                "The home deposit runs out in a couple of hours. Research carbon drilling and the jump drive (T), scan (K) and jump (G, J) to a system with iron."),
 
         // ---- guided steps under the station rules ----
         ["obj.core"] = ("Construye el núcleo de la estación", "Build the station core"),
-        ["obj.core.hint"] = ("Elige Módulo en la barra y colócalo cerca de la nave: el primero es el núcleo y solo se construye dentro de la estación. Cuesta lingotes.",
-                             "Choose Module in the bar and place it near the ship: the first one is the core, and you can only build inside the station. It costs ingots."),
+        ["obj.core.hint"] = ("Elige Módulo en el menú de construcción (B, pestaña Estructura) y colócalo cerca de la nave: el primero es el núcleo y solo se construye dentro de la estación. Cuesta lingotes.",
+                             "Choose Module in the build menu (B, Structure tab) and place it near the ship: the first one is the core, and you can only build inside the station. It costs ingots."),
         ["obj.cargoPort"] = ("Construye un puerto de carga", "Build a cargo port"),
         ["obj.cargoPort.hint"] = ("El mineral no llega solo: vuela a la estación y descarga la bodega por un puerto a una cinta. El puerto de mineral lleva mineral a los hornos; el de carga, lingotes. Colócalo dentro de un módulo.",
                                   "Ore does not arrive by itself: fly to the station and unload your hold through a port onto a belt. The ore port carries ore to smelters; the cargo port carries ingots. Place it inside a module."),
@@ -417,10 +417,10 @@ public static class Loc
                                      "Press M once: the ship mines by itself at 2 ore per second until the hold is full. Then fly back to the station to unload it."),
         ["obj.refine.hint.station"] = ("Pulsa F para encender la refinería de la nave: convierte mineral en lingotes, despacio. Los necesitas para construir el núcleo.",
                                        "Press F to switch the ship's refinery on: it turns ore into ingots, slowly. You need them to build the core."),
-        ["obj.smelter.hint.station"] = ("Elige Horno (5) y colócalo dentro de un módulo, junto a un puerto de mineral (el de carga solo lleva lingotes); une ambos con cintas (1). Si no cabe, amplía la estación con otro módulo.",
-                                        "Choose Smelter (5) and place it inside a module, next to an ore port (the cargo port carries only ingots); join them with belts (1). If it does not fit, grow the station with another module."),
-        ["obj.depot.hint.station"] = ("Tiende cintas desde el horno hasta un Depósito (8) dentro de la estación: mete en tu bodega todo lo que le llega.",
-                                      "Lay belts from the smelter to a Depot (8) inside the station: it puts everything that arrives into your hold."),
+        ["obj.smelter.hint.station"] = ("Elige Horno en el menú de construcción (B) y colócalo dentro de un módulo, junto a un puerto de mineral (el de carga solo lleva lingotes); une ambos con cintas (menú B, Logística). Si no cabe, amplía la estación con otro módulo.",
+                                        "Choose Smelter in the build menu (B) and place it inside a module, next to an ore port (the cargo port carries only ingots); join them with belts (B menu, Logistics). If it does not fit, grow the station with another module."),
+        ["obj.depot.hint.station"] = ("Tiende cintas desde el horno hasta un Depósito (menú B, Logística) dentro de la estación: mete en tu bodega todo lo que le llega.",
+                                      "Lay belts from the smelter to a Depot (B menu, Logistics) inside the station: it puts everything that arrives into your hold."),
         ["learn.deliver"] = ("Tienes la bodega llena de mineral. Vuela a la estación y descárgala con un puerto de mineral: saca el mineral a una cinta que alimente tus hornos (el puerto de carga solo lleva lingotes).",
                              "Your hold is full of ore. Fly to the station and unload it with an ore port: it puts the ore onto a belt that feeds your smelters (the cargo port carries only ingots)."),
 
@@ -438,7 +438,7 @@ public static class Loc
         ["module.engine"] = ("Motor", "Engine"),
         ["module.engine.purpose"] = ("Da el empuje para volar.", "Provides the thrust to fly."),
         ["module.reactor"] = ("Reactor", "Reactor"),
-        ["module.reactor.purpose"] = ("Energía (más adelante).", "Power (later)."),
+        ["module.reactor.purpose"] = ("Quema hidrógeno y da energía a la estructura.", "Burns hydrogen and powers the structure."),
         ["module.cargo"] = ("Bodega", "Cargo"),
         ["module.cargo.purpose"] = ("Contenedor de objetos.", "An item container."),
         ["module.workshop"] = ("Taller", "Workshop"),
@@ -585,6 +585,105 @@ public static class Loc
         ["settings.tip.fullscreen"] = ("Pantalla completa (F11 en la partida).", "Fullscreen (F11 in game)."),
         ["settings.file"] = ("Se guardan solos en settings.cfg", "Saved automatically to settings.cfg"),
 
+        ["pause.seed"] = ("Semilla de la galaxia: {0}", "Galaxy seed: {0}"),
+        ["end.stat.seed"] = ("Semilla de la galaxia", "Galaxy seed"),
+
+        // ---- research panel ----
+        ["research.title"] = ("INVESTIGACIÓN", "RESEARCH"),
+        ["research.close"] = ("Cerrar (T o Esc)", "Close (T or Esc)"),
+        ["research.start"] = ("Investigar esto  [Intro]", "Research this  [Enter]"),
+        ["research.startCurrent"] = ("Ya se está investigando", "Already being researched"),
+        ["research.startLocked"] = ("Bloqueada", "Locked"),
+        ["research.startDone"] = ("Hecha", "Done"),
+        ["research.state.researching"] = ("Investigando", "Researching"),
+        ["research.state.available"] = ("Disponibles", "Available"),
+        ["research.state.locked"] = ("Bloqueadas", "Locked"),
+        ["research.state.done"] = ("Hechas", "Done"),
+        ["research.cost"] = ("Coste (lo que ya tiene el laboratorio / lo que pide):", "Cost (what the lab has / what it needs):"),
+        ["research.costHold"] = ("{0}   (en tu bodega: {1})", "{0}   (in your hold: {1})"),
+        ["research.requires"] = ("Requiere:", "Requires:"),
+        ["research.requiresNone"] = ("Nada: se puede investigar desde el principio.", "Nothing: it can be researched from the start."),
+        ["research.unlocks"] = ("Desbloquea:", "Unlocks:"),
+        ["research.lockedBy"] = ("antes hay que terminar {0}.", "finish {0} first."),
+        ["research.progress"] = ("Progreso: {0}%", "Progress: {0}%"),
+        ["research.current"] = ("En marcha: {0}", "In progress: {0}"),
+        ["research.currentNone"] = ("Ninguna investigación en marcha: elige una.", "No research in progress: pick one."),
+        ["research.how"] = ("Cómo entregar los objetos: los laboratorios solo gastan lo que les llega por cinta. Construye un laboratorio (menú B, Producción) y llévale los objetos desde un puerto (menú B, Logística: saca de tu bodega mineral o lingotes) o directamente desde la máquina que los fabrica: puerto -> cinta -> laboratorio.",
+                            "How to deliver the items: labs only use what reaches them by belt. Build a research lab (B menu, Production) and bring it the items from a port (B menu, Logistics: it takes ore or ingots out of your hold) or straight from the machine that makes them: port -> belt -> lab."),
+        ["research.keys"] = ("Flechas: elegir   Intro: investigar   Esc o T: cerrar", "Arrows: choose   Enter: research   Esc or T: close"),
+        ["research.empty"] = ("No hay investigaciones en este contenido.", "There is no research in this content."),
+        ["research.nowLab"] = ("Investigación elegida: {0}. Lleva los objetos al laboratorio por cinta.", "Research chosen: {0}. Bring the items to a lab by belt."),
+        ["research.unlock.machine"] = ("Máquina: {0}", "Machine: {0}"),
+        ["research.unlock.recipe"] = ("Receta: {0}", "Recipe: {0}"),
+        ["research.unlock.belt"] = ("{0}", "{0}"),
+        ["research.unlock.ability"] = ("Capacidad: {0}", "Ability: {0}"),
+        ["research.unlock.bonus"] = ("Mejora: {0} +{1}%", "Upgrade: {0} +{1}%"),
+        ["ability.jump"] = ("saltar entre sistemas", "jumping between systems"),
+        ["ability.drone_bay"] = ("módulo hangar de drones", "drone bay module"),
+        ["bonus.turret_damage"] = ("daño de las torretas", "turret damage"),
+        ["bonus.turret_rate"] = ("cadencia de las torretas", "turret fire rate"),
+        ["bonus.machine_hp"] = ("vida de las máquinas", "machine hit points"),
+        ["bonus.repair_heal"] = ("reparación", "repair"),
+        ["bonus.ship_hull"] = ("casco de la nave", "ship hull"),
+        ["bonus.ship_damage"] = ("arma de la nave", "ship weapon"),
+        ["research.core:logistics.desc"] = ("Cintas más rápidas: desbloquea la cinta Mk2. Es la base de casi todo lo demás.", "Faster belts: unlocks belt Mk2. The base of almost everything else."),
+        ["research.core:carbon_drilling.desc"] = ("Los taladros y la extracción pueden sacar carbono de los yacimientos.", "Drilling and mining can take carbon out of deposits."),
+        ["research.core:advanced_logistics.desc"] = ("Las cintas más rápidas: desbloquea la cinta Mk3.", "The fastest belts: unlocks belt Mk3."),
+        ["research.core:jump_drive.desc"] = ("Permite saltar por las rutas del mapa estelar a otros sistemas (G abre el mapa, J salta).", "Lets the ship jump along the star map lanes to other systems (G opens the map, J jumps)."),
+        ["research.core:turret_calibration.desc"] = ("Las torretas hacen más daño por disparo.", "Turrets do more damage per shot."),
+        ["research.core:reinforced_plating.desc"] = ("Las máquinas aguantan más daño.", "Machines take more damage before they fall."),
+        ["research.core:rapid_loader.desc"] = ("Las torretas disparan más rápido.", "Turrets fire faster."),
+        ["research.core:field_repair.desc"] = ("Cada reparación devuelve más vida.", "Every repair restores more hit points."),
+        ["research.core:ship_armor.desc"] = ("El casco de la nave aguanta más.", "The ship's hull takes more."),
+        ["research.core:ship_cannon.desc"] = ("El arma de la nave hace más daño.", "The ship's weapon does more damage."),
+        ["research.core:overclock.desc"] = ("Mejora repetible: más daño de torretas en cada nivel; cada nivel cuesta más.", "Repeatable upgrade: more turret damage each level; every level costs more."),
+        ["research.core:alloy_refinement.desc"] = ("Mejora repetible: más vida de las máquinas en cada nivel; cada nivel cuesta más.", "Repeatable upgrade: more machine hit points each level; every level costs more."),
+        ["research.core:nanite_repair.desc"] = ("Mejora repetible: más vida por reparación en cada nivel; cada nivel cuesta más.", "Repeatable upgrade: more repair per use each level; every level costs more."),
+        ["research.core:titanium_smelting.desc"] = ("Funde mineral de titanio en lingotes y habilita el puerto de mineral de titanio.", "Smelts titanium ore into ingots and unlocks the titanium ore port."),
+        ["research.core:nickel_smelting.desc"] = ("Funde mineral de níquel en lingotes y habilita el puerto de mineral de níquel.", "Smelts nickel ore into ingots and unlocks the nickel ore port."),
+        ["research.core:advanced_plating.desc"] = ("Placas de titanio y de níquel, necesarias para los módulos avanzados.", "Titanium and nickel plates, needed for the advanced modules."),
+
+        // ---- build menu ----
+        ["build.title"] = ("CONSTRUIR", "BUILD"),
+        ["build.tab.logistics"] = ("Logística", "Logistics"),
+        ["build.tab.production"] = ("Producción", "Production"),
+        ["build.tab.defence"] = ("Defensa", "Defence"),
+        ["build.tab.structure"] = ("Estructura", "Structure"),
+        ["build.keys"] = ("Flechas: elegir   Intro o clic: construir con eso   Re Pág / Av Pág: cambiar de pestaña   B o Esc: cerrar", "Arrows: choose   Enter or click: build with it   PgUp / PgDn: change tab   B or Esc: close"),
+        ["build.quick"] = ("tecla {0}", "key {0}"),
+        ["build.bar"] = ("B: todo", "B: all"),
+        ["build.barTip"] = ("Abre el menú de construcción (B): todas las máquinas, puertos y módulos por categoría. Las teclas 1-9, 0 y Q eligen directamente las primeras.", "Opens the build menu (B): every machine, port and module by category. Keys 1-9, 0 and Q pick the first ones directly."),
+        ["build.locked"] = ("BLOQUEADO: investiga {0} (T)", "LOCKED: research {0} (T)"),
+        ["build.lockedNoNode"] = ("BLOQUEADO", "LOCKED"),
+        ["build.missing"] = ("Te faltan objetos en la bodega", "Missing items in your hold"),
+        ["build.ready"] = ("Listo para construir", "Ready to build"),
+        ["build.powerUses"] = ("Gasta {0} de energía", "Uses {0} power"),
+        ["build.powerMakes"] = ("Produce {0} de energía", "Makes {0} power"),
+        ["build.role.belt"] = ("Cinta", "Belt"),
+        ["build.role.machine"] = ("Máquina", "Machine"),
+        ["build.role.module"] = ("Módulo", "Module"),
+        ["build.empty"] = ("Nada que construir en esta pestaña.", "Nothing to build in this tab."),
+        ["build.desc.belt1"] = ("Mueve objetos entre máquinas: lo básico.", "Moves items between machines: the basics."),
+        ["build.desc.belt2"] = ("Cinta rápida; hay que investigar Logística.", "Faster belt; needs the Logistics research."),
+        ["build.desc.belt3"] = ("La cinta más rápida; hay que investigar Logística avanzada.", "The fastest belt; needs Advanced logistics."),
+        ["build.desc.core:depot"] = ("Mete en tu bodega todo lo que le llega por cinta.", "Puts everything that reaches it by belt into your hold."),
+        ["build.desc.core:unloader"] = ("Puerto de carga: saca lingotes de tu bodega a una cinta (deja los últimos 10).", "Cargo port: takes ingots out of your hold onto a belt (keeps the last 10)."),
+        ["build.desc.core:ore_unloader"] = ("Puerto de mineral: saca mineral de hierro de tu bodega a una cinta.", "Ore port: takes iron ore out of your hold onto a belt."),
+        ["build.desc.core:titanium_ore_unloader"] = ("Saca mineral de titanio de tu bodega a una cinta.", "Takes titanium ore out of your hold onto a belt."),
+        ["build.desc.core:nickel_ore_unloader"] = ("Saca mineral de níquel de tu bodega a una cinta.", "Takes nickel ore out of your hold onto a belt."),
+        ["build.desc.core:ice_unloader"] = ("Saca hielo de tu bodega a una cinta (para el craqueador).", "Takes ice out of your hold onto a belt (for the cracker)."),
+        ["build.desc.core:quartz_unloader"] = ("Saca cuarzo de tu bodega a una cinta.", "Takes quartz out of your hold onto a belt."),
+        ["build.desc.core:carbon_unloader"] = ("Saca carbono de tu bodega a una cinta.", "Takes carbon out of your hold onto a belt."),
+        ["build.desc.core:drill"] = ("Saca mineral de un yacimiento cercano (solo fuera de estructuras).", "Pulls ore out of a nearby deposit (outside structures only)."),
+        ["build.desc.core:smelter"] = ("Funde mineral en lingotes con una receta.", "Smelts ore into ingots with a recipe."),
+        ["build.desc.core:assembler"] = ("Hace placas, munición y más a partir de lingotes.", "Makes plates, ammo and more from ingots."),
+        ["build.desc.core:hydrogen_cracker"] = ("Convierte hielo en hidrógeno, el combustible del reactor.", "Turns ice into hydrogen, the reactor's fuel."),
+        ["build.desc.core:research_lab"] = ("Gasta lo que le llega por cinta en la investigación elegida (T).", "Uses what reaches it by belt on the chosen research (T)."),
+        ["build.desc.core:turret"] = ("Dispara a los enemigos; gasta munición que llega por cinta.", "Shoots enemies; uses ammo delivered by belt."),
+        ["build.desc.core:wall"] = ("Los enemigos la atacan antes que a nada: tiene mucha vida.", "Enemies attack it before anything else: it has a lot of hit points."),
+        ["build.desc.core:repair_bay"] = ("Repara las máquinas cercanas gastando lingotes de una cinta.", "Repairs nearby machines using ingots from a belt."),
+        ["build.desc.module"] = ("Un módulo de estación: una caja de 8 x 8 x 4 celdas.", "A station module: an 8 x 8 x 4 cell box."),
+
         // ---- help overlay ----
         ["help.text"] = (
             "CONTROLES   (F1 para cerrar)\n\n" +
@@ -598,15 +697,16 @@ public static class Loc
             "  W S   avanzar / retroceder hacia donde miras     A D   desplazarse a los lados     Espacio / C   subir / bajar\n" +
             "  E   sentarte / levantarte del asiento del piloto (de pie: WASD camina, Mayús corre y no se vuela)\n  M   minar (vuela primero al yacimiento)      F   refinería       K   escanear       V   armas\n  Marcadores: yacimiento elegido, enemigo más cercano y tu base; en el borde de la pantalla señalan hacia dónde mirar\n\n" +
             "Construcción\n" +
-            "  1-9, 0, Q, B, U   elegir qué construir; F2-F5 las entradas siguientes (N: módulo de estación)       Esc   dejar de construir\n" +
-            "  La tira de abajo muestra todas las entradas en dos filas; el panel de estado muestra la energía de la nave (verde, ámbar, rojo), el hidrógeno y el tiempo que dura\n" +
+            "  B   menú de construcción (pestañas Logística, Producción, Defensa y Estructura, con coste, energía y qué hace cada cosa; flechas, Intro o clic eligen la herramienta; Re Pág / Av Pág cambian de pestaña)       Esc   dejar de construir\n" +
+            "  1-9, 0, Q   teclas rápidas de las primeras entradas de la barra de abajo (cintas, horno, ensamblador, laboratorio, depósito, torreta, muro, taller de reparación, puerto de carga); los demás puertos solo están en el menú B\n" +
+            "  El panel de estado muestra la energía de la nave (verde, ámbar, rojo), el hidrógeno y el tiempo que dura\n" +
             "  Y   cambiar receta       R   girar cintas sueltas       Z / X   cambiar de capa\n" +
-            "  N   módulo de estación (el primero es el núcleo; solo se construye dentro de los módulos)\n" +
+            "  N   módulo de estación (con estaciones antiguas: el primero es el núcleo; solo se construye dentro de los módulos)\n" +
             "  Estructuras: N elige la herramienta de módulos y, pulsada otra vez, cambia su tipo (cabina, motor, reactor, bodega, taller, defensa, casco, hangar de drones tras investigarlo); I elige fundar una estación junto a la nave; cada tipo de módulo admite máquinas distintas\n" +
             "  F7   asignar los drones de tu nave o estación al yacimiento elegido ([ ] o clic); de nuevo con el mismo yacimiento, quitarlos\n" +
             "  Clic en una máquina sin herramienta: ver su estado y cambiar su receta (Tab para usar sus botones).\n  Retroceso   reparar todas las máquinas dañadas a tu alcance (cuesta la mitad de su coste, en proporción al daño)\n\n" +
             "Otros\n" +
-            "  T   elegir investigación      G   mapa estelar (flechas y J para saltar)\n" +
+            "  T   panel de investigación (flechas e Intro eligen; ahí se ve qué necesita y qué desbloquea cada una)      G   mapa estelar (flechas y J para saltar)\n" +
             "  P   pausa       + / -   velocidad       L   idioma       O   pasos       [ ]   cambiar yacimiento\n  H   más / menos detalles en el panel de estado       F6   guardar       F9   cargar (se guarda sola cada 5 minutos)       F11   pantalla completa",
             "CONTROLS   (F1 to close)\n\n" +
             "Mouse\n" +
@@ -619,15 +719,16 @@ public static class Loc
             "  W S   forward / back where you look     A D   strafe     Space / C   up / down\n" +
             "  E   sit at / stand up from the pilot seat (standing: WASD walks, Shift runs, no flying)\n  M   mine (flies to the deposit first)      F   refinery       K   scan       V   weapons\n  Markers: the selected deposit, the nearest enemy and your base; at the screen edge they point where to look\n\n" +
             "Building\n" +
-            "  1-9, 0, Q, B, U   choose what to build; F2-F5 the entries after them (N: station module)       Esc   stop building\n" +
-            "  The bottom strip shows every entry in two rows; the status panel shows the ship's power (green, amber, red), the hydrogen and how long it lasts\n" +
+            "  B   build menu (tabs Logistics, Production, Defence and Structure, with cost, power and what each thing does; arrows, Enter or click pick the tool; PgUp / PgDn change tab)       Esc   stop building\n" +
+            "  1-9, 0, Q   quick keys for the first entries of the bottom bar (belts, smelter, assembler, lab, depot, turret, wall, repair bay, cargo port); the other ports are only in the B menu\n" +
+            "  The status panel shows the ship's power (green, amber, red), the hydrogen and how long it lasts\n" +
             "  Y   change recipe       R   rotate single belts       Z / X   change layer\n" +
-            "  N   station module (the first one is the core; you can only build inside modules)\n" +
+            "  N   station module (older station rules: the first one is the core; you can only build inside modules)\n" +
             "  Structures: N picks the module tool and, pressed again, changes its kind (cockpit, engine, reactor, cargo, workshop, defence, hull, drone bay once researched); I picks founding a station beside the ship; each module kind allows different machines\n" +
             "  F7   assign your ship's or station's drones to the selected deposit ([ ] or click); again on the same deposit, unassign them\n" +
             "  With no tool, click a machine: see its status and change its recipe (Tab to use its buttons).\n  Backspace   repair every damaged machine within reach (half the build cost, in proportion to the damage)\n\n" +
             "Other\n" +
-            "  T   choose research      G   star map (arrows and J to jump)\n" +
+            "  T   research panel (arrows and Enter choose; it shows what each one needs and unlocks)      G   star map (arrows and J to jump)\n" +
             "  P   pause       + / -   speed       L   language       O   steps       [ ]   change deposit\n  H   more / fewer details in the status panel       F6   save       F9   load (it also saves itself every 5 minutes)       F11   fullscreen"),
     };
 }
