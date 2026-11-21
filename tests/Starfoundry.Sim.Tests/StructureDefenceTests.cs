@@ -692,6 +692,8 @@ public class StructureDefenceTests
         RemoveWhere("research", "core:advanced_power", "core:sensors", "core:shielding", "core:electronics", "core:silicon_processing");
         RemoveWhere("recipes", "core:smelt_silicon", "core:make_circuit", "core:make_alloy", "core:make_fuel_cell");
         RemoveWhere("items", "core:silicon", "core:circuit", "core:titanium_alloy", "core:fuel_cell");
+        // And before the second balance pass: the small container held 60.
+        root["structures"]!["cargo"]!["hold_capacity"] = 60;
         return ContentDb.FromJson(root.ToJsonString());
     }
 

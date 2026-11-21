@@ -93,7 +93,7 @@ public class DroneTests
     public void Hold_limit_makes_the_bay_wait()
     {
         var (w, s, _) = Setup();
-        // The hold is 60 items; hand mining and drones stop at 75 percent (45).
+        // The hold is 100 items; hand mining and drones stop at 75 percent (75).
         int limit = w.Network.HoldCapacity(0) * PlayerRules.MiningHoldLimitPercent / 100;
         w.Network.GiveItems(0, Ore, limit - 1 - w.Network.HoldTotal(0) + w.Network.HoldCount(0, Hydrogen) * 0);
         int start = w.Network.HoldTotal(0);

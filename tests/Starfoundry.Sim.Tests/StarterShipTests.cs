@@ -50,7 +50,7 @@ public class StarterShipTests
         Assert.Equal(ModuleKind.Cargo, s.Modules[(0, 0, 2)]);
         Assert.Equal(ModuleKind.Reactor, s.Modules[(0, 0, 3)]);
         Assert.Equal(ModuleKind.Engine, s.Modules[(0, 0, 4)]);
-        Assert.Equal(60, n.HoldCapacity(0));
+        Assert.Equal(100, n.HoldCapacity(0));
         Assert.Single(n.Structures());
 
         Assert.Equal(4, n.MachineCount);

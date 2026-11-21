@@ -29,6 +29,12 @@ public static class PlayerRules
     /// </summary>
     public const int MiningHoldLimitPercent = 75;
 
+    /// <summary>
+    /// Structure worlds only: a depot stops delivering once the hold (items plus reserved slots) is at or above this percentage of
+    /// its capacity, so a few slots always stay free for hand-mined and port-bound items.
+    /// </summary>
+    public const int DepotHoldLimitPercent = 90;
+
     /// <summary>The ship's micro-refinery works this many times slower than the recipe time.</summary>
     public const int ShipCraftMultiplier = 2;
 
@@ -734,6 +740,7 @@ public sealed partial class BeltNetwork
         var p = GetOrCreatePlayer(depot.Owner);
         int capacity = HoldCapacityOf(p);
         if (p.HoldTotal + p.ShipReserved >= capacity) return false;
+        if (StructureRules && (long)(p.HoldTotal + p.ShipReserved) * 100 >= (long)capacity * PlayerRules.DepotHoldLimitPercent) return false; // a few slots stay free
         if (p.Hold[item] >= capacity * 2 / 5) return false; // one item type never takes the whole hold
 
         AddToHold(p, item, 1);

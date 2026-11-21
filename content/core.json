@@ -1470,7 +1470,7 @@
       "cost": [{ "item": "core:iron_ingot", "count": 20 }],
       "hp": 200,
       "allows": [],
-      "hold_capacity": 60,
+      "hold_capacity": 100,
       "thrust_speed_percent": 0
     },
     "workshop": {
