@@ -18,7 +18,9 @@ public static class CommandCodec
     private static readonly byte[] Magic = Encoding.ASCII.GetBytes("SFCL");
 
     /// <summary>Version 2 added the content hash to the header, version 3 the game mode, version 4 the galaxy seed, version 5 the threat flag.</summary>
-    private const byte LogVersion = 5;
+    private const byte LogVersion = 6;
+    /// <summary>Version 5 headers carry no station-rules flag; they still load, as rules off.</summary>
+    private const byte OldestLogVersion = 5;
 
     /// <summary>Deepest allowed batch nesting. The world rejects nested batches, but the format can still
     /// carry them so a log reproduces rejections exactly; the bound keeps decoding cheap and safe.</summary>
@@ -250,7 +252,7 @@ public static class CommandCodec
     /// <summary>Writes a log: magic, version, content hash, count, then (tick, player, command) entries.
     /// Pass <see cref="ContentDb.Hash"/> of the content the log was recorded with (0 if there is none).</summary>
     public static void WriteLog(Stream stream, IReadOnlyList<LoggedCommand> log, ulong contentHash = 0, GameMode mode = GameMode.Sandbox,
-        ulong galaxySeed = 0, bool threats = false)
+        ulong galaxySeed = 0, bool threats = false, bool stationRules = false)
     {
         using var w = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
         w.Write(Magic);
@@ -258,7 +260,7 @@ public static class CommandCodec
         w.Write(contentHash);
         w.Write((byte)mode);
         w.Write(galaxySeed);
-        w.Write((byte)(threats ? 1 : 0));
+        w.Write((byte)((threats ? 1 : 0) | (stationRules ? 2 : 0)));
         w.Write(log.Count);
         foreach (var e in log)
         {
@@ -283,21 +285,28 @@ public static class CommandCodec
         ReadLog(stream, out contentHash, out mode, out galaxySeed, out _);
 
     /// <summary>Also returns whether the world had threats switched on.</summary>
-    public static List<LoggedCommand> ReadLog(Stream stream, out ulong contentHash, out GameMode mode, out ulong galaxySeed, out bool threats)
+    public static List<LoggedCommand> ReadLog(Stream stream, out ulong contentHash, out GameMode mode, out ulong galaxySeed, out bool threats) =>
+        ReadLog(stream, out contentHash, out mode, out galaxySeed, out threats, out _);
+
+    /// <summary>Also returns whether the world used station rules. Version 5 logs have no such flag and read as false.</summary>
+    public static List<LoggedCommand> ReadLog(Stream stream, out ulong contentHash, out GameMode mode, out ulong galaxySeed, out bool threats,
+        out bool stationRules)
     {
         using var r = new BinaryReader(stream, Encoding.UTF8, leaveOpen: true);
         var magic = r.ReadBytes(Magic.Length);
         if (!magic.AsSpan().SequenceEqual(Magic)) throw new InvalidDataException("Not a command log.");
         byte version = r.ReadByte();
-        if (version != LogVersion) throw new InvalidDataException($"Unsupported log version {version}.");
+        if (version != LogVersion && version != OldestLogVersion) throw new InvalidDataException($"Unsupported log version {version}.");
         contentHash = r.ReadUInt64();
         byte rawMode = r.ReadByte();
         if (rawMode > (byte)GameMode.Campaign) throw new InvalidDataException($"Unknown game mode {rawMode}.");
         mode = (GameMode)rawMode;
         galaxySeed = r.ReadUInt64();
         byte flags = r.ReadByte();
-        if (flags > 1) throw new InvalidDataException($"Unknown header flags {flags}.");
-        threats = flags == 1;
+        int knownFlags = version >= 6 ? 3 : 1;
+        if (flags > knownFlags) throw new InvalidDataException($"Unknown header flags {flags}.");
+        threats = (flags & 1) != 0;
+        stationRules = (flags & 2) != 0;
         int count = r.ReadInt32();
         if (count < 0) throw new InvalidDataException("Negative entry count.");
 
