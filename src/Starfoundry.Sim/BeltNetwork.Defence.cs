@@ -280,7 +280,7 @@ public sealed partial class BeltNetwork
             if (s.ModuleDamage.Count == 0 || s.Satisfaction != PowerRules.FullSatisfaction) continue;
             foreach (var key in s.ModuleDamage.Keys.ToArray())
             {
-                int hp = s.ModuleDamage[key] + 1;
+                int hp = s.ModuleDamage[key] + (Content?.Structures?.RegenHp(s.ModuleMap[key]) ?? 1);
                 if (hp >= ModuleMaxHp(s.ModuleMap[key])) s.ModuleDamage.Remove(key); else s.ModuleDamage[key] = hp;
             }
         }

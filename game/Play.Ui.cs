@@ -1135,8 +1135,14 @@ public partial class Play
         _btnResearch.TooltipText = L("tip.research");
 
         _btnJump.Visible = _mapOpen && Net.Galaxy is not null;
-        _btnJump.Text = L("btn.jump");
+        bool canPayJump = Net.CanAffordJump(Player);
+        var jumpCost = Net.JumpCost();
+        _btnJump.Text = jumpCost.Count == 0 || _gameMode != GameMode.Campaign
+            ? L("btn.jump")
+            : L("map.jumpCost", Stacks(jumpCost.ToArray()));
         _btnJump.Disabled = _selectedSystem < 0 || Net.JumpRemaining(Player) > 0;
+        _btnJump.AddThemeColorOverride("font_color", canPayJump ? new Color(1, 1, 1) : new Color(1f, 0.35f, 0.3f));
+        _btnJump.AddThemeColorOverride("font_hover_color", canPayJump ? new Color(1, 1, 1) : new Color(1f, 0.35f, 0.3f));
         _btnJump.TooltipText = L("tip.jump");
 
         _btnObjectives.Text = _objectivesOpen ? L("btn.hideSteps") : L("btn.showSteps");
@@ -1605,6 +1611,7 @@ public partial class Play
             case Key.F6: SaveGameToDisk("quicksave", silent: false); break;
             case Key.F9: LoadGameFromDisk(); break;
             case Key.F7: AssignDronesKey(); break;
+            case Key.Delete when k.CtrlPressed: DumpSpareOre(); break;
             case Key.L: ToggleLanguage(); break;
             case Key.O: _objectivesOpen = !_objectivesOpen; break;
             case Key.H: _detailsOpen = !_detailsOpen; break;

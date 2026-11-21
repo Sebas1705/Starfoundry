@@ -196,7 +196,10 @@ public sealed partial class BeltNetwork
     public int ShipMaxHull => (Content?.Threat?.ShipHull ?? 100) * (100 + _bonus[(int)BonusKind.ShipHull]) / 100;
 
     /// <summary>Damage of one ship weapon shot, with the research bonus.</summary>
-    public int ShipWeaponDamage => Math.Max(1, (Content?.Threat?.ShipWeaponDamage ?? 1) * (100 + _bonus[(int)BonusKind.ShipDamage]) / 100);
+    public int ShipWeaponDamage => Math.Max(1, (Content?.Threat?.ShipWeaponDamage ?? 1) * StructureShipDamagePercent / 100 * (100 + _bonus[(int)BonusKind.ShipDamage]) / 100);
+
+    /// <summary>Percent of the base ship cannon damage in structure worlds (100 elsewhere and when the content has no such key).</summary>
+    private int StructureShipDamagePercent => StructureRules ? Content?.Threat?.StructureShipDamagePercent ?? 100 : 100;
 
     /// <summary>Hit points one repairer use restores, with the research bonus.</summary>
     public int RepairHeal(RepairerDef repairer) => Math.Max(1, repairer.Heal * (100 + _bonus[(int)BonusKind.RepairHeal]) / 100);
@@ -428,6 +431,15 @@ public sealed partial class BeltNetwork
             p.HoldTotal -= n;
             HoldOut += n;
         }
+    }
+
+    /// <summary>Removes items from a hold for good (the caller has checked the count).</summary>
+    internal void DumpItems(int player, int item, int count)
+    {
+        var p = GetPlayer(player);
+        p.Hold[item] -= count;
+        p.HoldTotal -= count;
+        HoldOut += count;
     }
 
     /// <summary>Returns items to a hold, ignoring capacity.</summary>
