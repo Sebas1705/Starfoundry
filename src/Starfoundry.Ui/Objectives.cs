@@ -17,15 +17,24 @@ public enum Objective
     Scan,
     Defend,
     Expand,
+
+    /// <summary>Station rules only: a station core module exists.</summary>
+    Core,
+
+    /// <summary>Station rules only: a cargo port (unloader) is built.</summary>
+    CargoPort,
 }
 
-public sealed record ObjectiveState(Objective Objective, bool Done)
+public sealed record ObjectiveState(Objective Objective, bool Done, bool StationRules = false)
 {
+    /// <summary>Steps whose advice changes under the station rules; they have an extra <c>.hint.station</c> key.</summary>
+    private static readonly HashSet<Objective> StationHints = new() { Objective.Mine, Objective.Refine, Objective.Smelter, Objective.Depot };
+
     /// <summary>Localisation key of the title, for example <c>obj.mine</c>.</summary>
-    public string TitleKey => "obj." + Objective.ToString().ToLowerInvariant();
+    public string TitleKey => "obj." + char.ToLowerInvariant(Objective.ToString()[0]) + Objective.ToString()[1..];
 
     /// <summary>Localisation key of the hint that says how to do it, for example <c>obj.mine.hint</c>.</summary>
-    public string HintKey => TitleKey + ".hint";
+    public string HintKey => TitleKey + (StationRules && StationHints.Contains(Objective) ? ".hint.station" : ".hint");
 }
 
 /// <summary>
@@ -37,17 +46,40 @@ public sealed class ObjectiveTracker
     private readonly ContentDb _content;
     private readonly bool[] _done = new bool[Enum.GetValues<Objective>().Length];
 
-    public ObjectiveTracker(ContentDb content) => _content = content;
+    private readonly Objective[] _order;
+
+    private static readonly Objective[] OldOrder =
+    {
+        Objective.Fly, Objective.Mine, Objective.Refine, Objective.Drill, Objective.Smelter, Objective.Depot,
+        Objective.Assembler, Objective.Lab, Objective.Research, Objective.Scan, Objective.Defend, Objective.Expand,
+    };
+
+    private static readonly Objective[] StationOrder =
+    {
+        Objective.Fly, Objective.Mine, Objective.Refine, Objective.Core, Objective.CargoPort, Objective.Smelter, Objective.Depot,
+        Objective.Assembler, Objective.Lab, Objective.Research, Objective.Scan, Objective.Defend, Objective.Expand,
+    };
+
+    /// <param name="content">Game content.</param>
+    /// <param name="stationRules">True when machines may only be built inside station modules (a different step list).</param>
+    public ObjectiveTracker(ContentDb content, bool stationRules = false)
+    {
+        _content = content;
+        StationRules = stationRules;
+        _order = stationRules ? StationOrder : OldOrder;
+    }
+
+    public bool StationRules { get; }
 
     public IReadOnlyList<ObjectiveState> States =>
-        Enum.GetValues<Objective>().Select(o => new ObjectiveState(o, _done[(int)o])).ToList();
+        _order.Select(o => new ObjectiveState(o, _done[(int)o], StationRules)).ToList();
 
     /// <summary>The first step that is not done yet, or null when everything is.</summary>
     public Objective? Current
     {
         get
         {
-            foreach (var o in Enum.GetValues<Objective>())
+            foreach (var o in _order)
                 if (!_done[(int)o]) return o;
             return null;
         }
@@ -55,7 +87,7 @@ public sealed class ObjectiveTracker
 
     public bool IsDone(Objective o) => _done[(int)o];
 
-    public int DoneCount => _done.Count(d => d);
+    public int DoneCount => _order.Count(o => _done[(int)o]);
 
     /// <summary>Re-evaluates every step against the world for one player. Cheap enough to call every frame.</summary>
     public void Update(BeltNetwork net, int player)
@@ -68,7 +100,13 @@ public sealed class ObjectiveTracker
         });
         Mark(Objective.Mine, () => net.MinedByHand >= 5);
         Mark(Objective.Refine, () => Has(net, player, "core:iron_ingot", 3));
-        Mark(Objective.Drill, () => AnyMachine(net, m => _content.Machines[m.Type].Role == MachineRole.Drill && m.Deposit >= 0));
+        if (StationRules)
+        {
+            Mark(Objective.Core, () => net.ModuleCount(player) > 0);
+            Mark(Objective.CargoPort, () => AnyMachine(net, m => _content.Machines[m.Type].Role == MachineRole.Unloader));
+        }
+        else
+            Mark(Objective.Drill, () => AnyMachine(net, m => _content.Machines[m.Type].Role == MachineRole.Drill && m.Deposit >= 0));
         Mark(Objective.Smelter, () => AnyMachine(net, m => _content.Machines[m.Type].Id == "core:smelter"));
         Mark(Objective.Depot, () => net.DepotDelivered > 0);
         Mark(Objective.Assembler, () => AnyMachine(net, m => _content.Machines[m.Type].Id == "core:assembler" && m.Recipe >= 0));
