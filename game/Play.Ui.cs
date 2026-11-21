@@ -1323,10 +1323,19 @@ public partial class Play
         _toolbar.Position = new Vector2((size.X - barSize.X * barScale) / 2f, size.Y - barSize.Y * barScale - 6);
         barSize = new Vector2(barSize.X * barScale, barSize.Y * barScale);
 
-        _modeHint.Position = new Vector2(Math.Max(12, (size.X - _modeHint.Size.X) / 2f), _toolbar.Position.Y - 24);
+        // The bottom hint wraps to the window (up to a readable 1100 px) and grows upwards, so no tail of it is ever clipped.
+        float hintWidth = Math.Clamp(size.X - 24f, 280f, 1100f);
+        if (_mapOpen && Net.Galaxy is not null) hintWidth = Math.Min(hintWidth, Math.Max(280f, size.X - 348f)); // clear of the Jump button at the right
+        _modeHint.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _modeHint.HorizontalAlignment = HorizontalAlignment.Center;
+        _modeHint.CustomMinimumSize = new Vector2(hintWidth, 0);
+        _modeHint.ResetSize();
+        _modeHint.Position = new Vector2((size.X - hintWidth) / 2f, _toolbar.Position.Y - 6 - _modeHint.Size.Y);
 
         // Notifications: up to three lines in a column above the hint, wrapped to a readable width.
         float toastWidth = Math.Clamp(size.X * 0.6f, 300f, 760f);
+        // With the star map open the column narrows so it does not run under the map and its list on the right.
+        if (_mapOpen && Net.Galaxy is not null) toastWidth = Math.Min(toastWidth, Math.Max(300f, size.X - 784f));
         foreach (var l in _toastLabels) l.CustomMinimumSize = new Vector2(toastWidth, 0);
         _toastBox.ResetSize();
         _toastBox.Position = new Vector2((size.X - toastWidth) / 2f, _modeHint.Position.Y - 8 - _toastBox.Size.Y);
@@ -1336,9 +1345,15 @@ public partial class Play
         float y = _objectivesPanel.Position.Y + objSize.Y + 10;
         if (_mapOpen && Net.Galaxy is not null)
         {
-            _map.Position = new Vector2(size.X - _map.Size.X - 12, y);
-            _mapList.Position = new Vector2(size.X - 380, _map.Position.Y + _map.Size.Y + 6);
-            _btnJump.Position = new Vector2(size.X - 162, _mapList.Position.Y + _mapList.Size.Y + 6);
+            // The map shrinks (down to 160 px) so that the map, the system list and the Jump button all end above the bottom strip.
+            var listSize = _mapList.GetCombinedMinimumSize();
+            var jumpSize = _btnJump.GetCombinedMinimumSize();
+            float side = Math.Clamp(_toolbar.Position.Y - 4f - y - listSize.Y - jumpSize.Y - 12f, 160f, 320f);
+            _map.CustomMinimumSize = new Vector2(side, side);
+            _map.Size = _map.CustomMinimumSize;
+            _map.Position = new Vector2(size.X - side - 12, y);
+            _mapList.Position = new Vector2(size.X - 380, y + side + 6);
+            _btnJump.Position = new Vector2(size.X - 162, _mapList.Position.Y + listSize.Y + 6);
         }
         _map.Visible = _mapOpen && Net.Galaxy is not null;
         _mapList.Visible = _map.Visible;
