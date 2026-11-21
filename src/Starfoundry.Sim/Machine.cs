@@ -33,6 +33,11 @@ internal sealed class Machine
     public int Hp;
     public int TurretCooldown;
 
+    /// <summary>Power work credit in per mille (structure worlds): it gains the structure's satisfaction each tick and the machine works
+    /// on a tick when it reaches 1000. <see cref="Powered"/> is the result of the current tick (recomputed at the start of every tick).</summary>
+    public int PowerCredit;
+    public bool Powered = true;
+
     /// <summary>Belt segments whose end feeds this machine.</summary>
     public readonly List<int> InputsFrom = new();
 
@@ -67,6 +72,7 @@ internal sealed class Machine
         {
             Recipe = Recipe, Crafting = Crafting, Remaining = Remaining, OutCount = OutCount, RoundRobin = RoundRobin,
             Deposit = Deposit, Owner = Owner, Hp = Hp, TurretCooldown = TurretCooldown,
+            PowerCredit = PowerCredit, Powered = Powered,
         };
         Array.Copy(In, c.In, In.Length);
         Array.Copy(Out, c.Out, Out.Length);

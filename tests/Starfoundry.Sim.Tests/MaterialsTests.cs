@@ -183,7 +183,9 @@ public class MaterialsTests
     {
         var w = SimWorld.CreateGalaxy(C, GameMode.Campaign, 1, structures: true, stationRules: true);
         Assert.Single(w.Network.Structures());
-        Assert.Equal(0, w.Network.HoldTotal(0));
+        // The only thing the hold starts with is the starter ship's hydrogen.
+        Assert.Equal(20, w.Network.HoldTotal(0));
+        Assert.Equal(20, w.Network.HoldCount(0, C.ItemIndex("core:hydrogen")));
         w.ValidateInvariants();
     }
 

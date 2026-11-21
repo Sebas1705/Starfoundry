@@ -192,6 +192,7 @@ public sealed partial class BeltNetwork
     {
         if (_dirty) RebuildOrder();
 
+        StepPower(); // before anything works: reactors burn, satisfaction and work credits are set for this tick
         RecheckDrillLinks(); // a structure moved from outside the tick (setup, tests) drops out-of-range links before drills work
         foreach (int id in _order) MoveSegment(_segs[id]!);
 

@@ -8,8 +8,11 @@ namespace Starfoundry.Sim;
 /// <param name="AllowsBelts">Whether belt cells may lie inside a module of this kind.</param>
 /// <param name="HoldCapacity">Items a module of this kind adds to the ship's hold (cargo only; 0 otherwise).</param>
 /// <param name="ThrustSpeedPercent">Percent of the base ship speed a module of this kind adds (engine only; 0 otherwise).</param>
+/// <param name="PowerOutput">Power a burning module of this kind produces (reactor only; 0 otherwise).</param>
+/// <param name="BurnIntervalTicks">Ticks one hydrogen keeps a reactor burning (reactor only; 0 otherwise).</param>
 public sealed record ModuleKindDef(
-    ModuleKind Kind, ItemStack[] Cost, int Hp, MachineRole[] AllowedRoles, bool AllowsBelts, int HoldCapacity, int ThrustSpeedPercent);
+    ModuleKind Kind, ItemStack[] Cost, int Hp, MachineRole[] AllowedRoles, bool AllowsBelts, int HoldCapacity, int ThrustSpeedPercent,
+    int PowerOutput = 0, int BurnIntervalTicks = 0);
 
 /// <summary>The module kinds of ships and stations, from the <c>structures</c> section of the content.</summary>
 public sealed class StructureContent
@@ -42,4 +45,10 @@ public sealed class StructureContent
 
     /// <summary>Percent of the base speed one module of this kind adds (0 unless it is an engine).</summary>
     public int EngineSpeedPercent(ModuleKind kind) => _kinds[(int)kind].ThrustSpeedPercent;
+
+    /// <summary>Power one burning module of this kind produces (0 unless it is a reactor).</summary>
+    public int PowerOutput(ModuleKind kind) => _kinds[(int)kind].PowerOutput;
+
+    /// <summary>Ticks one hydrogen keeps a reactor burning (0 unless it is a reactor).</summary>
+    public int BurnIntervalTicks(ModuleKind kind) => _kinds[(int)kind].BurnIntervalTicks;
 }

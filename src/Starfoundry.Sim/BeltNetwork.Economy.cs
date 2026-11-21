@@ -489,7 +489,7 @@ public sealed partial class BeltNetwork
         {
             if (m is null) continue;
             var def = Content.Machines[m.Type].Unloader;
-            if (def is null) continue;
+            if (def is null || !m.Powered) continue; // an unpowered tick does not even count down the interval
             if (m.TurretCooldown > 0) m.TurretCooldown--;
             if (m.TurretCooldown > 0 || m.OutCount == 0 || m.Owner < 0 || !_players.TryGetValue(m.Owner, out var p)) continue;
             if (p.Hold[def.Item] <= def.Reserve) continue;
@@ -805,7 +805,7 @@ public sealed partial class BeltNetwork
                 Fail($"player {p.Id} is outside the world");
             if (p.MoveX is < -1 or > 1 || p.MoveY is < -1 or > 1 || p.MoveZ is < -1 or > 1) Fail($"player {p.Id} has an invalid movement intent");
             if (!PlayerRules.ThrustInRange(p.ThrustX, p.ThrustY, p.ThrustZ)) Fail($"player {p.Id} has an invalid thrust");
-            int remLimit = FlightStructure(p) >= 0 ? PlayerRules.ThrustScale * StructureFlight.PercentScale : PlayerRules.ThrustScale;
+            int remLimit = FlightStructure(p) >= 0 ? PlayerRules.ThrustScale * StructureFlight.RemainderScale : PlayerRules.ThrustScale;
             if (Math.Abs(p.ThrustRemX) >= remLimit || Math.Abs(p.ThrustRemY) >= remLimit || Math.Abs(p.ThrustRemZ) >= remLimit)
                 Fail($"player {p.Id} has a thrust remainder out of range");
             if (p.HasThrust && (p.MoveX | p.MoveY | p.MoveZ) != 0) Fail($"player {p.Id} has both an axis intent and a thrust");

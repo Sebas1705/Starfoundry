@@ -80,7 +80,9 @@ public sealed partial class BeltNetwork
     public int ShipSpeedUnitsPerTick(int player)
     {
         if (!_players.TryGetValue(player, out var p) || p.ShipStructure < 0) return 0;
-        return PlayerRules.MoveUnitsPerTick * EnginePercent(_structures[p.ShipStructure]) / StructureFlight.PercentScale;
+        var s = _structures[p.ShipStructure];
+        long satisfaction = StructureRules ? s.Satisfaction : PowerRules.FullSatisfaction;
+        return (int)(PlayerRules.MoveUnitsPerTick * (long)EnginePercent(s) * satisfaction / (StructureFlight.PercentScale * PowerRules.FullSatisfaction));
     }
 
     /// <summary>True if the ship may move: always in legacy worlds and for players without a ship structure; otherwise the ship
@@ -135,8 +137,8 @@ public sealed partial class BeltNetwork
         int nx, ny, nz;
         if (p.HasThrust)
         {
-            int den = PlayerRules.ThrustScale * StructureFlight.PercentScale;
-            long k = (long)PlayerRules.MoveUnitsPerTick * percent;
+            int den = PlayerRules.ThrustScale * StructureFlight.RemainderScale;
+            long k = (long)PlayerRules.MoveUnitsPerTick * percent * s.Satisfaction;
             nx = p.X + Advance(p.ThrustX * k, ref p.ThrustRemX, den);
             ny = p.Y + Advance(p.ThrustY * k, ref p.ThrustRemY, den);
             nz = p.Z + Advance(p.ThrustZ * k, ref p.ThrustRemZ, den);
@@ -150,10 +152,10 @@ public sealed partial class BeltNetwork
                 2 => PlayerRules.MoveUnitsPerTickDiagonal2,
                 _ => PlayerRules.MoveUnitsPerTickDiagonal3,
             };
-            long k = (long)speed * percent;
-            nx = p.X + Advance(p.MoveX * k, ref p.ThrustRemX, StructureFlight.PercentScale);
-            ny = p.Y + Advance(p.MoveY * k, ref p.ThrustRemY, StructureFlight.PercentScale);
-            nz = p.Z + Advance(p.MoveZ * k, ref p.ThrustRemZ, StructureFlight.PercentScale);
+            long k = (long)speed * percent * s.Satisfaction;
+            nx = p.X + Advance(p.MoveX * k, ref p.ThrustRemX, StructureFlight.RemainderScale);
+            ny = p.Y + Advance(p.MoveY * k, ref p.ThrustRemY, StructureFlight.RemainderScale);
+            nz = p.Z + Advance(p.MoveZ * k, ref p.ThrustRemZ, StructureFlight.RemainderScale);
         }
 
         nx = (int)ClampToWorld(nx); ny = (int)ClampToWorld(ny); nz = (int)ClampToWorld(nz);
@@ -217,7 +219,9 @@ public sealed partial class BeltNetwork
     /// <summary>Removes a module of a structure without any rule check (commands validate before calling this).</summary>
     public void RemoveStructureModuleUnchecked(int id, int mx, int my, int mz)
     {
-        if (!GetStructure(id).ModuleMap.Remove((mx, my, mz))) throw new InvalidOperationException("No such module.");
+        var s = GetStructure(id);
+        if (!s.ModuleMap.Remove((mx, my, mz))) throw new InvalidOperationException("No such module.");
+        s.BurnRemaining.Remove((mx, my, mz)); // a removed reactor loses the hydrogen it was burning
         StructureVersion++;
     }
 
@@ -291,6 +295,9 @@ public sealed partial class BeltNetwork
             mix(s.Id); mix((int)s.Kind); mix(s.Owner); mix(s.OriginX); mix(s.OriginY); mix(s.OriginZ);
             mix(s.ModuleMap.Count);
             foreach (var (m, kind) in s.ModuleMap) { mix(m.Mx); mix(m.My); mix(m.Mz); mix((int)kind); }
+            if (!StructureRules) continue; // power state exists only under the structure rules
+            mix(s.PowerProduction); mix(s.PowerDemand); mix(s.Satisfaction); mix(s.BurnRemaining.Count);
+            foreach (var (m, rem) in s.BurnRemaining) { mix(m.Mx); mix(m.My); mix(m.Mz); mix(rem); }
         }
     }
 
@@ -304,6 +311,12 @@ public sealed partial class BeltNetwork
             if (!Enum.IsDefined(s.Kind)) Fail($"structure {id} has an unknown kind");
             foreach (var (m, kind) in s.ModuleMap)
                 if (!Enum.IsDefined(kind)) Fail($"structure {id} module {m} has an unknown kind");
+            foreach (var (m, rem) in s.BurnRemaining)
+            {
+                if (!s.ModuleMap.TryGetValue(m, out var rk) || rk != ModuleKind.Reactor) Fail($"structure {id} burns a module {m} that is no reactor");
+                if (rem < 1 || rem > (Content?.Structures?.BurnIntervalTicks(ModuleKind.Reactor) ?? 0)) Fail($"structure {id} burn time {rem} out of range");
+            }
+            if (s.Satisfaction is < 0 or > PowerRules.FullSatisfaction) Fail($"structure {id} satisfaction {s.Satisfaction} out of range");
         }
         foreach (var p in _players.Values)
         {

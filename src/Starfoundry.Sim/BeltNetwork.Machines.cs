@@ -170,7 +170,7 @@ public sealed partial class BeltNetwork
 
     private void StepMachine(Machine m)
     {
-        if (m.Recipe >= 0)
+        if (m.Recipe >= 0 && m.Powered) // an unpowered tick is not a working tick: crafting neither advances nor starts
         {
             var r = Content!.Recipes[m.Recipe];
 
@@ -259,6 +259,7 @@ public sealed partial class BeltNetwork
         var m = _machines[s.MachineOut]!;
         int type = s.Type[s.Head];
         var role = Content!.Machines[m.Type].Role;
+        if (!m.Powered && role is MachineRole.Lab or MachineRole.Depot) return false; // labs and depots only work on credited ticks
         if (role == MachineRole.Lab) return TryFeedLab(s, type);
         if (role == MachineRole.Depot) return TryFeedDepot(m, s, type);
         if (role == MachineRole.Turret) return TryFeedTurret(m, s, type);
@@ -296,6 +297,7 @@ public sealed partial class BeltNetwork
             if (m is null) { mix(-1); continue; }
             mix(m.Id); mix(m.X); mix(m.Y); mix(m.Z); mix(m.Type); mix(m.Recipe); mix(m.Deposit); mix(m.Owner); mix(m.Hp); mix(m.TurretCooldown);
             if (m.Structure != 0) mix(m.Structure); // mixed only when non-zero so worlds without structures hash as before
+            if (StructureRules && m.Structure != 0) mix(m.PowerCredit);
             mix(m.Crafting ? 1 : 0); mix(m.Remaining);
             foreach (int v in m.In) mix(v);
             foreach (int v in m.Out) mix(v);
@@ -325,6 +327,8 @@ public sealed partial class BeltNetwork
             if (role != MachineRole.Drill && m.Deposit != -1) Fail($"machine {id} is not a drill but has a deposit");
             if (m.Deposit != -1 && !IsDeposit(m.Deposit)) Fail($"machine {id} has an unknown deposit");
 
+            if (m.PowerCredit < 0 || m.PowerCredit >= PowerRules.FullSatisfaction || (m.PowerCredit != 0 && (m.Structure == 0 || !StructureRules)))
+                Fail($"machine {id} power credit {m.PowerCredit} out of range");
             if (m.Hp < 1 || m.Hp > MaxHp(m.Type)) Fail($"machine {id} hit points {m.Hp} out of range");
             var turret = content.Machines[m.Type].Turret;
             var repairer = content.Machines[m.Type].Repairer;

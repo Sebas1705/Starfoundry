@@ -39,7 +39,7 @@ public class StructureFlightTests
 
     /// <summary>A ship at the world origin with a workshop module (0,0,0) and the given extra modules, each in its own place
     /// (modules are added without rule checks, so their coordinates only need to differ).</summary>
-    private static int Ship(SimWorld w, int cockpits = 1, int engines = 1, int cargos = 1)
+    private static int Ship(SimWorld w, int cockpits = 1, int engines = 1, int cargos = 1, bool powered = false)
     {
         w.Network.EnsurePlayer(0);
         int s = w.Network.CreateStructure(0, StructureKind.Ship, 0, 0, 0);
@@ -48,6 +48,12 @@ public class StructureFlightTests
         for (int i = 0; i < cockpits; i++) w.Network.AddStructureModuleUnchecked(s, next++, 0, 0, ModuleKind.Cockpit);
         for (int i = 0; i < engines; i++) w.Network.AddStructureModuleUnchecked(s, next++, 0, 0, ModuleKind.Engine);
         for (int i = 0; i < cargos; i++) w.Network.AddStructureModuleUnchecked(s, next++, 0, 0, ModuleKind.Cargo);
+        if (powered)
+        {
+            // Machines need power: a reactor and some hydrogen in the hold (without them a ship with machines stands still).
+            w.Network.AddStructureModuleUnchecked(s, next, 0, 0, ModuleKind.Reactor);
+            w.Network.GiveItems(0, C.ItemIndex("core:hydrogen"), 20);
+        }
         return s;
     }
 
@@ -73,7 +79,7 @@ public class StructureFlightTests
     private static (SimWorld World, int Belt) FactoryShip(int cargos)
     {
         var w = World();
-        int s = Ship(w, cargos: cargos);
+        int s = Ship(w, cargos: cargos, powered: true);
         int belt = Factory(w, s);
         int dep = w.Network.AddDeposit(Ore, 1000, 0, 0, 0);
         Ok(w, new StartMining(dep));
@@ -111,7 +117,7 @@ public class StructureFlightTests
     public void Machines_move_with_the_ship_world_centre()
     {
         var w = World();
-        int s = Ship(w);
+        int s = Ship(w, powered: true);
         int m = Ok(w, new PlaceMachineIn(s, 3, 1, 2, Smelter, SmeltIron));
         var before = w.Network.WorldCentre(s, 3, 1, 2);
         Ok(w, new SetThrust(PlayerRules.ThrustScale, 0, 0)); // 48 units a tick along x
@@ -372,7 +378,7 @@ public class StructureFlightTests
         (SimWorld World, int Ship) Fresh()
         {
             var w = World(threats: true);
-            int s = Ship(w, engines: 2, cargos: 2);
+            int s = Ship(w, engines: 2, cargos: 2, powered: true);
             w.Network.AddDeposit(Ore, 1000, 0, 0, 0);
             return (w, s);
         }

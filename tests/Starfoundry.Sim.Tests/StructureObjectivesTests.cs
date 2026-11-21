@@ -11,7 +11,7 @@ public class StructureObjectivesTests
 
     private static readonly Objective[] StructuresOrder =
     {
-        Objective.Fly, Objective.Mine, Objective.WatchFactory, Objective.FoundStation, Objective.AddModule,
+        Objective.Fly, Objective.Mine, Objective.WatchFactory, Objective.FoundStation, Objective.MakeFuel, Objective.AddModule,
         Objective.Research, Objective.Scan, Objective.Defend, Objective.Expand,
     };
 
@@ -123,7 +123,7 @@ public class StructureObjectivesTests
             keys.Add("module." + k.ToString().ToLowerInvariant());
             keys.Add("module." + k.ToString().ToLowerInvariant() + ".purpose");
         }
-        foreach (var o in new[] { Objective.WatchFactory, Objective.FoundStation, Objective.AddModule })
+        foreach (var o in new[] { Objective.WatchFactory, Objective.FoundStation, Objective.MakeFuel, Objective.AddModule })
         {
             var s = new ObjectiveState(o, false);
             keys.Add(s.TitleKey);
