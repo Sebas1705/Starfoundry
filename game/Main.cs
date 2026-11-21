@@ -88,6 +88,7 @@ public partial class Main : Node3D
         _cells = IntArg(args, "--cells", 50);
 
         _content = LoadContent();
+        if (_content is null) { SetProcess(false); SetPhysicsProcess(false); SetProcessUnhandledInput(false); return; }
         _world = new SimWorld(Scenarios.ParallelRows(_layers, _rows, _cells, _content));
         SubmitChain();
         _world.Step(); // applies the chain batch
@@ -106,19 +107,12 @@ public partial class Main : Node3D
         return a != null && int.TryParse(a[(name.Length + 1)..], out int v) ? v : fallback;
     }
 
-    /// <summary>Loads content/core.json from the repository (next to the game folder).</summary>
-    private static ContentDb? LoadContent()
+    /// <summary>Loads core.json through ContentSource (flag, project resource, next to the executable, repository); shows the error screen when missing.</summary>
+    private ContentDb? LoadContent()
     {
-        string path = ProjectSettings.GlobalizePath("res://../content/core.json");
-        try
-        {
-            return ContentDb.FromFile(path);
-        }
-        catch (Exception e)
-        {
-            GD.PrintErr($"Could not load content from {path}: {e.Message}");
-            return null;
-        }
+        var db = ContentSource.Load(OS.GetCmdlineUserArgs(), out var lookup, out string? error);
+        if (db is null) ContentSource.ShowError(this, lookup, error);
+        return db;
     }
 
     /// <summary>Builds an extractor, smelter and assembler chain with belts between them, as one atomic batch.</summary>

@@ -1,7 +1,7 @@
 # Godot
 .godot/
 *.import
-export_presets.cfg
+# game/export_presets.cfg is tracked on purpose (no secrets: no keystores or credentials in it)
 export/
 build/
 
@@ -20,3 +20,6 @@ Thumbs.db
 # Secrets
 .env
 *.keystore
+
+# Temporary copy of content/ made by tools/package.ps1 for an export
+game/content/

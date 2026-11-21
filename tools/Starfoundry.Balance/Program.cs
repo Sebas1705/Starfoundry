@@ -12,11 +12,14 @@ foreach (var a in args)
     else if (a.StartsWith("--minutes=")) minutes = int.Parse(a["--minutes=".Length..]);
 }
 
+// --content=path, else next to the executable, else the repository's content folder found by walking up.
 var dir = new DirectoryInfo(AppContext.BaseDirectory);
 while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "content", "core.json"))) dir = dir.Parent;
-if (dir is null) { Console.Error.WriteLine("content/core.json not found"); return 1; }
+var lookup = Starfoundry.Ui.ContentLocator.Resolve(Starfoundry.Ui.ContentLocator.ExplicitPath(args), null, AppContext.BaseDirectory,
+    dir is null ? null : Path.Combine(dir.FullName, "content", "core.json"), File.Exists);
+if (lookup.Path is null) { Console.Error.WriteLine("content/core.json not found. Tried:\n" + lookup.TriedText); return 1; }
 
-var content = ContentDb.FromFile(Path.Combine(dir.FullName, "content", "core.json"));
+var content = ContentDb.FromFile(lookup.Path);
 int observe = 0, turrets = 1, walls = 0, bays = 0, upgrades = 0;
 var repairs = RepairMode.Never;
 var path = UpgradePath.Defence;

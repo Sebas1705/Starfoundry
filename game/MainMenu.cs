@@ -30,7 +30,8 @@ public partial class MainMenu : Control
         AudioManager.Enabled = !AudioFlags.IsSilent(args);
         _menuShotPath = args.FirstOrDefault(a => a.StartsWith("--menu-shot="))?["--menu-shot=".Length..];
         // Any other flag means a scripted run or a screenshot: no menu.
-        if (args.Any(a => !a.StartsWith("--menu-shot=")))
+        // --content=path only says where core.json is; it does not make the run scripted.
+        if (args.Any(a => !a.StartsWith("--menu-shot=") && !a.StartsWith(ContentLocator.ContentFlag)))
         {
             Launch.Mode = Launch.Intent.New;
             CallDeferred(MethodName.StartGame);
@@ -38,6 +39,12 @@ public partial class MainMenu : Control
         }
 
         SettingsStore.EnsureLoaded();
+        if (ContentSource.Load(args, out var contentLookup, out string? contentError) is null)
+        {
+            ContentSource.ShowError(this, contentLookup, contentError);
+            SetProcess(false);
+            return;
+        }
         AudioManager.Create(this); // UI sounds in the menu (clicks, slider previews)
         Input.MouseMode = Input.MouseModeEnum.Visible;
         BuildBackground();
