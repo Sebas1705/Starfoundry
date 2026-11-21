@@ -334,6 +334,33 @@ public static class Loc
         ["obj.expand.hint"] = ("El yacimiento de casa se agota en un par de horas. Investiga la perforación de carbono y el motor de salto (T), escanea (K) y salta (G, J) a un sistema con hierro.",
                                "The home deposit runs out in a couple of hours. Research carbon drilling and the jump drive (T), scan (K) and jump (G, J) to a system with iron."),
 
+        // ---- guided steps under the station rules ----
+        ["obj.core"] = ("Construye el núcleo de la estación", "Build the station core"),
+        ["obj.core.hint"] = ("Elige Módulo en la barra y colócalo cerca de la nave: el primero es el núcleo y solo se construye dentro de la estación. Cuesta lingotes.",
+                             "Choose Module in the bar and place it near the ship: the first one is the core, and you can only build inside the station. It costs ingots."),
+        ["obj.cargoPort"] = ("Construye un puerto de carga", "Build a cargo port"),
+        ["obj.cargoPort.hint"] = ("El mineral no llega solo: vuela a la estación y descarga la bodega por el puerto de carga (B) a una cinta. Colócalo dentro de un módulo.",
+                                  "Ore does not arrive by itself: fly to the station and unload your hold through the cargo port (B) onto a belt. Place it inside a module."),
+        ["obj.mine.hint.station"] = ("Pulsa M una vez: la nave mina sola a 2 minerales por segundo hasta llenar la bodega. Luego vuelve a la estación para descargarla.",
+                                     "Press M once: the ship mines by itself at 2 ore per second until the hold is full. Then fly back to the station to unload it."),
+        ["obj.refine.hint.station"] = ("Pulsa F para encender la refinería de la nave: convierte mineral en lingotes, despacio. Los necesitas para construir el núcleo.",
+                                       "Press F to switch the ship's refinery on: it turns ore into ingots, slowly. You need them to build the core."),
+        ["obj.smelter.hint.station"] = ("Elige Horno (5) y colócalo dentro de un módulo, junto al puerto de carga; une ambos con cintas (1). Si no cabe, amplía la estación con otro módulo.",
+                                        "Choose Smelter (5) and place it inside a module, next to the cargo port; join them with belts (1). If it does not fit, grow the station with another module."),
+        ["obj.depot.hint.station"] = ("Tiende cintas desde el horno hasta un Depósito (8) dentro de la estación: mete en tu bodega todo lo que le llega.",
+                                      "Lay belts from the smelter to a Depot (8) inside the station: it puts everything that arrives into your hold."),
+        ["learn.deliver"] = ("Tienes la bodega llena de mineral. Vuela a la estación y descárgala con un puerto de carga (B): saca el mineral a una cinta que alimente tus hornos.",
+                             "Your hold is full of ore. Fly to the station and unload it with a cargo port (B): it puts the ore onto a belt that feeds your smelters."),
+
+        // ---- build rejects under the station rules ----
+        ["toast.reject.outsideStation"] = ("Solo puedes construir dentro de los módulos de la estación", "You can only build inside the station modules"),
+        ["toast.reject.notAdjacent"] = ("El módulo debe tocar una cara de la estación", "A module must touch a face of the station"),
+        ["toast.reject.moduleOccupied"] = ("Ese módulo tiene máquinas o cintas, o su retirada partiría la estación", "That module holds machines or belts, or removing it would split the station"),
+        ["toast.reject.notAllowedHere"] = ("Eso no se puede construir aquí", "That cannot be built here"),
+        ["toast.reject.overlap"] = ("Esa celda está ocupada", "That cell is taken"),
+        ["toast.reject.outOfBounds"] = ("Fuera de los límites del mundo", "Out of the world limits"),
+        ["toast.reject.notEnoughItems"] = ("No tienes los objetos en la bodega", "Not enough items in the hold"),
+
         // ---- help overlay ----
         ["help.text"] = (
             "CONTROLES   (F1 para cerrar)\n\n" +
