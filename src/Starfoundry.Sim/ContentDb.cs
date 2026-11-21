@@ -46,6 +46,9 @@ public sealed record RepairerDef(int RangeCells, int Heal, int IntervalTicks, in
 /// <summary>How an unloader works: every interval it moves one <c>Item</c> from the owner's hold to its belt, but only while the hold keeps more than <c>Reserve</c> of it.</summary>
 public sealed record UnloaderDef(int Item, int IntervalTicks, int Reserve);
 
+/// <summary>Station module costs: the first module (the core), later hull modules, and the percent each existing module adds to the next cost.</summary>
+public sealed record ModuleRules(ItemStack[] CoreCost, ItemStack[] HullCost, int GrowthPercent);
+
 /// <summary>An enemy type. Speed is in units per tick (240 units per cell).</summary>
 public sealed record EnemyDef(int Index, string Id, int Hp, int Speed, int Damage, int RangeCells, int IntervalTicks);
 
@@ -173,14 +176,18 @@ public sealed class ContentDb
 
     /// <summary>Threat rules, or null if the content has none.</summary>
     public ThreatRules? Threat { get; }
+
+    /// <summary>Station module costs, or null if the content has no station modules (then module commands are rejected).</summary>
+    public ModuleRules? Modules { get; }
     public IReadOnlyList<EnemyDef> Enemies { get; }
     public IReadOnlyList<WaveSpec> Waves { get; }
     public ulong Hash { get; }
 
     private ContentDb(List<ItemDef> items, List<MachineDef> machines, List<RecipeDef> recipes, BeltDef?[] belts, List<ResearchDef> research,
         GalaxyRules? galaxy, List<ArchetypeDef> archetypes, ItemStack[] jumpCost,
-        ThreatRules? threat, List<EnemyDef> enemies, List<WaveSpec> waves)
+        ThreatRules? threat, List<EnemyDef> enemies, List<WaveSpec> waves, ModuleRules? modules)
     {
+        Modules = modules;
         Threat = threat;
         Enemies = enemies;
         Waves = waves;
@@ -235,7 +242,7 @@ public sealed class ContentDb
         {
             var root = doc.RootElement;
             RequireObject(root, "content", "schema", "items", "machines", "recipes", "belts", "research", "galaxy", "archetypes", "jump_cost",
-                "threat", "enemies", "waves");
+                "threat", "enemies", "waves", "modules");
             if (!root.TryGetProperty("schema", out var schema) || schema.ValueKind != JsonValueKind.Number || schema.GetInt32() != 1)
                 throw new InvalidDataException("Unsupported or missing content schema (expected 1).");
 
@@ -561,6 +568,16 @@ public sealed class ContentDb
                     Int(th, "respawn_seconds", "threat", 1, 600) * Units.TicksPerSecond);
             }
 
+            ModuleRules? modules = null;
+            if (root.TryGetProperty("modules", out var mod))
+            {
+                RequireObject(mod, "modules", "core_cost", "hull_cost", "growth_percent");
+                modules = new ModuleRules(
+                    Stacks(mod, "core_cost", "modules", itemIds, allowEmpty: false, max: MaxStack),
+                    Stacks(mod, "hull_cost", "modules", itemIds, allowEmpty: false, max: MaxStack),
+                    Int(mod, "growth_percent", "modules", 0, 1000));
+            }
+
             var enemies = new List<EnemyDef>();
             var enemyIds = new Dictionary<string, int>();
             if (root.TryGetProperty("enemies", out _))
@@ -598,7 +615,7 @@ public sealed class ContentDb
             }
             else if (enemies.Count > 0 || waves.Count > 0) throw new InvalidDataException("Enemies and waves need a threat section.");
 
-            return new ContentDb(items, machines, recipes, belts, research, galaxy, archetypes, jumpCost, threat, enemies, waves);
+            return new ContentDb(items, machines, recipes, belts, research, galaxy, archetypes, jumpCost, threat, enemies, waves, modules);
         }
     }
 
@@ -741,6 +758,8 @@ public sealed class ContentDb
             foreach (var d in a.Deposits) { Mix(d.Item); Mix(d.CountMin); Mix(d.CountMax); Mix(d.AmountMin); Mix(d.AmountMax); }
         }
         MixStacks(JumpCost);
+        if (Modules is { } mo) { MixStacks(mo.CoreCost); MixStacks(mo.HullCost); Mix(mo.GrowthPercent); }
+        else Mix(-1);
         if (Threat is { } th)
         {
             Mix(th.AlertMax); Mix(th.SignatureThreshold); Mix(th.DecayPerTick); Mix(th.AlertAfterWave); Mix(th.WarningTicks);

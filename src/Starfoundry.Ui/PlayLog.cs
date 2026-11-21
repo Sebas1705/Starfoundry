@@ -25,10 +25,11 @@ public sealed class PlayLog
     private long _lastTick;
     private bool _warned;
 
-    public PlayLog(ContentDb content)
+    /// <param name="stationRules">True when the played world uses the station rules (the guided steps then include the core and the cargo port).</param>
+    public PlayLog(ContentDb content, bool stationRules = false)
     {
         _content = content;
-        _objectives = new ObjectiveTracker(content);
+        _objectives = new ObjectiveTracker(content, stationRules);
         _levels = new int[content.Research.Count];
     }
 

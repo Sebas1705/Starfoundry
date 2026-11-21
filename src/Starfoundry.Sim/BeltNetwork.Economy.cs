@@ -638,7 +638,7 @@ public sealed partial class BeltNetwork
 
     public bool IsMachineLocked(int type) =>
         Mode == GameMode.Campaign && Content is { } c && (c.Machines[type].SandboxOnly ||
-            (c.MachineGated[type] && !c.Research.Any(n => _level[n.Index] > 0 && n.UnlockMachines.Contains(type))));
+            (c.MachineGated[type] && !(StationRules && c.Machines[type].Role == MachineRole.Unloader) && !c.Research.Any(n => _level[n.Index] > 0 && n.UnlockMachines.Contains(type))));
 
     public bool IsRecipeLocked(int recipe) =>
         Mode == GameMode.Campaign && Content is { } c &&

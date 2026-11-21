@@ -136,7 +136,7 @@ public partial class Play
         _uiRoot.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         _layer.AddChild(_uiRoot);
 
-        _objectives = new ObjectiveTracker(_content);
+        _objectives = new ObjectiveTracker(_content, _stationRules);
         Loc.Lang = Loc.FromLocale(OS.GetLocale());
 
         // Status: the essentials (hull, alert, current step); H opens the full block.
@@ -184,18 +184,10 @@ public partial class Play
         infoRow.AddChild(_holdItems);
         infoRow.AddChild(_toolLabel);
         strip.AddChild(infoRow);
-        var bar = new HBoxContainer();
-        bar.AddThemeConstantOverride("separation", 4);
-        for (int i = 0; i < _palette.Count && i < 12; i++)
-        {
-            int index = i;
-            var b = MakeButton("", () => SelectBuild(index), toggle: true);
-            b.AddThemeFontSizeOverride("font_size", 12);
-            b.CustomMinimumSize = new Vector2(0, 26);
-            _buildButtons.Add(b);
-            bar.AddChild(b);
-        }
-        strip.AddChild(bar);
+        _buildBar = new HBoxContainer();
+        _buildBar.AddThemeConstantOverride("separation", 4);
+        FillBuildBar();
+        strip.AddChild(_buildBar);
         _toolbar = MakePanel(strip);
 
         _modeHint = MakeText(14, new Color(0.85f, 0.92f, 1f));
@@ -312,6 +304,34 @@ public partial class Play
         _uiRoot.AddChild(_markers);
     }
 
+    private HBoxContainer _buildBar = null!;
+
+    /// <summary>One button per palette entry: the keys cover the first thirteen (1-9, 0, Q, B, U), the module entry (key N) always gets one.</summary>
+    private void FillBuildBar()
+    {
+        foreach (var old in _buildButtons) old.QueueFree();
+        _buildButtons.Clear();
+        for (int i = 0; i < _palette.Count && (i < 13 || _palette[i].IsModule); i++)
+        {
+            int index = i;
+            var b = MakeButton("", () => SelectBuild(index), toggle: true);
+            b.AddThemeFontSizeOverride("font_size", 12);
+            b.CustomMinimumSize = new Vector2(0, 26);
+            _buildButtons.Add(b);
+            _buildBar.AddChild(b);
+        }
+    }
+
+    /// <summary>Rebuilds the palette after the rules changed (a loaded save with the other station-rules setting).</summary>
+    private void RebuildPalette()
+    {
+        _palette.Clear();
+        BuildPalette();
+        _selected = 0;
+        _tool = ToolMode.Pointer;
+        FillBuildBar();
+    }
+
     // ---- per-frame refresh --------------------------------------------------------------------------
 
     private void UpdateUi(float dt)
@@ -423,6 +443,16 @@ public partial class Play
             var m = Net.GetMachineInfo(id);
             _baseTmp.Add(new Vec3(m.X + 0.5f, m.Y + 0.5f, m.Z + 0.5f));
         }
+        if (_stationRules && Net.ModuleCount(Player) > 0)
+        {
+            // The station: the centre of the module nearest the ship.
+            _baseTmp.Clear();
+            foreach (var (mx, my, mz, _) in Net.Modules(Player)) _baseTmp.Add(V(StationView.Centre(mx, my, mz)));
+            var nearestModule = Markers.NearestCluster(_baseTmp, V(ShipPosition(0f)), 0.01f);
+            if (nearestModule is { } sm) Add(L("mark.station"), new Color(0.45f, 0.8f, 1f), new Vector3(sm.X, sm.Y, sm.Z), 10f);
+            _markers.Set(items);
+            return;
+        }
         var baseAt = Markers.NearestCluster(_baseTmp, V(ShipPosition(0f)), 14f);
         if (baseAt is null && Net.Galaxy is { } galaxy && system >= 0) baseAt = new Vec3(galaxy.Systems[system].X, galaxy.Systems[system].Y, galaxy.Systems[system].Z);
         if (baseAt is { } b) Add(L("mark.base"), new Color(0.45f, 0.8f, 1f), new Vector3(b.X, b.Y, b.Z), 10f);
@@ -469,6 +499,7 @@ public partial class Play
             return;
         }
         _statusLabel.AddThemeColorOverride("font_color", Colors.White);
+        if (_stationRules) sb.Append(L("hud.modules", Net.ModuleCount(Player))).Append('\n');
 
         int dep = _selectedDeposit;
         string depLine;
@@ -540,6 +571,7 @@ public partial class Play
             if (th.WarningRemaining >= 0 || th.Enemies > 0 || p.RespawnRemaining > 0) colour = ToastThreatColor;
             else if (HudFormat.Band(p.Hull, Net.ShipMaxHull) != HealthBand.Good) colour = WornColor;
         }
+        if (_stationRules) sb.Append(L("hud.modules", Net.ModuleCount(Player))).Append('\n');
         if (!_objectivesOpen && _objectives.Current is { } cur)
             sb.Append(L("hud.ess.step", L(_objectives.States.First(s => s.Objective == cur).TitleKey))).Append('\n');
         if (_demo) sb.Append(L("hud.speed", _demoSpeed));
@@ -580,7 +612,7 @@ public partial class Play
         {
             DirAccess.MakeDirRecursiveAbsolute(ProjectSettings.GlobalizePath("user://saves"));
             var ms = new System.IO.MemoryStream();
-            SaveGame.Write(ms, _world, _content, _gameMode, GalaxySeed, _threatsOn, Player);
+            SaveGame.Write(ms, _world, _content, _gameMode, GalaxySeed, _threatsOn, Player, _stationRules);
             using var f = Godot.FileAccess.Open(SavePath(name), Godot.FileAccess.ModeFlags.Write);
             if (f is null) throw new System.IO.IOException(Godot.FileAccess.GetOpenError().ToString());
             f.StoreBuffer(ms.ToArray());
@@ -607,6 +639,11 @@ public partial class Play
             _world = world;
             _gameMode = info.Mode;
             _threatsOn = info.Threats;
+            // The save decides the rules, whatever the running game started with.
+            bool rulesChanged = _stationRules != info.StationRules;
+            _stationRules = info.StationRules;
+            if (rulesChanged) RebuildPalette();
+            _stationView.Invalidate();
             ResetAfterLoad();
             Toast(L("toast.loaded", PlayLog.Format(info.Ticks / (double)Units.TicksPerSecond)));
         }
@@ -709,7 +746,7 @@ public partial class Play
         _pendingMine = false;
         _tool = ToolMode.Pointer;
         _selectedDeposit = RevealedDeposits().FirstOrDefault();
-        _objectives = new ObjectiveTracker(_content);
+        _objectives = new ObjectiveTracker(_content, _stationRules);
         _tips = null;
         _lowOreWarned.Clear();
         _warned = false;
@@ -717,7 +754,7 @@ public partial class Play
         {
             _logFile?.StoreLine($"-- loaded a save at game time {PlayLog.Format(Net.Tick / (double)Units.TicksPerSecond)}");
             _logFile?.Flush();
-            _playLog = new PlayLog(_content);
+            _playLog = new PlayLog(_content, _stationRules);
             _playLog.Update(Net, Player); // what was already done is not news
         }
     }
@@ -745,7 +782,7 @@ public partial class Play
     /// </summary>
     private void StartPlayLog()
     {
-        _playLog = new PlayLog(_content);
+        _playLog = new PlayLog(_content, _stationRules);
         try
         {
             string dir = ProjectSettings.GlobalizePath("user://playlogs");
@@ -824,7 +861,17 @@ public partial class Play
     }
 
     /// <summary>The key that picks build item i: 1 to 9, then 0, then Q.</summary>
-    private static string KeyLabel(int i) => i < 9 ? (i + 1).ToString() : i == 9 ? "0" : i == 10 ? "Q" : "B";
+    private string KeyLabel(int i) => _palette[i].IsModule ? "N" : i < 9 ? (i + 1).ToString() : i == 9 ? "0" : i == 10 ? "Q" : i == 11 ? "B" : "U";
+
+    private string ItemName(BuildItem item) =>
+        item.IsModule ? ModuleName() : item.IsBelt ? L("ui.belt", (int)item.Tier + 1) : MachineName(item.Machine);
+
+    private bool ItemLocked(BuildItem item) =>
+        !item.IsModule && (item.IsBelt ? Net.IsBeltLocked(item.Tier) : Net.IsMachineLocked(item.Machine));
+
+    private ItemStack[] ItemCost(BuildItem item) =>
+        item.IsModule ? Net.NextModuleCost(Player)
+        : item.IsBelt ? _content.Belts[(int)item.Tier]?.CostPerCell ?? Array.Empty<ItemStack>() : _content.Machines[item.Machine].Cost;
 
     private void UpdateButtons()
     {
@@ -832,10 +879,10 @@ public partial class Play
         for (int i = 0; i < _buildButtons.Count; i++)
         {
             var item = _palette[i];
-            bool locked = item.IsBelt ? Net.IsBeltLocked(item.Tier) : Net.IsMachineLocked(item.Machine);
-            var cost = item.IsBelt ? _content.Belts[(int)item.Tier]?.CostPerCell ?? Array.Empty<ItemStack>() : _content.Machines[item.Machine].Cost;
+            bool locked = ItemLocked(item);
+            var cost = ItemCost(item);
             bool affordable = Net.CanPay(Player, cost);
-            string name = item.IsBelt ? L("ui.belt", (int)item.Tier + 1) : MachineName(item.Machine);
+            string name = ItemName(item);
             var b = _buildButtons[i];
             b.Text = $"{KeyLabel(i)} {name}";
             b.Disabled = locked;
@@ -903,10 +950,10 @@ public partial class Play
             return;
         }
         var item = _palette[_selected];
-        bool locked = item.IsBelt ? Net.IsBeltLocked(item.Tier) : Net.IsMachineLocked(item.Machine);
-        var cost = item.IsBelt ? _content.Belts[(int)item.Tier]?.CostPerCell ?? Array.Empty<ItemStack>() : _content.Machines[item.Machine].Cost;
+        bool locked = ItemLocked(item);
+        var cost = ItemCost(item);
         var state = HudFormat.Tool(locked, cost.Length > 0, Net.CanPay(Player, cost));
-        string name = item.IsBelt ? L("ui.belt", (int)item.Tier + 1) : MachineName(item.Machine);
+        string name = ItemName(item);
         string costText = state switch
         {
             ToolState.Locked => L("ui.locked"),
@@ -925,9 +972,10 @@ public partial class Play
     private string BuildTooltip(BuildItem item, ItemStack[] cost, bool locked, bool affordable)
     {
         var sb = new StringBuilder();
-        sb.Append(item.IsBelt ? L("ui.belt", (int)item.Tier + 1) : MachineName(item.Machine)).Append('\n');
+        sb.Append(ItemName(item)).Append('\n');
         sb.Append(L("tip.cost", cost.Length == 0 ? L("ui.free") : Stacks(cost) + (item.IsBelt ? L("ui.perCell") : ""))).Append('\n');
-        if (!item.IsBelt)
+        if (item.IsModule) sb.Append(L("tip.module", ModuleName())).Append('\n');
+        else if (!item.IsBelt)
         {
             var def = _content.Machines[item.Machine];
             sb.Append(L("tip.role." + def.Role.ToString().ToLowerInvariant())).Append('\n');
@@ -945,8 +993,8 @@ public partial class Play
         if (_tool == ToolMode.Build)
         {
             var item = _palette[_selected];
-            string name = item.IsBelt ? L("ui.belt", (int)item.Tier + 1) : MachineName(item.Machine);
-            _modeHint.Text = L(item.IsBelt ? "hint.buildBelt" : "hint.buildMachine", name);
+            string name = ItemName(item);
+            _modeHint.Text = L(item.IsModule ? "hint.buildModule" : item.IsBelt ? "hint.buildBelt" : "hint.buildMachine", name);
         }
         else _modeHint.Text = L("hint.pointer");
     }
@@ -1096,10 +1144,10 @@ public partial class Play
         _helpPanel.Position = new Vector2((size.X - helpSize.X) / 2f, (size.Y - helpSize.Y) / 2f - 40);
 
         // The crosshair sits at the screen centre and the tooltip beside it, kept on screen.
-        _crosshair.Visible = _mouseLook && !_demo;
+        _crosshair.Visible = (_mouseLook || _stationDemo) && !_demo;
         _crosshair.Position = (size - _crosshair.Size) / 2f;
         var centre = size / 2f;
-        _tooltipLabel.Visible = _tooltipLabel.Text.Length > 0 && !_demo && _mouseLook;
+        _tooltipLabel.Visible = _tooltipLabel.Text.Length > 0 && !_demo && (_mouseLook || _stationDemo);
         _tooltipLabel.Position = new Vector2(Math.Clamp(centre.X + 24, 8, Math.Max(8, size.X - _tooltipLabel.Size.X - 8)), Math.Clamp(centre.Y + 24, 8, Math.Max(8, size.Y - _tooltipLabel.Size.Y - 8)));
 
         _targetPanel.ResetSize();
@@ -1189,6 +1237,12 @@ public partial class Play
     {
         if (_tool == ToolMode.Build)
         {
+            if (ModuleSelected)
+            {
+                if (ModuleUnderAim() is { } m) Send(new PlaceModule(m.Mx, m.My, m.Mz));
+                _dragStart = null;
+                return;
+            }
             if (_dragStart is { } start && CellUnderAim() is { } end)
                 PlaceSelectedAt(end, _palette[_selected].IsBelt ? start : null);
             _dragStart = null;
@@ -1248,7 +1302,14 @@ public partial class Play
         if (k.Keycode == Key.Key0) digit = 9;
         if (k.Keycode == Key.Q) digit = 10;
         if (k.Keycode == Key.B) digit = 11;
-        if (digit >= 0 && digit < Math.Min(12, _palette.Count)) { SelectBuild(digit); return; }
+        if (k.Keycode == Key.U) digit = 12; // the thirteenth entry, the ore port
+        if (digit >= 0 && digit < Math.Min(13, _palette.Count) && !_palette[digit].IsModule) { SelectBuild(digit); return; }
+        if (k.Keycode == Key.N)
+        {
+            int module = _palette.FindIndex(b => b.IsModule);
+            if (module >= 0) SelectBuild(module);
+            return;
+        }
 
         switch (k.Keycode)
         {
@@ -1431,7 +1492,7 @@ public partial class Play
         _tooltipLabel.Text = "";
         _hover = new Hover(HoverKind.None, -1, "");
         _aimCell = null;
-        if (_demo || !_mouseLook) return; // only the crosshair aims; a free cursor is for the buttons
+        if (_demo || (!_mouseLook && !_stationDemo)) return; // only the crosshair aims; a free cursor is for the buttons
 
         var origin = AimOrigin();
         var dir = AimDirection();
@@ -1611,22 +1672,38 @@ public partial class Play
     private string? PlacementProblem((int X, int Y, int Z) cell)
     {
         var item = _palette[_selected];
-        bool locked = item.IsBelt ? Net.IsBeltLocked(item.Tier) : Net.IsMachineLocked(item.Machine);
-        if (locked) return L("why.locked");
+        if (ItemLocked(item)) return L("why.locked");
         if (!_world.InBuildRange(Player, cell.X, cell.Y, cell.Z)) return L("why.outOfRange");
+        if (_stationRules && !Net.CellInStation(Player, cell.X, cell.Y, cell.Z)) return Why(Reject.OutsideStation);
         if (_world.EntityAt(cell.X, cell.Y, cell.Z).Kind != SimWorld.EntityKind.None) return L("why.overlap");
         var cost = item.IsBelt ? _content.Belts[(int)item.Tier]?.CostPerCell ?? Array.Empty<ItemStack>() : _content.Machines[item.Machine].Cost;
         if (!Net.CanPay(Player, cost)) return L("why.notEnough");
         return null;
     }
 
+    /// <summary>The module ghost fills the whole 8 x 8 x 4 box it would occupy; green when PlaceModule would succeed, red with the reason otherwise.</summary>
+    private void UpdateModuleGhost()
+    {
+        _dragGhost.Visible = false;
+        _moduleAim = ModuleUnderAim();
+        if (_moduleAim is not { } m) { _ghost.Visible = false; _tooltipLabel.Text = L("why.outOfRange"); _crosshair.Tint = Crosshair.Invalid; return; }
+        _ghost.Scale = new Vector3(StationGrid.ModuleX, StationGrid.ModuleY, StationGrid.ModuleZ) * 0.99f;
+        _ghost.Position = StationView.Centre(m.Mx, m.My, m.Mz);
+        string? problem = ModuleProblem(m);
+        _crosshair.Tint = problem is null ? Crosshair.Normal : Crosshair.Invalid;
+        ((StandardMaterial3D)_ghost.MaterialOverride).AlbedoColor = problem is null ? new Color(0.4f, 1f, 0.5f, 0.22f) : new Color(1f, 0.3f, 0.25f, 0.22f);
+        _tooltipLabel.Text = problem ?? $"{ModuleName()}: {L("tip.cost", Stacks(Net.NextModuleCost(Player)))}";
+    }
+
     private void UpdateGhost()
     {
-        bool build = _tool == ToolMode.Build && !_demo && _mouseLook && _aimCell is not null;
+        bool build = _tool == ToolMode.Build && !_demo && (_mouseLook || _stationDemo) && _aimCell is not null;
         _ghost.Visible = build;
         _crosshair.Tint = Crosshair.Normal;
         if (!build) { _dragGhost.Visible = false; return; }
 
+        if (ModuleSelected) { UpdateModuleGhost(); return; }
+        _ghost.Scale = Vector3.One;
         var c = _aimCell!.Value;
         _ghost.Position = CellCenter(c.X, c.Y, c.Z);
         string? problem = PlacementProblem(c);

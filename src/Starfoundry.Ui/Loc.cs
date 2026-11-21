@@ -65,6 +65,7 @@ public static class Loc
         ["machine.core:repair_bay"] = ("taller de reparación", "repair bay"),
         ["machine.core:unloader"] = ("puerto de carga", "cargo port"),
         ["machine.core:micro_refinery"] = ("microrrefinería", "micro-refinery"),
+        ["machine.core:ore_unloader"] = ("puerto de mineral", "ore port"),
 
         ["recipe.core:mine_iron"] = ("extraer hierro", "mine iron"),
         ["recipe.core:mine_carbon"] = ("extraer carbono", "mine carbon"),
@@ -154,7 +155,7 @@ public static class Loc
         ["tip.role.turret"] = ("Dispara a los enemigos; gasta munición que llega por cinta.", "Shoots enemies; uses ammo delivered by belt."),
         ["tip.role.wall"] = ("Los enemigos atacan el muro más cercano antes que cualquier otra máquina. Repáralo para que dure.", "Enemies attack the nearest wall before any other machine. Repair it to keep it standing."),
         ["tip.role.repairer"] = ("Repara poco a poco las máquinas dañadas cercanas, gastando lingotes que le llegan por cinta.", "Slowly repairs damaged machines nearby, using ingots delivered by belt."),
-        ["tip.role.unloader"] = ("Saca lingotes de tu bodega y los pone en una cinta, sin tocar los últimos 10. Así lo que mines en otro sistema puede alimentar una fábrica lejos de él.", "Takes ingots out of your hold and puts them on a belt, leaving the last 10. What you mine in another system can feed a factory far from it."),
+        ["tip.role.unloader"] = ("Saca de tu bodega un objeto y lo pone en una cinta: el puerto de carga lleva lingotes (sin tocar los últimos 10) y el de mineral lleva mineral (sin reserva). Así lo que mines en otro sistema puede alimentar una fábrica lejos de él.", "Takes one kind of item out of your hold and puts it on a belt: the cargo port carries ingots (leaving the last 10) and the ore port carries ore (no reserve). What you mine in another system can feed a factory far from it."),
         ["tip.role.ship"] = ("Va en la nave.", "Lives on the ship."),
         ["tip.belt"] = ("Cinta Mk{0}: {1} celdas, {2} objetos encima", "Belt Mk{0}: {1} cells, {2} items on it"),
         ["tip.deposit"] = ("Yacimiento de {0}: quedan {1} de {2}.\nClic izquierdo para elegirlo; M para minarlo.",
@@ -242,8 +243,8 @@ public static class Loc
         ["status.depotFull"] = ("bodega llena: esperando sitio", "hold full: waiting for room"),
         ["status.repairerReady"] = ("listo: repara las máquinas a menos de {0} celdas (lingotes {1}/{2})", "ready: repairs machines within {0} cells (ingots {1}/{2})"),
         ["status.repairerEmpty"] = ("sin lingotes: llévale lingotes por cinta", "out of ingots: bring it ingots by belt"),
-        ["status.unloaderReady"] = ("saca lingotes de tu bodega (quedan {0}, reserva {1})", "unloading ingots from your hold ({0} left, reserve {1})"),
-        ["status.unloaderEmpty"] = ("tu bodega no tiene más de {0} lingotes: no saca ninguno", "your hold has no more than {0} ingots: nothing to unload"),
+        ["status.unloaderReady"] = ("saca de tu bodega (quedan {0}, reserva {1})", "unloading from your hold ({0} left, reserve {1})"),
+        ["status.unloaderEmpty"] = ("tu bodega no tiene más de {0} de lo que saca este puerto: no saca nada", "your hold has no more than {0} of what this port carries: nothing to unload"),
         ["status.unloaderNoBelt"] = ("sin cinta de salida: conecta una", "no output belt: connect one"),
         ["status.wall"] = ("atrae a los enemigos: ponlo delante de la base, al alcance de las torretas", "draws enemies: put it in front of the base, within reach of the turrets"),
         ["status.turretReady"] = ("munición {0}/{1}", "ammo {0}/{1}"),
@@ -334,6 +335,44 @@ public static class Loc
         ["obj.expand.hint"] = ("El yacimiento de casa se agota en un par de horas. Investiga la perforación de carbono y el motor de salto (T), escanea (K) y salta (G, J) a un sistema con hierro.",
                                "The home deposit runs out in a couple of hours. Research carbon drilling and the jump drive (T), scan (K) and jump (G, J) to a system with iron."),
 
+        // ---- guided steps under the station rules ----
+        ["obj.core"] = ("Construye el núcleo de la estación", "Build the station core"),
+        ["obj.core.hint"] = ("Elige Módulo en la barra y colócalo cerca de la nave: el primero es el núcleo y solo se construye dentro de la estación. Cuesta lingotes.",
+                             "Choose Module in the bar and place it near the ship: the first one is the core, and you can only build inside the station. It costs ingots."),
+        ["obj.cargoPort"] = ("Construye un puerto de carga", "Build a cargo port"),
+        ["obj.cargoPort.hint"] = ("El mineral no llega solo: vuela a la estación y descarga la bodega por un puerto a una cinta. El puerto de mineral lleva mineral a los hornos; el de carga, lingotes. Colócalo dentro de un módulo.",
+                                  "Ore does not arrive by itself: fly to the station and unload your hold through a port onto a belt. The ore port carries ore to smelters; the cargo port carries ingots. Place it inside a module."),
+        ["obj.mine.hint.station"] = ("Pulsa M una vez: la nave mina sola a 2 minerales por segundo hasta llenar la bodega. Luego vuelve a la estación para descargarla.",
+                                     "Press M once: the ship mines by itself at 2 ore per second until the hold is full. Then fly back to the station to unload it."),
+        ["obj.refine.hint.station"] = ("Pulsa F para encender la refinería de la nave: convierte mineral en lingotes, despacio. Los necesitas para construir el núcleo.",
+                                       "Press F to switch the ship's refinery on: it turns ore into ingots, slowly. You need them to build the core."),
+        ["obj.smelter.hint.station"] = ("Elige Horno (5) y colócalo dentro de un módulo, junto a un puerto de mineral (el de carga solo lleva lingotes); une ambos con cintas (1). Si no cabe, amplía la estación con otro módulo.",
+                                        "Choose Smelter (5) and place it inside a module, next to an ore port (the cargo port carries only ingots); join them with belts (1). If it does not fit, grow the station with another module."),
+        ["obj.depot.hint.station"] = ("Tiende cintas desde el horno hasta un Depósito (8) dentro de la estación: mete en tu bodega todo lo que le llega.",
+                                      "Lay belts from the smelter to a Depot (8) inside the station: it puts everything that arrives into your hold."),
+        ["learn.deliver"] = ("Tienes la bodega llena de mineral. Vuela a la estación y descárgala con un puerto de mineral: saca el mineral a una cinta que alimente tus hornos (el puerto de carga solo lleva lingotes).",
+                             "Your hold is full of ore. Fly to the station and unload it with an ore port: it puts the ore onto a belt that feeds your smelters (the cargo port carries only ingots)."),
+
+        // ---- build rejects under the station rules ----
+        ["toast.reject.outsideStation"] = ("Solo puedes construir dentro de los módulos de la estación", "You can only build inside the station modules"),
+        ["toast.reject.notAdjacent"] = ("El módulo debe tocar una cara de la estación", "A module must touch a face of the station"),
+        ["toast.reject.moduleOccupied"] = ("Ese módulo tiene máquinas o cintas, o su retirada partiría la estación", "That module holds machines or belts, or removing it would split the station"),
+        ["toast.reject.notAllowedHere"] = ("Eso no se puede construir aquí", "That cannot be built here"),
+        ["toast.reject.overlap"] = ("Esa celda está ocupada", "That cell is taken"),
+        ["toast.reject.outOfBounds"] = ("Fuera de los límites del mundo", "Out of the world limits"),
+        ["toast.reject.notEnoughItems"] = ("No tienes los objetos en la bodega", "Not enough items in the hold"),
+
+        // ---- station modules ----
+        ["ui.module"] = ("Módulo", "Module"),
+        ["ui.core"] = ("Núcleo", "Core"),
+        ["hint.buildModule"] = ("Construyendo: {0}. Apunta a donde quieras el módulo (verde = se puede) y haz clic.   Clic derecho en un módulo vacío: retirarlo (devuelve la mitad).   Esc: dejar de construir",
+                                "Building: {0}. Aim where you want the module (green = it can be built) and click.   Right-click an empty module: remove it (refunds half).   Esc: stop building"),
+        ["tip.module"] = ("{0} de estación: una caja de 8 x 8 x 4 celdas donde se puede construir.", "Station {0}: an 8 x 8 x 4 cell box where you can build."),
+        ["why.moduleMissing"] = ("Te falta: {0}", "Missing: {0}"),
+        ["why.moduleExists"] = ("Ya hay un módulo ahí", "There is already a module there"),
+        ["hud.modules"] = ("Módulos {0}", "Modules {0}"),
+        ["mark.station"] = ("Estación", "Station"),
+
         // ---- help overlay ----
         ["help.text"] = (
             "CONTROLES   (F1 para cerrar)\n\n" +
@@ -347,8 +386,9 @@ public static class Loc
             "  W S   avanzar / retroceder hacia donde miras     A D   desplazarse a los lados     Espacio / C   subir / bajar\n" +
             "  M   minar (vuela primero al yacimiento)      F   refinería       K   escanear       V   armas\n  Marcadores: yacimiento elegido, enemigo más cercano y tu base; en el borde de la pantalla señalan hacia dónde mirar\n\n" +
             "Construcción\n" +
-            "  1-9, 0, Q, B   elegir qué construir (otra vez para guardarlo)       Esc   dejar de construir\n" +
+            "  1-9, 0, Q, B, U   elegir qué construir (N: módulo de estación)       Esc   dejar de construir\n" +
             "  Y   cambiar receta       R   girar cintas sueltas       Z / X   cambiar de capa\n" +
+            "  N   módulo de estación (el primero es el núcleo; solo se construye dentro de los módulos)\n" +
             "  Clic en una máquina sin herramienta: ver su estado y cambiar su receta (Tab para usar sus botones).\n  E   reparar todas las máquinas dañadas a tu alcance (cuesta la mitad de su coste, en proporción al daño)\n\n" +
             "Otros\n" +
             "  T   elegir investigación      G   mapa estelar (flechas y J para saltar)\n" +
@@ -364,8 +404,9 @@ public static class Loc
             "  W S   forward / back where you look     A D   strafe     Space / C   up / down\n" +
             "  M   mine (flies to the deposit first)      F   refinery       K   scan       V   weapons\n  Markers: the selected deposit, the nearest enemy and your base; at the screen edge they point where to look\n\n" +
             "Building\n" +
-            "  1-9, 0, Q, B   choose what to build (again to put it away)       Esc   stop building\n" +
+            "  1-9, 0, Q, B, U   choose what to build (N: station module)       Esc   stop building\n" +
             "  Y   change recipe       R   rotate single belts       Z / X   change layer\n" +
+            "  N   station module (the first one is the core; you can only build inside modules)\n" +
             "  With no tool, click a machine: see its status and change its recipe (Tab to use its buttons).\n  E   repair every damaged machine within reach (half the build cost, in proportion to the damage)\n\n" +
             "Other\n" +
             "  T   choose research      G   star map (arrows and J to jump)\n" +
