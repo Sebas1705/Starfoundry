@@ -451,7 +451,17 @@ public static class Loc
         ["hint.buildModuleKind"] = ("Módulo: {0} (N cambia el tipo). Apunta junto a un módulo de tu nave o estación (verde = se puede) y haz clic.   Clic derecho en un módulo vacío: retirarlo (devuelve la mitad).   Esc: dejar de construir",
                                     "Module: {0} (N changes the kind). Aim next to a module of your ship or station (green = it can be built) and click.   Right-click an empty module: remove it (refunds half).   Esc: stop building"),
         ["toast.stationFounded"] = ("¡Estación fundada! Añádele módulos con N.", "Station founded! Add modules to it with N."),
-        ["hud.flightReady"] = ("lista para volar", "ready to fly"),
+        ["hud.power"] = ("Energía {0}/{1}  ({2}%)", "Power {0}/{1}  ({2}%)"),
+        ["hud.power.fuel"] = ("Hidrógeno {0}  -  combustible {1}", "Hydrogen {0}  -  fuel {1}"),
+        ["hud.power.noFuel"] = ("Hidrógeno 0  -  sin combustible", "Hydrogen 0  -  no fuel"),
+        ["hud.power.noReactor"] = ("Sin reactor", "No reactor"),
+        ["hud.power.station"] = ("{0}: energía {1}/{2} ({3}%)  -  {4}", "{0}: power {1}/{2} ({3}%)  -  {4}"),
+        ["toast.powerLow"] = ("Combustible bajo: queda energía para {0}. Fabrica hidrógeno con hielo.", "Fuel low: power for {0} left. Make hydrogen from ice."),
+        ["toast.powerOut"] = ("¡Sin energía! Las máquinas se paran y la nave no acelera. Necesitas hidrógeno.", "Power out! Machines stop and the ship cannot accelerate. You need hydrogen."),
+        ["status.noPower"] = ("sin energía", "no power"),
+        ["insp.power"] = ("Energía: {0}%", "Power: {0}%"),
+        ["mark.ice"] = ("Hielo", "Ice"),
+        ["hud.flightReady"] =("lista para volar", "ready to fly"),
         ["hud.flightNot"] = ("no puede volar: falta cabina o motor", "cannot fly: needs a cockpit and an engine"),
         ["hud.modulesDetail"] = ("Módulos: {0}", "Modules: {0}"),
         ["hint.buildModule"] = ("Construyendo: {0}. Apunta a donde quieras el módulo (verde = se puede) y haz clic.   Clic derecho en un módulo vacío: retirarlo (devuelve la mitad).   Esc: dejar de construir",
@@ -516,7 +526,8 @@ public static class Loc
             "  W S   avanzar / retroceder hacia donde miras     A D   desplazarse a los lados     Espacio / C   subir / bajar\n" +
             "  E   sentarte / levantarte del asiento del piloto (de pie: WASD camina, Mayús corre y no se vuela)\n  M   minar (vuela primero al yacimiento)      F   refinería       K   escanear       V   armas\n  Marcadores: yacimiento elegido, enemigo más cercano y tu base; en el borde de la pantalla señalan hacia dónde mirar\n\n" +
             "Construcción\n" +
-            "  1-9, 0, Q, B, U   elegir qué construir (N: módulo de estación)       Esc   dejar de construir\n" +
+            "  1-9, 0, Q, B, U   elegir qué construir; F2-F5 las entradas siguientes (N: módulo de estación)       Esc   dejar de construir\n" +
+            "  La tira de abajo muestra todas las entradas en dos filas; el panel de estado muestra la energía de la nave (verde, ámbar, rojo), el hidrógeno y el tiempo que dura\n" +
             "  Y   cambiar receta       R   girar cintas sueltas       Z / X   cambiar de capa\n" +
             "  N   módulo de estación (el primero es el núcleo; solo se construye dentro de los módulos)\n" +
             "  Estructuras: N elige la herramienta de módulos y, pulsada otra vez, cambia su tipo (cabina, motor, reactor, bodega, taller, defensa, casco); I elige fundar una estación junto a la nave; cada tipo de módulo admite máquinas distintas\n" +
@@ -535,7 +546,8 @@ public static class Loc
             "  W S   forward / back where you look     A D   strafe     Space / C   up / down\n" +
             "  E   sit at / stand up from the pilot seat (standing: WASD walks, Shift runs, no flying)\n  M   mine (flies to the deposit first)      F   refinery       K   scan       V   weapons\n  Markers: the selected deposit, the nearest enemy and your base; at the screen edge they point where to look\n\n" +
             "Building\n" +
-            "  1-9, 0, Q, B, U   choose what to build (N: station module)       Esc   stop building\n" +
+            "  1-9, 0, Q, B, U   choose what to build; F2-F5 the entries after them (N: station module)       Esc   stop building\n" +
+            "  The bottom strip shows every entry in two rows; the status panel shows the ship's power (green, amber, red), the hydrogen and how long it lasts\n" +
             "  Y   change recipe       R   rotate single belts       Z / X   change layer\n" +
             "  N   station module (the first one is the core; you can only build inside modules)\n" +
             "  Structures: N picks the module tool and, pressed again, changes its kind (cockpit, engine, reactor, cargo, workshop, defence, hull); I picks founding a station beside the ship; each module kind allows different machines\n" +

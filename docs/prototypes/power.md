@@ -1,6 +1,6 @@
 # Prototype: power and fuel
 
-Status: built (2026-11-21), simulation, content and Ui logic only. Decision: [ADR 0019](../adr/0019-power-and-fuel.md). Roadmap: part 2 of the [playable roadmap](../superpowers/specs/2026-11-21-playable-roadmap-design.md).
+Status: built (2026-11-21), simulation, content, Ui logic and HUD. Decision: [ADR 0019](../adr/0019-power-and-fuel.md). Roadmap: part 2 of the [playable roadmap](../superpowers/specs/2026-11-21-playable-roadmap-design.md).
 
 ## What was built
 | Area | Change |
@@ -28,7 +28,15 @@ Measured by the tests in `PowerTests.cs` and `HydrogenTests.cs` (30 ticks a seco
 - At half satisfaction (demand twice the production) a smelter makes half the items in the same time (18 to 20 crafts at full power against half of that, within one craft, over 1200 ticks), and a ship covers half the distance.
 - Pacing tests of the structure worlds pass unchanged: the 20 hydrogen only take 20 hold slots, hand mining stops at 45 items instead of lower.
 
+## HUD
+Built in the game (`game/Play.Power.cs`, helpers in `Starfoundry.Ui/PowerFormat.cs`):
+- **Status panel**: a block under the status text for the ship structure: `Power production/demand (percent)`, a bar coloured by `PowerFormat.Band` (green at 1000 per mille or more, amber 500 to 999, red below 500) and `Hydrogen N - fuel m:ss` (hydrogen in the hold times the burn interval plus the burn remaining; "no fuel" at zero). The details view (`H`) adds one power line per station, and the panel of a machine under the crosshair shows the power of its structure.
+- **Warnings** (toast category Production, grouped by the toast queue, `FuelWatch`): fuel below 2 minutes, below 30 seconds, and power out (`toast.powerLow`, `toast.powerOut`). Each arms again once hydrogen is made.
+- **World**: the reactor core breathes slowly while burning and shows a faint red emergency light when dark; engine flames dim with the satisfaction; the lamps and dashboards of cockpit and cargo tint amber below 1000. Machines that draw power stop animating and dim below 500 per mille; their status line reads "no power" at 0 and the inspector shows the percentage in between. The cracker has its own model, the ice port and the other ore ports reuse the unloader model.
+- **Palette**: all entries have a button, in two rows (fits 1280 px). Keys: `1-9, 0, Q, B, U` for the first thirteen, `F2-F5` for the next ones (the cracker and the ice port are `F3` and `F4` in the structures campaign), `N` module, `I` station.
+- **Guided step**: while `MakeFuel` is current, a marker points at the nearest known ice deposit.
+- **Screenshots**: `--power-shot=path` (see the header of `game/Play.PowerShot.cs`) saves full power, amber (extra labs), the two-minute warning and power out, cockpit and outside.
+
 ## Limits
 - Reactors are all the same size; no batteries and no per-structure tank.
-- The HUD and the game do not show power yet (the Ui logic and accessors are ready).
 - The cracker needs an ice port from the hold: ice reaches the ship only by hand mining until drones come (roadmap part 3).

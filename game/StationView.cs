@@ -113,6 +113,11 @@ void fragment() {
             if (kind == ModuleKind.Cockpit && node.GetNodeOrNull<Node3D>("Seat") is { } seat) seat.Visible = visible;
     }
 
+    private readonly Dictionary<int, (int Satisfaction, bool Burning)> _power = new();
+
+    /// <summary>Power state of a structure for its lights: satisfaction per mille and whether a reactor burns. Structures never set count as fully powered.</summary>
+    public void SetPower(int structureId, int satisfactionPermille, bool burning) => _power[structureId] = (satisfactionPermille, burning);
+
     /// <summary>Lights the engine flames of a structure.</summary>
     public void SetEngines(int structureId, bool active) => _thrust[structureId] = active;
 
@@ -171,9 +176,28 @@ void fragment() {
         foreach (var (id, sr) in _structs)
         {
             bool thrust = _thrust.TryGetValue(id, out bool t) && t;
+            var (sat, burning) = _power.TryGetValue(id, out var pw) ? pw : (1000, true);
+            bool amber = sat < PowerRules.FullSatisfaction;
             foreach (var (kind, node) in sr.Modules.Values)
-                if (kind == ModuleKind.Engine) Models.Animate(node, _time, thrust);
-                else if (kind == ModuleKind.Core) Models.Animate(node, _time, false);
+                switch (kind)
+                {
+                    case ModuleKind.Engine:
+                        Models.SetPower(node, 0.2f + 0.8f * sat / 1000f); // the flame and vents dim with the power
+                        Models.Animate(node, _time, thrust);
+                        break;
+                    case ModuleKind.Reactor:
+                        Models.SetReactor(node, burning);
+                        Models.SetPower(node, burning ? 1f : 0.1f); // vents go dark with the core
+                        Models.Animate(node, _time, burning);
+                        break;
+                    case ModuleKind.Core:
+                        Models.Animate(node, _time, false);
+                        break;
+                    case ModuleKind.Cockpit:
+                    case ModuleKind.Cargo:
+                        Models.SetAmber(node, amber);
+                        break;
+                }
         }
         if (_coreMarker is { Visible: true } m)
         {
