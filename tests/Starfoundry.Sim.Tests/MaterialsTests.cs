@@ -218,7 +218,7 @@ public class MaterialsTests
         var g = Galaxy.Generate(C, seed);
         var ds = g.DepositsOf(0).Select(i => g.Deposits[i]).ToList();
         Assert.Equal(3, ds.Count);
-        Assert.Equal((C.ItemIndex("core:iron_ore"), 4000), (ds[0].Item, ds[0].Amount));
+        Assert.Equal((C.ItemIndex("core:iron_ore"), 12000), (ds[0].Item, ds[0].Amount));
         Assert.Equal((C.ItemIndex("core:carbon"), 1500), (ds[1].Item, ds[1].Amount));
         Assert.Equal(C.ItemIndex("core:ice"), ds[2].Item);
         Assert.InRange(ds[2].Amount, 1500, 2000);

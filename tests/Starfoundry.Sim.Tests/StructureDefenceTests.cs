@@ -700,6 +700,9 @@ public class StructureDefenceTests
         var da = root["research"]!.AsArray().First(r => r!["id"]!.GetValue<string>() == "core:drone_automation")!.AsObject();
         da["cost"] = System.Text.Json.Nodes.JsonNode.Parse("""[{"item":"core:iron_plate","count":150},{"item":"core:titanium_plate","count":20},{"item":"core:quartz","count":20}]""");
         da["requires"] = System.Text.Json.Nodes.JsonNode.Parse("""["core:logistics","core:advanced_plating"]""");
+        // And the home iron deposit held 4000.
+        root["archetypes"]!.AsArray().First(a => a!["id"]!.GetValue<string>() == "core:home")!["deposits"]!.AsArray()
+            .First(d => d!["item"]!.GetValue<string>() == "core:iron_ore")!["amount"] = System.Text.Json.Nodes.JsonNode.Parse("[4000,4000]");
         // And the home ice deposit held 600 to 800.
         var home = root["archetypes"]!.AsArray().First(a => a!["id"]!.GetValue<string>() == "core:home")!["deposits"]!.AsArray();
         home.First(d => d!["item"]!.GetValue<string>() == "core:ice")!["amount"] = System.Text.Json.Nodes.JsonNode.Parse("[600,800]");

@@ -70,7 +70,7 @@ public class GalaxyTests
         var ds = g.DepositsOf(0).Select(i => g.Deposits[i]).ToList();
         Assert.Equal(3, ds.Count); // iron, carbon and a little ice
         Assert.Equal(C.ItemIndex("core:iron_ore"), ds[0].Item);
-        Assert.Equal(4000, ds[0].Amount);
+        Assert.Equal(12000, ds[0].Amount);
         Assert.Equal(C.ItemIndex("core:carbon"), ds[1].Item);
         Assert.Equal(1500, ds[1].Amount);
         Assert.Equal(C.ItemIndex("core:ice"), ds[2].Item);
