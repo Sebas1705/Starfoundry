@@ -155,9 +155,15 @@ public partial class Play : Node3D
         BuildThreatVisuals();
         RebuildGeometry();
         if (_stationDemo) StationDemoSelect(args);
-        if (!_demo && !_stationDemo && !_structuresShot) StartPlayLog();
+        if (!_demo && !_stationDemo && !_structuresShot && Launch.MenuShotPath is null) StartPlayLog();
         if (!_demo) Toast(L("toast.welcome"));
         if (_structuresShot) StructuresShotSetup(args);
+        if (Launch.Mode == Launch.Intent.Continue && Launch.ContinueSave is { } slot)
+        {
+            Launch.Mode = Launch.Intent.New;
+            LoadGameFromDisk(slot);
+        }
+        if (Launch.MenuShotPath is not null) _wantCapture = false;
     }
 
     private bool _structuresOn;
@@ -967,6 +973,20 @@ void fragment() {
     }
 
     private int _finishCountdown;
+    private int _menuShotFrame;
+
+    /// <summary><c>--menu-shot=path</c> (the game half): opens the pause overlay, saves <c>path.pause.png</c> and quits.</summary>
+    private void MenuShotTick()
+    {
+        if (Launch.MenuShotPath is not { } path) return;
+        _menuShotFrame++;
+        if (_menuShotFrame == 40) OpenPause();
+        if (_menuShotFrame == 80)
+        {
+            GetViewport().GetTexture().GetImage().SavePng(path + ".pause.png");
+            GetTree().Quit();
+        }
+    }
 
     public override void _Notification(int what)
     {
@@ -999,6 +1019,7 @@ void fragment() {
         UpdateMachines();
         UpdateEnemies((float)delta);
         UpdateDeposits();
+        if (!Overview) _camera.Fov = SettingsStore.Current.Fov;
         UpdateBody((float)delta); // before the camera is placed by UpdateShip
         UpdateShip(alpha, (float)delta);
         if (_walkShot) WalkShotFrame();
@@ -1010,6 +1031,7 @@ void fragment() {
         UpdateHover();
         UpdateGhost();
         UpdateUi((float)delta);
+        MenuShotTick();
         if (_shotCountdown > 0 && --_shotCountdown == 0 && _shotPath != null)
             GetViewport().GetTexture().GetImage().SavePng(_shotPath);
         if (_finishCountdown > 0 && --_finishCountdown == 0)

@@ -138,7 +138,7 @@ public partial class Play
         _layer.AddChild(_uiRoot);
 
         _objectives = new ObjectiveTracker(_content, _stationRules, _structuresOn);
-        Loc.Lang = Loc.FromLocale(OS.GetLocale());
+        SettingsStore.EnsureLoaded(); // language, volume and window mode from user://settings.cfg
 
         // Status: the essentials (hull, alert, current step); H opens the full block.
         _statusLabel = MakeText(14);
@@ -310,6 +310,67 @@ public partial class Play
         // Directional markers go last so they are never hidden under a panel.
         _markers = new MarkerLayer { Visible = false };
         _uiRoot.AddChild(_markers);
+        if (!_demo) BuildPauseMenu();
+    }
+
+    // ---- pause menu ------------------------------------------------------------------------------------
+
+    private MenuScreen? _pauseMenu;
+    private bool _pausedBefore;
+
+    private bool PauseOpen => _pauseMenu is { Visible: true };
+
+    /// <summary>The pause overlay (above the HUD, hidden): Resume, quick save and load, Settings, Controls, Main menu and Quit.</summary>
+    private void BuildPauseMenu()
+    {
+        var layer = new CanvasLayer { Layer = 20 };
+        AddChild(layer);
+        var menu = _pauseMenu = new MenuScreen("pause.title", dim: true) { Visible = false };
+        menu.AddEntry(() => L("pause.resume"), ClosePause);
+        menu.AddEntry(() => L("pause.save"), () =>
+        {
+            bool ok = SaveGameToDisk("quicksave", silent: true);
+            menu.SetStatus(ok ? L("pause.saved", PlayLog.Format(Net.Tick / (double)Units.TicksPerSecond)) : L("pause.saveFailed"));
+            menu.Rebuild();
+        });
+        menu.AddEntry(() => L("pause.load"), () =>
+        {
+            if (LoadGameFromDisk("quicksave")) ClosePause();
+            else menu.SetStatus(L("pause.loadFailed"));
+        }, () => Godot.FileAccess.FileExists(SavePath("quicksave")));
+        menu.AddEntry(() => L("menu.settings"), () => menu.Open(MenuScreen.Page.Settings));
+        menu.AddEntry(() => L("menu.controls"), () => menu.Open(MenuScreen.Page.Controls));
+        menu.AddEntry(() => L("pause.mainMenu"), () =>
+        {
+            SaveGameToDisk("autosave", silent: true);
+            FinishPlayLog();
+            Launch.MenuShotPath = null;
+            GetTree().ChangeSceneToFile("res://MainMenu.tscn");
+        });
+        menu.AddEntry(() => L("menu.quit"), () => GetTree().Quit());
+        menu.CloseRequested += ClosePause;
+        var root = new Control { MouseFilter = Control.MouseFilterEnum.Ignore };
+        root.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect); // the menu fills its parent, so the parent must fill the screen
+        layer.AddChild(root);
+        root.AddChild(menu);
+    }
+
+    private void OpenPause()
+    {
+        if (_pauseMenu is null || PauseOpen) return;
+        _pausedBefore = _paused;
+        _paused = true;
+        _wantCapture = false;
+        _pauseMenu.SetStatus("");
+        _pauseMenu.Open(MenuScreen.Page.Main);
+    }
+
+    private void ClosePause()
+    {
+        if (_pauseMenu is null) return;
+        _pauseMenu.Visible = false;
+        _paused = _pausedBefore;
+        _wantCapture = true;
     }
 
     private HBoxContainer _buildBar = null!;
@@ -621,9 +682,9 @@ public partial class Play
     private static string SavePath(string name) => $"user://saves/{name}.sfsave";
 
     /// <summary>Writes the game (its command log) to <c>user://saves</c>. A save is small and loads by replaying it.</summary>
-    private void SaveGameToDisk(string name, bool silent)
+    private bool SaveGameToDisk(string name, bool silent)
     {
-        if (_demo) return;
+        if (_demo) return false;
         try
         {
             DirAccess.MakeDirRecursiveAbsolute(ProjectSettings.GlobalizePath("user://saves"));
@@ -633,20 +694,22 @@ public partial class Play
             if (f is null) throw new System.IO.IOException(Godot.FileAccess.GetOpenError().ToString());
             f.StoreBuffer(ms.ToArray());
             if (!silent) Toast(L("toast.saved", PlayLog.Format(Net.Tick / (double)Units.TicksPerSecond)));
+            return true;
         }
         catch (Exception e)
         {
             GD.PrintErr("SAVE failed: " + e.Message);
             Toast(L("toast.saveFailed", e.Message));
+            return false;
         }
     }
 
     /// <summary>Loads the quick save (or the autosave when there is none) by replaying it; the game freezes for a second or two.</summary>
-    private void LoadGameFromDisk(string? slot = null)
+    private bool LoadGameFromDisk(string? slot = null)
     {
-        if (_demo) return;
+        if (_demo) return false;
         string name = slot ?? (Godot.FileAccess.FileExists(SavePath("quicksave")) ? "quicksave" : "autosave");
-        if (!Godot.FileAccess.FileExists(SavePath(name))) { Toast(L("toast.noSave")); return; }
+        if (!Godot.FileAccess.FileExists(SavePath(name))) { Toast(L("toast.noSave")); return false; }
         try
         {
             byte[] bytes = Godot.FileAccess.GetFileAsBytes(SavePath(name));
@@ -665,11 +728,13 @@ public partial class Play
             _stationView.Invalidate();
             ResetAfterLoad();
             Toast(L("toast.loaded", PlayLog.Format(info.Ticks / (double)Units.TicksPerSecond)));
+            return true;
         }
         catch (Exception e)
         {
             GD.PrintErr("LOAD failed: " + e.Message);
             Toast(L("toast.loadFailed", e.Message));
+            return false;
         }
     }
 
@@ -1205,6 +1270,7 @@ public partial class Play
     private void ToggleLanguage()
     {
         Loc.Lang = Loc.Lang == Language.Es ? Language.En : Language.Es;
+        SettingsStore.Set(SettingsStore.Current with { Language = Loc.Lang });
         Toast(L("toast.language"));
     }
 
@@ -1214,7 +1280,7 @@ public partial class Play
 
     public override void _UnhandledInput(InputEvent e)
     {
-        if (_demo) return;
+        if (_demo || PauseOpen) return;
 
         switch (e)
         {
@@ -1264,8 +1330,10 @@ public partial class Play
     private void OnMouseMotion(InputEventMouseMotion mm)
     {
         if (!_mouseLook) return;
-        _yaw -= mm.Relative.X * MouseSensitivity;
-        _pitch = Mathf.Clamp(_pitch - mm.Relative.Y * MouseSensitivity, -MaxPitch, MaxPitch);
+        var settings = SettingsStore.Current;
+        float sens = MouseSensitivity * settings.MouseSensitivity;
+        _yaw -= mm.Relative.X * sens;
+        _pitch = Mathf.Clamp(_pitch - mm.Relative.Y * sens * (settings.InvertMouseY ? -1f : 1f), -MaxPitch, MaxPitch);
     }
 
     private void OnLeftRelease()
@@ -1326,7 +1394,7 @@ public partial class Play
     // ---- cursor capture ------------------------------------------------------------------------------------
 
     /// <summary>Panels that need the pointer: the help overlay and the star map.</summary>
-    private bool PanelOpen() => _helpOpen || (_mapOpen && Net.Galaxy is not null);
+    private bool PanelOpen() => PauseOpen || _helpOpen || (_mapOpen && Net.Galaxy is not null);
 
     /// <summary>Releases or captures the mouse so it matches what the player wants and what is on screen.</summary>
     private void UpdateCapture()
@@ -1384,12 +1452,11 @@ public partial class Play
                 else if (_selMachine >= 0) _selMachine = -1;
                 else if (_tool == ToolMode.Build) _tool = ToolMode.Pointer;
                 else if (_mapOpen) _mapOpen = false;
-                else { _waypoint = null; _pendingMine = false; _wantCapture = false; } // last: let go of the mouse
+                else { _waypoint = null; _pendingMine = false; _wantCapture = false; OpenPause(); } // last: let go of the mouse and open the pause menu
                 break;
             case Key.F1: _helpOpen = !_helpOpen; break;
             case Key.F11:
-                DisplayServer.WindowSetMode(DisplayServer.WindowGetMode() == DisplayServer.WindowMode.Fullscreen
-                    ? DisplayServer.WindowMode.Maximized : DisplayServer.WindowMode.Fullscreen);
+                SettingsStore.Set(SettingsStore.Current with { Fullscreen = DisplayServer.WindowGetMode() != DisplayServer.WindowMode.Fullscreen });
                 break;
             case Key.F6: SaveGameToDisk("quicksave", silent: false); break;
             case Key.F9: LoadGameFromDisk(); break;
