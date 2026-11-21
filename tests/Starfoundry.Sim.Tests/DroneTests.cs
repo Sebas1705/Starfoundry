@@ -12,13 +12,13 @@ public class DroneTests
     private const ulong Seed = 20261121UL;
     private const int Interval = 90;
 
-    private static SimWorld World(GameMode mode = GameMode.Sandbox) =>
-        SimWorld.CreateGalaxy(C, mode, Seed, threats: false, stationRules: false, structures: true);
+    private static SimWorld World(GameMode mode = GameMode.Sandbox, bool emergency = true) =>
+        SimWorld.CreateGalaxy(emergency ? C : TestContent.CoreWithoutEmergencyPower, mode, Seed, threats: false, stationRules: false, structures: true);
 
     /// <summary>A powered ship (reactor, enough hydrogen for several minutes) with the given number of drone bays and one deposit assigned.</summary>
-    private static (SimWorld World, int Ship, int Deposit) Setup(int bays = 1, int density = 100, int amount = 100_000, int hydrogen = 6)
+    private static (SimWorld World, int Ship, int Deposit) Setup(int bays = 1, int density = 100, int amount = 100_000, int hydrogen = 6, bool emergency = true)
     {
-        var w = World();
+        var w = World(emergency: emergency);
         int s = PowerTests.Ship(w, reactors: 1, hydrogen: hydrogen);
         for (int i = 0; i < bays; i++) w.Network.AddStructureModuleUnchecked(s, 10 + i, 0, 0, ModuleKind.DroneBay);
         int d = w.Network.AddDeposit(Ore, amount, 0, 0, 0, density: density);
@@ -76,7 +76,7 @@ public class DroneTests
     [Fact]
     public void Power_zero_stops_the_bay()
     {
-        var (w, s, _) = Setup(hydrogen: 0);
+        var (w, s, _) = Setup(hydrogen: 0, emergency: false); // a real blackout: the shipped emergency output would keep the bay (20) at 75 percent
         w.Step(5 * Interval);
         Assert.Equal(0, w.Network.HoldCount(0, Ore));
         var st = w.Network.DroneStatus(s);

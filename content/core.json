@@ -290,6 +290,42 @@
         "interval_ticks": 30,
         "reserve": 0
       }
+    },
+    {
+      "id": "core:quartz_unloader",
+      "role": "unloader",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 12
+        }
+      ],
+      "hp": 80,
+      "signature": 1,
+      "power_use": 2,
+      "unloader": {
+        "item": "core:quartz",
+        "interval_ticks": 30,
+        "reserve": 0
+      }
+    },
+    {
+      "id": "core:carbon_unloader",
+      "role": "unloader",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 12
+        }
+      ],
+      "hp": 80,
+      "signature": 1,
+      "power_use": 2,
+      "unloader": {
+        "item": "core:carbon",
+        "interval_ticks": 30,
+        "reserve": 0
+      }
     }
   ],
   "recipes": [
@@ -1292,13 +1328,14 @@
       "thrust_speed_percent": 100
     },
     "reactor": {
-      "cost": [{ "item": "core:iron_plate", "count": 16 }, { "item": "core:carbon", "count": 8 }, { "item": "core:nickel_plate", "count": 6 }],
+      "cost": [{ "item": "core:iron_plate", "count": 16 }, { "item": "core:carbon", "count": 8 }],
       "hp": 150,
       "allows": [],
       "hold_capacity": 0,
       "thrust_speed_percent": 0,
       "power_output": 100,
-      "burn_interval_ticks": 900
+      "burn_interval_ticks": 900,
+      "emergency_power": 15
     },
     "cargo": {
       "cost": [{ "item": "core:iron_ingot", "count": 20 }],
@@ -1315,7 +1352,7 @@
       "thrust_speed_percent": 0
     },
     "defence": {
-      "cost": [{ "item": "core:iron_plate", "count": 12 }, { "item": "core:iron_ingot", "count": 16 }, { "item": "core:titanium_plate", "count": 4 }],
+      "cost": [{ "item": "core:iron_plate", "count": 16 }, { "item": "core:iron_ingot", "count": 16 }],
       "hp": 400,
       "allows": ["turret", "wall"],
       "hold_capacity": 0,

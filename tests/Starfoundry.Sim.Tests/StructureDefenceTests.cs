@@ -384,8 +384,8 @@ public class StructureDefenceTests
     [Fact]
     public void A_bay_without_power_does_not_heal()
     {
-        var w = World();
-        // A reactor and no hydrogen: nothing is powered, so the bay never gets its work credit.
+        var w = World(TestContent.CoreWithoutEmergencyPower);
+        // A reactor, no hydrogen and no emergency output: nothing is powered, so the bay never gets its work credit.
         int s = BayShip(w, withBay: true, powered: false);
         w.Network.AddStructureModuleUnchecked(s, 20, 0, 0, ModuleKind.Reactor);
         w.Step(30);
@@ -411,8 +411,8 @@ public class StructureDefenceTests
         Assert.Equal(Hp(ModuleKind.Cockpit), ok.Network.ModuleHp(s, 1, 0, 0)); // and stops at full (no damage entry left)
         ok.ValidateInvariants();
 
-        // A reactor without hydrogen: satisfaction 0, nothing regenerates.
-        var dark = World();
+        // A reactor without hydrogen (and no emergency output): satisfaction 0, nothing regenerates.
+        var dark = World(TestContent.CoreWithoutEmergencyPower);
         int d = Ship(dark, powered: false, (0, ModuleKind.Workshop), (1, ModuleKind.Cockpit), (2, ModuleKind.Reactor));
         dark.Network.HitModule(d, 1, 0, 0, 10);
         dark.Step(3 * every);
@@ -599,9 +599,9 @@ public class StructureDefenceTests
     public void Defend_objective_needs_a_powered_turret_in_a_defence_module_with_ammo()
     {
         var tracker = new Starfoundry.Ui.ObjectiveTracker(C, structures: true);
-        var w = World();
+        var w = World(TestContent.CoreWithoutEmergencyPower);
         int s = Ship(w, powered: false, (0, ModuleKind.Cockpit), (1, ModuleKind.Workshop), (2, ModuleKind.Defence), (3, ModuleKind.Engine));
-        w.Network.AddStructureModuleUnchecked(s, 20, 0, 0, ModuleKind.Reactor); // a reactor and no hydrogen: no power
+        w.Network.AddStructureModuleUnchecked(s, 20, 0, 0, ModuleKind.Reactor); // a reactor, no hydrogen and no emergency output: no power
         Battery(w, s, 1);
         w.Step(Tps * 3);
         Assert.True(w.Network.MachineInCount(Enumerable.Range(0, w.Network.MachineIdLimit).First(id => w.Network.IsMachineAlive(id) && C.Machines[w.Network.GetMachineInfo(id).Type].Role == MachineRole.Turret), Ammo) > 0);
@@ -657,6 +657,13 @@ public class StructureDefenceTests
         root["threat"]!.AsObject().Remove("first_wave_grace_seconds");
         root["structures"]!["defence"]!.AsObject().Remove("defence_bonus_percent");
         root["structures"]!["defence"]!["hp"] = 250;
+        // And before the structure economy fixes: the two extra ports, the old module costs and no emergency output.
+        var machines = root["machines"]!.AsArray();
+        foreach (var id in new[] { "core:quartz_unloader", "core:carbon_unloader" })
+            machines.Remove(machines.First(m => m!["id"]!.GetValue<string>() == id));
+        root["structures"]!["reactor"]!.AsObject().Remove("emergency_power");
+        root["structures"]!["reactor"]!["cost"] = System.Text.Json.Nodes.JsonNode.Parse("""[{"item":"core:iron_plate","count":16},{"item":"core:carbon","count":8},{"item":"core:nickel_plate","count":6}]""");
+        root["structures"]!["defence"]!["cost"] = System.Text.Json.Nodes.JsonNode.Parse("""[{"item":"core:iron_plate","count":12},{"item":"core:iron_ingot","count":16},{"item":"core:titanium_plate","count":4}]""");
         return ContentDb.FromJson(root.ToJsonString());
     }
 

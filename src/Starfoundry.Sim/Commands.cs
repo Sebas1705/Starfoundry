@@ -238,6 +238,9 @@ public enum Reject
 
     /// <summary>The structure has no drone bay module to give work to.</summary>
     NoDroneBay,
+
+    /// <summary>The module is the last cockpit, engine, reactor or cargo module of the player's ship, which the ship cannot do without.</summary>
+    LastEssentialModule,
 }
 
 /// <summary>Outcome of one submitted command.</summary>

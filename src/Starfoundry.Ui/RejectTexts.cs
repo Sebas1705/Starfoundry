@@ -19,6 +19,7 @@ public static class RejectTexts
         Reject.NoSuchStructure => "toast.reject.noSuchStructure",
         Reject.NoCockpitOrEngine => "toast.reject.noCockpitOrEngine",
         Reject.NoDroneBay => "toast.reject.noDroneBay",
+        Reject.LastEssentialModule => "toast.reject.lastEssentialModule",
         Reject.Locked => "toast.reject.locked",
         _ => null,
     };

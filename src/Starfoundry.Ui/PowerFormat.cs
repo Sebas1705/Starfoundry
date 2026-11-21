@@ -27,7 +27,7 @@ public enum PowerWarning
     /// <summary>The fuel left dropped below thirty seconds.</summary>
     LastSeconds,
 
-    /// <summary>The power hit zero.</summary>
+    /// <summary>The power hit zero, or the fuel ran out and only the emergency output remains.</summary>
     Out,
 }
 
@@ -92,7 +92,7 @@ public sealed class FuelWatch
         }
         long left = PowerFormat.TimeLeftTicks(status, burnIntervalTicks);
         long lowTicks = (long)PowerFormat.LowFuelSeconds * Units.TicksPerSecond, lastTicks = (long)PowerFormat.LastSecondsLimit * Units.TicksPerSecond;
-        bool out_ = status.SatisfactionPermille == 0;
+        bool out_ = status.SatisfactionPermille == 0 || left <= 0; // no fuel left: only the emergency output remains
 
         if (left >= lowTicks) _firedLow = false;
         if (left >= lastTicks) _firedLast = false;

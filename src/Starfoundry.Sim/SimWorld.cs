@@ -880,6 +880,10 @@ public sealed class SimWorld
 
         // The core anchors the structure: it can only go when it is the last module.
         if (kind == ModuleKind.Core && s.Modules.Count > 1) return Reject.ModuleOccupied;
+        // The ship cannot do without its last cockpit, engine, reactor or cargo module (stations are unaffected).
+        if (s.Kind == StructureKind.Ship && Network.ShipStructure(player) == r.Structure
+            && kind is ModuleKind.Cockpit or ModuleKind.Engine or ModuleKind.Reactor or ModuleKind.Cargo
+            && s.Modules.Values.Count(k => k == kind) <= 1) return Reject.LastEssentialModule;
         if (!Network.StructureStaysConnectedWithout(r.Structure, r.Mx, r.My, r.Mz)) return Reject.ModuleOccupied;
 
         var cells = CellsFor(r.Structure, create: false);

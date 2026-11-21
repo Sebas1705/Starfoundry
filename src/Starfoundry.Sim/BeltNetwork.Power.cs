@@ -14,7 +14,7 @@ public static class PowerRules
 
     /// <summary>
     /// Satisfaction per mille of a structure. Enough production (or nothing to power and no reactor) gives 1000; a structure that
-    /// has a reactor but no burning one gives 0 even with nothing to power, so a ship without fuel cannot fly; otherwise
+    /// has a reactor that yields nothing at all (no fuel and no emergency output) gives 0 even with nothing to power; otherwise
     /// <c>production * 1000 / demand</c>.
     /// </summary>
     public static int Satisfaction(int production, int demand, bool hasReactor)
@@ -40,7 +40,7 @@ public sealed partial class BeltNetwork
         foreach (int r in s.BurnRemaining.Values) burn = Math.Max(burn, r);
         int hydrogen = s.Owner >= 0 && Content is { FuelItem: >= 0 } c ? HoldCount(s.Owner, c.FuelItem) : 0;
         if (!StructureRules) return new PowerStatus(0, 0, PowerRules.FullSatisfaction, 0, hydrogen, false);
-        return new PowerStatus(s.PowerProduction, s.PowerDemand, s.Satisfaction, burn, hydrogen, s.PowerProduction > 0);
+        return new PowerStatus(s.PowerProduction, s.PowerDemand, s.Satisfaction, burn, hydrogen, burn > 0);
     }
 
     /// <summary>Power of the ship structure of a player (fully powered, nothing burning, when the player has none).</summary>
@@ -99,6 +99,7 @@ public sealed partial class BeltNetwork
                     production += kinds.PowerOutput(kind);
                     rem--;
                 }
+                else production += kinds.EmergencyPower(kind); // no fuel: the reactor still trickles a little power
                 if (rem > 0) s.BurnRemaining[key] = rem; else s.BurnRemaining.Remove(key);
             }
             s.PowerProduction = production;

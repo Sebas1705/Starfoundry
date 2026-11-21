@@ -710,7 +710,7 @@ public sealed class ContentDb
             if (!st.TryGetProperty(names[i], out var k)) throw new InvalidDataException($"'structures' needs an entry for '{names[i]}'.");
             string owner = "structures." + names[i];
             RequireObject(k, owner, "cost", "hp", "allows", "hold_capacity", "thrust_speed_percent", "power_output", "burn_interval_ticks",
-                "drone_range_cells", "drone_interval_ticks", "power_use", "defence_bonus_percent");
+                "drone_range_cells", "drone_interval_ticks", "power_use", "defence_bonus_percent", "emergency_power");
             bool isReactor = (ModuleKind)i == ModuleKind.Reactor;
             bool isBay = (ModuleKind)i == ModuleKind.DroneBay;
             if (!isBay && (k.TryGetProperty("drone_range_cells", out _) || k.TryGetProperty("drone_interval_ticks", out _) || k.TryGetProperty("power_use", out _)))
@@ -718,11 +718,12 @@ public sealed class ContentDb
             int droneRange = isBay ? (k.TryGetProperty("drone_range_cells", out _) ? Int(k, "drone_range_cells", owner, 1, 10_000) : 60) : 0;
             int droneInterval = isBay ? (k.TryGetProperty("drone_interval_ticks", out _) ? Int(k, "drone_interval_ticks", owner, 1, 1_000_000) : 90) : 0;
             int bayPower = isBay ? (k.TryGetProperty("power_use", out _) ? Int(k, "power_use", owner, 0, 100_000) : 20) : 0;
-            if (!isReactor && (k.TryGetProperty("power_output", out _) || k.TryGetProperty("burn_interval_ticks", out _)))
-                throw new InvalidDataException($"'power_output' and 'burn_interval_ticks' only belong to the reactor, not {owner}.");
+            if (!isReactor && (k.TryGetProperty("power_output", out _) || k.TryGetProperty("burn_interval_ticks", out _) || k.TryGetProperty("emergency_power", out _)))
+                throw new InvalidDataException($"'power_output', 'burn_interval_ticks' and 'emergency_power' only belong to the reactor, not {owner}.");
             int powerOutput = isReactor ? (k.TryGetProperty("power_output", out _) ? Int(k, "power_output", owner, 0, 100_000) : 100) : 0;
             int burnInterval = isReactor ? (k.TryGetProperty("burn_interval_ticks", out _) ? Int(k, "burn_interval_ticks", owner, 1, 1_000_000) : 900) : 0;
-            bool isDefence = (ModuleKind)i == ModuleKind.Defence;
+            int emergency = isReactor ? (k.TryGetProperty("emergency_power", out _) ? Int(k, "emergency_power", owner, 0, 100_000) : 15) : 0;
+            bool isDefence =(ModuleKind)i == ModuleKind.Defence;
             if (!isDefence && k.TryGetProperty("defence_bonus_percent", out _))
                 throw new InvalidDataException($"'defence_bonus_percent' only belongs to the defence module, not {owner}.");
             int defenceBonus = isDefence ? (k.TryGetProperty("defence_bonus_percent", out _) ? Int(k, "defence_bonus_percent", owner, 0, 100) : 10) : 0;
@@ -757,7 +758,7 @@ public sealed class ContentDb
             kinds[i] = new ModuleKindDef((ModuleKind)i,
                 Stacks(k, "cost", owner, itemIds, allowEmpty: false, max: MaxCostStack),
                 Int(k, "hp", owner, 1, 100_000), roles.ToArray(), belts,
-                Int(k, "hold_capacity", owner, 0, 100_000), Int(k, "thrust_speed_percent", owner, 0, 10_000), powerOutput, burnInterval, droneRange, droneInterval, bayPower, defenceBonus);
+                Int(k, "hold_capacity", owner, 0, 100_000), Int(k, "thrust_speed_percent", owner, 0, 10_000), powerOutput, burnInterval, droneRange, droneInterval, bayPower, defenceBonus, emergency);
         }
         return new StructureContent(kinds);
     }
@@ -1048,6 +1049,7 @@ public sealed class ContentDb
                 Mix(k.AllowedRoles.Length); foreach (var r in k.AllowedRoles) Mix((int)r);
                 Mix(k.AllowsBelts ? 1 : 0); Mix(k.HoldCapacity); Mix(k.ThrustSpeedPercent);
                 if (k.PowerOutput != 0 || k.BurnIntervalTicks != 0) { Mix(k.PowerOutput); Mix(k.BurnIntervalTicks); }
+                if (k.Kind == ModuleKind.Reactor && k.EmergencyPower != 15) Mix(k.EmergencyPower); // 15 is the default
                 if (k.DroneIntervalTicks != 0) { Mix(k.DroneRangeCells); Mix(k.DroneIntervalTicks); Mix(k.PowerUse); }
                 if (k.Kind == ModuleKind.Defence && k.DefenceBonusPercent != 10) Mix(k.DefenceBonusPercent); // 10 is the default
             }
