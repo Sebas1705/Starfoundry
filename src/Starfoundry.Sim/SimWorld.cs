@@ -16,6 +16,10 @@ public sealed class SimWorld
 
     /// <summary>Occupied cells: a segment id (zero or more) or, for machines, -(machine id + 1).</summary>
     private readonly Dictionary<long, int> _cells = new();
+
+    /// <summary>Occupied local cells of every structure other than 0, with the same value encoding as <see cref="_cells"/>.
+    /// Sorted by structure id; an entry exists only while it holds at least one cell.</summary>
+    private readonly SortedDictionary<int, Dictionary<long, int>> _structCells = new();
     private readonly Queue<(int Player, Command Command)> _queue = new();
     private readonly List<LoggedCommand> _log = new();
     private readonly List<CommandResult> _results = new();
@@ -64,14 +68,14 @@ public sealed class SimWorld
         {
             if (!network.IsAlive(id)) continue;
             var info = network.GetSegmentInfo(id);
-            if (!TryClaim(info.Id, info.OriginX, info.OriginY, info.OriginZ, info.DirX, info.DirY, info.DirZ, info.LengthCells))
+            if (!TryClaim(info.Id, info.OriginX, info.OriginY, info.OriginZ, info.DirX, info.DirY, info.DirZ, info.LengthCells, info.Structure))
                 throw new ArgumentException($"Segment {id} overlaps another segment.", nameof(network));
         }
         for (int id = 0; id < network.MachineIdLimit; id++)
         {
             if (!network.IsMachineAlive(id)) continue;
             var m = network.GetMachineInfo(id);
-            if (!_cells.TryAdd(Key(m.X, m.Y, m.Z), -(id + 1)))
+            if (!CellsFor(m.Structure, create: true)!.TryAdd(Key(m.X, m.Y, m.Z), -(id + 1)))
                 throw new ArgumentException($"Machine {id} overlaps something.", nameof(network));
         }
     }
@@ -100,7 +104,7 @@ public sealed class SimWorld
         Network.Step();
 
         // Machines destroyed by enemies leave their cells free.
-        foreach (var d in Network.TakeDestroyedMachines()) _cells.Remove(Key(d.X, d.Y, d.Z));
+        foreach (var d in Network.TakeDestroyedMachines()) RemoveCell(d.Structure, Key(d.X, d.Y, d.Z));
     }
 
     public void Step(int ticks)
@@ -133,10 +137,15 @@ public sealed class SimWorld
     public enum EntityKind { None, Segment, Machine }
 
     /// <summary>What occupies a cell: a belt segment, a machine, or nothing (id -1). For pickers and tools.</summary>
-    public (EntityKind Kind, int Id) EntityAt(int x, int y, int z)
+    public (EntityKind Kind, int Id) EntityAt(int x, int y, int z) => EntityAt(0, x, y, z);
+
+    /// <summary>What occupies a local cell of a structure (0 = the legacy world, whose cells are world cells).</summary>
+    public (EntityKind Kind, int Id) EntityAt(int structure, int x, int y, int z)
     {
-        if (!InBounds(x) || !InBounds(y) || !InBounds(z)) return (EntityKind.None, -1);
-        if (!_cells.TryGetValue(Key(x, y, z), out int v)) return (EntityKind.None, -1);
+        if (structure == 0 ? !(InBounds(x) && InBounds(y) && InBounds(z)) : !(StructureGrid.InLocalBounds(x) && StructureGrid.InLocalBounds(y) && StructureGrid.InLocalBounds(z)))
+            return (EntityKind.None, -1);
+        var cells = CellsFor(structure, create: false);
+        if (cells is null || !cells.TryGetValue(Key(x, y, z), out int v)) return (EntityKind.None, -1);
         return v >= 0 ? (EntityKind.Segment, v) : (EntityKind.Machine, -(v + 1));
     }
 
@@ -148,15 +157,21 @@ public sealed class SimWorld
     {
         Network.ValidateInvariants();
 
-        var expected = new Dictionary<long, int>();
+        var expected = new SortedDictionary<int, Dictionary<long, int>>();
+        Dictionary<long, int> Of(int structure)
+        {
+            if (!expected.TryGetValue(structure, out var d)) expected[structure] = d = new Dictionary<long, int>();
+            return d;
+        }
         for (int id = 0; id < Network.SegmentIdLimit; id++)
         {
             if (!Network.IsAlive(id)) continue;
             var s = Network.GetSegmentInfo(id);
+            var cells = Of(s.Structure);
             for (int k = 0; k < s.LengthCells; k++)
             {
                 long key = Key(s.OriginX + s.DirX * k, s.OriginY + s.DirY * k, s.OriginZ + s.DirZ * k);
-                if (!expected.TryAdd(key, id))
+                if (!cells.TryAdd(key, id))
                     throw new InvalidOperationException($"Segment {id} overlaps another segment or machine.");
             }
         }
@@ -164,11 +179,20 @@ public sealed class SimWorld
         {
             if (!Network.IsMachineAlive(id)) continue;
             var m = Network.GetMachineInfo(id);
-            if (!expected.TryAdd(Key(m.X, m.Y, m.Z), -(id + 1)))
+            if (!Of(m.Structure).TryAdd(Key(m.X, m.Y, m.Z), -(id + 1)))
                 throw new InvalidOperationException($"Machine {id} overlaps a segment or machine.");
         }
-        if (expected.Count != _cells.Count || expected.Any(kv => !_cells.TryGetValue(kv.Key, out int v) || v != kv.Value))
+
+        static bool Same(Dictionary<long, int> a, Dictionary<long, int> b) =>
+            a.Count == b.Count && a.All(kv => b.TryGetValue(kv.Key, out int v) && v == kv.Value);
+
+        expected.TryGetValue(0, out var world);
+        if (!Same(world ?? new Dictionary<long, int>(), _cells))
             throw new InvalidOperationException("The cell index does not match the segments and machines.");
+        expected.Remove(0);
+        if (expected.Count != _structCells.Count
+            || expected.Any(kv => !_structCells.TryGetValue(kv.Key, out var actual) || !Same(kv.Value, actual)))
+            throw new InvalidOperationException("The structure cell index does not match the segments and machines.");
     }
 
     // ---- command application -------------------------------------------------------------
@@ -196,6 +220,7 @@ public sealed class SimWorld
 
         var snapshot = Network.Clone();
         var cells = new Dictionary<long, int>(_cells);
+        var structCells = _structCells.ToDictionary(kv => kv.Key, kv => new Dictionary<long, int>(kv.Value));
 
         for (int i = 0; i < batch.Commands.Length; i++)
         {
@@ -205,6 +230,8 @@ public sealed class SimWorld
             Network.CopyFrom(snapshot);
             _cells.Clear();
             foreach (var kv in cells) _cells.Add(kv.Key, kv.Value);
+            _structCells.Clear();
+            foreach (var kv in structCells) _structCells.Add(kv.Key, kv.Value);
             created.Clear();
             createdMachines.Clear();
             _revealed.Clear();
@@ -327,7 +354,7 @@ public sealed class SimWorld
                 if (!Network.IsMachineAlive(id)) return Reject.UnknownMachine;
                 var m = Network.GetMachineInfo(id);
                 if (Campaign && !InBuildRange(player, m.X, m.Y, m.Z)) return Reject.OutOfRange;
-                _cells.Remove(Key(m.X, m.Y, m.Z));
+                RemoveCell(m.Structure, Key(m.X, m.Y, m.Z));
                 Network.RemoveMachine(id);
                 if (Campaign) Network.Refund(player, Network.Content!.Machines[m.Type].Cost);
                 return Reject.None;
@@ -661,11 +688,35 @@ public sealed class SimWorld
     private static long Key(int x, int y, int z) =>
         ((long)(x + MaxCoord) << 30) | ((long)(y + MaxCoord) << 15) | (long)(z + MaxCoord);
 
-    private bool TryClaim(int id, int x, int y, int z, int dx, int dy, int dz, int length)
+    /// <summary>The cell index of a structure: the legacy dictionary for 0, otherwise the per-structure one (created on demand).</summary>
+    private Dictionary<long, int>? CellsFor(int structure, bool create)
     {
+        if (structure == 0) return _cells;
+        if (_structCells.TryGetValue(structure, out var d)) return d;
+        if (!create) return null;
+        return _structCells[structure] = new Dictionary<long, int>();
+    }
+
+    private void RemoveCell(int structure, long key)
+    {
+        var cells = CellsFor(structure, create: false);
+        if (cells is null) return;
+        cells.Remove(key);
+        if (structure != 0 && cells.Count == 0) _structCells.Remove(structure);
+    }
+
+    private bool TryClaim(int id, int x, int y, int z, int dx, int dy, int dz, int length, int structure = 0)
+    {
+        if (structure != 0 && length > 0)
+        {
+            long ex = x + (long)dx * (length - 1), ey = y + (long)dy * (length - 1), ez = z + (long)dz * (length - 1);
+            if (!(StructureGrid.InLocalBounds(x) && StructureGrid.InLocalBounds(y) && StructureGrid.InLocalBounds(z)
+                && StructureGrid.InLocalBounds(ex) && StructureGrid.InLocalBounds(ey) && StructureGrid.InLocalBounds(ez))) return false;
+        }
+        var cells = CellsFor(structure, create: true)!;
         for (int k = 0; k < length; k++)
         {
-            if (!_cells.TryAdd(Key(x + dx * k, y + dy * k, z + dz * k), id)) return false;
+            if (!cells.TryAdd(Key(x + dx * k, y + dy * k, z + dz * k), id)) return false;
         }
         return true;
     }
@@ -673,6 +724,6 @@ public sealed class SimWorld
     private void Release(SegmentInfo s)
     {
         for (int k = 0; k < s.LengthCells; k++)
-            _cells.Remove(Key(s.OriginX + s.DirX * k, s.OriginY + s.DirY * k, s.OriginZ + s.DirZ * k));
+            RemoveCell(s.Structure, Key(s.OriginX + s.DirX * k, s.OriginY + s.DirY * k, s.OriginZ + s.DirZ * k));
     }
 }

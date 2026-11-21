@@ -6,7 +6,7 @@ public readonly record struct ItemSample(int Segment, int Pos, ushort Type);
 /// <summary>Read-only geometry of a segment, for rendering.</summary>
 public readonly record struct SegmentInfo(
     int Id, int OriginX, int OriginY, int OriginZ, int DirX, int DirY, int DirZ,
-    int LengthCells, int Length, int Speed, BeltTier Tier);
+    int LengthCells, int Length, int Speed, BeltTier Tier, int Structure = 0);
 
 /// <summary>
 /// A network of belt segments with sources and sinks. Fully deterministic: fixed tick, integer
@@ -71,10 +71,12 @@ public sealed partial class BeltNetwork
         }
     }
 
-    public int AddSegment(int x, int y, int z, int dx, int dy, int dz, int lengthCells, BeltTier tier)
+    public int AddSegment(int x, int y, int z, int dx, int dy, int dz, int lengthCells, BeltTier tier, int structure = 0)
     {
+        CheckLocal(structure, x, y, z);
+        if (lengthCells > 0) CheckLocal(structure, x + (long)dx * (lengthCells - 1), y + (long)dy * (lengthCells - 1), z + (long)dz * (lengthCells - 1));
         int id = _segs.Count;
-        _segs.Add(new BeltSegment(id, x, y, z, dx, dy, dz, lengthCells, tier));
+        _segs.Add(new BeltSegment(id, x, y, z, dx, dy, dz, lengthCells, tier, structure));
         _alive++;
         _dirty = true;
         StructureVersion++;
@@ -221,7 +223,7 @@ public sealed partial class BeltNetwork
     {
         var s = Get(id);
         return new SegmentInfo(s.Id, s.OriginX, s.OriginY, s.OriginZ, s.DirX, s.DirY, s.DirZ,
-            s.Length / Units.CellUnits, s.Length, s.Speed, s.Tier);
+            s.Length / Units.CellUnits, s.Length, s.Speed, s.Tier, s.Structure);
     }
 
     /// <summary>Copies every item into <paramref name="dst"/> and returns how many were written.</summary>
@@ -259,12 +261,14 @@ public sealed partial class BeltNetwork
         MixMachines(Mix);
         MixEconomy(Mix);
         MixStation(Mix);
+        MixStructures(Mix);
         foreach (var s in _segs)
         {
             if (s is null) { Mix(-1); continue; }
             Mix(s.Id);
             Mix(s.OriginX); Mix(s.OriginY); Mix(s.OriginZ);
             Mix(s.DirX); Mix(s.DirY); Mix(s.DirZ);
+            if (s.Structure != 0) Mix(s.Structure); // mixed only when non-zero so worlds without structures hash as before
             Mix(s.Length); Mix((int)s.Tier);
             Mix(s.IsSink ? 1 : 0); Mix(s.SourcePattern?.Length ?? -1);
             Mix(s.MachineOut); Mix(s.FedBy);
@@ -296,6 +300,7 @@ public sealed partial class BeltNetwork
         CopyMachinesFrom(other);
         CopyEconomyFrom(other);
         CopyStationFrom(other);
+        CopyStructuresFrom(other);
         Tick = other.Tick;
         Spawned = other.Spawned;
         Consumed = other.Consumed;
@@ -314,6 +319,7 @@ public sealed partial class BeltNetwork
         static void Fail(string m) => throw new InvalidOperationException(m);
 
         ValidateStation();
+        ValidateStructures();
 
         int alive = 0;
         for (int id = 0; id < _segs.Count; id++)

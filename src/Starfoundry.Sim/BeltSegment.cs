@@ -48,10 +48,14 @@ internal sealed class BeltSegment
     public ushort[]? SourcePattern;
     public int SourceIndex;
 
-    public BeltSegment(int id, int x, int y, int z, int dx, int dy, int dz, int lengthCells, BeltTier tier)
+    /// <summary>Structure the segment belongs to (0 = the legacy world); the origin is a local cell of that structure.</summary>
+    public readonly int Structure;
+
+    public BeltSegment(int id, int x, int y, int z, int dx, int dy, int dz, int lengthCells, BeltTier tier, int structure = 0)
     {
         if (lengthCells <= 0) throw new ArgumentOutOfRangeException(nameof(lengthCells));
         Id = id;
+        Structure = structure;
         OriginX = x; OriginY = y; OriginZ = z;
         DirX = dx; DirY = dy; DirZ = dz;
         Length = lengthCells * Units.CellUnits;
@@ -64,7 +68,7 @@ internal sealed class BeltSegment
 
     public BeltSegment Clone()
     {
-        var c = new BeltSegment(Id, OriginX, OriginY, OriginZ, DirX, DirY, DirZ, Length / Units.CellUnits, Tier);
+        var c = new BeltSegment(Id, OriginX, OriginY, OriginZ, DirX, DirY, DirZ, Length / Units.CellUnits, Tier, Structure);
         Array.Copy(Pos, c.Pos, Capacity);
         Array.Copy(Type, c.Type, Capacity);
         c.Head = Head;
