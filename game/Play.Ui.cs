@@ -1260,6 +1260,10 @@ public partial class Play
                 else { _waypoint = null; _pendingMine = false; _wantCapture = false; } // last: let go of the mouse
                 break;
             case Key.F1: _helpOpen = !_helpOpen; break;
+            case Key.F11:
+                DisplayServer.WindowSetMode(DisplayServer.WindowGetMode() == DisplayServer.WindowMode.Fullscreen
+                    ? DisplayServer.WindowMode.Maximized : DisplayServer.WindowMode.Fullscreen);
+                break;
             case Key.F6: SaveGameToDisk("quicksave", silent: false); break;
             case Key.F9: LoadGameFromDisk(); break;
             case Key.L: ToggleLanguage(); break;

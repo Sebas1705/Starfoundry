@@ -352,7 +352,7 @@ public static class Loc
             "  Clic en una máquina sin herramienta: ver su estado y cambiar su receta (Tab para usar sus botones).\n  E   reparar todas las máquinas dañadas a tu alcance (cuesta la mitad de su coste, en proporción al daño)\n\n" +
             "Otros\n" +
             "  T   elegir investigación      G   mapa estelar (flechas y J para saltar)\n" +
-            "  P   pausa       + / -   velocidad       L   idioma       O   pasos       [ ]   cambiar yacimiento\n  H   más / menos detalles en el panel de estado       F6   guardar       F9   cargar (se guarda sola cada 5 minutos)",
+            "  P   pausa       + / -   velocidad       L   idioma       O   pasos       [ ]   cambiar yacimiento\n  H   más / menos detalles en el panel de estado       F6   guardar       F9   cargar (se guarda sola cada 5 minutos)       F11   pantalla completa",
             "CONTROLS   (F1 to close)\n\n" +
             "Mouse\n" +
             "  Move the mouse   look (the view is the ship's cockpit); the centre crosshair is your aim\n" +
@@ -369,6 +369,6 @@ public static class Loc
             "  With no tool, click a machine: see its status and change its recipe (Tab to use its buttons).\n  E   repair every damaged machine within reach (half the build cost, in proportion to the damage)\n\n" +
             "Other\n" +
             "  T   choose research      G   star map (arrows and J to jump)\n" +
-            "  P   pause       + / -   speed       L   language       O   steps       [ ]   change deposit\n  H   more / fewer details in the status panel       F6   save       F9   load (it also saves itself every 5 minutes)"),
+            "  P   pause       + / -   speed       L   language       O   steps       [ ]   change deposit\n  H   more / fewer details in the status panel       F6   save       F9   load (it also saves itself every 5 minutes)       F11   fullscreen"),
     };
 }
