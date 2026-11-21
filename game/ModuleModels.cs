@@ -18,7 +18,8 @@ namespace Starfoundry.Game;
 /// Parts reuse <see cref="Models"/>' meshes cache, materials and mesh builder, so every module of a kind shares its meshes.
 /// Node names the game can drive: "GlowEngine" (flame of an engine nozzle, pulsed by <see cref="Models.Animate"/>, a flame
 /// along local +X which is world +Z), "Ring" (the core's gold ring, spun by Animate), "Turret0".. with "Head" and "Head/Barrel"
-/// children (<see cref="Models.Aim"/>), "GlowCore" (the reactor).
+/// children (<see cref="Models.Aim"/>), "GlowCore" (the reactor),
+/// "GlowLamp" (the drone bay's status light), "GlowDoor" (its launch door).
 /// </summary>
 public static class ModuleModels
 {
@@ -42,6 +43,7 @@ public static class ModuleModels
     private static readonly Color Crate = new(0.62f, 0.40f, 0.22f);
     private static readonly Color CrateDk = new(0.40f, 0.27f, 0.17f);
     private static readonly Color Green = new(0.30f, 0.95f, 0.50f);
+    private static readonly Color Amber = new(1f, 0.70f, 0.18f);
 
     private static readonly Color[] ShipAccents = { new(0.24f, 0.48f, 0.94f), new(0.15f, 0.72f, 0.75f), new(0.97f, 0.42f, 0.07f) };
     private static readonly Color[] StationAccents = { new(0.97f, 0.42f, 0.07f), new(0.15f, 0.72f, 0.75f), new(0.64f, 0.34f, 0.90f) };
@@ -64,6 +66,7 @@ public static class ModuleModels
             case ModuleKind.Workshop: Workshop(c); break;
             case ModuleKind.Defence: Defence(c); break;
             case ModuleKind.Core: Core(c); break;
+            case ModuleKind.DroneBay: DroneBay(c); break;
             default: HullModule(c); break;
         }
         return r;
@@ -579,6 +582,97 @@ public static class ModuleModels
     {
         Skin(c, Roof, detail: true);
         Frame(c, Roof);
+    }
+
+    /// <summary>
+    /// A small quad-rotor drone craft about a cell long, nose towards -Z so <c>Basis.LookingAt</c> flies it nose first. Used in the bay's
+    /// cradles and by the game's flock of working drones. Parts: "Hull" (body, arms, rotor discs) and "GlowDrone" (nose lamp and thruster).
+    /// </summary>
+    public static Node3D DroneCraft(string name = "Drone")
+    {
+        var n = new Node3D { Name = name };
+        Models.Add(n, "Hull", "mod.drone.hull", Models.Body(), mb =>
+        {
+            mb.At(default).C(White).Block(new(0, 0, 0), new(0.46f, 0.2f, 0.84f), 0.7f, 0.5f);
+            mb.C(Dark).Block(new(0, 0.12f, 0.08f), new(0.3f, 0.07f, 0.38f));
+            mb.C(Steel).Block(new(0, -0.14f, -0.3f), new(0.12f, 0.12f, 0.3f)); // the mining tool under the nose
+            foreach (float sx in new[] { -1f, 1f })
+                foreach (float sz in new[] { -1f, 1f })
+                {
+                    mb.C(Steel).Beam(new(sx * 0.18f, 0.02f, sz * 0.22f), new(sx * 0.52f, 0.06f, sz * 0.36f), 0.07f);
+                    mb.C(Dark).Prism(new(sx * 0.52f, 0.06f, sz * 0.36f), 0.2f, 0.2f, 0.035f, 8);
+                    mb.C(Amber).Prism(new(sx * 0.52f, 0.1f, sz * 0.36f), 0.05f, 0.05f, 0.05f, 6);
+                }
+        });
+        Models.Add(n, "GlowDrone", "mod.drone.glow", Models.Glow(Amber, 2.6f), mb =>
+        {
+            mb.At(default).Block(new(0, 0.02f, -0.43f), new(0.22f, 0.1f, 0.05f)); // nose lamp
+            mb.Block(new(0, 0, 0.43f), new(0.2f, 0.09f, 0.05f)); // thruster
+        });
+        return n;
+    }
+
+    /// <summary>
+    /// An open hangar: low side walls, a taller back wall (+Z) with a glowing launch door, two launch rails, three cradles with a drone
+    /// each (one cradle empty in variant 1: a drone is out), a gantry over them and an amber status light on a mast.
+    /// </summary>
+    private static void DroneBay(Cx c)
+    {
+        float wall = c.Ship ? 0.25f : StationFace + 0.1f;
+        Frame(c, Roof);
+        Models.Add(c.R, "Hangar", $"{c.K}.hangar", Models.Body(), mb =>
+        {
+            mb.At(default).C(c.Ship ? White : Slab);
+            foreach (float x in new[] { wall, W - wall })
+                mb.Block(new(x, 0.9f, 4), new(0.3f, 1.7f, D - 0.4f));
+            mb.Block(new(4, 1.55f, D - wall - 0.1f), new(W - 0.4f, 3.0f, 0.3f));
+            mb.C(c.Acc);
+            foreach (float x in new[] { wall, W - wall })
+                mb.Block(new(x, 1.78f, 4), new(0.34f, 0.07f, D - 0.5f));
+            mb.Block(new(4, 3.08f, D - wall - 0.1f), new(W - 0.5f, 0.07f, 0.34f));
+            mb.C(Dark).Block(new(4, 1.6f, D - wall - 0.27f), new(3.9f, 2.9f, 0.08f)); // the door frame, proud of the wall
+            // launch rails and sleepers
+            mb.C(Steel);
+            foreach (float x in new[] { 2.5f, W - 2.5f })
+                mb.Block(new(x, 0.17f, 3.7f), new(0.2f, 0.16f, 6.4f));
+            mb.C(Dark);
+            for (int i = 0; i < 7; i++) mb.Block(new(4, 0.1f, 0.7f + i * 0.9f), new(W - 4.6f, 0.06f, 0.2f));
+            Stripes(mb, 1.0f, W - 1.0f, D - 1.4f, 0.4f, 0.088f, 8, Yellow, Dark);
+            // three cradles
+            mb.C(Steel);
+            foreach (float z in new[] { 1.5f, 3.3f, 5.1f })
+            {
+                mb.Block(new(4, 0.3f, z), new(1.7f, 0.18f, 1.1f));
+                foreach (float s in new[] { -1f, 1f }) mb.Block(new(4 + s * 0.75f, 0.45f, z), new(0.1f, 0.36f, 1.1f));
+            }
+            // a gantry over the cradles
+            mb.C(c.Ship ? Panel : Steel);
+            mb.Block(new(4, Roof - 0.2f, 3.3f), new(W - 1.2f, 0.14f, 0.16f));
+            foreach (float x in new[] { 0.8f, W - 0.8f }) mb.Beam(new(x, 1.7f, 3.3f), new(x, Roof - 0.2f, 3.3f), 0.12f);
+        });
+        Models.Add(c.R, "GlowDoor", $"{c.K}.door", Models.Glow(Amber, 1.5f), mb =>
+            mb.At(default).Block(new(4, 1.45f, D - wall - 0.33f), new(3.3f, 2.6f, 0.03f)));
+        Models.Add(c.R, "DoorSlats", $"{c.K}.slats", Models.Body(), mb =>
+        {
+            mb.At(default).C(Dark);
+            for (int i = 0; i < 5; i++) mb.Block(new(4, 0.45f + i * 0.52f, D - wall - 0.35f), new(3.4f, 0.07f, 0.03f));
+        });
+        Models.Add(c.R, "Mast", $"{c.K}.mast", Models.Body(), mb =>
+        {
+            mb.At(default).C(Steel).Prism(new(W - 0.9f, 0.08f, 1.0f), 0.14f, 0.1f, 1.6f, 8);
+            mb.C(Dark).Prism(new(W - 0.9f, 1.62f, 1.0f), 0.2f, 0.2f, 0.1f, 8);
+        });
+        Models.Add(c.R, "GlowLamp", $"{c.K}.lamp", Models.Glow(Amber, 2.4f), mb =>
+            mb.At(default).Sphere(new(W - 0.9f, 1.85f, 1.0f), new(0.17f, 0.17f, 0.17f), 3, 8));
+        float[] zs = { 1.5f, 3.3f, 5.1f };
+        for (int i = 0; i < zs.Length; i++)
+        {
+            if (c.V == 1 && i == 1) continue;
+            var d = DroneCraft($"Drone{i}");
+            d.Position = new Vector3(4, 0.63f, zs[i]);
+            d.RotationDegrees = new Vector3(0, 180, 0); // nose towards +Z, the door
+            c.R.AddChild(d);
+        }
     }
 
     private static void Core(Cx c)

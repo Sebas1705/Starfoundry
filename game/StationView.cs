@@ -195,6 +195,7 @@ void fragment() {
                         break;
                     case ModuleKind.Cockpit:
                     case ModuleKind.Cargo:
+                    case ModuleKind.DroneBay:
                         Models.SetAmber(node, amber);
                         break;
                 }
