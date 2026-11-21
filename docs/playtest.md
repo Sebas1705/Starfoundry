@@ -9,11 +9,23 @@ You need the .NET 8 SDK and Godot 4.7.2 (Mono).
 dotnet build game -c Debug
 ```
 
-Open the `game/` folder in Godot and press F5. The game opens in Spanish or English by system language; `L` switches. `F1` shows every control.
+Open the `game/` folder in Godot and press F5. The game opens on the main menu. It uses Spanish or English by system language the first time; `L` (or the Settings page) switches. `F1` shows every control.
+
+### Menus and settings
+- **Main menu**: Continue (enabled when a quick save or autosave exists; it loads the newest one and shows its play time), New game, Settings, Controls (the same text as `F1`) and Quit. Arrows and Enter work as well as the mouse; `Esc` goes back from a page.
+- **Pause menu**: `Esc` with nothing to cancel (no build tool, panel or selection) frees the mouse and opens it; the simulation is paused while it is open. Resume, Save and Load (the quick save, same as `F6`/`F9`), Settings, Controls, Main menu (autosaves first) and Quit. `Esc` again resumes.
+- **Settings**: language, mouse sensitivity (0.5x to 2x), field of view (70 to 100), master volume (stored and applied to the master bus; there is no audio yet), invert mouse Y and fullscreen. Changes apply at once and are saved to `settings.cfg` in the Godot user folder:
+
+  ```powershell
+  explorer "$env:APPDATA\Godot\app_userdata\Starfoundry Belt Prototype"
+  ```
+
+  Delete that file to go back to the defaults. Saves are in `saves\` beside it.
+- Any command-line flag (`--demo`, `--shot=`, `--hud-shot=`, `--structures-shot=`, `--stress=`, `--save-test` and the rest) skips the menu and starts the game directly, as does running `Play.tscn` from the editor. `--menu-shot=path` saves the main menu (`path`), the Settings page (`path.settings.png`), the Controls page (`path.controls.png`) and the pause overlay over the game (`path.pause.png`), then quits.
 
 ## The first ten minutes
 1. Follow the steps in the panel at the top right. Each one ticks off by itself.
-   The game is played in first person: the mouse looks (the cursor is captured), `W`/`S` fly along the view, `A`/`D` strafe, `Space`/`C` go up and down. `Tab` frees the cursor for the buttons (click in the game to look again); `Esc` leaves a build tool, then frees the cursor. The top-down camera is gone. `E` stands you up from the pilot seat; standing, `W`/`A`/`S`/`D` walk inside the ship (`Shift` runs, no jump, `Space`/`C` unused), flight and the autopilot (`M`) are off, and `E` near the seat sits you down again. Repair moved from `E` to `Backspace`. Walking is client-only and limited to your own ship (see [structures](prototypes/structures.md)). Headless check: `--walk-shot=path`.
+   The game is played in first person: the mouse looks (the cursor is captured), `W`/`S` fly along the view, `A`/`D` strafe, `Space`/`C` go up and down. `Tab` frees the cursor for the buttons (click in the game to look again); `Esc` leaves a build tool, then opens the pause menu. The top-down camera is gone. `E` stands you up from the pilot seat; standing, `W`/`A`/`S`/`D` walk inside the ship (`Shift` runs, no jump, `Space`/`C` unused), flight and the autopilot (`M`) are off, and `E` near the seat sits you down again. Repair moved from `E` to `Backspace`. Walking is client-only and limited to your own ship (see [structures](prototypes/structures.md)). Headless check: `--walk-shot=path`.
 2. Fly to the brown rock (look at it and press `W`, or press `M` to fly there on autopilot), mine, press `F` for the ship refinery.
 3. Build a drill (`4`), a smelter (`5`), a depot (`8`) and join them with belts (`1`): look down at the ground and the crosshair picks the cell (it turns red when you cannot place there); click to place, for belts press, move the crosshair and release. Right click demolishes, `R` rotates, `Y` changes the recipe of the item you are placing. Click a machine with no tool to see its status; `Tab` then lets you use its buttons.
 4. Make plates with an assembler (`6`), build a lab (`7`), press `T` and pick Logistics.
