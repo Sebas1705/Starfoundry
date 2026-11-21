@@ -104,6 +104,7 @@ public partial class Play : Node3D
     public override void _Ready()
     {
         var args = OS.GetCmdlineUserArgs();
+        InitAudio(args);
         _threatDemo = args.Contains("--threat-demo");
         _demo = args.Contains("--demo") || args.Contains("--explore-demo") || _threatDemo;
         _shotPath = args.FirstOrDefault(a => a.StartsWith("--shot="))?["--shot=".Length..];
@@ -766,7 +767,11 @@ void fragment() {
 
     private void Send(Command c) => _world.Submit(Player, c);
 
-    private void Toast(string text, double seconds = 6.0, ToastCategory category = ToastCategory.Info) => _toasts.Add(text, category, Time.GetTicksMsec() / 1000.0, seconds);
+    private void Toast(string text, double seconds = 6.0, ToastCategory category = ToastCategory.Info)
+    {
+        _toasts.Add(text, category, Time.GetTicksMsec() / 1000.0, seconds);
+        AudioToast(category);
+    }
 
     private void ToastThreat(string text, double seconds = 6.0) => Toast(text, seconds, ToastCategory.Threat);
 
@@ -799,6 +804,7 @@ void fragment() {
     {
         foreach (var r in _world.LastResults)
         {
+            AudioResult(r);
             if (!r.Ok)
             {
                 if (r.Reject == Reject.OutOfRange) _outOfRangeSeen = true;
@@ -988,6 +994,7 @@ void fragment() {
             CollectResults();
             WatchThreat();
             WatchDefence();
+            AudioTick();
             if (_botDone) break;
         }
         if (Net.StructureVersion != _structureVersion) RebuildGeometry();
@@ -1061,6 +1068,7 @@ void fragment() {
         UpdateGhost();
         UpdateDefenceUi((float)delta);
         UpdateUi((float)delta);
+        UpdateAudio((float)delta);
         MenuShotTick();
         EndShotFrame();
         DefenceShotFrame();

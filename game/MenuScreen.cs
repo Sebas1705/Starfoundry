@@ -207,6 +207,12 @@ public partial class MenuScreen : Control
             v => Loc.T("settings.fov", (int)Math.Round(v)), v => SettingsStore.Current with { Fov = (float)v }, "settings.tip.fov");
         AddSlider("VolumeSlider", s.MasterVolume * 100, 0, 100, 5,
             v => Loc.T("settings.volume", (int)Math.Round(v)), v => SettingsStore.Current with { MasterVolume = (float)(v / 100.0) }, "settings.tip.volume");
+        AddSlider("SfxSlider", s.SfxVolume, 0, 100, 5,
+            v => Loc.T("settings.sfxVolume", (int)Math.Round(v)), v => SettingsStore.Current with { SfxVolume = (int)Math.Round(v) }, "settings.tip.sfxVolume");
+        AddSlider("AmbienceSlider", s.AmbienceVolume, 0, 100, 5,
+            v => Loc.T("settings.ambienceVolume", (int)Math.Round(v)), v => SettingsStore.Current with { AmbienceVolume = (int)Math.Round(v) }, "settings.tip.ambienceVolume");
+        AddSlider("UiVolumeSlider", s.UiVolume, 0, 100, 5,
+            v => Loc.T("settings.uiVolume", (int)Math.Round(v)), v => SettingsStore.Current with { UiVolume = (int)Math.Round(v) }, "settings.tip.uiVolume");
 
         AddSlider("GoalSlider", s.GoalWaves, GoalSettings.MinWaves, GoalSettings.MaxWaves, 1,
             v => Loc.T("settings.goalWaves", (int)Math.Round(v)), v => SettingsStore.Current with { GoalWaves = (int)Math.Round(v) }, "settings.tip.goalWaves");
@@ -243,6 +249,8 @@ public partial class MenuScreen : Control
         {
             label.Text = text(v);
             SettingsStore.Set(apply(v));
+            // A short preview of the bus being set (rate limited by the manager).
+            AudioManager.PlayUi(name switch { "SfxSlider" => Sfx.TurretShot, "UiVolumeSlider" => Sfx.ToastPing, "VolumeSlider" => Sfx.UiConfirm, _ => Sfx.UiClick });
         };
         WithTip(slider, tipKey);
         _body.AddChild(slider);
@@ -318,6 +326,7 @@ public static class UiKit
         b.AddThemeStyleboxOverride("focus", focus);
         b.AddThemeStyleboxOverride("disabled", Box(new Color(0.06f, 0.07f, 0.1f, 0.7f), new Color(0.2f, 0.22f, 0.28f), 5, 6f));
         b.AddThemeColorOverride("font_disabled_color", new Color(0.5f, 0.52f, 0.58f));
+        b.Pressed += () => AudioManager.PlayUi(Sfx.UiClick);
         b.Pressed += onPressed;
         return b;
     }
