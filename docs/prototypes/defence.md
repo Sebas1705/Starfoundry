@@ -68,3 +68,28 @@ The end screen (`EndScreen.cs`) pauses the simulation. Victory writes the `victo
 ### Checks
 - Tests: `GameOutcomeTests` (win, loss, wave in progress, station required, station lost, legacy worlds) and the `goal_waves` cases of `GameSettingsTests`.
 - Headless images: `--defence-shot=path` (see the play-test guide) and `--end-shot=path`.
+
+## Wave balance pass (second audit, 2026-11-21)
+The audit found a cliff at wave 3: a brute (300 hp, about 22 damage per second) out-damaged the ship cannon (6 damage every 10 ticks, 18 per second). Changes:
+
+| Change | Value |
+| --- | --- |
+| `threat.structure_ship_damage_percent` (new key, structure worlds only, 100 to 1000, default 100) | 150: the cannon does 9 per shot (27 per second); the `ship_cannon` research adds 50 percent on top (13 per shot) |
+| `structures.defence.regen_hp` (new key, 1 to 1000, default 1) | 5: a damaged defence module regains 5 hit points per regeneration step (every 10 s) instead of 1 |
+
+Measured by `WaveBalanceTests.Measure_the_wave_table` (seed 20261121, a compact cross: workshop with the ammo belts, a defence module with the turrets in the middle, cockpit and engine on its other two sides; a 120 s pause between waves, no repair bay; `held` means every enemy died and no module was lost; the number is the structure's integrity in per mille after the wave). Wave numbers are zero-based (wave 3 is the first brute).
+
+| Turrets | Cannon | Result |
+| --- | --- | --- |
+| 0 | off | wave 0 destroys the ship |
+| 0 | on (150 %) | holds waves 0 to 5 (integrity 925), loses the ship in wave 6 |
+| 0 | on (100 %, old) | falls in wave 4 (loses a module) |
+| 1 | off | holds waves 0 to 3 (integrity 926 after the first brute), loses a module in wave 4 |
+| 1 | on (150 %) | holds waves 0 to 5, loses the ship in wave 6 |
+| 2 | off | holds waves 0 to 5, loses the ship in wave 6 |
+| 2 | on (150 %) | holds waves 0 to 6 (integrity 895), loses the ship in wave 7 |
+| 2 | on (100 %, old) | holds waves 0 to 5, loses the ship in wave 6 |
+| 3 | on | holds waves 0 to 8 (integrity 967 after wave 8) |
+| 4 | on | holds waves 0 to 8 without losing hit points |
+
+Intent, each pinned by a test: undefended bases fall by wave 2 (`Undefended_base_falls_by_wave_2`, cannon off; cannon alone lasts to wave 5); one turret is not enough once the brutes come (`One_turret_is_not_enough_from_wave_3`, cannon off: wave 3 leaves a mark and the base falls by wave 5); two turrets and the cannon hold waves 0 to 6 (`Two_turrets_and_the_ship_cannon_hold_waves_0_to_6`). Layout matters: a spread-out ship (cockpit, workshop, defence, engine in a row) loses its far module at wave 6 even with 2 turrets and the cannon, because the turrets (range 18 cells) cannot reach an enemy that attacks the end module from 5 cells further out.
