@@ -236,6 +236,9 @@ public sealed partial class BeltNetwork
     /// <summary>Ore taken out of deposits by hand.</summary>
     public long MinedByHand { get; private set; }
 
+    /// <summary>Items drone bays have taken from deposits.</summary>
+    public long MinedByDrones { get; private set; }
+
     /// <summary>Ore taken out of deposits by drills.</summary>
     public long DrilledTotal { get; private set; }
 
@@ -749,6 +752,7 @@ public sealed partial class BeltNetwork
         HoldIn = other.HoldIn;
         HoldOut = other.HoldOut;
         MinedByHand = other.MinedByHand;
+        MinedByDrones = other.MinedByDrones;
         DrilledTotal = other.DrilledTotal;
         ResearchItemsUsed = other.ResearchItemsUsed;
         DepotDelivered = other.DepotDelivered;
@@ -757,6 +761,7 @@ public sealed partial class BeltNetwork
     private void MixEconomy(Action<long> mix)
     {
         mix(HoldIn); mix(HoldOut); mix(MinedByHand); mix(DrilledTotal); mix(ResearchItemsUsed); mix(DepotDelivered);
+        if (MinedByDrones != 0) mix(MinedByDrones); // worlds without drone mining hash as before
         MixGalaxy(mix);
         MixThreat(mix);
         mix(_deposits.Count);
@@ -840,7 +845,8 @@ public sealed partial class BeltNetwork
             if (d.Remaining < 0 || d.Remaining > d.Initial) Fail($"deposit {d.Id} remaining {d.Remaining} out of range");
             extracted += d.Initial - d.Remaining;
         }
-        if (extracted != MinedByHand + DrilledTotal) Fail($"deposit accounting broken: extracted {extracted} != hand {MinedByHand} + drills {DrilledTotal}");
+        if (extracted != MinedByHand + DrilledTotal + MinedByDrones)
+            Fail($"deposit accounting broken: extracted {extracted} != hand {MinedByHand} + drills {DrilledTotal} + drones {MinedByDrones}");
 
         for (int i = 0; i < _level.Length; i++)
         {

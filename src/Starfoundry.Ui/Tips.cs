@@ -41,6 +41,8 @@ public sealed class Tips
         if (!_shown.Contains("research") && _labIdleSince is double since && now - since >= 20 && AnyResearchAvailable(net)) return Show("research", "learn.research", now);
         if (!_shown.Contains("upgrades") && _logisticsAt is double at && now - at >= 90 && NoDefenceUpgradeYet(net) && net.CurrentResearch < 0 && Has(net, MachineRole.Lab))
             return Show("upgrades", "learn.upgrades", now);
+        if (!_shown.Contains("drones") && net.StructureRules && _content.Research.FirstOrDefault(r => r.Id == "core:drone_automation") is { } dr && net.IsResearched(dr.Index)
+            && !net.Structures().Any(st => st.Owner == player && st.Modules.Values.Contains(ModuleKind.DroneBay))) return Show("drones", "learn.drones", now);
         if (!_shown.Contains("deliver") && net.ModuleCount(player) > 0 && !HasMachine(net, "core:ore_unloader")
             && net.HoldCount(player, _content.ItemIndex("core:iron_ore")) >= PlayerRules.HoldCapacity) return Show("deliver", "learn.deliver", now);
         if (!_shown.Contains("port") && net.IsResearched(_content.ResearchIndex("core:jump_drive")) && !Has(net, MachineRole.Unloader)

@@ -897,6 +897,31 @@
         "core:titanium_plate",
         "core:nickel_plate"
       ]
+    },
+    {
+      "id": "core:drone_automation",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 150
+        },
+        {
+          "item": "core:titanium_plate",
+          "count": 20
+        },
+        {
+          "item": "core:quartz",
+          "count": 20
+        }
+      ],
+      "requires": [
+        "core:logistics",
+        "core:advanced_plating"
+      ],
+      "unlocks": [],
+      "abilities": [
+        "drone_bay"
+      ]
     }
   ],
   "galaxy": {
@@ -1302,6 +1327,16 @@
       "allows": ["belt"],
       "hold_capacity": 0,
       "thrust_speed_percent": 0
+    },
+    "drone_bay": {
+      "cost": [{ "item": "core:iron_plate", "count": 12 }, { "item": "core:titanium_plate", "count": 8 }, { "item": "core:nickel_plate", "count": 8 }],
+      "hp": 150,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0,
+      "drone_range_cells": 60,
+      "drone_interval_ticks": 90,
+      "power_use": 20
     }
   },
   "structure_templates": {

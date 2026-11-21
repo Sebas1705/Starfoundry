@@ -199,6 +199,7 @@ public sealed partial class BeltNetwork
         StepMachines();
         StepUnloaders();
         StepPlayers();
+        StepDrones();
         RecheckDrillLinks(); // structure moves are applied here, before the threat phase
         StepResearch();
         StepThreat();

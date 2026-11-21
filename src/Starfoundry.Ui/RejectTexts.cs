@@ -18,6 +18,8 @@ public static class RejectTexts
         Reject.KindNotAllowed => "toast.reject.kindNotAllowed",
         Reject.NoSuchStructure => "toast.reject.noSuchStructure",
         Reject.NoCockpitOrEngine => "toast.reject.noCockpitOrEngine",
+        Reject.NoDroneBay => "toast.reject.noDroneBay",
+        Reject.Locked => "toast.reject.locked",
         _ => null,
     };
 }
