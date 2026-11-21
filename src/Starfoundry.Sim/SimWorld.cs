@@ -860,8 +860,9 @@ public sealed class SimWorld
         var found = BuildableStructure(player, p.Structure, out var s);
         if (found != Reject.None) return found;
         if (!Enum.IsDefined(p.Kind)) return Reject.InvalidArgument;
+        if (!kinds.IsDefined(p.Kind)) return Reject.KindNotAllowed;
         if (!StructureGrid.IsValidLocalModule(p.Mx, p.My, p.Mz)) return Reject.OutOfBounds;
-        if (p.Kind == ModuleKind.DroneBay && Campaign && !Network.HasAbility(Ability.DroneBay)) return Reject.Locked;
+        if (ModuleKindIds.RequiredAbility(p.Kind) is { } needed && Campaign && !Network.HasAbility(needed)) return Reject.Locked;
         if (s!.Modules.ContainsKey((p.Mx, p.My, p.Mz))) return Reject.Overlap;
         if (s.Modules.Count > 0)
         {
@@ -896,8 +897,8 @@ public sealed class SimWorld
         if (kind == ModuleKind.Core && s.Modules.Count > 1) return Reject.ModuleOccupied;
         // The ship cannot do without its last cockpit, engine, reactor or cargo module (stations are unaffected).
         if (s.Kind == StructureKind.Ship && Network.ShipStructure(player) == r.Structure
-            && kind is ModuleKind.Cockpit or ModuleKind.Engine or ModuleKind.Reactor or ModuleKind.Cargo
-            && s.Modules.Values.Count(k => k == kind) <= 1) return Reject.LastEssentialModule;
+            && kind is ModuleKind.Cockpit or ModuleKind.Engine or ModuleKind.Reactor or ModuleKind.ReactorMk2 or ModuleKind.Cargo
+            && s.Modules.Values.Count(k => k == kind || (ModuleKindIds.IsReactor(kind) && ModuleKindIds.IsReactor(k))) <= 1) return Reject.LastEssentialModule;
         if (!Network.StructureStaysConnectedWithout(r.Structure, r.Mx, r.My, r.Mz)) return Reject.ModuleOccupied;
 
         var cells = CellsFor(r.Structure, create: false);

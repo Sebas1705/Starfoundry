@@ -67,6 +67,9 @@ public static class ModuleModels
             case ModuleKind.Defence: Defence(c); break;
             case ModuleKind.Core: Core(c); break;
             case ModuleKind.DroneBay: DroneBay(c); break;
+            case ModuleKind.Shield: Shield(c); break;
+            case ModuleKind.Sensor: Sensor(c); break;
+            case ModuleKind.ReactorMk2: ReactorMk2(c); break;
             default: HullModule(c); break;
         }
         return r;
@@ -575,6 +578,137 @@ public static class ModuleModels
         {
             mb.At(default);
             foreach (float z in new[] { -0.17f, 0.17f }) mb.Block(new(1.75f, 0, z), new(0.04f, 0.1f, 0.1f));
+        });
+    }
+
+    private static readonly Color Cyan = new(0.45f, 0.92f, 1f);
+    private static readonly Color FieldBlue = new(0.30f, 0.62f, 1f);
+    private static readonly Color RadarGreen = new(0.30f, 1f, 0.55f);
+
+    /// <summary>
+    /// A low plated base with an emitter pylon and a faint blue translucent field dome. Parts: "Ring" (the emitter halo, spun by
+    /// <see cref="Models.Animate"/>), "GlowField" (the dome) and "GlowEmitter" (the pylon tip and prongs), which pulse with the power.
+    /// </summary>
+    private static void Shield(Cx c)
+    {
+        const float roof = 1.2f;
+        Skin(c, roof, detail: true, collars: false);
+        Frame(c, roof);
+        Models.Add(c.R, "Pylon", $"{c.K}.pylon", Models.Body(), mb =>
+        {
+            mb.At(default).C(Dark).Prism(new(4, roof, 4), 1.5f, 1.2f, 0.2f, 8);
+            mb.C(Steel).Prism(new(4, roof + 0.2f, 4), 0.6f, 0.38f, 1.4f, 8);
+            mb.C(c.Acc).Prism(new(4, roof + 0.55f, 4), 0.66f, 0.66f, 0.1f, 8);
+            // four emitter prongs leaning out of the base, each ending in a lamp
+            for (int i = 0; i < 4; i++)
+            {
+                float a = Mathf.Tau * i / 4 + Mathf.Pi / 4;
+                mb.C(c.Ship ? Panel : Steel).Beam(new(4 + MathF.Cos(a) * 2.4f, roof, 4 + MathF.Sin(a) * 2.4f), new(4 + MathF.Cos(a) * 0.9f, roof + 1.2f, 4 + MathF.Sin(a) * 0.9f), 0.16f);
+            }
+        });
+        Models.Add(c.R, "GlowEmitter", $"{c.K}.emitter", Models.Glow(FieldBlue, 2.6f), mb =>
+        {
+            mb.At(default).Sphere(new(4, roof + 1.75f, 4), new(0.42f, 0.42f, 0.42f), 3, 10);
+            for (int i = 0; i < 4; i++)
+            {
+                float a = Mathf.Tau * i / 4 + Mathf.Pi / 4;
+                mb.Sphere(new(4 + MathF.Cos(a) * 2.4f, roof + 0.12f, 4 + MathF.Sin(a) * 2.4f), new(0.2f, 0.2f, 0.2f), 2, 6);
+            }
+        });
+        Models.Add(c.R, "Ring", $"{c.K}.halo", Models.Glow(Cyan, 1.8f), mb =>
+        {
+            mb.At(default, Models.Deg(18, 0, 0)).Torus(default, 1.0f, 0.06f, 16, 4);
+            mb.At(default, Models.Deg(0, 0, 18)).Torus(default, 0.8f, 0.05f, 14, 4);
+        }, new Vector3(4, roof + 1.75f, 4));
+        Models.Add(c.R, "GlowField", $"{c.K}.field", Models.GlowAlpha(FieldBlue, 0.9f, 0.16f), mb => Dome(mb, new(4, roof, 4), new(3.7f, 2.7f, 3.7f), 6, 20));
+    }
+
+    /// <summary>
+    /// A sensor tower: a low plated base, a mast and a dish that turns with a translucent green radar sweep. Parts: "Dish" (the
+    /// turning pivot with the bowl and the sweep), "GlowSweep" (the sweep wedge) and "GlowLamp" (the mast light).
+    /// </summary>
+    private static void Sensor(Cx c)
+    {
+        const float roof = 2.2f;
+        Skin(c, roof, detail: true, collars: false);
+        Frame(c, roof);
+        Models.Add(c.R, "Mast", $"{c.K}.mast", Models.Body(), mb =>
+        {
+            mb.At(default).C(Dark).Prism(new(4, roof, 4), 1.2f, 1.0f, 0.14f, 8);
+            mb.C(Steel).Prism(new(4, roof + 0.1f, 4), 0.28f, 0.2f, 0.62f, 8);
+            mb.C(c.Acc).Prism(new(4, roof + 0.32f, 4), 0.34f, 0.34f, 0.07f, 8);
+        });
+        var dish = Models.Pivot(c.R, "Dish", new(4, roof + 0.78f, 4));
+        Models.Add(dish, "Bowl", $"{c.K}.bowl", Models.Body(), mb =>
+        {
+            // a dish facing +X and tilted up: a cone that widens towards the front, a dark inner face, a feed horn on three struts
+            mb.At(new(0, 0.28f, 0), Models.Deg(0, 0, -52)).C(c.Ship ? White : Panel).Prism(new(0, 0, 0), 0.3f, 1.75f, 0.6f, 16);
+            mb.C(c.Acc).Prism(new(0, 0.6f, 0), 1.75f, 1.75f, 0.05f, 16);
+            mb.C(Dark).Prism(new(0, 0.6f, 0), 1.5f, 1.5f, 0.07f, 16);
+            mb.C(Steel);
+            foreach (float a in new[] { 0f, 2.09f, 4.19f })
+                mb.Beam(new(MathF.Cos(a) * 1.6f, 0.62f, MathF.Sin(a) * 1.6f), new(0, 1.5f, 0), 0.06f);
+            mb.C(c.Acc).Sphere(new(0, 1.55f, 0), new(0.14f, 0.14f, 0.14f), 2, 6);
+        });
+        // the sweep lies flat just above the roof and turns with the dish; its wedge opens along +X
+        Models.Add(dish, "GlowSweep", $"{c.K}.sweep", Models.GlowAlpha(RadarGreen, 1.6f, 0.22f), mb =>
+        {
+            var pts = new System.Collections.Generic.List<Vector2> { new(0.6f, 0f) };
+            for (int i = 0; i <= 6; i++)
+            {
+                float a = Mathf.DegToRad(-24f + 48f * i / 6);
+                pts.Add(new Vector2(MathF.Cos(a) * 3.6f, MathF.Sin(a) * 3.6f));
+            }
+            mb.At(default).Extrude(pts.ToArray(), -0.74f, -0.72f);
+        });
+        Models.Add(c.R, "GlowLamp", $"{c.K}.lamp", Models.Glow(RadarGreen, 2.4f), mb =>
+            mb.At(default).Sphere(new(4, roof + 0.7f, 5.6f), new(0.12f, 0.12f, 0.12f), 2, 6));
+        // a row of status lights along the side of the base
+        Models.Add(c.R, "GlowDash", $"{c.K}.status", Models.Glow(RadarGreen, 1.6f), mb =>
+        {
+            mb.At(default);
+            foreach (float s in new[] { 1.0f, W - 1.0f })
+                for (int i = 0; i < 4; i++) mb.Block(new(s, 2.24f, 1.4f + i * 1.7f), new(0.12f, 0.05f, 0.5f));
+        });
+    }
+
+    /// <summary>
+    /// A bigger reactor: a wide vessel with a taller cyan core inside two crossed rings. Parts: "GlowCore" (breathes while burning, dim red
+    /// when dark, like the reactor), "Ring" (the two crossed rings, spun while burning) and "GlowVent" (hull vents).
+    /// </summary>
+    private static void ReactorMk2(Cx c)
+    {
+        Skin(c, LowRoof);
+        Frame(c, LowRoof);
+        Models.Add(c.R, "Containment", $"{c.K}.containment", Models.Body(), mb =>
+        {
+            mb.At(default).C(Steel).Prism(new(4, 0.08f, 4), 1.95f, 1.7f, 0.4f, 12);
+            mb.C(c.Acc).Prism(new(4, 0.46f, 4), 1.98f, 1.98f, 0.06f, 12);
+            foreach (float y in new[] { 1.0f, 3.0f })
+                mb.C(y > 2 ? c.Acc : Steel).Torus(new(4, y, 4), 1.35f, 0.16f, 12, 4);
+            // six heavy coolant pillars
+            for (int i = 0; i < 6; i++)
+            {
+                float a = Mathf.Tau * i / 6 + 0.3f;
+                float px = 4 + MathF.Cos(a) * 3.0f, pz = 4 + MathF.Sin(a) * 3.0f;
+                mb.C(Panel).Prism(new(px, 0.08f, pz), 0.3f, 0.3f, 2.75f, 8);
+                mb.C(c.Acc).Prism(new(px, 1.2f, pz), 0.34f, 0.34f, 0.14f, 8);
+                mb.C(Steel).Beam(new(px, 0.5f, pz), new(4 + MathF.Cos(a) * 1.3f, 0.5f, 4 + MathF.Sin(a) * 1.3f), 0.22f);
+            }
+        });
+        Models.Add(c.R, "GlowCore", $"{c.K}.core", Models.Glow(Cyan, 1.5f), mb =>
+            mb.At(default).Prism(new(4, 0.46f, 4), 1.0f, 1.0f, 3.4f, 12));
+        Models.Add(c.R, "Ring", $"{c.K}.rings", Models.Glow(Gold, 1.8f), mb =>
+        {
+            mb.At(default, Models.Deg(26, 0, 0)).Torus(default, 1.5f, 0.09f, 18, 4);
+            mb.At(default, Models.Deg(0, 0, -26)).Torus(default, 1.35f, 0.08f, 18, 4);
+        }, new Vector3(4, 3.3f, 4));
+        Models.Add(c.R, "GlowVent", $"{c.K}.vent", Models.Glow(Cyan, 1.5f), mb =>
+        {
+            mb.At(default);
+            foreach (float s in new[] { (c.Ship ? 0.05f : StationFace) - 0.02f, W - (c.Ship ? 0.05f : StationFace) + 0.02f })
+                for (int i = 0; i < 3; i++)
+                    mb.Block(new(s, 1.55f, 1.6f + i * 2.4f), new(0.05f, 0.9f, 0.7f));
         });
     }
 

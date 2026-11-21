@@ -376,6 +376,24 @@ public static class Models
         return m;
     }
 
+    /// <summary>A translucent glow (force fields, radar sweeps): emissive, see-through, lit from both sides, no shadows.</summary>
+    internal static StandardMaterial3D GlowAlpha(Color c, float energy, float alpha)
+    {
+        string key = $"glowalpha.{c.ToHtml()}.{energy}.{alpha}";
+        if (!Mats.TryGetValue(key, out var m))
+            Mats[key] = m = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(c.R, c.G, c.B, alpha),
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+                EmissionEnabled = true,
+                Emission = c,
+                EmissionEnergyMultiplier = energy,
+                Roughness = 0.2f,
+            };
+        return m;
+    }
+
     internal static StandardMaterial3D GlassMat()
     {
         if (!Mats.TryGetValue("glass", out var m))

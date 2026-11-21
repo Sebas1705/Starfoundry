@@ -22,7 +22,7 @@ public partial class Play
 
     private int BurnInterval => _content.Structures?.BurnIntervalTicks(ModuleKind.Reactor) ?? PowerFormat.DefaultBurnIntervalTicks;
 
-    private bool HasReactor(int structure) => Net.GetStructure(structure).Modules.Values.Contains(ModuleKind.Reactor);
+    private bool HasReactor(int structure) => Net.GetStructure(structure).Modules.Values.Any(ModuleKindIds.IsReactor);
 
     private static Color BandColor(PowerBand band) => band switch
     {

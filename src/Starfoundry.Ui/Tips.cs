@@ -80,7 +80,7 @@ public sealed class Tips
     private static bool ShipHasReactor(BeltNetwork net, int player)
     {
         foreach (var st in net.Structures())
-            if (st.Owner == player && st.Kind == StructureKind.Ship && st.Modules.Values.Contains(ModuleKind.Reactor)) return true;
+            if (st.Owner == player && st.Kind == StructureKind.Ship && st.Modules.Values.Any(ModuleKindIds.IsReactor)) return true;
         return false;
     }
 

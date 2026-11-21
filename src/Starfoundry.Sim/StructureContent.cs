@@ -15,10 +15,15 @@ namespace Starfoundry.Sim;
 /// <param name="DefenceBonusPercent">Percent each module of this kind adds to the turret damage of its structure (defence only; 0 otherwise).</param>
 /// <param name="EmergencyPower">Power a reactor of this kind yields while it has no hydrogen and is not burning (reactor only; 0 otherwise).</param>
 /// <param name="RegenHp">Hit points a damaged module of this kind regains each passive regeneration step (1 by default).</param>
-/// <param name="PowerUse">Power one bay draws while its structure has an assigned deposit (drone bay only; 0 otherwise).</param>
+/// <param name="PowerUse">Power one module draws: a bay while its structure has an assigned deposit, a shield or sensor always (0 otherwise).</param>
+/// <param name="ShieldPercent">Percent of the damage to every other module one powered shield absorbs (shield only; 0 otherwise).</param>
+/// <param name="ShieldStackPercent">Percent each further shield adds (shield only; 0 otherwise).</param>
+/// <param name="ShieldMaxPercent">Cap of the summed absorption (shield only; 0 otherwise).</param>
+/// <param name="SensorRangeCells">How far from the sensor deposits are revealed automatically, in cells (sensor only; 0 otherwise).</param>
 public sealed record ModuleKindDef(
     ModuleKind Kind, ItemStack[] Cost, int Hp, MachineRole[] AllowedRoles, bool AllowsBelts, int HoldCapacity, int ThrustSpeedPercent,
-    int PowerOutput = 0, int BurnIntervalTicks = 0, int DroneRangeCells = 0, int DroneIntervalTicks = 0, int PowerUse = 0, int DefenceBonusPercent = 0, int EmergencyPower = 0, int RegenHp = 1);
+    int PowerOutput = 0, int BurnIntervalTicks = 0, int DroneRangeCells = 0, int DroneIntervalTicks = 0, int PowerUse = 0, int DefenceBonusPercent = 0, int EmergencyPower = 0, int RegenHp = 1,
+    int ShieldPercent = 0, int ShieldStackPercent = 0, int ShieldMaxPercent = 0, int SensorRangeCells = 0);
 
 /// <summary>The module kinds of ships and stations, from the <c>structures</c> section of the content.</summary>
 public sealed class StructureContent
@@ -34,6 +39,9 @@ public sealed class StructureContent
     public IReadOnlyList<ModuleKindDef> Kinds => _kinds;
 
     public ModuleKindDef Get(ModuleKind kind) => _kinds[(int)kind];
+
+    /// <summary>False for a module kind the content does not define (kinds added after the first release are optional): it cannot be placed.</summary>
+    public bool IsDefined(ModuleKind kind) => _kinds[(int)kind].Hp > 0;
 
     /// <summary>The machine roles allowed inside a module of this kind.</summary>
     public IReadOnlyList<MachineRole> AllowedRoles(ModuleKind kind) => _kinds[(int)kind].AllowedRoles;
@@ -73,6 +81,11 @@ public sealed class StructureContent
     /// <summary>Hit points a damaged module of this kind regains at each passive regeneration step.</summary>
     public int RegenHp(ModuleKind kind) => _kinds[(int)kind].RegenHp;
 
-    /// <summary>Power one drone bay draws while mining (0 unless it is a drone bay).</summary>
+    /// <summary>Power one module draws: a drone bay while mining, a shield or a sensor always (0 for every other kind).</summary>
     public int ModulePowerUse(ModuleKind kind) => _kinds[(int)kind].PowerUse;
+
+    public ModuleKindDef ShieldDef => _kinds[(int)ModuleKind.Shield];
+
+    /// <summary>Range of a sensor in cells (0 unless it is a sensor).</summary>
+    public int SensorRangeCells(ModuleKind kind) => _kinds[(int)kind].SensorRangeCells;
 }
