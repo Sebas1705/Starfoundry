@@ -520,6 +520,10 @@ public sealed partial class StructureBot
         SecondLab();
         ResearchNow("core:carbon_drilling");
         StationDefence();
+        // Automation costs plates and carbon only and its bays iron: do it first, it raises the ore the plates are made of.
+        FetchCarbon(26, "carbon for drone automation");
+        ResearchNow("core:drone_automation", new Feed(FeedKind.Raw, "core:carbon_unloader"));
+        BuildDrones();
         MoreCargoUpTo(4);
         FetchCarbon(80, "carbon for the jump drive");
         ResearchNow("core:jump_drive", new Feed(FeedKind.Raw, "core:carbon_unloader"));

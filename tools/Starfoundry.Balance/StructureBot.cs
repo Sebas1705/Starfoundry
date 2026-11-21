@@ -22,6 +22,9 @@ public sealed class StructureBotReport
     public long MinedByDrones { get; set; }
     public string End { get; set; } = "";
 
+    /// <summary>Seconds (counted once a second) in which a structure with a reactor had no hydrogen to burn and ran on its emergency output.</summary>
+    public int EmergencySeconds { get; set; }
+
     public bool Has(string milestone) => Timeline.Any(t => t.Name == milestone);
 
     public double At(string milestone) => Timeline.First(t => t.Name == milestone).Seconds;
@@ -33,6 +36,7 @@ public sealed class StructureBotReport
         var lines = new List<string> { "| Minute | Milestone |", "| --- | --- |" };
         foreach (var (n, s) in Timeline) lines.Add($"| {Clock(s)} | {n} |");
         lines.Add("");
+        lines.Add($"Emergency power: {EmergencySeconds} s.");
         lines.Add($"Outcome: {Outcome} ({Reason}) after {Clock(Seconds)}; waves survived {WavesSurvived}; modules lost {ModulesLost}; machines lost {MachinesLost}; mined by hand {MinedByHand}, by drones {MinedByDrones}.");
         if (End.Length > 0) lines.Add("End: " + End);
         if (Stuck.Count > 0)
@@ -239,6 +243,7 @@ public sealed partial class StructureBot
             Cmd(new StartMining(_mineTarget));
         HoldHygiene();
         ManageStock();
+        ManageDrones();
         if (_iceLoopBuilt && !_refuelling && _gatherDepth == 0 && Hydrogen < 12 && Net.CurrentSystem(0) == 0 && (Net.EnemyCount == 0 || Hydrogen < 6)) Refuel();
         if (_station >= 0 && !Net.Structures().Any(s => s.Id == _station))
         {
@@ -268,6 +273,7 @@ public sealed partial class StructureBot
         if (Net.CurrentResearch >= 0)
             st += " research " + _c.Research[Net.CurrentResearch].Id.Replace("core:", "") + " " + string.Join("/", Net.ResearchCost(Net.CurrentResearch).Select(c => $"{Net.ResearchProgress(Net.CurrentResearch, c.Item)}of{c.Count}"));
         if (_lab >= 0 && Net.IsMachineAlive(_lab)) st += $" lab[in {Net.GetMachineInfo(_lab).InputItems}]";
+        if (_dronesOnIron || _dronesOnIce) st += $" drones[iron {(_station >= 0 && Net.StructureExists(_station) ? Net.AssignedDeposit(_station) : -9)} paused={_dronesPaused} ice {Net.AssignedDeposit(_ship)} paused={_icePaused}] mining={Net.MiningDeposit(0)} target={_mineTarget} orePaused={_orePaused} sys={Net.CurrentSystem(0)}";
         Trace!.WriteLine($"[{StructureBotReport.Clock(Now)}] {_goal} | ship=({p.X / Cell},{p.Y / Cell},{p.Z / Cell}) hold[{p.HoldTotal}/{Net.HoldCapacity(0)}] {hold} | power {power.Production}/{power.Demand} sat={power.SatisfactionPermille}{st} | "
             + $"machines={Net.MachineCount} lost={Net.MachinesLost} waves={Net.WavesSpawned} enemies={Net.EnemyCount} res={Net.ResearchedCount}");
     }
@@ -335,6 +341,10 @@ public sealed partial class StructureBot
             int survived = GameOutcome.WavesSurvived(Net);
             while (_lastWave < survived) Milestone($"Wave {++_lastWave} survived");
         }
+        bool noFuel = false;
+        foreach (var s in Net.Structures())
+            if (s.Owner == 0 && s.Modules.Values.Any(k => k == ModuleKind.Reactor) && !Net.PowerStatus(s.Id).Burning) noFuel = true;
+        if (noFuel) { _report.EmergencySeconds++; Milestone("Emergency power: a reactor has no hydrogen to burn"); }
         if (Net.MinedByDrones > 0) Milestone("Drones delivered ore");
         if (Net.CurrentSystem(0) != 0 && Net.CurrentSystem(0) >= 0) Milestone($"Arrived in system {Net.CurrentSystem(0)}");
     }
