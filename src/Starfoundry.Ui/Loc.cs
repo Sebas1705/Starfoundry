@@ -153,8 +153,10 @@ public static class Loc
         ["btn.showSteps"] = ("Mostrar pasos [O]", "Show steps [O]"),
 
         // ---- button tooltips ----
-        ["tip.mine"] = ("Mina el yacimiento elegido. Si estás lejos, la nave vuela hasta él y empieza sola. 2 minerales por segundo, hasta llenar la bodega.",
-                        "Mines the selected deposit. If you are far away the ship flies there and starts by itself. 2 ore per second, until the hold is full."),
+        ["tip.mine"] = ("Mina el yacimiento elegido. Si estás lejos, la nave vuela hasta él y empieza sola. 2 minerales por segundo. En el mundo de estructuras se pausa al 75% de la bodega para dejar sitio a la fábrica.",
+                        "Mines the selected deposit. If you are far away the ship flies there and starts by itself. 2 ore per second. In structure worlds it pauses at 75% of the hold so the factory keeps room."),
+        ["tip.minePaused"] = ("Minería en pausa: la bodega llegó al 75%. Gasta o mueve objetos (construir, módulos) para seguir.",
+                              "Mining paused: the hold reached 75%. Spend or move items (building, modules) to continue."),
         ["tip.refine"] = ("La microrrefinería de la nave convierte mineral en lingotes, despacio (un lingote cada 4 s).",
                           "The ship's micro-refinery turns ore into ingots, slowly (one ingot every 4 s)."),
         ["tip.scan"] = ("Revela los yacimientos ocultos a menos de 80 celdas. Se recarga en 5 s.",
@@ -212,6 +214,7 @@ public static class Loc
         ["hud.miningOut"] = ("Minería de {0} en pausa: la nave está lejos del yacimiento", "Mining {0} paused: the ship is too far from the deposit"),
         ["hud.miningFull"] = ("¡BODEGA LLENA! La minería y los depósitos están parados. Gasta o construye algo.",
                               "HOLD FULL! Mining and depots are paused. Spend items or build something."),
+        ["hud.miningPaused"] = ("Minería en pausa: bodega al 75%. Gasta o mueve objetos.", "Mining paused: hold at 75%. Spend or move items."),
         ["hud.deepSpace"] = ("espacio profundo", "deep space"),
         ["hud.jumpReady"] = ("motor de salto listo", "jump drive ready"),
         ["hud.jumpLocked"] = ("motor de salto bloqueado: investiga Motor de salto", "jump drive locked: research Jump drive"),
@@ -306,6 +309,8 @@ public static class Loc
         // ---- toasts ----
         ["toast.welcome"] = ("Bienvenido. Sigue los pasos de arriba a la derecha. F1 muestra los controles.",
                              "Welcome. Follow the steps at the top right. F1 shows the controls."),
+        ["toast.miningPaused"] = ("Minería en pausa: deja libre el 25% de la bodega para la fábrica; gasta o mueve objetos.",
+                                  "Mining paused: keep 25% of the hold free for the factory; spend or move items."),
         ["toast.holdFull"] = ("¡Bodega llena! La minería y los depósitos se paran. Gasta objetos construyendo (módulos, estaciones) para que la fábrica pueda entregar; la minería deja libre el 25% de la bodega para ella.",
                               "Hold full! Mining and depots stop. Spend items by building (modules, stations) so the factory can deliver; mining keeps 25% of the hold free for it."),
         ["toast.language"] = ("Idioma: español", "Language: English"),

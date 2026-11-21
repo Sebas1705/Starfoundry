@@ -606,7 +606,19 @@ public partial class Play
             _holdFullAgain = now + 25.0;
         }
         _holdWasFull = full;
+
+        // Hand mining stops at the mining limit (75 percent) in structure worlds: say so once per stop.
+        bool paused = MiningPausedByLimit;
+        if (paused && !_miningPausedToasted && !full) ToastLogistics(L("toast.miningPaused"), 8.0);
+        _miningPausedToasted = paused;
     }
+
+    private bool _miningPausedToasted;
+
+    /// <summary>True while a mining order is active but the hold is at the mining limit, so nothing is mined.</summary>
+    private bool MiningPausedByLimit =>
+        _structuresOn && (Net.MiningDeposit(Player) >= 0 || _pendingMine)
+        && HudFormat.MiningLimitReached(Net.HoldTotal(Player), Net.HoldCapacity(Player));
 
     private void UpdateStatus()
     {
@@ -633,6 +645,7 @@ public partial class Play
             depLine = inRange ? L("hud.mining", ItemName(Net.DepositItem(d)), Net.DepositRemaining(d), DensityText(d))
                               : L("hud.miningOut", ItemName(Net.DepositItem(d)));
             if (inRange && p.Hull >= 0 && Net.HoldTotal(Player) >= Net.HoldCapacity(Player)) depLine = L("hud.miningFull");
+            else if (inRange && MiningPausedByLimit) depLine = L("hud.miningPaused");
         }
         else if (Net.IsDeposit(dep) && Net.IsDepositRevealed(dep))
         {
@@ -696,6 +709,7 @@ public partial class Play
         }
         if (_stationRules) sb.Append(L("hud.modules", Net.ModuleCount(Player))).Append('\n');
         if (_structuresOn) StructureHud(sb, details: false);
+        if (MiningPausedByLimit) { sb.Append(L("hud.miningPaused")).Append('\n'); if (colour == Colors.White) colour = WornColor; }
         if (!_objectivesOpen && _objectives.Current is { } cur)
             sb.Append(L("hud.ess.step", L(_objectives.States.First(s => s.Objective == cur).TitleKey))).Append('\n');
         if (_demo) sb.Append(L("hud.speed", _demoSpeed));
@@ -1059,7 +1073,7 @@ public partial class Play
         bool mining = Net.MiningDeposit(Player) >= 0 || _pendingMine;
         _btnMine.Text = mining ? L("btn.mineStop") : L("btn.mine");
         _btnMine.SetPressedNoSignal(mining);
-        _btnMine.TooltipText = L("tip.mine");
+        _btnMine.TooltipText = MiningPausedByLimit ? L("tip.minePaused") : L("tip.mine");
 
         int shipRecipe = _content.RecipeIndex("core:ship_smelt");
         bool refining = player.ShipRecipe == shipRecipe;
