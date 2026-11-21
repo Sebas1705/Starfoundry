@@ -31,7 +31,7 @@ public struct SplitMix64
 public sealed record StarSystem(int Id, string Name, int X, int Y, int Z, int Archetype, int[] Lanes);
 
 /// <summary>A deposit the generator created for a system; the world adds them in this order, so ids match indices.</summary>
-public sealed record GeneratedDeposit(int System, int Item, int Amount, int X, int Y, int Z);
+public sealed record GeneratedDeposit(int System, int Item, int Amount, int X, int Y, int Z, int Density = DepositRules.DefaultDensity);
 
 /// <summary>
 /// An immutable generated galaxy. Systems sit on a jittered grid in one shared coordinate space, so belts,
@@ -105,22 +105,6 @@ public sealed class Galaxy
             pos[i] = (gx * rules.SpacingCells + rng.Next(-jitter, jitter), rng.Next(-100, 100), gz * rules.SpacingCells + rng.Next(-jitter, jitter));
         }
 
-        // Archetypes: home for system 0, a weighted pick for the others.
-        var home = content.Archetypes.First(a => a.IsHome);
-        var pool = content.Archetypes.Where(a => !a.IsHome && a.Weight > 0).ToList();
-        int totalWeight = pool.Sum(a => a.Weight);
-        var archetype = new int[n];
-        archetype[0] = home.Index;
-        for (int i = 1; i < n; i++)
-        {
-            int roll = rng.Next(0, totalWeight - 1);
-            foreach (var a in pool)
-            {
-                if (roll < a.Weight) { archetype[i] = a.Index; break; }
-                roll -= a.Weight;
-            }
-        }
-
         // Lanes: a minimum spanning tree (always connected), then nearest neighbours up to the wanted degree.
         var edges = new List<(long D, int A, int B)>();
         for (int a = 0; a < n; a++)
@@ -157,6 +141,47 @@ public sealed class Galaxy
             }
         }
 
+        // Archetypes: home for system 0, a weighted pick for the others. Done after the lanes (which use no randomness) so
+        // an archetype can be limited to systems a number of jumps from home; without limits the picks are the legacy ones.
+        var depth = new int[n];
+        Array.Fill(depth, -1);
+        depth[0] = 0;
+        var queue = new Queue<int>();
+        queue.Enqueue(0);
+        while (queue.Count > 0)
+        {
+            int u = queue.Dequeue();
+            foreach (int v in lanes[u].OrderBy(x => x))
+                if (depth[v] < 0) { depth[v] = depth[u] + 1; queue.Enqueue(v); }
+        }
+        var home = content.Archetypes.First(a => a.IsHome);
+        var fullPool = content.Archetypes.Where(a => !a.IsHome && a.Weight > 0).ToList();
+        var archetype = new int[n];
+        archetype[0] = home.Index;
+        for (int i = 1; i < n; i++)
+        {
+            var pool = fullPool.Where(a => a.AllowedAt(depth[i])).ToList();
+            if (pool.Count == 0) pool = fullPool.Where(a => !a.HasDepthLimit).ToList();
+            int roll = rng.Next(0, pool.Sum(a => a.Weight) - 1);
+            foreach (var a in pool)
+            {
+                if (roll < a.Weight) { archetype[i] = a.Index; break; }
+                roll -= a.Weight;
+            }
+        }
+        // Guaranteed archetypes always appear: if the dice skipped one, the nearest eligible system that is not the only holder of another
+        // guaranteed archetype takes it (the farthest system if none is eligible). No randomness, so unlimited content is unaffected.
+        foreach (var g in fullPool.Where(a => a.Guaranteed))
+        {
+            if (archetype.Skip(1).Contains(g.Index)) continue;
+            // A system is free to take over unless it is the only holder of another guaranteed archetype.
+            var free = Enumerable.Range(1, n - 1)
+                .Where(i => !content.Archetypes[archetype[i]].Guaranteed || archetype.Skip(1).Count(x => x == archetype[i]) > 1).ToList();
+            var eligible = free.Where(i => g.AllowedAt(depth[i])).ToList();
+            if (eligible.Count > 0) archetype[eligible.OrderBy(i => depth[i]).ThenBy(i => i).First()] = g.Index;
+            else if (free.Count > 0) archetype[free.OrderByDescending(i => depth[i]).ThenBy(i => i).First()] = g.Index; // a shallow galaxy: the farthest system
+        }
+
         var systems = new StarSystem[n];
         var deposits = new List<GeneratedDeposit>();
         for (int i = 0; i < n; i++)
@@ -175,7 +200,8 @@ public sealed class Galaxy
                     int ox = rng.Next(-d, d);
                     int oz = ISqrt((long)d * d - (long)ox * ox) * (rng.Next(0, 1) == 0 ? -1 : 1);
                     int oy = rng.Next(-d / 4, d / 4);
-                    deposits.Add(new GeneratedDeposit(i, spec.Item, amount, pos[i].X + ox, pos[i].Y + oy, pos[i].Z + oz));
+                    int density = spec.HasDensity ? rng.Next(spec.DensityMin, spec.DensityMax) : DepositRules.DefaultDensity;
+                    deposits.Add(new GeneratedDeposit(i, spec.Item, amount, pos[i].X + ox, pos[i].Y + oy, pos[i].Z + oz, density));
                 }
             }
         }

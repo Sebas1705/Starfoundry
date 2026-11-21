@@ -60,6 +60,10 @@ public static class PlayerRules
     public const int WorldLimitUnits = SimWorld.MaxCoord * Units.CellUnits;
 }
 
+/// <summary>Read-only view of a deposit, for rendering and panels. Position in cells, density in percent.</summary>
+public readonly record struct DepositInfo(
+    int Id, int Item, int Initial, int Remaining, int X, int Y, int Z, bool Revealed, int Density);
+
 /// <summary>Read-only view of a player, for rendering and tests. Positions are in units (<see cref="Units.CellUnits"/> per cell).</summary>
 public readonly record struct PlayerInfo(
     int Id, int HoldTotal, int MiningDeposit, int ShipRecipe, bool ShipCrafting, int ShipRemaining,
@@ -151,6 +155,9 @@ internal sealed class Deposit
     public readonly int X, Y, Z;
     public int Remaining;
 
+    /// <summary>Richness in percent of the base rate (25 to 200); mining and drilling time scale by 100 / density.</summary>
+    public int Density = DepositRules.DefaultDensity;
+
     /// <summary>Hidden deposits cannot be mined or linked until a scan reveals them.</summary>
     public bool Revealed = true;
 
@@ -159,7 +166,7 @@ internal sealed class Deposit
         Id = id; Item = item; Initial = amount; Remaining = amount; X = x; Y = y; Z = z;
     }
 
-    public Deposit Clone() => new(Id, Item, Initial, X, Y, Z) { Remaining = Remaining, Revealed = Revealed };
+    public Deposit Clone() => new(Id, Item, Initial, X, Y, Z) { Remaining = Remaining, Revealed = Revealed, Density = Density };
 }
 
 public sealed partial class BeltNetwork
@@ -250,15 +257,16 @@ public sealed partial class BeltNetwork
     // ---- deposits -----------------------------------------------------------------------------
 
     /// <summary>Adds a deposit centred on a cell (the origin by default, which is where players start).</summary>
-    public int AddDeposit(int item, int amount, int x = 0, int y = 0, int z = 0, bool revealed = true)
+    public int AddDeposit(int item, int amount, int x = 0, int y = 0, int z = 0, bool revealed = true, int density = DepositRules.DefaultDensity)
     {
         var content = Content ?? throw new InvalidOperationException("The network has no content.");
         if ((uint)item >= (uint)content.Items.Count) throw new ArgumentOutOfRangeException(nameof(item));
         if (amount < 1) throw new ArgumentOutOfRangeException(nameof(amount));
+        if (density < DepositRules.MinDensity || density > DepositRules.MaxDensity) throw new ArgumentOutOfRangeException(nameof(density));
         if (Math.Abs(x) > SimWorld.MaxCoord || Math.Abs(y) > SimWorld.MaxCoord || Math.Abs(z) > SimWorld.MaxCoord)
             throw new ArgumentOutOfRangeException(nameof(x), "The deposit is outside the world.");
         int id = _deposits.Count;
-        _deposits.Add(new Deposit(id, item, amount, x, y, z) { Revealed = revealed });
+        _deposits.Add(new Deposit(id, item, amount, x, y, z) { Revealed = revealed, Density = density });
         StructureVersion++;
         return id;
     }
@@ -275,6 +283,19 @@ public sealed partial class BeltNetwork
     public int DepositItem(int id) => GetDeposit(id).Item;
     public int DepositRemaining(int id) => GetDeposit(id).Remaining;
     public int DepositInitial(int id) => GetDeposit(id).Initial;
+
+    /// <summary>Richness of the deposit in percent (25 to 200, 100 is the base rate).</summary>
+    public int DepositDensity(int id) => GetDeposit(id).Density;
+
+    /// <summary>Ticks of hand mining per item at the deposit: <c>MineTicksPerItem * 100 / density</c>, at least 1.</summary>
+    public int MineTicksFor(int deposit) => DepositRules.Scale(PlayerRules.MineTicksPerItem, GetDeposit(deposit).Density);
+
+    /// <summary>Everything a renderer or panel needs to know about a deposit.</summary>
+    public DepositInfo GetDepositInfo(int id)
+    {
+        var d = GetDeposit(id);
+        return new DepositInfo(d.Id, d.Item, d.Initial, d.Remaining, d.X, d.Y, d.Z, d.Revealed, d.Density);
+    }
 
     private Deposit GetDeposit(int id)
     {
@@ -531,7 +552,7 @@ public sealed partial class BeltNetwork
                     p.MineProgress = 0;
                 }
                 else if (p.HoldTotal + p.ShipReserved < HoldCapacityOf(p) && !MiningHoldLimitReached(p) && InMineRange(p.Id, p.MiningDeposit)
-                    && ++p.MineProgress >= PlayerRules.MineTicksPerItem)
+                    && ++p.MineProgress >= DepositRules.Scale(PlayerRules.MineTicksPerItem, d.Density))
                 {
                     p.MineProgress = 0;
                     d.Remaining--;
@@ -739,7 +760,11 @@ public sealed partial class BeltNetwork
         MixGalaxy(mix);
         MixThreat(mix);
         mix(_deposits.Count);
-        foreach (var d in _deposits) { mix(d.Item); mix(d.Initial); mix(d.Remaining); mix(d.X); mix(d.Y); mix(d.Z); mix(d.Revealed ? 1 : 0); }
+        foreach (var d in _deposits)
+        {
+            mix(d.Item); mix(d.Initial); mix(d.Remaining); mix(d.X); mix(d.Y); mix(d.Z); mix(d.Revealed ? 1 : 0);
+            if (d.Density != DepositRules.DefaultDensity) mix(d.Density); // all-100 worlds hash as before densities existed
+        }
         mix(_players.Count);
         foreach (var p in _players.Values)
         {
@@ -789,7 +814,8 @@ public sealed partial class BeltNetwork
             if (!p.HasThrust && !axisRemainder && (p.ThrustRemX | p.ThrustRemY | p.ThrustRemZ) != 0) Fail($"player {p.Id} has a thrust remainder without thrust");
 
             if (p.MiningDeposit != -1 && !IsDeposit(p.MiningDeposit)) Fail($"player {p.Id} mines an unknown deposit");
-            if (p.MineProgress < 0 || p.MineProgress >= PlayerRules.MineTicksPerItem) Fail($"player {p.Id} mine progress out of range");
+            int mineLimit = DepositRules.Scale(PlayerRules.MineTicksPerItem, p.MiningDeposit >= 0 ? _deposits[p.MiningDeposit].Density : DepositRules.MinDensity);
+            if (p.MineProgress < 0 || p.MineProgress >= mineLimit) Fail($"player {p.Id} mine progress out of range");
             if (p.ShipRecipe == -1)
             {
                 if (p.ShipCrafting || p.ShipReserved != 0) Fail($"player {p.Id} has no ship recipe but is crafting");

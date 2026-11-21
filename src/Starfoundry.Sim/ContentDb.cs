@@ -123,12 +123,35 @@ public sealed record ResearchDef(
 public sealed record GalaxyRules(int SystemCount, int SpacingCells, int LanesPerSystem, int SystemRadiusCells);
 
 /// <summary>How many deposits of an item an archetype creates and how rich they are (inclusive ranges).</summary>
-public sealed record DepositSpec(int Item, int CountMin, int CountMax, int AmountMin, int AmountMax);
+/// <param name="DensityMin">Optional richness range in percent (see <see cref="DepositRules"/>); both 0 means the legacy density of 100.</param>
+public sealed record DepositSpec(int Item, int CountMin, int CountMax, int AmountMin, int AmountMax, int DensityMin = 0, int DensityMax = 0)
+{
+    public bool HasDensity => DensityMax > 0;
+}
 
 /// <param name="Weight">Relative chance of being picked for a system (home is never picked).</param>
 /// <param name="DistanceMin">Deposits are placed this far from the system anchor, in cells (inclusive range).</param>
+/// <param name="DepthMin">Optional: only systems at least this many lane jumps from home can get the archetype (0 = no limit).</param>
+/// <param name="DepthMax">Optional: only systems at most this many jumps from home (0 = no limit).</param>
+/// <param name="Guaranteed">If true and no system picked the archetype, the nearest eligible system (or the farthest one in a shallow galaxy) is given it.</param>
 public sealed record ArchetypeDef(
-    int Index, string Id, int Weight, bool IsHome, int DistanceMin, int DistanceMax, DepositSpec[] Deposits);
+    int Index, string Id, int Weight, bool IsHome, int DistanceMin, int DistanceMax, DepositSpec[] Deposits,
+    int DepthMin = 0, int DepthMax = 0, bool Guaranteed = false)
+{
+    public bool HasDepthLimit => DepthMin > 0 || DepthMax > 0;
+    public bool AllowedAt(int depth) => depth >= DepthMin && (DepthMax == 0 || depth <= DepthMax);
+}
+
+/// <summary>Fixed limits of a deposit's density (percent of the base mining rate).</summary>
+public static class DepositRules
+{
+    public const int DefaultDensity = 100;
+    public const int MinDensity = 25;
+    public const int MaxDensity = 200;
+
+    /// <summary>Ticks a time of <paramref name="baseTicks"/> takes at a density: base * 100 / density, never below 1.</summary>
+    public static int Scale(int baseTicks, int density) => Math.Max(1, (int)((long)baseTicks * 100 / density));
+}
 
 /// <summary>
 /// Immutable game content loaded from data files: items, machine types, recipes, belt costs and research.
@@ -514,7 +537,7 @@ public sealed class ContentDb
                 var archetypeIds = new HashSet<string>();
                 foreach (var e in Array(root, "archetypes"))
                 {
-                    RequireObject(e, "archetype", "id", "weight", "home", "distance_cells", "deposits");
+                    RequireObject(e, "archetype", "id", "weight", "home", "distance_cells", "deposits", "depth", "guaranteed");
                     string id = Id(e, "archetype");
                     if (!archetypeIds.Add(id)) throw new InvalidDataException($"Duplicate archetype '{id}'.");
                     if (!allIds.Add(id)) throw new InvalidDataException($"Id '{id}' is used twice across machines, recipes, belts, research and archetypes.");
@@ -528,18 +551,30 @@ public sealed class ContentDb
                     int weight = Int(e, "weight", id, home ? 0 : 1, 1000);
                     var (dmin, dmax) = Range(e, "distance_cells", id, 1, 400);
 
+                    int depthMin = 0, depthMax = 0;
+                    if (e.TryGetProperty("depth", out _)) (depthMin, depthMax) = Range(e, "depth", id, 0, 32);
+                    bool guaranteed = false;
+                    if (e.TryGetProperty("guaranteed", out var gv))
+                    {
+                        if (gv.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) throw new InvalidDataException($"Archetype '{id}' guaranteed must be true or false.");
+                        guaranteed = gv.GetBoolean();
+                    }
+                    if (home && (depthMax > 0 || guaranteed)) throw new InvalidDataException($"The home archetype '{id}' cannot have a depth or be guaranteed.");
+
                     var specs = new List<DepositSpec>();
                     foreach (var s in Array(e, "deposits"))
                     {
-                        RequireObject(s, "deposit spec", "item", "count", "amount");
+                        RequireObject(s, "deposit spec", "item", "count", "amount", "density");
                         string item = Str(s, "item", $"deposits of '{id}'");
                         if (!itemIds.TryGetValue(item, out int itemIndex)) throw new InvalidDataException($"Archetype '{id}' uses unknown item '{item}'.");
                         var (cmin, cmax) = Range(s, "count", id, 0, 16);
                         var (amin, amax) = Range(s, "amount", id, 1, 1_000_000);
-                        specs.Add(new DepositSpec(itemIndex, cmin, cmax, amin, amax));
+                        int denMin = 0, denMax = 0;
+                        if (s.TryGetProperty("density", out _)) (denMin, denMax) = Range(s, "density", id, DepositRules.MinDensity, DepositRules.MaxDensity);
+                        specs.Add(new DepositSpec(itemIndex, cmin, cmax, amin, amax, denMin, denMax));
                     }
                     if (specs.Count == 0 || specs.Count > 8) throw new InvalidDataException($"Archetype '{id}' needs 1 to 8 deposit specs.");
-                    archetypes.Add(new ArchetypeDef(archetypes.Count, id, weight, home, dmin, dmax, specs.ToArray()));
+                    archetypes.Add(new ArchetypeDef(archetypes.Count, id, weight, home, dmin, dmax, specs.ToArray(), depthMin, depthMax, guaranteed));
                 }
             }
 
@@ -550,6 +585,7 @@ public sealed class ContentDb
             {
                 if (archetypes.Count(a => a.IsHome) != 1) throw new InvalidDataException("A galaxy needs exactly one home archetype.");
                 if (!archetypes.Any(a => !a.IsHome && a.Weight > 0)) throw new InvalidDataException("A galaxy needs at least one non-home archetype with a weight.");
+                if (!archetypes.Any(a => !a.IsHome && a.Weight > 0 && !a.HasDepthLimit)) throw new InvalidDataException("A galaxy needs a non-home archetype with a weight and no depth limit.");
                 foreach (var a in archetypes)
                     if (a.DistanceMax > galaxy.SystemRadiusCells) throw new InvalidDataException($"Archetype '{a.Id}' places deposits outside the system radius.");
             }
@@ -955,7 +991,12 @@ public sealed class ContentDb
         {
             MixStr(a.Id); Mix(a.Weight); Mix(a.IsHome ? 1 : 0); Mix(a.DistanceMin); Mix(a.DistanceMax);
             Mix(a.Deposits.Length);
-            foreach (var d in a.Deposits) { Mix(d.Item); Mix(d.CountMin); Mix(d.CountMax); Mix(d.AmountMin); Mix(d.AmountMax); }
+            foreach (var d in a.Deposits)
+            {
+                Mix(d.Item); Mix(d.CountMin); Mix(d.CountMax); Mix(d.AmountMin); Mix(d.AmountMax);
+                if (d.HasDensity) { Mix(d.DensityMin); Mix(d.DensityMax); } // absent for legacy content, which hashes as before
+            }
+            if (a.HasDepthLimit || a.Guaranteed) { Mix(a.DepthMin); Mix(a.DepthMax); Mix(a.Guaranteed ? 1 : 0); }
         }
         MixStacks(JumpCost);
         if (Modules is { } mo) { MixStacks(mo.CoreCost); MixStacks(mo.HullCost); Mix(mo.GrowthPercent); }

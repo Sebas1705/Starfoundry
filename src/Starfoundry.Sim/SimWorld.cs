@@ -54,7 +54,7 @@ public sealed class SimWorld
         var galaxy = Galaxy.Generate(content, seed);
         var net = new BeltNetwork(content, mode, threats, stationRules, structures);
         foreach (var d in galaxy.Deposits)
-            net.AddDeposit(d.Item, d.Amount, d.X, d.Y, d.Z, revealed: d.System == 0);
+            net.AddDeposit(d.Item, d.Amount, d.X, d.Y, d.Z, revealed: d.System == 0, density: d.Density);
         net.SetGalaxy(galaxy);
         // The starter ship is part of the initial world, like the deposits: built before the first command, at no cost, at the
         // home anchor (the world origin), so replays and saves that call CreateGalaxy with the header flags get it too.

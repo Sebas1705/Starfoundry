@@ -68,11 +68,12 @@ public class GalaxyTests
         Assert.True(C.Archetypes[home.Archetype].IsHome);
 
         var ds = g.DepositsOf(0).Select(i => g.Deposits[i]).ToList();
-        Assert.Equal(2, ds.Count);
+        Assert.Equal(3, ds.Count); // iron, carbon and a little ice
         Assert.Equal(C.ItemIndex("core:iron_ore"), ds[0].Item);
         Assert.Equal(4000, ds[0].Amount);
         Assert.Equal(C.ItemIndex("core:carbon"), ds[1].Item);
         Assert.Equal(1500, ds[1].Amount);
+        Assert.Equal(C.ItemIndex("core:ice"), ds[2].Item);
         foreach (var d in ds)
         {
             double horizontal = Math.Sqrt((double)d.X * d.X + (double)d.Z * d.Z);
@@ -188,9 +189,10 @@ public class GalaxyTests
             }
         }
         Assert.False(counts.ContainsKey("core:home"), "home is never picked for another system");
-        Assert.InRange(counts["core:dense_belt"] / (double)total, 3.0 / 7 - 0.05, 3.0 / 7 + 0.05);
-        Assert.InRange(counts["core:sparse_belt"] / (double)total, 2.0 / 7 - 0.05, 2.0 / 7 + 0.05);
-        Assert.InRange(counts["core:carbon_rich"] / (double)total, 2.0 / 7 - 0.05, 2.0 / 7 + 0.05);
+        // Archetypes now also depend on the jumps from home, so the share is no longer the plain weight ratio: every one of
+        // them is picked, and the unrestricted one still turns up all over the galaxy.
+        foreach (var a in C.Archetypes.Where(a => !a.IsHome)) Assert.True(counts.GetValueOrDefault(a.Id) > 0, a.Id);
+        Assert.InRange(counts["core:carbon_rich"] / (double)total, 0.05, 0.4);
     }
 
     [Fact]

@@ -184,7 +184,7 @@ public sealed partial class BeltNetwork
                 m.Crafting = false;
             }
 
-            if (!m.Crafting && CanStart(m, r) && TakeFromDepositIfDrill(m, r))
+            if (!m.Crafting && CanStart(m, r) && TakeFromDepositIfDrill(m, r, out int time))
             {
                 foreach (var i in r.Inputs)
                 {
@@ -192,7 +192,7 @@ public sealed partial class BeltNetwork
                     MachineInputsConsumed += i.Count;
                 }
                 m.Crafting = true;
-                m.Remaining = r.TimeTicks;
+                m.Remaining = time;
             }
         }
 
@@ -210,8 +210,9 @@ public sealed partial class BeltNetwork
     }
 
     /// <summary>A drill needs a linked deposit that still holds enough of the recipe's output item; the ore is taken as the craft starts.</summary>
-    private bool TakeFromDepositIfDrill(Machine m, RecipeDef r)
+    private bool TakeFromDepositIfDrill(Machine m, RecipeDef r, out int time)
     {
+        time = r.TimeTicks;
         if (Content!.Machines[m.Type].Role != MachineRole.Drill) return true;
         if (m.Deposit < 0) return false;
         var d = _deposits[m.Deposit];
@@ -219,6 +220,7 @@ public sealed partial class BeltNetwork
         if (d.Item != o.Item || d.Remaining < o.Count) return false;
         d.Remaining -= o.Count;
         DrilledTotal += o.Count;
+        time = DepositRules.Scale(r.TimeTicks, d.Density); // a richer vein yields faster: the craft takes 100 / density of the time
         return true;
     }
 
@@ -365,7 +367,7 @@ public sealed partial class BeltNetwork
                     if (m.In[i] < 0 || m.In[i] > inCap) Fail($"machine {id} input buffer {i} holds {m.In[i]} (cap {inCap})");
                     if (m.Out[i] < 0 || m.Out[i] > outCap) Fail($"machine {id} output buffer {i} holds {m.Out[i]} (cap {outCap})");
                 }
-                if (m.Crafting && (m.Remaining < 1 || m.Remaining > r.TimeTicks)) Fail($"machine {id} remaining time {m.Remaining} out of range");
+                if (m.Crafting && (m.Remaining < 1 || m.Remaining > DepositRules.Scale(r.TimeTicks, DepositRules.MinDensity))) Fail($"machine {id} remaining time {m.Remaining} out of range");
             }
             if (!m.Crafting && m.Remaining != 0) Fail($"machine {id} is idle with remaining time {m.Remaining}");
 
