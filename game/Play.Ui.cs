@@ -1628,7 +1628,7 @@ public partial class Play
             case Key.T: ToggleResearchPanel(); break;
             case Key.B: ToggleBuildMenu(); break;
             case Key.P: _paused = !_paused; break;
-            case Key.Equal: case Key.KpAdd: _speed = Math.Min(10, _speed + 1); break;
+            case Key.Equal: case Key.Plus: case Key.KpAdd: _speed = Math.Min(10, _speed + 1); break;
             case Key.Minus: case Key.KpSubtract: _speed = Math.Max(1, _speed - 1); break;
         }
     }
@@ -1685,9 +1685,9 @@ public partial class Play
         var thrust = (0, 0, 0);
         if (_mouseLook)
         {
-            int forward = (Input.IsKeyPressed(Key.W) ? 1 : 0) - (Input.IsKeyPressed(Key.S) ? 1 : 0);
-            int right = (Input.IsKeyPressed(Key.D) ? 1 : 0) - (Input.IsKeyPressed(Key.A) ? 1 : 0);
-            int up = (Input.IsKeyPressed(Key.Space) ? 1 : 0) - (Input.IsKeyPressed(Key.C) ? 1 : 0);
+            int forward = (Input.IsPhysicalKeyPressed(Key.W) ? 1 : 0) - (Input.IsPhysicalKeyPressed(Key.S) ? 1 : 0);
+            int right = (Input.IsPhysicalKeyPressed(Key.D) ? 1 : 0) - (Input.IsPhysicalKeyPressed(Key.A) ? 1 : 0);
+            int up = (Input.IsPhysicalKeyPressed(Key.Space) ? 1 : 0) - (Input.IsPhysicalKeyPressed(Key.C) ? 1 : 0);
             if (forward != 0 || right != 0 || up != 0)
             {
                 _waypoint = null; // flying by hand takes over from the autopilot

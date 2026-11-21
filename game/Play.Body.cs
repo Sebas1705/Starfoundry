@@ -95,8 +95,8 @@ public partial class Play
         if (_bodyVolumes.Length == 0) { Sit(); return; }
         if (!BodyMotion.Contains(Sys(_body), _bodyVolumes)) _body = FromSys(BodyMotion.Nearest(Sys(_body), _bodyVolumes)); // the module under the feet was removed
         if (!_mouseLook) return;
-        float forward = (Input.IsKeyPressed(Key.W) ? 1 : 0) - (Input.IsKeyPressed(Key.S) ? 1 : 0);
-        float right = (Input.IsKeyPressed(Key.D) ? 1 : 0) - (Input.IsKeyPressed(Key.A) ? 1 : 0);
+        float forward = (Input.IsPhysicalKeyPressed(Key.W) ? 1 : 0) - (Input.IsPhysicalKeyPressed(Key.S) ? 1 : 0);
+        float right = (Input.IsPhysicalKeyPressed(Key.D) ? 1 : 0) - (Input.IsPhysicalKeyPressed(Key.A) ? 1 : 0);
         if (forward == 0 && right == 0) return;
         var fwd = new Vector3(-MathF.Sin(_yaw), 0f, -MathF.Cos(_yaw));
         var wish = fwd * forward + CockpitRight() * right;
