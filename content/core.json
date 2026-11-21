@@ -168,6 +168,23 @@
     {
       "id": "core:micro_refinery",
       "role": "ship"
+    },
+    {
+      "id": "core:ore_unloader",
+      "role": "unloader",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 12
+        }
+      ],
+      "hp": 80,
+      "signature": 1,
+      "unloader": {
+        "item": "core:iron_ore",
+        "interval_ticks": 30,
+        "reserve": 0
+      }
     }
   ],
   "recipes": [
@@ -384,7 +401,8 @@
         "core:carbon_drilling"
       ],
       "unlocks": [
-        "core:unloader"
+        "core:unloader",
+        "core:ore_unloader"
       ],
       "abilities": [
         "jump"

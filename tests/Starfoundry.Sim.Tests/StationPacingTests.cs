@@ -178,6 +178,62 @@ public class StationPacingTests
     }
 
     [Fact]
+    public void Hand_mined_ore_reaches_a_smelter_through_the_ore_port()
+    {
+        var w = SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, threats: false, stationRules: true);
+        w.Network.EnsurePlayer(0);
+        var net = w.Network;
+        int deposit = -1;
+        for (int d = 0; d < net.DepositCount; d++)
+            if (net.IsDepositRevealed(d) && net.DepositItem(d) == Ore) { deposit = d; break; }
+        Assert.True(deposit >= 0);
+        var (ox, oy, oz) = net.DepositPosition(deposit);
+
+        int Ok(Command c)
+        {
+            w.Submit(0, c); w.Step();
+            var res = w.LastResults.Last();
+            Assert.True(res.Ok, $"{c} was rejected: {res.Reject}");
+            return res.CreatedMachines.Count > 0 ? res.CreatedMachines[0] : res.Created.Count > 0 ? res.Created[0] : -1;
+        }
+
+        // Fly to the deposit and hand-mine raw ore into the hold (no ship refinery recipe: the ore stays ore).
+        for (int i = 0; i < 60 * Tps && !net.InMineRange(0, deposit); i++)
+        {
+            var p = net.GetPlayerInfo(0);
+            var (sx, sy, sz) = Sign(ox * (long)Units.CellUnits - p.X, oy * (long)Units.CellUnits - p.Y, oz * (long)Units.CellUnits - p.Z);
+            w.Submit(0, new SetMovement(sx, sy, sz)); w.Step();
+        }
+        Assert.True(net.InMineRange(0, deposit), "never reached the deposit");
+        w.Submit(0, new SetMovement(0, 0, 0)); w.Step();
+        Ok(new StartMining(deposit));
+        w.Step(20 * Tps);
+        int mined = net.HoldCount(0, Ore);
+        Assert.True(mined > 0, "hand mining put no ore in the hold");
+
+        // The ore port is what moves it out: the module goes where the ship is, the line inside it.
+        var pl = net.GetPlayerInfo(0);
+        var module = StationGrid.ModuleOfCell(pl.X / Units.CellUnits, pl.Y / Units.CellUnits, pl.Z / Units.CellUnits);
+        net.GiveItems(0, Ingot, 200); // stands for the hand-refined ingots the pacing script above pays with
+        Ok(new PlaceModule(module.Item1, module.Item2, module.Item3));
+        int bx = module.Item1 * StationGrid.ModuleX, by = module.Item2 * StationGrid.ModuleY + 1, bz = module.Item3 * StationGrid.ModuleZ + 1;
+        int port = Ok(new PlaceMachine(bx, by, bz, C.MachineIndex("core:ore_unloader"), -1));
+        int b1 = Ok(new PlaceSegment(bx + 1, by, bz, Dir.PosX, 3, BeltTier.Mk1));
+        int smelter = Ok(new PlaceMachine(bx + 4, by, bz, Smelter, C.RecipeIndex("core:smelt_iron")));
+        int b2 = Ok(new PlaceSegment(bx + 5, by, bz, Dir.PosX, 3, BeltTier.Mk1));
+        Ok(new ConnectFromMachine(port, b1));
+        Ok(new ConnectToMachine(b1, smelter));
+        Ok(new ConnectFromMachine(smelter, b2));
+        Ok(new SetSink(b2));
+        Ok(new StopMining());
+        int before = net.HoldCount(0, Ore);
+        w.Step(30 * Tps);
+        w.ValidateInvariants();
+        Assert.True(net.PassedBy(b2) > 0, "no ingot reached the end of the line");
+        Assert.True(net.HoldCount(0, Ore) < before, "the hold kept its ore");
+    }
+
+    [Fact]
     public void Wave_clock_is_unchanged_when_rules_off()
     {
         // Free building: the first machine starts raising the alert at once, with no core in the way.

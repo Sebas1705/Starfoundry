@@ -70,6 +70,7 @@ public static class Models
         "core:wall" => BuildWall(),
         "core:repair_bay" => BuildRepairBay(),
         "core:unloader" => BuildUnloader(),
+        "core:ore_unloader" => BuildUnloader(),
         _ => BuildCrate(),
     };
 
