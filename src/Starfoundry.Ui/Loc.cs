@@ -349,9 +349,10 @@ public static class Loc
         ["toast.shipLostCockpit"] = ("Han destruido la cabina de tu nave: ya no puedes pilotarla.", "Your ship's cockpit was destroyed: you can no longer fly it."),
 
         // ---- defence feedback, goal and end screens ----
-        ["goal.line"] = ("Objetivo: sobrevive {0} oleadas con una estación ({1}/{0})", "Goal: survive {0} waves with a station ({1}/{0})"),
+        ["goal.line"] = ("Objetivo: sobrevive {0} oleadas con una estación y visita otro sistema (oleadas {1}/{0}, saltos {2}/{3})", "Goal: survive {0} waves with a station and visit another system (waves {1}/{0}, jumps {2}/{3})"),
         ["goal.lineNoStation"] = ("Objetivo: sobrevive {0} oleadas ({1}/{0})", "Goal: survive {0} waves ({1}/{0})"),
         ["goal.needStation"] = ("Funda una estación para poder ganar.", "Found a station to be able to win."),
+        ["goal.needJump"] = ("Investiga el motor de salto y visita otro sistema para poder ganar.", "Research the jump drive and visit another system to be able to win."),
         ["hud.integrity"] = ("Integridad {0} %", "Integrity {0} %"),
         ["hud.integrityShip"] = ("Integridad de la nave", "Ship integrity"),
         ["hud.banner.wave"] = ("OLEADA {0} EN {1} s", "WAVE {0} IN {1} s"),
@@ -380,9 +381,9 @@ public static class Loc
         ["rule.freeBuild"] = ("Construcción gratis", "Free building"),
         ["rule.goalWaves"] = ("Oleadas para ganar", "Waves to win"),
         ["rule.contentDefault"] = ("Por defecto", "Default"),
-        ["settings.tip.goalWaves"] =("Cuántas oleadas hay que superar con una estación en pie para ganar: de 3 a 30.", "How many waves you must clear with a station standing to win: 3 to 30."),
+        ["settings.tip.goalWaves"] = ("Cuántas oleadas hay que superar con una estación en pie para ganar (además de visitar otro sistema): de 3 a 30.", "How many waves you must clear with a station standing to win (and you must also visit another system): 3 to 30."),
         ["end.victory.title"] = ("Estación asegurada", "Station secured"),
-        ["end.victory.sub"] = ("Has superado {0} oleadas con tu estación en pie.", "You cleared {0} waves with your station standing."),
+        ["end.victory.sub"] = ("Has superado {0} oleadas con tu estación en pie y has visitado otro sistema.", "You cleared {0} waves with your station standing and visited another system."),
         ["end.defeat.title"] = ("Nave perdida", "Ship lost"),
         ["end.defeat.sub"] = ("Han destruido la última cabina de tu nave.", "Your ship's last cockpit was destroyed."),
         ["end.stat.time"] = ("Tiempo de juego", "Play time"),
