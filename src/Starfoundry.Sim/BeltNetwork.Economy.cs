@@ -84,6 +84,9 @@ internal sealed class Player
     public int ThrustX, ThrustY, ThrustZ;
     public int ThrustRemX, ThrustRemY, ThrustRemZ;
 
+    /// <summary>The ship structure this player flies (-1 when none). With structure rules on, its origin is the source of truth for X/Y/Z.</summary>
+    public int ShipStructure = -1;
+
     public bool HasThrust => (ThrustX | ThrustY | ThrustZ) != 0;
 
     public void ClearThrust()
@@ -125,6 +128,7 @@ internal sealed class Player
             ThrustX = ThrustX, ThrustY = ThrustY, ThrustZ = ThrustZ, ThrustRemX = ThrustRemX, ThrustRemY = ThrustRemY, ThrustRemZ = ThrustRemZ,
             ScanCooldown = ScanCooldown, JumpTarget = JumpTarget, JumpRemaining = JumpRemaining,
             Hull = Hull, Armed = Armed, WeaponCooldown = WeaponCooldown, RespawnRemaining = RespawnRemaining,
+            ShipStructure = ShipStructure,
         };
         Array.Copy(Hold, c.Hold, Hold.Length);
         return c;
@@ -520,7 +524,7 @@ public sealed partial class BeltNetwork
                     p.MiningDeposit = -1;
                     p.MineProgress = 0;
                 }
-                else if (p.HoldTotal + p.ShipReserved < PlayerRules.HoldCapacity && InMineRange(p.Id, p.MiningDeposit)
+                else if (p.HoldTotal + p.ShipReserved < HoldCapacityOf(p) && InMineRange(p.Id, p.MiningDeposit)
                     && ++p.MineProgress >= PlayerRules.MineTicksPerItem)
                 {
                     p.MineProgress = 0;
@@ -533,8 +537,15 @@ public sealed partial class BeltNetwork
         }
     }
 
-    private static void MoveShip(Player p)
+    private void MoveShip(Player p)
     {
+        int flight = FlightStructure(p);
+        if (flight >= 0)
+        {
+            MoveShipStructure(p, flight);
+            return;
+        }
+
         const int limit = PlayerRules.WorldLimitUnits;
         if (p.HasThrust)
         {
@@ -583,7 +594,7 @@ public sealed partial class BeltNetwork
             inTotal += i.Count;
         }
         foreach (var o in r.Outputs) outTotal += o.Count;
-        if (p.HoldTotal - inTotal + outTotal > PlayerRules.HoldCapacity) return;
+        if (p.HoldTotal - inTotal + outTotal > HoldCapacityOf(p)) return;
 
         foreach (var i in r.Inputs)
         {
@@ -653,8 +664,9 @@ public sealed partial class BeltNetwork
     {
         if (depot.Owner < 0 || item >= Content!.Items.Count) return false;
         var p = GetOrCreatePlayer(depot.Owner);
-        if (p.HoldTotal + p.ShipReserved >= PlayerRules.HoldCapacity) return false;
-        if (p.Hold[item] >= PlayerRules.DepotItemCap) return false; // one item type never takes the whole hold
+        int capacity = HoldCapacityOf(p);
+        if (p.HoldTotal + p.ShipReserved >= capacity) return false;
+        if (p.Hold[item] >= capacity * 2 / 5) return false; // one item type never takes the whole hold
 
         AddToHold(p, item, 1);
         s.PopFront();
@@ -730,6 +742,7 @@ public sealed partial class BeltNetwork
             mix(p.X); mix(p.Y); mix(p.Z); mix(p.MoveX); mix(p.MoveY); mix(p.MoveZ);
             mix(p.ThrustX); mix(p.ThrustY); mix(p.ThrustZ); mix(p.ThrustRemX); mix(p.ThrustRemY); mix(p.ThrustRemZ);
             mix(p.Id); mix(p.HoldTotal); mix(p.MiningDeposit); mix(p.MineProgress);
+            if (p.ShipStructure >= 0) mix(p.ShipStructure);
             mix(p.ShipRecipe); mix(p.ShipCrafting ? 1 : 0); mix(p.ShipRemaining); mix(p.ShipReserved);
             foreach (int h in p.Hold) mix(h);
         }
@@ -761,10 +774,13 @@ public sealed partial class BeltNetwork
                 Fail($"player {p.Id} is outside the world");
             if (p.MoveX is < -1 or > 1 || p.MoveY is < -1 or > 1 || p.MoveZ is < -1 or > 1) Fail($"player {p.Id} has an invalid movement intent");
             if (!PlayerRules.ThrustInRange(p.ThrustX, p.ThrustY, p.ThrustZ)) Fail($"player {p.Id} has an invalid thrust");
-            if (Math.Abs(p.ThrustRemX) >= PlayerRules.ThrustScale || Math.Abs(p.ThrustRemY) >= PlayerRules.ThrustScale || Math.Abs(p.ThrustRemZ) >= PlayerRules.ThrustScale)
+            int remLimit = FlightStructure(p) >= 0 ? PlayerRules.ThrustScale * StructureFlight.PercentScale : PlayerRules.ThrustScale;
+            if (Math.Abs(p.ThrustRemX) >= remLimit || Math.Abs(p.ThrustRemY) >= remLimit || Math.Abs(p.ThrustRemZ) >= remLimit)
                 Fail($"player {p.Id} has a thrust remainder out of range");
             if (p.HasThrust && (p.MoveX | p.MoveY | p.MoveZ) != 0) Fail($"player {p.Id} has both an axis intent and a thrust");
-            if (!p.HasThrust && (p.ThrustRemX | p.ThrustRemY | p.ThrustRemZ) != 0) Fail($"player {p.Id} has a thrust remainder without thrust");
+            // A structure flight keeps a sub-unit remainder for the axis intent too (engine percent scales the speed).
+            bool axisRemainder = FlightStructure(p) >= 0 && (p.MoveX | p.MoveY | p.MoveZ) != 0;
+            if (!p.HasThrust && !axisRemainder && (p.ThrustRemX | p.ThrustRemY | p.ThrustRemZ) != 0) Fail($"player {p.Id} has a thrust remainder without thrust");
 
             if (p.MiningDeposit != -1 && !IsDeposit(p.MiningDeposit)) Fail($"player {p.Id} mines an unknown deposit");
             if (p.MineProgress < 0 || p.MineProgress >= PlayerRules.MineTicksPerItem) Fail($"player {p.Id} mine progress out of range");

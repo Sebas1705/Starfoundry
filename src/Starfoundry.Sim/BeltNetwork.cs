@@ -192,11 +192,13 @@ public sealed partial class BeltNetwork
     {
         if (_dirty) RebuildOrder();
 
+        RecheckDrillLinks(); // a structure moved from outside the tick (setup, tests) drops out-of-range links before drills work
         foreach (int id in _order) MoveSegment(_segs[id]!);
 
         StepMachines();
         StepUnloaders();
         StepPlayers();
+        RecheckDrillLinks(); // structure moves are applied here, before the threat phase
         StepResearch();
         StepThreat();
 

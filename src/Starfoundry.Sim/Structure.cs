@@ -19,6 +19,19 @@ public static class StructureGrid
         && InLocalBounds(mz * StationGrid.ModuleZ) && InLocalBounds(mz * StationGrid.ModuleZ + StationGrid.ModuleZ - 1);
 }
 
+/// <summary>Fixed rules of flying a ship structure. Part of the simulation, so changing them changes states.</summary>
+public static class StructureFlight
+{
+    /// <summary>Where the pilot sits relative to the ship structure origin, in units (the player position is origin + this offset).</summary>
+    public const int CockpitOffsetX = 0, CockpitOffsetY = 0, CockpitOffsetZ = 0;
+
+    /// <summary>Engine speed percentages are percent of <see cref="PlayerRules.MoveUnitsPerTick"/>: this is the denominator (100).</summary>
+    public const int PercentScale = 100;
+
+    /// <summary>The summed engine speed is clamped to this many percent of the base speed (4x).</summary>
+    public const int MaxSpeedPercent = 400;
+}
+
 /// <summary>
 /// A ship or station: a local cell grid with an integer world origin (in units). Machines and belt segments
 /// belong to a structure and use its local cell coordinates. Structure 0 is the implicit legacy world
