@@ -385,6 +385,8 @@ public static class Loc
                            "All steps done. Explore, expand and keep the base defended."),
         ["obj.allDone.structures"] = ("Todos los pasos hechos. Siguiente: explora otros sistemas (G), consigue titanio y cuarzo, construye drones y defiéndete.",
                                       "All steps done. Next: scout other systems (G), get titanium and quartz, build drones, defend."),
+        ["learn.portOre"] = ("Llevas {1} de {0} en la bodega y ningún puerto lo saca a una cinta. Construye un puerto de ese mineral (menú B, Logística; los puertos son gratis) para que alimente tu fábrica o tu laboratorio.",
+                             "You hold {1} {0} and no port puts it on a belt. Build a port for that ore (B menu, Logistics; ports are free) so it can feed your factory or lab."),
         ["learn.noReactor"] = ("Tu estación no tiene energía: añade un módulo Reactor (N) y mantén hidrógeno en la bodega.",
                                "Your station has no power: add a Reactor module (N) and keep hydrogen in the hold."),
         ["learn.jumpCarbon"] = ("Cada salto cuesta {0} de carbono de tu bodega y los sistemas de níquel o titanio no tienen carbono: mina carbono antes de salir para poder volver.",

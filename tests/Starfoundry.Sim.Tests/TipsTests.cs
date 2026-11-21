@@ -173,6 +173,63 @@ public class TipsTests
     }
 
     [Fact]
+    public void StationHasNoReactorIsAMachineReadableState()
+    {
+        var (w, st) = StationWithSmelter();
+        var net = w.Network;
+        Assert.True(net.StationHasNoReactor(st));
+        Assert.False(net.StationHasNoReactor(0));
+        Assert.False(net.StationHasNoReactor(9999));
+        Ok(w, new PlaceModuleIn(st, 0, 0, 1, ModuleKind.Reactor));
+        Assert.False(net.StationHasNoReactor(st));
+
+        // An empty station and a ship never count.
+        int empty = net.CreateStructure(0, StructureKind.Station, 40_000, 0, 0);
+        net.AddStructureModuleUnchecked(empty, 0, 0, 0, ModuleKind.Core);
+        Assert.False(net.StationHasNoReactor(empty));
+        int ship = net.CreateStructure(0, StructureKind.Ship, 80_000, 0, 0);
+        net.AddStructureModuleUnchecked(ship, 0, 0, 0, ModuleKind.Workshop);
+        net.AddMachine(1, 1, 1, TestContent.CoreWithoutStarterShip.MachineIndex("core:smelter"), -1, owner: 0, structure: ship);
+        Assert.False(net.StationHasNoReactor(ship));
+
+        // Not in worlds without structure rules.
+        Assert.False(new SimWorld(C).Network.StationHasNoReactor(1));
+    }
+
+    [Fact]
+    public void ThePortTipFiresInStructureWorldsForAnOreWithoutAPort()
+    {
+        var w = SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true);
+        w.Network.EnsurePlayer(0);
+        var tips = new Tips(C);
+        int iron = C.ItemIndex("core:iron_ore"), titanium = C.ItemIndex("core:titanium_ore");
+        w.Network.GiveItems(0, iron, 30); // the starter ship has an iron ore port
+        Assert.Null(tips.Next(w.Network, 0));
+        w.Network.GiveItems(0, titanium, Tips.PortTipOreCount - 1);
+        Assert.Null(tips.Next(w.Network, 0)); // not yet in quantity
+        w.Network.GiveItems(0, titanium, 1);
+        var tip = tips.Next(w.Network, 0);
+        Assert.Equal("learn.portOre", tip?.Key);
+        Assert.Equal(Tips.PortTipOreCount, tip!.Args[1]);
+        Assert.True(Loc.Has("learn.portOre"));
+        w.Step(Units.TicksPerSecond * 60);
+        Assert.NotEqual("learn.portOre", tips.Next(w.Network, 0)?.Key); // once only
+    }
+
+    [Fact]
+    public void ThePortTipStaysQuietWhenAPortStandsOrTheCarbonIsForJumps()
+    {
+        var w = SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true);
+        w.Network.EnsurePlayer(0);
+        int ship = w.Network.ShipStructure(0);
+        int titanium = C.ItemIndex("core:titanium_ore"), carbon = C.ItemIndex("core:carbon");
+        Ok(w, new PlaceMachineIn(ship, 1, 2, 12, C.MachineIndex("core:titanium_ore_unloader"), -1));
+        w.Network.GiveItems(0, titanium, 40);
+        w.Network.GiveItems(0, carbon, 15 + C.JumpCost.Single(j => j.Item == carbon).Count - 1); // fifteen short of a surplus
+        Assert.NotEqual("learn.portOre", new Tips(C).Next(w.Network, 0)?.Key);
+    }
+
+    [Fact]
     public void AStationWithAReactorGetsNoReactorTip()
     {
         var (w, st) = StationWithSmelter();

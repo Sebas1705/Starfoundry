@@ -43,6 +43,19 @@ public sealed partial class BeltNetwork
         return new PowerStatus(s.PowerProduction, s.PowerDemand, s.Satisfaction, burn, hydrogen, burn > 0);
     }
 
+    /// <summary>
+    /// True when the structure is a station that holds at least one machine but has no reactor module, so nothing in it can ever be
+    /// powered. False for ships, unknown structures, stations with a reactor, empty stations and worlds without structure rules.
+    /// </summary>
+    public bool StationHasNoReactor(int structure)
+    {
+        if (!StructureRules || structure == 0 || !_structures.TryGetValue(structure, out var s) || s.Kind != StructureKind.Station) return false;
+        if (s.ModuleMap.Values.Contains(ModuleKind.Reactor)) return false;
+        foreach (var m in _machines)
+            if (m is not null && m.Structure == structure) return true;
+        return false;
+    }
+
     /// <summary>Power of the ship structure of a player (fully powered, nothing burning, when the player has none).</summary>
     public PowerStatus ShipPower(int player)
     {
