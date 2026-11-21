@@ -26,6 +26,8 @@ public partial class MainMenu : Control
     public override void _Ready()
     {
         var args = OS.GetCmdlineUserArgs();
+        if (AudioTest.Handle(GetTree(), args)) return;
+        AudioManager.Enabled = !AudioFlags.IsSilent(args);
         _menuShotPath = args.FirstOrDefault(a => a.StartsWith("--menu-shot="))?["--menu-shot=".Length..];
         // Any other flag means a scripted run or a screenshot: no menu.
         if (args.Any(a => !a.StartsWith("--menu-shot=")))
@@ -36,6 +38,7 @@ public partial class MainMenu : Control
         }
 
         SettingsStore.EnsureLoaded();
+        AudioManager.Create(this); // UI sounds in the menu (clicks, slider previews)
         Input.MouseMode = Input.MouseModeEnum.Visible;
         BuildBackground();
 

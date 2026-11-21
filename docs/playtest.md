@@ -14,7 +14,7 @@ Open the `game/` folder in Godot and press F5. The game opens on the main menu. 
 ### Menus and settings
 - **Main menu**: Continue (enabled when a quick save or autosave exists; it loads the newest one and shows its play time), New game, Settings, Controls (the same text as `F1`) and Quit. Arrows and Enter work as well as the mouse; `Esc` goes back from a page.
 - **Pause menu**: `Esc` with nothing to cancel (no build tool, panel or selection) frees the mouse and opens it; the simulation is paused while it is open. Resume, Save and Load (the quick save, same as `F6`/`F9`), Settings, Controls, Main menu (autosaves first) and Quit. `Esc` again resumes.
-- **Settings**: language, mouse sensitivity (0.5x to 2x), field of view (70 to 100), master volume (stored and applied to the master bus; there is no audio yet), invert mouse Y and fullscreen. Changes apply at once and are saved to `settings.cfg` in the Godot user folder:
+- **Settings**: language, mouse sensitivity (0.5x to 2x), field of view (70 to 100), master volume, effects, music-and-ambience and interface volume (four buses, see [audio](prototypes/audio.md); moving a slider plays a preview), invert mouse Y and fullscreen. Changes apply at once and are saved to `settings.cfg` in the Godot user folder:
 
   ```powershell
   explorer "$env:APPDATA\Godot\app_userdata\Starfoundry Belt Prototype"
@@ -109,3 +109,6 @@ Layout check: `Godot --path game --resolution 1280x720 -- --hud-shot=out.png [--
 
 ## Saving
 `F6` saves, `F9` loads, and a played game saves itself to an autosave every five minutes of real time. The files are in the `saves` folder next to `playlogs` (`%APPDATA%\Godot\app_userdata\Starfoundry Belt Prototype\saves`). A save is the log of what you did and is replayed when loaded, which takes a second or two for an hour-long base ([ADR 0016](adr/0016-saves-are-the-command-log-replayed.md)). If the game says a save cannot be loaded, keep the file and tell me: it means the game changed since it was made. After a load the guided steps are recomputed and a hint may show again. The play log notes the load.
+
+## Sound
+The game has procedural audio (synthesised at startup, no asset files; see [audio](prototypes/audio.md)) and **nobody has listened to it yet**. Play with headphones for a while and write down: sounds that are too loud, too quiet, grating or confusing; whether you can tell the engine, the reactor and a working machine apart; whether the wave alarm helps or annoys; whether the calm music is pleasant at 60 % and the tense variant fades in during a wave; whether anything clicks or pops at a loop point. The gains are in `SoundCatalog` (`src/Starfoundry.Ui/Audio/Sfx.cs`). `Godot --headless --path game -- --audio-test` writes every sound to a WAV file and prints its levels; scripted runs (`--demo`, `--*-shot`, `--stress`, `--bench`) are always silent.

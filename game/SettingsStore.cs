@@ -73,6 +73,7 @@ public static class SettingsStore
     {
         Loc.Lang = s.Language;
         AudioServer.SetBusVolumeDb(0, s.MasterVolume <= 0.001f ? -80f : Mathf.LinearToDb(s.MasterVolume));
+        AudioManager.ApplyBusVolumes(s);
         bool isFullscreen = DisplayServer.WindowGetMode() == DisplayServer.WindowMode.Fullscreen;
         if (s.Fullscreen != isFullscreen)
             DisplayServer.WindowSetMode(s.Fullscreen ? DisplayServer.WindowMode.Fullscreen : DisplayServer.WindowMode.Maximized);
