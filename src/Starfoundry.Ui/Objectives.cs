@@ -133,7 +133,7 @@ public sealed class ObjectiveTracker
                 foreach (var st in net.Structures())
                 {
                     if (st.Owner != player) continue;
-                    total += st.Modules.Count;
+                    total += st.Modules.Count(m => m.Value != ModuleKind.Core); // a station core is not an added module
                     if (st.Kind == StructureKind.Station && st.Modules.Count > 1) return true;
                 }
                 return total > StarterModuleCount;

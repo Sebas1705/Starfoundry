@@ -176,7 +176,7 @@ public partial class Play
         _holdBar = new ProgressBar { MinValue = 0, MaxValue = Net.HoldCapacity(Player), ShowPercentage = false, CustomMinimumSize = new Vector2(120, 14), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter, MouseFilter = Control.MouseFilterEnum.Ignore };
         _holdItems = MakeText(13);
         _holdItems.ClipText = true;
-        _holdItems.CustomMinimumSize = new Vector2(430, 0);
+        _holdItems.CustomMinimumSize = new Vector2(660, 0); // wide enough for ore, ingots and plates
         _toolLabel = MakeText(14);
         _toolLabel.HorizontalAlignment = HorizontalAlignment.Right;
         _toolLabel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
