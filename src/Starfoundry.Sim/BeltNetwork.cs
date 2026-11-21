@@ -30,11 +30,16 @@ public sealed partial class BeltNetwork
     /// <summary>Whether the Remnant threat is on. Needs content with threat rules and a galaxy. Part of the world's creation settings.</summary>
     public bool ThreatsEnabled { get; }
 
-    public BeltNetwork(ContentDb? content = null, GameMode mode = GameMode.Sandbox, bool threats = false)
+    /// <summary>Whether building is limited to the player's station: machines and belts only inside modules, no drills,
+    /// and the cargo port is available without research. Part of the world's creation settings.</summary>
+    public bool StationRules { get; }
+
+    public BeltNetwork(ContentDb? content = null, GameMode mode = GameMode.Sandbox, bool threats = false, bool stationRules = false)
     {
         Content = content;
         Mode = mode;
         ThreatsEnabled = threats;
+        StationRules = stationRules;
         InitResearch();
     }
 
@@ -250,7 +255,7 @@ public sealed partial class BeltNetwork
         }
 
         Mix(Tick); Mix(Spawned); Mix(Consumed); Mix(Destroyed); Mix(_segs.Count);
-        Mix(MachineInputsConsumed); Mix(MachineOutputsCreated); Mix((long)(Content?.Hash ?? 0)); Mix((int)Mode); Mix(ThreatsEnabled ? 1 : 0);
+        Mix(MachineInputsConsumed); Mix(MachineOutputsCreated); Mix((long)(Content?.Hash ?? 0)); Mix((int)Mode); Mix(ThreatsEnabled ? 1 : 0); if (StationRules) Mix(2);
         MixMachines(Mix);
         MixEconomy(Mix);
         MixStation(Mix);
@@ -278,7 +283,7 @@ public sealed partial class BeltNetwork
     /// <summary>Deep copy of the whole state.</summary>
     public BeltNetwork Clone()
     {
-        var c = new BeltNetwork(Content, Mode, ThreatsEnabled);
+        var c = new BeltNetwork(Content, Mode, ThreatsEnabled, StationRules);
         c.CopyFrom(this);
         return c;
     }

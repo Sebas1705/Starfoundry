@@ -44,10 +44,10 @@ public sealed class SimWorld
     /// Deposits of the home system start revealed; the others stay hidden until scanned. Replays and peers must create
     /// the world with the same arguments (the log header stores mode, content hash and seed).
     /// </summary>
-    public static SimWorld CreateGalaxy(ContentDb content, GameMode mode, ulong seed, bool threats = false)
+    public static SimWorld CreateGalaxy(ContentDb content, GameMode mode, ulong seed, bool threats = false, bool stationRules = false)
     {
         var galaxy = Galaxy.Generate(content, seed);
-        var net = new BeltNetwork(content, mode, threats);
+        var net = new BeltNetwork(content, mode, threats, stationRules);
         foreach (var d in galaxy.Deposits)
             net.AddDeposit(d.Item, d.Amount, d.X, d.Y, d.Z, revealed: d.System == 0);
         net.SetGalaxy(galaxy);
@@ -553,6 +553,12 @@ public sealed class SimWorld
             || !InBuildRange(player, p.X + dx * (p.LengthCells - 1), p.Y + dy * (p.LengthCells - 1), p.Z + dz * (p.LengthCells - 1))))
             return Reject.OutOfRange;
 
+        if (Network.StationRules)
+        {
+            for (int k = 0; k < p.LengthCells; k++)
+                if (!Network.CellInStation(player, p.X + dx * k, p.Y + dy * k, p.Z + dz * k)) return Reject.OutsideStation;
+        }
+
         for (int k = 0; k < p.LengthCells; k++)
         {
             if (_cells.ContainsKey(Key(p.X + dx * k, p.Y + dy * k, p.Z + dz * k))) return Reject.Overlap;
@@ -585,6 +591,12 @@ public sealed class SimWorld
             return Reject.Locked;
 
         if (Campaign && !InBuildRange(player, p.X, p.Y, p.Z)) return Reject.OutOfRange;
+
+        if (Network.StationRules)
+        {
+            if (content.Machines[p.Machine].Role == MachineRole.Drill) return Reject.NotAllowedHere;
+            if (!Network.CellInStation(player, p.X, p.Y, p.Z)) return Reject.OutsideStation;
+        }
 
         long key = Key(p.X, p.Y, p.Z);
         if (_cells.ContainsKey(key)) return Reject.Overlap;
