@@ -44,7 +44,7 @@ public partial class Play : Node3D
     private bool Overview => _demo || _stressMachines > 0;
     private const float CockpitFov = 80f;
     private const uint ShipLayer = 1u << 1; // render layer 2: the ship model, hidden from the cockpit camera
-    private static readonly Vector3 CockpitOffset = new(0f, 0.2f, 0f);
+    private static readonly Vector3 CockpitOffset = new(0f, 1.8f, 0f); // eye height above the ship: near cells stay small enough to aim at
     private MultiMeshInstance3D? _slabNode, _itemNode;
     private MultiMesh _items = null!;
     private Node3D? _machineRoot;
@@ -850,6 +850,7 @@ void fragment() {
 
     /// <summary>Cells farther than this from the camera are not aimed at at all (the build range is 24; the margin lets the ghost show red beyond it).</summary>
     private const float AimMaxCells = PlayerRules.BuildRangeCells + 16;
+    private const float AimMinCells = 2.5f;
 
     /// <summary>
     /// The cell whose floor (the plane of the current layer, Y = <c>_cursorY</c>) the crosshair ray meets, or null when the
@@ -861,7 +862,7 @@ void fragment() {
         var dir = AimDirection();
         if (MathF.Abs(dir.Y) < 1e-4f) return null;
         float t = (_cursorY - origin.Y) / dir.Y;
-        if (t <= 0 || t > AimMaxCells) return null;
+        if (t < AimMinCells || t > AimMaxCells) return null; // too close: the cell would fill the screen
         var hit = origin + dir * t;
         return ((int)MathF.Floor(hit.X), _cursorY, (int)MathF.Floor(hit.Z));
     }
