@@ -864,7 +864,7 @@ public partial class Play
         _seated = true; // the loaded world has its own ship and modules: start at the seat again
         _bodyVolumesVersion = -1;
         _tool = ToolMode.Pointer;
-        _selectedDeposit = RevealedDeposits().FirstOrDefault();
+        _selectedDeposit = DefaultDeposit();
         _objectives = new ObjectiveTracker(_content, _stationRules, _structuresOn);
         _tips = null;
         _lowOreWarned.Clear();
