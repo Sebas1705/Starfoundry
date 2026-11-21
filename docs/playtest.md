@@ -13,14 +13,14 @@ Open the `game/` folder in Godot and press F5. The game opens in Spanish or Engl
 
 ## The first ten minutes
 1. Follow the steps in the panel at the top right. Each one ticks off by itself.
-   The game is played in first person: the mouse looks (the cursor is captured), `W`/`S` fly along the view, `A`/`D` strafe, `Space`/`C` go up and down. `Tab` frees the cursor for the buttons (click in the game to look again); `Esc` leaves a build tool, then frees the cursor. The top-down camera is gone.
+   The game is played in first person: the mouse looks (the cursor is captured), `W`/`S` fly along the view, `A`/`D` strafe, `Space`/`C` go up and down. `Tab` frees the cursor for the buttons (click in the game to look again); `Esc` leaves a build tool, then frees the cursor. The top-down camera is gone. `E` stands you up from the pilot seat; standing, `W`/`A`/`S`/`D` walk inside the ship (`Shift` runs, no jump, `Space`/`C` unused), flight and the autopilot (`M`) are off, and `E` near the seat sits you down again. Repair moved from `E` to `Backspace`. Walking is client-only and limited to your own ship (see [structures](prototypes/structures.md)). Headless check: `--walk-shot=path`.
 2. Fly to the brown rock (look at it and press `W`, or press `M` to fly there on autopilot), mine, press `F` for the ship refinery.
 3. Build a drill (`4`), a smelter (`5`), a depot (`8`) and join them with belts (`1`): look down at the ground and the crosshair picks the cell (it turns red when you cannot place there); click to place, for belts press, move the crosshair and release. Right click demolishes, `R` rotates, `Y` changes the recipe of the item you are placing. Click a machine with no tool to see its status; `Tab` then lets you use its buttons.
 4. Make plates with an assembler (`6`), build a lab (`7`), press `T` and pick Logistics.
 5. When the warning says a wave is coming, build a turret (`9`) fed with ammo by belt, and switch your weapon on (`V`).
 
 ## What to try after that
-- Walls (`0`) in front of the base and the repair button (`E`) during a wave; a repair bay (`Q`) fed ingots by belt.
+- Walls (`0`) in front of the base and the repair button (`Backspace`) during a wave; a repair bay (`Q`) fed ingots by belt.
 - The defence upgrades with `T`, the cargo port (`B`) and the jump to another system (`G`, `J`) when the status panel says the home ore is running low.
 - Play at your normal pace and do not read the docs: where you get stuck is the finding.
 
@@ -72,7 +72,7 @@ If your times are far from these, that is the interesting result: write down wha
 - A paused game does not advance the log.
 
 ## Hints
-After the twelve guided steps the game teaches the rest with hints that appear when the situation happens, once each and at least 25 seconds apart, as long messages at the bottom: turrets without ammo during a wave, damaged machines (repair with `E`), the first loss without walls, an idle lab, the defence upgrades once Logistics is done and the cargo port once the jump drive is researched and the home ore is low. Each hint shown is a `Tip` line in the play log. If a hint came too early, too late or not at all, that is worth noting.
+After the twelve guided steps the game teaches the rest with hints that appear when the situation happens, once each and at least 25 seconds apart, as long messages at the bottom: turrets without ammo during a wave, damaged machines (repair with `Backspace`), the first loss without walls, an idle lab, the defence upgrades once Logistics is done and the cargo port once the jump drive is researched and the home ore is low. Each hint shown is a `Tip` line in the play log. If a hint came too early, too late or not at all, that is worth noting.
 
 ## The HUD
 The first-person HUD keeps the view free and shows only what you need:
