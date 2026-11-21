@@ -103,4 +103,33 @@ public class GameSettingsTests
         Assert.True(parsed.Fullscreen);
         Assert.Equal(80f, parsed.Fov);
     }
+
+    [Fact]
+    public void GoalWavesDefaultsToTenAndRoundTrips()
+    {
+        Assert.Equal(10, GameSettings.Defaults().GoalWaves);
+        var s = new GameSettings { GoalWaves = 17 };
+        Assert.Equal(17, GameSettings.Parse(s.Serialize()).GoalWaves);
+        Assert.Contains("goal_waves=17", s.Serialize());
+    }
+
+    [Theory]
+    [InlineData(0, 3)]
+    [InlineData(-5, 3)]
+    [InlineData(3, 3)]
+    [InlineData(30, 30)]
+    [InlineData(500, 30)]
+    public void GoalWavesIsClamped(int value, int expected)
+    {
+        Assert.Equal(expected, new GameSettings { GoalWaves = value }.Clamped().GoalWaves);
+        Assert.Equal(expected, GameSettings.Parse("goal_waves=" + value).GoalWaves);
+        Assert.Equal(expected, GoalSettings.From(new GameSettings { GoalWaves = value }).WavesToWin);
+    }
+
+    [Fact]
+    public void BadGoalWavesKeepsTheBaseline()
+    {
+        Assert.Equal(10, GameSettings.Parse("goal_waves=many").GoalWaves);
+        Assert.Equal(10, GameSettings.Parse("goal_waves=4.5").GoalWaves);
+    }
 }

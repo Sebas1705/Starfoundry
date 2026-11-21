@@ -208,6 +208,9 @@ public partial class MenuScreen : Control
         AddSlider("VolumeSlider", s.MasterVolume * 100, 0, 100, 5,
             v => Loc.T("settings.volume", (int)Math.Round(v)), v => SettingsStore.Current with { MasterVolume = (float)(v / 100.0) }, "settings.tip.volume");
 
+        AddSlider("GoalSlider", s.GoalWaves, GoalSettings.MinWaves, GoalSettings.MaxWaves, 1,
+            v => Loc.T("settings.goalWaves", (int)Math.Round(v)), v => SettingsStore.Current with { GoalWaves = (int)Math.Round(v) }, "settings.tip.goalWaves");
+
         AddCheck("InvertCheck", Loc.T("settings.invertY"), s.InvertMouseY, on => SettingsStore.Current with { InvertMouseY = on }, "settings.tip.invertY");
         AddCheck("FullscreenCheck", Loc.T("settings.fullscreen"), s.Fullscreen, on => SettingsStore.Current with { Fullscreen = on }, "settings.tip.fullscreen");
 

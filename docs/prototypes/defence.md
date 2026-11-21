@@ -48,3 +48,23 @@ First wave: the starter ship plus six labs in its workshop (signature 32, 24 abo
 ## Notes
 - Turrets (range 18 cells) cover the modules next to them: an enemy attacking a module far from the turrets is out of reach, so spread-out bases need turrets in more than one defence module.
 - The old hand repair command still heals machines only.
+
+## Game
+What the player sees (game project, no simulation changes). `Play.Defence.cs` reads `ModuleHits` after every tick, because the sim clears the list each tick and the game steps several ticks a frame at higher speeds.
+
+| Area | Behaviour |
+| --- | --- |
+| Damage | `Models.SetDamage` on the module model (darker, redder, dimmer lights); below 50 % hp a `CpuParticles3D` of sparks and smoke and a flickering orange light, stronger with the damage |
+| Hits | the module's box flashes for 0.3 s; a hit on the player's ship raises a red vignette (decays in about a second); enemy beams are thick and end at the module centre (`EnemyInfo.Target*`) |
+| Falls | an explosion (ball, particles, light) where the module stood; a station collapses in a chain of blasts over its modules ending in a shockwave ring; positions come from a snapshot of the structures kept while enemies are about, since the structure may be gone when the event is read |
+| HUD | integrity bar (`StructureHpFraction`) in the status block, per cent for stations in the details; big wave countdown, then enemy count; hit points of the module under the crosshair (panel) and floating bars over it and over modules hit in the last 3.5 s |
+| Toasts | module destroyed (with its kind), station lost, ship lost (`toast.shipLostCockpit`), all category Threat; the machine-lost line is skipped when a module falls with them |
+
+### Goal and end
+`GameOutcome.Evaluate(net, player, goal)` (engine-free, `src/Starfoundry.Ui`): Lost when the ship is lost in a structure world (older worlds never lose); Won when the waves cleared reach `GoalSettings.WavesToWin` (the setting `goal_waves`, 3 to 30, default 10) with the ship alive and a station of the player standing. Waves cleared are `WavesSpawned` while no enemy is alive and one less while a wave is being fought. Stats: play time, modules built (standing plus lost, minus the starter ship's five), stations founded and lost, waves, items mined by hand and by drones, modules and machines lost.
+
+The end screen (`EndScreen.cs`) pauses the simulation. Victory writes the `victory` save slot and offers Keep playing (endless, never shown again), Main menu and Quit. Defeat writes a play log line and keeps the autosave and quick save untouched: autosaving is skipped for a lost world, and the Main menu button there does not autosave. It offers Load last save (when one exists), New game and Main menu.
+
+### Checks
+- Tests: `GameOutcomeTests` (win, loss, wave in progress, station required, station lost, legacy worlds) and the `goal_waves` cases of `GameSettingsTests`.
+- Headless images: `--defence-shot=path` (see the play-test guide) and `--end-shot=path`.
