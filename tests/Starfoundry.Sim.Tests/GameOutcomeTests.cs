@@ -103,6 +103,25 @@ public class GameOutcomeTests
     }
 
     [Fact]
+    public void The_goal_can_come_from_world_rules()
+    {
+        var (w, _) = ArmedShip();
+        w.Step(Tps);
+        ClearWaves(w, 2);
+        int station = w.Network.CreateStructure(0, StructureKind.Station, 0, 0, 30 * Units.CellUnits);
+        w.Network.AddStructureModuleUnchecked(station, 0, 0, 0, ModuleKind.Core);
+
+        Assert.Equal(OutcomeKind.Won, GameOutcome.Evaluate(w.Network, 0, new WorldRules { GoalWaves = 2 }).Kind);
+        Assert.Equal(OutcomeKind.Won, GameOutcome.Evaluate(w.Network, 0, new WorldRules { GoalWaves = 1 }).Kind);
+        Assert.Equal(OutcomeKind.Playing, GameOutcome.Evaluate(w.Network, 0, WorldRules.Hard).Kind); // 12 waves
+        Assert.Equal(OutcomeKind.Playing, GameOutcome.Evaluate(w.Network, 0, new WorldRules { GoalWaves = 3 }).Kind);
+        // The world's own rules (default here: 10 waves) are used when none are passed.
+        Assert.Equal(OutcomeKind.Playing, GameOutcome.Evaluate(w.Network, 0).Kind);
+        Assert.Equal(8, GoalSettings.From(WorldRules.Relaxed).WavesToWin);
+        Assert.Equal(15, GoalSettings.From(WorldRules.Brutal).WavesToWin);
+    }
+
+    [Fact]
     public void The_wave_in_progress_does_not_count_as_survived()
     {
         var (w, _) = ArmedShip();

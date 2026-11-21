@@ -9,6 +9,9 @@ public sealed record GoalSettings(int WavesToWin = GoalSettings.DefaultWaves)
 
     /// <summary>The goal from the player's settings (the wave count is clamped to its valid range).</summary>
     public static GoalSettings From(GameSettings settings) => new(Math.Clamp(settings.GoalWaves, MinWaves, MaxWaves));
+
+    /// <summary>The goal a world's rules ask for (<see cref="WorldRules.GoalWaves"/>).</summary>
+    public static GoalSettings From(WorldRules rules) => new(rules.GoalWaves);
 }
 
 /// <summary>Where a game stands: still going, won, or lost.</summary>
@@ -36,6 +39,12 @@ public sealed record OutcomeResult(OutcomeKind Kind, OutcomeReason Reason, Outco
 /// </summary>
 public static class GameOutcome
 {
+    /// <summary>Evaluates against the goal in the world's own rules (<see cref="BeltNetwork.Rules"/>).</summary>
+    public static OutcomeResult Evaluate(BeltNetwork net, int player) => Evaluate(net, player, net.Rules);
+
+    /// <summary>Evaluates against the goal waves of <paramref name="rules"/>.</summary>
+    public static OutcomeResult Evaluate(BeltNetwork net, int player, WorldRules rules) => Evaluate(net, player, GoalSettings.From(rules));
+
     public static OutcomeResult Evaluate(BeltNetwork net, int player, GoalSettings goal)
     {
         var stats = Stats(net, player);
