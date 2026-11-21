@@ -146,7 +146,9 @@ public class StructureEconomyTests
         Assert.Equal(16, Cost(ModuleKind.Defence, "core:iron_ingot"));
         Assert.Equal(16, Cost(ModuleKind.Reactor, "core:iron_plate"));
         Assert.Equal(8, Cost(ModuleKind.Reactor, "core:carbon"));
-        Assert.Equal(6, Cost(ModuleKind.Engine, "core:titanium_plate"));
+        Assert.Equal(0, Cost(ModuleKind.Engine, "core:titanium_plate")); // see StructureRecoveryTests: the engine is rebuilt at home
+        Assert.Equal(20, Cost(ModuleKind.Engine, "core:iron_plate"));
+        Assert.Equal(4, Cost(ModuleKind.Engine, "core:carbon"));
         Assert.Equal(15, s.EmergencyPower(ModuleKind.Reactor));
         Assert.Equal(0, s.EmergencyPower(ModuleKind.Engine));
     }

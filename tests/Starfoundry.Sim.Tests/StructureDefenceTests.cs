@@ -677,6 +677,8 @@ public class StructureDefenceTests
         var cd = root["research"]!.AsArray().First(r => r!["id"]!.GetValue<string>() == "core:carbon_drilling")!.AsObject();
         cd.Remove("bonuses");
         cd["cost"] = System.Text.Json.Nodes.JsonNode.Parse("""[{"item":"core:iron_plate","count":135}]""");
+        // And before the engine became rebuildable from home items: it cost titanium plates.
+        root["structures"]!["engine"]!["cost"] = System.Text.Json.Nodes.JsonNode.Parse("""[{"item":"core:iron_plate","count":16},{"item":"core:carbon","count":4},{"item":"core:titanium_plate","count":6}]""");
         return ContentDb.FromJson(root.ToJsonString());
     }
 

@@ -3,6 +3,7 @@ using Xunit;
 
 namespace Starfoundry.Sim.Tests;
 
+[Collection("LocalisedText")]
 public class DroneFormatTests
 {
     private static DroneStatus S(int bays, bool working, int deposit, int rate = 0, bool waiting = false, bool power = true) =>

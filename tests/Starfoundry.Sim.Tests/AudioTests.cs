@@ -3,6 +3,7 @@ using Xunit;
 
 namespace Starfoundry.Sim.Tests;
 
+[Collection("LocalisedText")]
 public class AudioTests
 {
     private static readonly Dictionary<Sfx, float[]> Cache = new();

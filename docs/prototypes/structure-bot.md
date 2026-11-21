@@ -1,0 +1,92 @@
+# Prototype: the structure bot
+
+Status: built (2026-11-22). Checks that the structure campaign ([ADR 0018](../adr/0018-modular-structures.md) to [0022](../adr/0022-structure-economy-fixes.md)) can be played from the first tick to the win with sim commands only, and finds where it gets stuck. Code: `tools/Starfoundry.Balance/StructureBot*.cs`. Tests: `StructureBotTests`, `StructureRecoveryTests`.
+
+## The question
+Is the structure campaign completable (start in the starter ship, build a station, power it, defend it, research, explore, automate, survive the waves), and where does a player get stuck or wait absurdly long?
+
+## How to run it
+```
+dotnet run --project tools/Starfoundry.Balance -- --structures --minutes 120 --seed 20261121 --trace
+```
+Options: `--delay=6` (game seconds after every placement, standing in for aiming and thinking), `--continue` (keep playing after the win, to see how far research and exploration get), `--no-threats` (no waves, to study the economy alone). Exit code 0 when the game was won. A run of 100 simulated minutes takes about four seconds.
+
+## What the bot does
+Sim commands only (`PlaceModuleIn`, `PlaceMachineIn`, `PlaceSegmentIn`, `Connect*`, `FoundStation`, `StartMining`, `SetThrust`, `SetWeapons`, `SetResearch`, `SetRecipe`, `Scan`, `Jump`, `AssignDrones`, `DumpItems`, `RemoveMachine`); never `GiveItems`, never `GrantResearch` (a test scans its source for both). The plan is a list of named goals in order; each waits for the items it needs (guarded by "can I afford it / is it unlocked") while a once-a-second maintenance step keeps hand mining, the fuel stock and the record going.
+
+| Goal | What it builds |
+| --- | --- |
+| 1 fly and mine | Fly to the home iron deposit with `SetThrust`, hand-mine it; pause at 40 ore so the hold is not clogged |
+| 2 station | `FoundStation` beside the cockpit on its -z side; later a workshop module and a reactor module (the reactor needs 8 hand-mined carbon) and an ingot line |
+| 3 hydrogen | Two extra cargo modules, then ice port, cracker and a belt into the starter depot; hand-mine ice until hydrogen is made; refuel again whenever hydrogen is under 12 |
+| 5 defence | Defence module on the ship (above the starter workshop) with an ammo battery (ingot port, assembler making ammo, two belts, two turrets) and two walls; weapons on. The same on the station, plus a repair bay each; a second battery on both from wave 2 |
+| 4 laboratory | A workshop module with two smelter rows into one plate assembler into a lab; a second lab line after the first research |
+| research | Logistics, carbon processing, jump drive, then (after an expedition) titanium smelting, nickel smelting, advanced plating, drone automation, the defence nodes; each research gets the port and belt feeds its ore costs need (raw port, port + smelter, port + smelter + assembler), taken down afterwards |
+| expeditions | Jump along lanes the star map shows, scan every new system, hand-mine what is missing (every system has carbon, so the 5 carbon of each jump are mined on the way), jump home |
+| drones | Drone bay modules on the station (iron) and the ship (ice), `AssignDrones`; needs titanium and nickel plates in the hold |
+
+Habits a player has too: the bot dumps what the depots keep delivering when the hold sits at the mining limit, switches off the ingot lines and the starter assembler when their stock is plenty (so the ore goes to the labs), carries 45 to 60 hydrogen on a trip, packs light for it and goes only when no fight is on.
+
+## Timeline (seed 20261121, 6 s per action)
+Game minutes, from `--structures --continue --minutes 110`. The win is first reached at 42:57; the run goes on to see how far research gets.
+
+| Minute | Milestone |
+| --- | --- |
+| 0:01 | Hand mining the home iron deposit |
+| 0:10 | First iron ingot in the hold |
+| 0:19 | First iron plate in the hold |
+| 1:48 | Station founded |
+| 5:21 | Hydrogen cracker built |
+| 6:05 | Hydrogen loop works: first hydrogen made from ice |
+| 8:59 | First defence module built (ship) |
+| 10:01 | First turret built |
+| 10:15 | First turret loaded with ammo |
+| 12:38 | Station powered with machines running (workshop, reactor, ingot line) |
+| 15:39 | Wave 1 warning |
+| 16:25 | Wave 1 survived |
+| 16:26 | Laboratory built |
+| 16:50 | First repair bay built |
+| 20:03 | First research finished: logistics |
+| 25:54 | Carbon processing researched |
+| 36:53 | Jump drive researched |
+| 41:51 | First jump (to system 1); the bot scans and visits ten systems in six minutes |
+| 42:57 | Wave 10 survived: **victory** (ship alive, station standing) |
+| 47:31 | Back home with titanium ore, nickel ore and quartz |
+| 53:09 | Titanium smelting researched |
+| 61:08 | Nickel smelting researched |
+| 85:39 | Defeat (ship lost to wave 22, after the win) |
+
+Waves survived (minute): 1 16:25, 2 20:00, 3 23:20, 4 26:26, 5 29:09, 6 31:51, 7 34:34, 8 37:16, 9 40:02, 10 42:57. After the first warning a wave comes every 2.5 to 3 minutes, whatever the player does. Not reached in 110 minutes: advanced plating (started at about 67:00 and starved, see below), drone automation, the first drone bay.
+
+Other seeds and paces (victory minute, 6 s per action unless noted): seed 1 41:04, seed 2 43:24, seed 3 46:12, seed 20261120 42:02; 0 s per action 42:47, 3 s 42:56, 15 s 44:29, 30 s 54:10. The bot lost no module and no machine before the win on any of those runs. The wave clock decides the win time, not the player.
+
+## Where the bot got stuck, or something was impossible or absurdly slow
+In the order found. "Did" says what the bot or the repository did about it.
+
+1. **Moving to a deposit with an out-of-range thrust.** A normalised thrust vector can have a squared length a little above 1024 squared and is rejected, so the ship did not move. Bot only: it scales to 1000.
+2. **The hold of the starter ship is a trap (not fixed, see "needs decision").** Hand mining stops at 75 percent of the hold, the starter hold is 60 with 20 hydrogen in it, and the depots stock up to 40 percent of the capacity of each item they deliver (24 ingots, 24 plates, then 72 of each with 180 slots). Two stocked items and the hydrogen put the hold past the limit: mining stops, every ore port starves, the lab and the lines stand still while the hold is full of goods nobody uses. Seen as: carbon mining stuck at 45/60, then research at 6 percent of its speed for 30 minutes. Did: the bot builds two cargo modules (20 ingots each) at minute 2, and dumps surplus ingots, plates and hydrogen (`DumpItems`) when the hold sits at the limit, switches off the lines whose stock is high. A player has to do the same.
+3. **A wave found the ship away at the ice with the defence half built.** The bot's own order (ice trip started after the first warning) lost the ship at minute 25 in an early version, and an earlier one lost the engine. Did: the defence (module, battery, walls) comes before the station reactor and the lab, and the ice trip is allowed any time (the ice deposit is 9 cells from home, inside the turrets' reach).
+4. **The only engine can be shot off and could not be rebuilt (fixed).** The engine cost 6 titanium plates; a ship with no engine cannot fly to the titanium, so it stayed stranded for good (and, with the ship at the ice, it could not return to the iron: research stopped for 40 minutes). Did: the engine now costs 20 iron plates and 4 carbon (`StructureRecoveryTests`, [ADR 0022](../adr/0022-structure-economy-fixes.md) update).
+5. **Ore, not time, limits everything.** Hand mining gives about 2 ore a second (iron density 100 percent). Four smelters on ore ports already ask for more, and ports seem to be served in the order the machines were built, so the starter lines and the ingot lines eat the ore while the lab line starves (observed: 90 plates took 3.5 to 7 minutes, 150 plates 4 to 16 minutes). Did: the bot switches off the starter assembler and the ingot lines when their stock is plenty (`SetRecipe` with -1), so about 30 to 40 plates a minute reach the lab. All research that costs plates (14 non-repeatable nodes: about 2 600 plates) needs about 85 minutes of that.
+6. **Fuel is finite.** Every reactor burns two hydrogen a minute (four ice) wherever the ship is, whether the machines need it or not. Home ice is 600 to 800 and the hand-mined trip is 60 ice; with a ship reactor, a second one and a station reactor the home ice is gone at about minute 65 to 76 (seen at 75:50). The jump drive is researched at 37 minutes, so an ice expedition is possible, but the hold limit holds only 55 to 75 ice on the way home (the rest of the hold is hydrogen, ingots, carbon, ore), which is about 30 hydrogen, five minutes of fuel for a trip of seven. The base slides into emergency power (15 per reactor): the smelters crawl, no ingots, so even the 12-ingot ports of the next research cannot be bought ("could not afford core:nickel_ore_unloader within 40 minutes (iron_ingot 4/12)") and the drone chain that would mine ice never completes. Not fixed (needs decision). The bot left the third reactor out for this reason.
+7. **Research stalls three carbon short.** The bot itself spent 8 carbon on a reactor after fetching exactly the jump drive's 75; the lab then waited for ever. A player notices; the bot now watches progress and mines the missing item (`TopUp`). Not a game problem, but the research panel shows no hint that the hold lacks an item.
+8. **Station out of build range.** A station beside the ship on +x is out of build range (24 cells from the cockpit) for its second module. Did: it sits on the cockpit's -z side, where every module slot of a core and its neighbours is within about 21 cells. A ship that wanders off needs to come back before it can add modules.
+9. **The first expedition can only start after the jump drive (minute 37) and costs six minutes.** The star map only shows archetypes after a visit, so the bot visits ten of the eleven other systems before it has seen titanium, nickel and quartz. It works (jump 7 s each, 5 carbon each, scan in range of everything, carbon in every system), but while it is away the base has only the station's two turrets: it held wave 10, which arrived while the ship was away, and the hydrogen in the hold has to cover every reactor of both structures (the ship takes its reactors with it).
+10. **Waves do not wait for the research.** The win (10 waves) comes at minute 43 with nothing researched beyond the jump drive; the research that matters for the waves (turret calibration and the plating line) is not needed. After the win the waves keep coming and wave 22 at minute 85 destroys a base that has no research and an empty fuel hold. So the campaign is completable by defence alone; the research and automation path is optional and in this bot's hands slower than the waves.
+11. **Layout mistakes of the bot itself** (an overlapping battery rebuilt twice, a belt that ended beside nothing) were found by the placement rejects (`Overlap`, `OutsideStation`); the rejects are listed in the run output and the bot treats them as "stuck" so none go unnoticed.
+
+## What was fixed (each in its own commit, with a test)
+| Fix | Test |
+| --- | --- |
+| The engine module costs 20 iron plates and 4 carbon instead of 16 plates, 4 carbon and 6 titanium plates (a content change; `MaterialsTests`, `StructureEconomyTests` and the golden content of `StructureDefenceTests` follow) | `StructureRecoveryTests`: every module of the starter ship is rebuildable from items found at home; a ship whose engine is destroyed places a new one beside the cockpit and flies again |
+
+## Needs decision (not done here)
+1. **The hold trap (2).** Options: cap the depots' stock per item in absolute numbers (24) or make them stop at the hold's mining limit, keep the 75 percent rule only for ore, show "hold full of goods" in the HUD, or give the starter hold more than 60 slots. Whichever is chosen, `Hold_never_deadlocks` and the per-item depot cap of [ADR 0009](../adr/0009-pacing-targets-measured-by-a-scripted-player-and-a-per-item-depot-cap.md) change. A trial (with an earlier version of the bot) that capped the stock at 24 per item brought turret calibration forward from "never in 50 minutes" to minute 32, and also stopped a player from stocking hydrogen for a trip, so it was not kept.
+2. **The fuel horizon (6).** Home ice gives about 65 to 75 minutes of three reactors; hand-mined ice from other systems cannot sustain them; the drone bays that could cost about 100 minutes of research. Options: a bigger home ice deposit, a cheaper burn, a reactor that idles with no demand, drone bays earlier in the tree, a way to carry more than 60 ice home.
+3. **Win before research (10).** Ten waves are survived at minute 43 with two or four turrets per structure, two walls, a repair bay and no research; the win needs no research, no jump and no drones. If the research and automation path is meant to matter before the end, the first wave clock (grace period and alert), the wave count or the plate supply have to change. The bot's defence is also very safe up to wave 10 (no module lost before the win on any of five seeds), so the waves are close to trivial for a player who builds the defence before minute 14.
+4. **Plate supply for research (5).** 30 to 40 plates a minute is what the hand-mined ore gives; the tree is 2 600 plates. Drones raise it by about 0.3 ore a second each.
+
+## Not tested
+- Advanced plating through to the end, drone automation, the drone bays and `AssignDrones` in a played run (the bot is out of fuel before it gets there). `DroneTests` covers the rules in isolation.
+- A human's real hesitation, aiming, and the HUD; only the commands.
+- Other defence layouts: the bot uses one (turrets in a defence module on top of a workshop, walls inside it).

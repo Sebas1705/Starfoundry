@@ -5,6 +5,7 @@ using Xunit;
 
 namespace Starfoundry.Sim.Tests;
 
+[Collection("LocalisedText")]
 public class UiTests
 {
     private static readonly ContentDb C = TestContent.Core;

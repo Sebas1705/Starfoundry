@@ -3,6 +3,7 @@ using Xunit;
 
 namespace Starfoundry.Sim.Tests;
 
+[Collection("LocalisedText")]
 public class PowerFormatTests
 {
     private static PowerStatus S(int sat, int hydrogen, int burn, int production = 100, int demand = 28) =>

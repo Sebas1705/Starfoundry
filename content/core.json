@@ -1357,7 +1357,7 @@
       "thrust_speed_percent": 0
     },
     "engine": {
-      "cost": [{ "item": "core:iron_plate", "count": 16 }, { "item": "core:carbon", "count": 4 }, { "item": "core:titanium_plate", "count": 6 }],
+      "cost": [{ "item": "core:iron_plate", "count": 20 }, { "item": "core:carbon", "count": 4 }],
       "hp": 200,
       "allows": [],
       "hold_capacity": 0,
