@@ -49,12 +49,14 @@ public sealed class SimWorld
     /// the world with the same arguments (the log header stores mode, content hash and seed).
     /// </summary>
     public static SimWorld CreateGalaxy(ContentDb content, GameMode mode, ulong seed, bool threats = false, bool stationRules = false,
-        bool structures = false)
+        bool structures = false, WorldRules? rules = null)
     {
+        rules ??= WorldRules.Default;
+        if (rules.Validate(content) is { } problem) throw new ArgumentException("Invalid world rules: " + problem, nameof(rules));
         var galaxy = Galaxy.Generate(content, seed);
-        var net = new BeltNetwork(content, mode, threats, stationRules, structures);
+        var net = new BeltNetwork(content, mode, threats, stationRules, structures, rules);
         foreach (var d in galaxy.Deposits)
-            net.AddDeposit(d.Item, d.Amount, d.X, d.Y, d.Z, revealed: d.System == 0, density: d.Density);
+            net.AddDeposit(d.Item, Math.Max(1, WorldRules.Scale(d.Amount, rules.DepositRichnessPercent)), d.X, d.Y, d.Z, revealed: d.System == 0, density: d.Density);
         net.SetGalaxy(galaxy);
         // The starter ship is part of the initial world, like the deposits: built before the first command, at no cost, at the
         // home anchor (the world origin), so replays and saves that call CreateGalaxy with the header flags get it too.
@@ -63,6 +65,7 @@ public sealed class SimWorld
             net.EnsurePlayer(0);
             net.BuildStructureFromTemplate(ship, StructureKind.Ship, 0, 0, 0, 0);
         }
+        if (rules.StartingItems.Count > 0) net.GiveStartingItems(0, rules.StartingItems);
         return new SimWorld(net);
     }
 
@@ -129,9 +132,9 @@ public sealed class SimWorld
     /// content the log was recorded with; <see cref="CommandCodec.ReadLog"/> returns its hash for checking.
     /// </summary>
     public static SimWorld Replay(IReadOnlyList<LoggedCommand> log, long ticks, SimWorld? initial = null, ContentDb? content = null,
-        GameMode mode = GameMode.Sandbox)
+        GameMode mode = GameMode.Sandbox, WorldRules? rules = null)
     {
-        var world = initial ?? new SimWorld(content, mode);
+        var world = initial ?? new SimWorld(new BeltNetwork(content, mode, rules: rules));
         int next = 0;
         for (long t = 0; t < ticks; t++)
         {
@@ -538,8 +541,8 @@ public sealed class SimWorld
                 {
                     if (!InBuildRange(player, m.Structure, m.X, m.Y, m.Z)) return Reject.OutOfRange;
                     var cost = Network.RepairCost(mach);
-                    if (!Network.CanPay(player, cost)) return Reject.NotEnoughItems;
-                    Network.Pay(player, cost);
+                    if (!Network.CanPayBuild(player, cost)) return Reject.NotEnoughItems;
+                    Network.PayBuild(player, cost);
                 }
                 Network.RepairMachine(mach);
                 return Reject.None;
@@ -658,8 +661,8 @@ public sealed class SimWorld
         if (Campaign)
         {
             var cost = BeltCost(p.Tier);
-            if (!Network.CanPay(player, cost, p.LengthCells)) return Reject.NotEnoughItems;
-            Network.Pay(player, cost, p.LengthCells);
+            if (!Network.CanPayBuild(player, cost, p.LengthCells)) return Reject.NotEnoughItems;
+            Network.PayBuild(player, cost, p.LengthCells);
         }
 
         int id = Network.AddSegment(p.X, p.Y, p.Z, dx, dy, dz, p.LengthCells, p.Tier);
@@ -696,8 +699,8 @@ public sealed class SimWorld
         if (Campaign)
         {
             var cost = content.Machines[p.Machine].Cost;
-            if (!Network.CanPay(player, cost)) return Reject.NotEnoughItems;
-            Network.Pay(player, cost);
+            if (!Network.CanPayBuild(player, cost)) return Reject.NotEnoughItems;
+            Network.PayBuild(player, cost);
         }
 
         int id = Network.AddMachine(p.X, p.Y, p.Z, p.Machine, p.Recipe, player);
@@ -716,8 +719,8 @@ public sealed class SimWorld
         {
             if (!Network.ModuleCentreInRange(player, p.Mx, p.My, p.Mz, PlayerRules.BuildRangeCells)) return Reject.OutOfRange;
             var cost = Network.NextModuleCost(player);
-            if (!Network.CanPay(player, cost)) return Reject.NotEnoughItems;
-            Network.Pay(player, cost);
+            if (!Network.CanPayBuild(player, cost)) return Reject.NotEnoughItems;
+            Network.PayBuild(player, cost);
         }
         Network.AddModuleUnchecked(player, p.Mx, p.My, p.Mz);
         return Reject.None;
@@ -797,8 +800,8 @@ public sealed class SimWorld
 
         if (Campaign)
         {
-            if (!Network.CanPay(player, def.Cost)) return Reject.NotEnoughItems;
-            Network.Pay(player, def.Cost);
+            if (!Network.CanPayBuild(player, def.Cost)) return Reject.NotEnoughItems;
+            Network.PayBuild(player, def.Cost);
         }
 
         int id = Network.AddMachine(p.X, p.Y, p.Z, p.Type, p.Recipe, player, p.Structure);
@@ -841,8 +844,8 @@ public sealed class SimWorld
         if (Campaign)
         {
             var cost = BeltCost(p.Tier);
-            if (!Network.CanPay(player, cost, p.Length)) return Reject.NotEnoughItems;
-            Network.Pay(player, cost, p.Length);
+            if (!Network.CanPayBuild(player, cost, p.Length)) return Reject.NotEnoughItems;
+            Network.PayBuild(player, cost, p.Length);
         }
 
         int id = Network.AddSegment(p.X, p.Y, p.Z, dx, dy, dz, p.Length, p.Tier, p.Structure);
@@ -872,8 +875,8 @@ public sealed class SimWorld
         if (Campaign)
         {
             var cost = kinds.ModuleCost(p.Kind);
-            if (!Network.CanPay(player, cost)) return Reject.NotEnoughItems;
-            Network.Pay(player, cost);
+            if (!Network.CanPayBuild(player, cost)) return Reject.NotEnoughItems;
+            Network.PayBuild(player, cost);
         }
         Network.AddStructureModuleUnchecked(p.Structure, p.Mx, p.My, p.Mz, p.Kind);
         return Reject.None;
@@ -941,8 +944,8 @@ public sealed class SimWorld
         var cost = kinds.ModuleCost(ModuleKind.Core);
         if (Campaign)
         {
-            if (!Network.CanPay(player, cost)) return Reject.NotEnoughItems;
-            Network.Pay(player, cost);
+            if (!Network.CanPayBuild(player, cost)) return Reject.NotEnoughItems;
+            Network.PayBuild(player, cost);
         }
         int id = Network.CreateStructure(player, StructureKind.Station, ox, oy, oz);
         Network.AddStructureModuleUnchecked(id, 0, 0, 0, ModuleKind.Core);

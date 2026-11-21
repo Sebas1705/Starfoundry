@@ -420,6 +420,29 @@ public sealed partial class BeltNetwork
         return true;
     }
 
+    /// <summary>Adds the world rules' starting stacks to a hold, in order, as far as the hold has room; the rest is counted in
+    /// <see cref="StartingItemsClamped"/>. Called once while the world is created.</summary>
+    internal void GiveStartingItems(int player, IReadOnlyList<ItemStack> stacks)
+    {
+        var p = GetOrCreatePlayer(player);
+        int capacity = HoldCapacityOf(p);
+        foreach (var s in stacks)
+        {
+            int fit = Math.Clamp(capacity - p.HoldTotal, 0, s.Count);
+            if (fit > 0) AddToHold(p, s.Item, fit);
+            StartingItemsClamped += s.Count - fit;
+        }
+    }
+
+    /// <summary>Like <see cref="CanPay"/> for building costs: always true when the world has free building.</summary>
+    public bool CanPayBuild(int player, ItemStack[] cost, int times = 1) => Rules.FreeBuild || CanPay(player, cost, times);
+
+    /// <summary>Like <see cref="Pay"/> for building costs: takes nothing when the world has free building.</summary>
+    public void PayBuild(int player, ItemStack[] cost, int times = 1)
+    {
+        if (!Rules.FreeBuild) Pay(player, cost, times);
+    }
+
     public void Pay(int player, ItemStack[] cost, int times = 1)
     {
         if (!CanPay(player, cost, times)) throw new InvalidOperationException("The hold does not have the items.");
@@ -445,7 +468,7 @@ public sealed partial class BeltNetwork
     /// <summary>Returns items to a hold, ignoring capacity.</summary>
     public void Refund(int player, ItemStack[] cost, int times = 1)
     {
-        if (cost.Length == 0) return;
+        if (cost.Length == 0 || Rules.FreeBuild) return; // free building takes nothing, so removing gives nothing back
         var p = GetOrCreatePlayer(player);
         foreach (var s in cost) AddToHold(p, s.Item, s.Count * times);
     }

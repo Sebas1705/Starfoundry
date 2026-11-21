@@ -109,7 +109,7 @@ public sealed partial class BeltNetwork
                 if (rem == 0 && TryTakeFuel(s.Owner)) rem = kinds.BurnIntervalTicks(kind);
                 if (rem > 0)
                 {
-                    production += kinds.PowerOutput(kind);
+                    production += WorldRules.Scale(kinds.PowerOutput(kind), Rules.PowerOutputPercent);
                     rem--;
                 }
                 else production += kinds.EmergencyPower(kind); // no fuel: the reactor still trickles a little power
