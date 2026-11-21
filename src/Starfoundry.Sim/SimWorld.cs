@@ -586,6 +586,17 @@ public sealed class SimWorld
                 return Reject.None;
             }
 
+            case DumpItems di:
+            {
+                var content = Network.Content;
+                if (content is null) return Reject.NoContent;
+                if ((uint)di.Item >= (uint)content.Items.Count) return Reject.InvalidArgument;
+                int held = Network.HoldCount(player, di.Item);
+                if (held <= 0) return Reject.NotEnoughItems;
+                Network.DumpItems(player, di.Item, di.Count <= 0 || di.Count > held ? held : di.Count);
+                return Reject.None;
+            }
+
             case RemoveModule rmod:
                 return RemoveModuleCore(player, rmod);
 

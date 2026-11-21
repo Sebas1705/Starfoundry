@@ -48,6 +48,7 @@ The last line of the steps panel is the goal, pinned even when the list is folde
 While a structure is under attack: modules darken and redden with their damage and, below half, throw sparks and smoke with a flickering light; a hit flashes the module and, if it is your ship's, a red vignette pulses; the status block shows the ship's integrity bar; a wave countdown and then the enemy count are shown large at the top; a module you aim at (or one hit in the last seconds) shows its hit points; losing a module or a station raises a toast and an explosion. `--defence-shot=path` renders these (`path`, `path.cockpit.png`, `path.destroyed.png`, `path.station.png`).
 
 ## What to try after that
+- Hand mining stops at 75 percent of the hold. `Ctrl+Delete` throws the largest stack of spare ore (carbon beyond the jump cost, quartz, titanium or nickel ore, ice while hydrogen is at least 20) into space, with a toast; check that mining resumes afterwards and that iron and hydrogen are never dumped.
 - Walls (`9`) in front of the base and the repair button (`Backspace`) during a wave; a repair bay (`0`) fed ingots by belt.
 - The defence upgrades in the research panel (`T`), the ports of the Logistics tab of the build menu (`B`; ore, titanium, nickel, ice, quartz and carbon ports are menu-only) and the jump to another system (`G`, `J`) when the status panel says the home ore is running low.
 - Play at your normal pace and do not read the docs: where you get stuck is the finding.

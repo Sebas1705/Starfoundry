@@ -801,7 +801,7 @@ void fragment() {
                 if (r.Reject == Reject.OutOfRange) _outOfRangeSeen = true;
                 if (r.Command is PlaceSegment or PlaceMachine or PlaceModule or RemoveModule or RemoveSegment or RemoveMachine or StartMining or SetResearch or SetShipRecipe
                     or PlaceSegmentIn or PlaceMachineIn or PlaceModuleIn or RemoveModuleIn or FoundStation
-                    or Scan or Jump or AssignDrones)
+                    or Scan or Jump or AssignDrones or DumpItems)
                     ToastLogistics(Why(r.Reject));
                 else if (r.Command is ConnectSegments or ConnectFromMachine or ConnectToMachine or LinkDeposit)
                     ToastLogistics(L("toast.autoLinkFailed", Why(r.Reject))); // an automatic link that did not work: say why
@@ -825,6 +825,7 @@ void fragment() {
             else if (r.Command is PlaceMachineIn pmi && r.CreatedMachines.Count == 1) AutoLinkMachine(r.CreatedMachines[0], pmi.Recipe);
             else if (r.Command is FoundStation) ToastProduction(L("toast.stationFounded"));
             else if (r.Command is AssignDrones ad) DronesAssignedToast(ad);
+            else if (r.Command is DumpItems di) ToastProduction(L("toast.dumped", ItemName(di.Item), di.Count));
             else if (r.Command is PlaceMachine pm && r.CreatedMachines.Count == 1) AutoLinkMachine(r.CreatedMachines[0], pm.Recipe);
         }
     }

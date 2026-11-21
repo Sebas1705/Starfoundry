@@ -473,6 +473,8 @@ public static class Loc
         ["mark.droneTarget"] = ("Drones: pulsa F7", "Drones: press F7"),
         ["mark.drones"] = ("Drones aquí", "Drones here"),
         ["toast.dronesAssigned"] = ("Los drones minarán {0} ({1}/min).", "The drones will mine {0} ({1}/min)."),
+        ["toast.dumped"] = ("Tiras {1} de {0} al espacio.", "You dump {1} {0} into space."),
+        ["toast.dumpNothing"] = ("No hay nada que tirar: solo se tiran carbono, cuarzo, mineral de titanio o níquel y hielo sobrante (el carbono del salto y el hidrógeno se quedan).", "Nothing to dump: only spare carbon, quartz, titanium or nickel ore and ice go (the jump carbon and the hydrogen stay)."),
         ["toast.dronesUnassigned"] = ("Drones sin yacimiento asignado.", "Drones unassigned."),
         ["toast.dronesNoDeposit"] = ("Elige antes un yacimiento descubierto ([ ] o clic).", "Pick a discovered deposit first ([ ] or click)."),
         ["toast.dronesOutOfRange"] = ("Ese yacimiento está a más de {0} celdas del hangar.", "That deposit is more than {0} cells from the bay."),
@@ -744,6 +746,7 @@ public static class Loc
             "  N   módulo de estación (con estaciones antiguas: el primero es el núcleo; solo se construye dentro de los módulos)\n" +
             "  Estructuras: N elige la herramienta de módulos y, pulsada otra vez, cambia su tipo (cabina, motor, reactor, bodega, taller, defensa, casco, hangar de drones tras investigarlo); I elige fundar una estación junto a la nave; cada tipo de módulo admite máquinas distintas\n" +
             "  F7   asignar los drones de tu nave o estación al yacimiento elegido ([ ] o clic); de nuevo con el mismo yacimiento, quitarlos\n" +
+            "  Ctrl+Supr   tirar al espacio la mayor pila de mineral sobrante de la bodega (carbono, cuarzo, titanio, níquel; hielo si hay 20 de hidrógeno); no toca el hierro, el hidrógeno ni el carbono del salto\n" +
             "  Clic en una máquina sin herramienta: ver su estado y cambiar su receta (Tab para usar sus botones).\n  Retroceso   reparar todas las máquinas dañadas a tu alcance (cuesta la mitad de su coste, en proporción al daño)\n\n" +
             "Otros\n" +
             "  T   panel de investigación (flechas e Intro eligen; ahí se ve qué necesita y qué desbloquea cada una)      G   mapa estelar (flechas y J para saltar)\n" +
@@ -766,6 +769,7 @@ public static class Loc
             "  N   station module (older station rules: the first one is the core; you can only build inside modules)\n" +
             "  Structures: N picks the module tool and, pressed again, changes its kind (cockpit, engine, reactor, cargo, workshop, defence, hull, drone bay once researched); I picks founding a station beside the ship; each module kind allows different machines\n" +
             "  F7   assign your ship's or station's drones to the selected deposit ([ ] or click); again on the same deposit, unassign them\n" +
+            "  Ctrl+Delete   dump the largest stack of spare ore from the hold into space (carbon, quartz, titanium, nickel; ice while you hold 20 hydrogen); it never touches iron, hydrogen or the jump carbon\n" +
             "  With no tool, click a machine: see its status and change its recipe (Tab to use its buttons).\n  Backspace   repair every damaged machine within reach (half the build cost, in proportion to the damage)\n\n" +
             "Other\n" +
             "  T   research panel (arrows and Enter choose; it shows what each one needs and unlocks)      G   star map (arrows and J to jump)\n" +

@@ -1605,6 +1605,7 @@ public partial class Play
             case Key.F6: SaveGameToDisk("quicksave", silent: false); break;
             case Key.F9: LoadGameFromDisk(); break;
             case Key.F7: AssignDronesKey(); break;
+            case Key.Delete when k.CtrlPressed: DumpSpareOre(); break;
             case Key.L: ToggleLanguage(); break;
             case Key.O: _objectivesOpen = !_objectivesOpen; break;
             case Key.H: _detailsOpen = !_detailsOpen; break;

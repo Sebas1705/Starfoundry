@@ -430,6 +430,15 @@ public sealed partial class BeltNetwork
         }
     }
 
+    /// <summary>Removes items from a hold for good (the caller has checked the count).</summary>
+    internal void DumpItems(int player, int item, int count)
+    {
+        var p = GetPlayer(player);
+        p.Hold[item] -= count;
+        p.HoldTotal -= count;
+        HoldOut += count;
+    }
+
     /// <summary>Returns items to a hold, ignoring capacity.</summary>
     public void Refund(int player, ItemStack[] cost, int times = 1)
     {
