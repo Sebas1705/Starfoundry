@@ -179,15 +179,25 @@ public sealed class ContentDb
 
     /// <summary>Station module costs, or null if the content has no station modules (then module commands are rejected).</summary>
     public ModuleRules? Modules { get; }
+
+    /// <summary>Module kinds of ships and stations (cost, hit points, allowed machine roles), or null if the content has none
+    /// (then the structure commands that place modules are rejected).</summary>
+    public StructureContent? Structures { get; }
+
+    /// <summary>The ship the campaign starts in (built at world creation when structure rules are on), or null if the content has none.</summary>
+    public StructureTemplate? StarterShip { get; }
     public IReadOnlyList<EnemyDef> Enemies { get; }
     public IReadOnlyList<WaveSpec> Waves { get; }
     public ulong Hash { get; }
 
     private ContentDb(List<ItemDef> items, List<MachineDef> machines, List<RecipeDef> recipes, BeltDef?[] belts, List<ResearchDef> research,
         GalaxyRules? galaxy, List<ArchetypeDef> archetypes, ItemStack[] jumpCost,
-        ThreatRules? threat, List<EnemyDef> enemies, List<WaveSpec> waves, ModuleRules? modules)
+        ThreatRules? threat, List<EnemyDef> enemies, List<WaveSpec> waves, ModuleRules? modules, StructureContent? structures,
+        StructureTemplate? starterShip)
     {
         Modules = modules;
+        Structures = structures;
+        StarterShip = starterShip;
         Threat = threat;
         Enemies = enemies;
         Waves = waves;
@@ -242,7 +252,7 @@ public sealed class ContentDb
         {
             var root = doc.RootElement;
             RequireObject(root, "content", "schema", "items", "machines", "recipes", "belts", "research", "galaxy", "archetypes", "jump_cost",
-                "threat", "enemies", "waves", "modules");
+                "threat", "enemies", "waves", "modules", "structures", "structure_templates");
             if (!root.TryGetProperty("schema", out var schema) || schema.ValueKind != JsonValueKind.Number || schema.GetInt32() != 1)
                 throw new InvalidDataException("Unsupported or missing content schema (expected 1).");
 
@@ -578,6 +588,20 @@ public sealed class ContentDb
                     Int(mod, "growth_percent", "modules", 0, 1000));
             }
 
+            StructureContent? structures = null;
+            if (root.TryGetProperty("structures", out var st)) structures = LoadStructures(st, itemIds);
+
+            StructureTemplate? starterShip = null;
+            if (root.TryGetProperty("structure_templates", out var tpl))
+            {
+                RequireObject(tpl, "structure_templates", "starter_ship");
+                if (tpl.TryGetProperty("starter_ship", out var ss))
+                {
+                    if (structures is null) throw new InvalidDataException("'structure_templates' needs a 'structures' section.");
+                    starterShip = LoadTemplate(ss, "structure_templates.starter_ship", structures, machines, recipes, beltIds);
+                }
+            }
+
             var enemies = new List<EnemyDef>();
             var enemyIds = new Dictionary<string, int>();
             if (root.TryGetProperty("enemies", out _))
@@ -615,11 +639,187 @@ public sealed class ContentDb
             }
             else if (enemies.Count > 0 || waves.Count > 0) throw new InvalidDataException("Enemies and waves need a threat section.");
 
-            return new ContentDb(items, machines, recipes, belts, research, galaxy, archetypes, jumpCost, threat, enemies, waves, modules);
+            return new ContentDb(items, machines, recipes, belts, research, galaxy, archetypes, jumpCost, threat, enemies, waves, modules, structures, starterShip);
         }
     }
 
     public const int MaxSystems = 64;
+
+    private static StructureContent LoadStructures(JsonElement st, Dictionary<string, int> itemIds)
+    {
+        var names = Enum.GetValues<ModuleKind>().Select(k => k.ToString().ToLowerInvariant()).ToArray();
+        RequireObject(st, "structures", names);
+        var kinds = new ModuleKindDef[names.Length];
+        for (int i = 0; i < names.Length; i++)
+        {
+            if (!st.TryGetProperty(names[i], out var k)) throw new InvalidDataException($"'structures' needs an entry for '{names[i]}'.");
+            string owner = "structures." + names[i];
+            RequireObject(k, owner, "cost", "hp", "allows", "hold_capacity", "thrust_speed_percent");
+            var roles = new List<MachineRole>();
+            bool belts = false;
+            if (!k.TryGetProperty("allows", out var al) || al.ValueKind != JsonValueKind.Array)
+                throw new InvalidDataException($"'allows' in {owner} must be an array.");
+            foreach (var a in al.EnumerateArray())
+            {
+                string? s = a.ValueKind == JsonValueKind.String ? a.GetString() : null;
+                if (s == "belt")
+                {
+                    if (belts) throw new InvalidDataException($"'allows' in {owner} lists 'belt' twice.");
+                    belts = true;
+                    continue;
+                }
+                MachineRole role = s switch
+                {
+                    "crafter" => MachineRole.Crafter,
+                    "drill" => MachineRole.Drill,
+                    "lab" => MachineRole.Lab,
+                    "depot" => MachineRole.Depot,
+                    "turret" => MachineRole.Turret,
+                    "wall" => MachineRole.Wall,
+                    "repairer" => MachineRole.Repairer,
+                    "unloader" => MachineRole.Unloader,
+                    _ => throw new InvalidDataException($"'allows' in {owner} has an unknown entry '{s}'."),
+                };
+                if (roles.Contains(role)) throw new InvalidDataException($"'allows' in {owner} lists '{s}' twice.");
+                roles.Add(role);
+            }
+            kinds[i] = new ModuleKindDef((ModuleKind)i,
+                Stacks(k, "cost", owner, itemIds, allowEmpty: false, max: MaxCostStack),
+                Int(k, "hp", owner, 1, 100_000), roles.ToArray(), belts,
+                Int(k, "hold_capacity", owner, 0, 100_000), Int(k, "thrust_speed_percent", owner, 0, 10_000));
+        }
+        return new StructureContent(kinds);
+    }
+
+    private static int[] Cell(JsonElement e, string name, string owner)
+    {
+        if (!e.TryGetProperty(name, out var v) || v.ValueKind != JsonValueKind.Array || v.GetArrayLength() != 3)
+            throw new InvalidDataException($"'{name}' in {owner} must be [x, y, z].");
+        var r = new int[3];
+        int i = 0;
+        foreach (var n in v.EnumerateArray())
+        {
+            if (n.ValueKind != JsonValueKind.Number || !n.TryGetInt32(out r[i]))
+                throw new InvalidDataException($"'{name}' in {owner} must hold integers.");
+            i++;
+        }
+        return r;
+    }
+
+    /// <summary>Loads and validates a pre-built structure: modules face-connected, machines and belts inside modules that allow them,
+    /// no two things in one cell, belts wired to machines they touch.</summary>
+    private static StructureTemplate LoadTemplate(JsonElement t, string owner, StructureContent kinds, List<MachineDef> machineDefs,
+        List<RecipeDef> recipeDefs, Dictionary<string, BeltTier> beltIds)
+    {
+        RequireObject(t, owner, "modules", "machines", "belts");
+        var kindNames = Enum.GetValues<ModuleKind>().ToDictionary(k => k.ToString().ToLowerInvariant());
+        var modules = new List<TemplateModule>();
+        var moduleKinds = new Dictionary<(int, int, int), ModuleKind>();
+        foreach (var e in Array(t, "modules"))
+        {
+            RequireObject(e, "template module", "at", "kind");
+            var at = Cell(e, "at", owner);
+            string kn = Str(e, "kind", owner);
+            if (!kindNames.TryGetValue(kn, out var kind)) throw new InvalidDataException($"{owner} uses unknown module kind '{kn}'.");
+            if (!StructureGrid.IsValidLocalModule(at[0], at[1], at[2])) throw new InvalidDataException($"{owner} has a module beyond the local grid.");
+            if (!moduleKinds.TryAdd((at[0], at[1], at[2]), kind)) throw new InvalidDataException($"{owner} lists a module twice.");
+            modules.Add(new TemplateModule(at[0], at[1], at[2], kind));
+        }
+        if (modules.Count == 0) throw new InvalidDataException($"{owner} needs at least one module.");
+        var seen = new HashSet<(int, int, int)> { (modules[0].Mx, modules[0].My, modules[0].Mz) };
+        var queue = new Queue<(int, int, int)>(seen);
+        while (queue.Count > 0)
+        {
+            var (x, y, z) = queue.Dequeue();
+            foreach (var n in new[] { (x + 1, y, z), (x - 1, y, z), (x, y + 1, z), (x, y - 1, z), (x, y, z + 1), (x, y, z - 1) })
+                if (moduleKinds.ContainsKey(n) && seen.Add(n)) queue.Enqueue(n);
+        }
+        if (seen.Count != modules.Count) throw new InvalidDataException($"The modules of {owner} are not one face-connected piece.");
+
+        bool InModule(int x, int y, int z, out ModuleKind kind) =>
+            moduleKinds.TryGetValue(StationGrid.ModuleOfCell(x, y, z), out kind);
+
+        var cells = new HashSet<(int, int, int)>();
+        var machines = new List<TemplateMachine>();
+        var names = new Dictionary<string, int>();
+        foreach (var e in Array(t, "machines"))
+        {
+            RequireObject(e, "template machine", "id", "machine", "at", "recipe");
+            string name = Str(e, "id", owner);
+            if (name.Any(c => !(char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '_')))
+                throw new InvalidDataException($"{owner} has an invalid machine name '{name}'.");
+            if (!names.TryAdd(name, machines.Count)) throw new InvalidDataException($"{owner} uses the machine name '{name}' twice.");
+            string mid = Str(e, "machine", owner);
+            int type = machineDefs.FindIndex(m => m.Id == mid);
+            if (type < 0) throw new InvalidDataException($"{owner} uses unknown machine '{mid}'.");
+            var role = machineDefs[type].Role;
+            if (role == MachineRole.Ship) throw new InvalidDataException($"{owner} cannot place the ship machine '{mid}'.");
+            int recipe = -1;
+            if (e.TryGetProperty("recipe", out var rv) && rv.ValueKind != JsonValueKind.Null)
+            {
+                string rid = Str(e, "recipe", owner);
+                recipe = recipeDefs.FindIndex(r => r.Id == rid);
+                if (recipe < 0) throw new InvalidDataException($"{owner} uses unknown recipe '{rid}'.");
+                if (recipeDefs[recipe].Machine != type) throw new InvalidDataException($"{owner} gives '{name}' the recipe '{rid}' of another machine.");
+            }
+            var at = Cell(e, "at", owner);
+            if (!InModule(at[0], at[1], at[2], out var kind) || !kinds.AllowsRole(kind, role))
+                throw new InvalidDataException($"Machine '{name}' of {owner} is not inside a module that allows it.");
+            if (!cells.Add((at[0], at[1], at[2]))) throw new InvalidDataException($"{owner} puts two things in the cell of '{name}'.");
+            machines.Add(new TemplateMachine(name, at[0], at[1], at[2], type, recipe));
+        }
+
+        var belts = new List<TemplateBelt>();
+        var outputs = new int[machines.Count];
+        foreach (var e in Array(t, "belts"))
+        {
+            RequireObject(e, "template belt", "at", "dir", "length", "tier", "from", "to");
+            var at = Cell(e, "at", owner);
+            Dir dir = Str(e, "dir", owner) switch
+            {
+                "+x" => Dir.PosX, "-x" => Dir.NegX, "+y" => Dir.PosY, "-y" => Dir.NegY, "+z" => Dir.PosZ, "-z" => Dir.NegZ,
+                _ => throw new InvalidDataException($"{owner} has a belt with an unknown dir (use +x, -x, +y, -y, +z or -z)."),
+            };
+            int length = Int(e, "length", owner, 1, SimWorld.MaxSegmentCells);
+            string tn = Str(e, "tier", owner);
+            var tier = tn switch
+            {
+                "mk1" => BeltTier.Mk1, "mk2" => BeltTier.Mk2, "mk3" => BeltTier.Mk3,
+                _ => throw new InvalidDataException($"{owner} has a belt with an unknown tier '{tn}'."),
+            };
+            var (dx, dy, dz) = Dirs.Vector(dir);
+            for (int k = 0; k < length; k++)
+            {
+                int x = at[0] + dx * k, y = at[1] + dy * k, z = at[2] + dz * k;
+                if (!StructureGrid.InLocalBounds(x) || !StructureGrid.InLocalBounds(y) || !StructureGrid.InLocalBounds(z)
+                    || !InModule(x, y, z, out var kind) || !kinds.AllowsBelts(kind))
+                    throw new InvalidDataException($"A belt of {owner} is not inside modules that allow belts.");
+                if (!cells.Add((x, y, z))) throw new InvalidDataException($"{owner} puts two things in one belt cell.");
+            }
+            int lx = at[0] + dx * (length - 1), ly = at[1] + dy * (length - 1), lz = at[2] + dz * (length - 1);
+            int Link(string key, int cx, int cy, int cz)
+            {
+                if (!e.TryGetProperty(key, out var v) || v.ValueKind == JsonValueKind.Null) return -1;
+                string n = Str(e, key, owner);
+                if (!names.TryGetValue(n, out int mi)) throw new InvalidDataException($"{owner} links a belt to unknown machine '{n}'.");
+                var m = machines[mi];
+                if (Math.Abs(m.X - cx) + Math.Abs(m.Y - cy) + Math.Abs(m.Z - cz) != 1)
+                    throw new InvalidDataException($"A belt of {owner} is linked to '{n}' but does not touch it.");
+                return mi;
+            }
+            int from = Link("from", at[0], at[1], at[2]), to = Link("to", lx, ly, lz);
+            if (from >= 0)
+            {
+                if (machineDefs[machines[from].Type].Role is MachineRole.Wall or MachineRole.Repairer)
+                    throw new InvalidDataException($"{owner}: '{machines[from].Name}' cannot feed a belt.");
+                if (++outputs[from] > 2) throw new InvalidDataException($"{owner}: '{machines[from].Name}' feeds more than two belts.");
+            }
+            if (to >= 0 && machineDefs[machines[to].Type].Role is MachineRole.Wall or MachineRole.Unloader)
+                throw new InvalidDataException($"{owner}: '{machines[to].Name}' cannot take items from a belt.");
+            belts.Add(new TemplateBelt(at[0], at[1], at[2], dir, length, tier, from, to));
+        }
+        return new StructureTemplate(modules.ToArray(), machines.ToArray(), belts.ToArray());
+    }
 
     private static int Int(JsonElement e, string name, string owner, int min, int max)
     {
@@ -759,6 +959,26 @@ public sealed class ContentDb
         }
         MixStacks(JumpCost);
         if (Modules is { } mo) { MixStacks(mo.CoreCost); MixStacks(mo.HullCost); Mix(mo.GrowthPercent); }
+        else Mix(-1);
+        if (Structures is { } sc)
+        {
+            foreach (var k in sc.Kinds)
+            {
+                Mix((int)k.Kind); MixStacks(k.Cost); Mix(k.Hp);
+                Mix(k.AllowedRoles.Length); foreach (var r in k.AllowedRoles) Mix((int)r);
+                Mix(k.AllowsBelts ? 1 : 0); Mix(k.HoldCapacity); Mix(k.ThrustSpeedPercent);
+            }
+        }
+        else Mix(-1);
+        if (StarterShip is { } ship)
+        {
+            Mix(ship.Modules.Length);
+            foreach (var m in ship.Modules) { Mix(m.Mx); Mix(m.My); Mix(m.Mz); Mix((int)m.Kind); }
+            Mix(ship.Machines.Length);
+            foreach (var m in ship.Machines) { MixStr(m.Name); Mix(m.X); Mix(m.Y); Mix(m.Z); Mix(m.Type); Mix(m.Recipe); }
+            Mix(ship.Belts.Length);
+            foreach (var b in ship.Belts) { Mix(b.X); Mix(b.Y); Mix(b.Z); Mix((int)b.Dir); Mix(b.Length); Mix((int)b.Tier); Mix(b.From); Mix(b.To); }
+        }
         else Mix(-1);
         if (Threat is { } th)
         {

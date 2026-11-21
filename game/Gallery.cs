@@ -4,13 +4,14 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using Godot;
+using Starfoundry.Sim;
 
 namespace Starfoundry.Game;
 
 /// <summary>
 /// Review scene for the procedural models. Run with user args after "--":
 /// --shot=path.png (save a screenshot after --frames=N frames and quit), --export-models=dir (write .glb files and quit),
-/// --focus=machines|units|all, --angle=deg, --pitch=deg, --dist=units, --fov=deg. Without --angle the camera orbits slowly.
+/// --focus=machines|units|all|modules|ship-demo|station-demo, --variant=N, --at=x,y,z (look-at point), --angle=deg, --pitch=deg, --dist=units, --fov=deg. Without --angle the camera orbits slowly.
 /// </summary>
 public partial class Gallery : Node3D
 {
@@ -70,14 +71,56 @@ public partial class Gallery : Node3D
         switch (focus)
         {
             case "machines": _focusPoint = new Vector3(0, 0, 0f); defDist = 9f; break;
+            case "modules": _focusPoint = new Vector3(32f, 1.5f, 8f); defDist = 75f; break;
+            case "ship-demo": _focusPoint = new Vector3(4f, 2f, 20f); defDist = 40f; break;
+            case "station-demo": _focusPoint = new Vector3(12f, 3f, 8f); defDist = 40f; break;
             case "ships": _focusPoint = new Vector3(-3.1f, 0.15f, -4.6f); defDist = 6f; break;
             case "units": _focusPoint = new Vector3(2.6f, 0.3f, -6.3f); defDist = 11f; break;
             default: _focusPoint = new Vector3(1.2f, 0.2f, -3f); defDist = 18f; break;
         }
         if (_dist < 0) _dist = defDist;
+        if (Arg("--at") is { } at && at.Split(',') is { Length: 3 } p) _focusPoint = new Vector3(float.Parse(p[0], CultureInfo.InvariantCulture), float.Parse(p[1], CultureInfo.InvariantCulture), float.Parse(p[2], CultureInfo.InvariantCulture));
 
         BuildScene();
-        BuildModels();
+        if (focus is "modules" or "ship-demo" or "station-demo") BuildModuleGallery(focus, (int)F("--variant", 0));
+        else BuildModels();
+    }
+
+    /// <summary>--focus=modules: every module kind as a ship (front row) and as a station (back row); ship-demo and station-demo: small assembled structures.</summary>
+    private void BuildModuleGallery(string focus, int variant)
+    {
+        void Put(ModuleKind kind, bool ship, Vector3 at, string? label = null)
+        {
+            var m = ModuleModels.Build(kind, ship, variant);
+            m.Position = at;
+            AddChild(m);
+            _animated.Add(m);
+            if (label != null) Label(label, at + new Vector3(4, -0.2f, 9.5f));
+        }
+        if (focus == "modules")
+        {
+            var kinds = Enum.GetValues<ModuleKind>();
+            for (int i = 0; i < kinds.Length; i++)
+            {
+                Put(kinds[i], true, new Vector3(i * 9.5f, 0, 0), kinds[i] + " (ship)");
+                Put(kinds[i], false, new Vector3(i * 9.5f, 0, 16f), kinds[i] + " (station)");
+            }
+        }
+        else if (focus == "ship-demo")
+        {
+            // Front (-Z) first: cockpit, workshop, cargo, reactor, engine at the back.
+            ModuleKind[] row = { ModuleKind.Cockpit, ModuleKind.Workshop, ModuleKind.Cargo, ModuleKind.Reactor, ModuleKind.Engine };
+            for (int i = 0; i < row.Length; i++) Put(row[i], true, new Vector3(0, 0, i * 8f));
+        }
+        else
+        {
+            (ModuleKind, int, int, int)[] parts =
+            {
+                (ModuleKind.Hull, 0, 0, 0), (ModuleKind.Core, 1, 0, 0), (ModuleKind.Workshop, 2, 0, 0),
+                (ModuleKind.Defence, 1, 0, 1), (ModuleKind.Hull, 0, 1, 0), (ModuleKind.Hull, 3, 0, 0), (ModuleKind.Defence, 2, 0, 1),
+            };
+            foreach (var (k, x, y, z) in parts) Put(k, false, new Vector3(x * 8f, y * 4f, z * 8f));
+        }
     }
 
     private void BuildScene()

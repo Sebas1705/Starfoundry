@@ -13,13 +13,16 @@ public static class CommandCodec
         TagPlaceMachine = 10, TagRemoveMachine = 11, TagSetRecipe = 12,
         TagConnectToMachine = 13, TagConnectFromMachine = 14, TagDisconnectMachine = 15,
         TagStartMining = 16, TagStopMining = 17, TagSetShipRecipe = 18, TagSetResearch = 19,
-        TagLinkDeposit = 20, TagUnlinkDeposit = 21, TagSetMovement = 22, TagScan = 23, TagJump = 24, TagSetWeapons = 25, TagRepair = 26, TagSetThrust = 27, TagPlaceModule = 28, TagRemoveModule = 29;
+        TagLinkDeposit = 20, TagUnlinkDeposit = 21, TagSetMovement = 22, TagScan = 23, TagJump = 24, TagSetWeapons = 25, TagRepair = 26, TagSetThrust = 27, TagPlaceModule = 28, TagRemoveModule = 29,
+        TagPlaceMachineIn = 30, TagPlaceSegmentIn = 31, TagPlaceModuleIn = 32, TagRemoveModuleIn = 33, TagFoundStation = 34;
 
     private static readonly byte[] Magic = Encoding.ASCII.GetBytes("SFCL");
 
     /// <summary>Version 2 added the content hash to the header, version 3 the game mode, version 4 the galaxy seed, version 5 the threat flag.</summary>
+    /// Version 6 added the station-rules flag (bit 1); the structures flag (bit 2) uses a bit that version 6 left free,
+    /// so logs written before it simply read as structures off and the version stays 6.
     private const byte LogVersion = 6;
-    /// <summary>Version 5 headers carry no station-rules flag; they still load, as rules off.</summary>
+    /// <summary>Version 5 headers carry no station-rules or structures flag; they still load, with both rules off.</summary>
     private const byte OldestLogVersion = 5;
 
     /// <summary>Deepest allowed batch nesting. The world rejects nested batches, but the format can still
@@ -49,7 +52,8 @@ public static class CommandCodec
                 or PlaceMachine or RemoveMachine or SetRecipe
                 or ConnectToMachine or ConnectFromMachine or DisconnectMachine
                 or StartMining or StopMining or SetShipRecipe or SetResearch or LinkDeposit or UnlinkDeposit or SetMovement or SetThrust
-                or Scan or Jump or SetWeapons or Repair or PlaceModule or RemoveModule:
+                or Scan or Jump or SetWeapons or Repair or PlaceModule or RemoveModule
+                or PlaceMachineIn or PlaceSegmentIn or PlaceModuleIn or RemoveModuleIn or FoundStation:
                 return true;
             default:
                 return false;
@@ -149,6 +153,25 @@ public static class CommandCodec
             case RemoveModule rmod:
                 w.Write(TagRemoveModule); w.Write(rmod.Mx); w.Write(rmod.My); w.Write(rmod.Mz);
                 break;
+            case PlaceMachineIn pmi:
+                w.Write(TagPlaceMachineIn); w.Write(pmi.Structure);
+                w.Write(pmi.X); w.Write(pmi.Y); w.Write(pmi.Z); w.Write(pmi.Type); w.Write(pmi.Recipe);
+                break;
+            case PlaceSegmentIn psi:
+                w.Write(TagPlaceSegmentIn); w.Write(psi.Structure);
+                w.Write(psi.X); w.Write(psi.Y); w.Write(psi.Z);
+                w.Write((byte)psi.Dir); w.Write(psi.Length); w.Write((byte)psi.Tier);
+                break;
+            case PlaceModuleIn pmo:
+                w.Write(TagPlaceModuleIn); w.Write(pmo.Structure);
+                w.Write(pmo.Mx); w.Write(pmo.My); w.Write(pmo.Mz); w.Write((byte)pmo.Kind);
+                break;
+            case RemoveModuleIn rmo:
+                w.Write(TagRemoveModuleIn); w.Write(rmo.Structure); w.Write(rmo.Mx); w.Write(rmo.My); w.Write(rmo.Mz);
+                break;
+            case FoundStation fs:
+                w.Write(TagFoundStation); w.Write(fs.Wx); w.Write(fs.Wy); w.Write(fs.Wz);
+                break;
             case Scan:
                 w.Write(TagScan);
                 break;
@@ -216,6 +239,19 @@ public static class CommandCodec
             case TagSetThrust: return new SetThrust(r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
             case TagPlaceModule: return new PlaceModule(r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
             case TagRemoveModule: return new RemoveModule(r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
+            case TagPlaceMachineIn:
+                return new PlaceMachineIn(r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
+            case TagPlaceSegmentIn:
+            {
+                int structure = r.ReadInt32(), x = r.ReadInt32(), y = r.ReadInt32(), z = r.ReadInt32();
+                byte dir = r.ReadByte();
+                int len = r.ReadInt32();
+                byte tier = r.ReadByte();
+                return new PlaceSegmentIn(structure, x, y, z, (Dir)dir, len, (BeltTier)tier);
+            }
+            case TagPlaceModuleIn: return new PlaceModuleIn(r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), (ModuleKind)r.ReadByte());
+            case TagRemoveModuleIn: return new RemoveModuleIn(r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
+            case TagFoundStation: return new FoundStation(r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
             case TagScan: return new Scan();
             case TagJump: return new Jump(r.ReadInt32());
             case TagSetWeapons: return new SetWeapons(r.ReadBoolean());
@@ -252,7 +288,7 @@ public static class CommandCodec
     /// <summary>Writes a log: magic, version, content hash, count, then (tick, player, command) entries.
     /// Pass <see cref="ContentDb.Hash"/> of the content the log was recorded with (0 if there is none).</summary>
     public static void WriteLog(Stream stream, IReadOnlyList<LoggedCommand> log, ulong contentHash = 0, GameMode mode = GameMode.Sandbox,
-        ulong galaxySeed = 0, bool threats = false, bool stationRules = false)
+        ulong galaxySeed = 0, bool threats = false, bool stationRules = false, bool structures = false)
     {
         using var w = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
         w.Write(Magic);
@@ -260,7 +296,7 @@ public static class CommandCodec
         w.Write(contentHash);
         w.Write((byte)mode);
         w.Write(galaxySeed);
-        w.Write((byte)((threats ? 1 : 0) | (stationRules ? 2 : 0)));
+        w.Write((byte)((threats ? 1 : 0) | (stationRules ? 2 : 0) | (structures ? 4 : 0)));
         w.Write(log.Count);
         foreach (var e in log)
         {
@@ -290,7 +326,12 @@ public static class CommandCodec
 
     /// <summary>Also returns whether the world used station rules. Version 5 logs have no such flag and read as false.</summary>
     public static List<LoggedCommand> ReadLog(Stream stream, out ulong contentHash, out GameMode mode, out ulong galaxySeed, out bool threats,
-        out bool stationRules)
+        out bool stationRules) =>
+        ReadLog(stream, out contentHash, out mode, out galaxySeed, out threats, out stationRules, out _);
+
+    /// <summary>Also returns whether the world used structure rules. Logs written before the flag existed (and version 5 logs) read as false.</summary>
+    public static List<LoggedCommand> ReadLog(Stream stream, out ulong contentHash, out GameMode mode, out ulong galaxySeed, out bool threats,
+        out bool stationRules, out bool structures)
     {
         using var r = new BinaryReader(stream, Encoding.UTF8, leaveOpen: true);
         var magic = r.ReadBytes(Magic.Length);
@@ -303,10 +344,11 @@ public static class CommandCodec
         mode = (GameMode)rawMode;
         galaxySeed = r.ReadUInt64();
         byte flags = r.ReadByte();
-        int knownFlags = version >= 6 ? 3 : 1;
+        int knownFlags = version >= 6 ? 7 : 1;
         if (flags > knownFlags) throw new InvalidDataException($"Unknown header flags {flags}.");
         threats = (flags & 1) != 0;
         stationRules = (flags & 2) != 0;
+        structures = (flags & 4) != 0;
         int count = r.ReadInt32();
         if (count < 0) throw new InvalidDataException("Negative entry count.");
 

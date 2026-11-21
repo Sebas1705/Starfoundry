@@ -3,7 +3,7 @@ using System.Text;
 namespace Starfoundry.Sim;
 
 /// <summary>What a save file says about the game it holds.</summary>
-public sealed record SaveInfo(long Ticks, ulong Checksum, GameMode Mode, ulong GalaxySeed, bool Threats, int Player, bool StationRules = false);
+public sealed record SaveInfo(long Ticks, ulong Checksum, GameMode Mode, ulong GalaxySeed, bool Threats, int Player, bool StationRules = false, bool Structures = false);
 
 /// <summary>
 /// Saving and loading by replay. A save is the command log of the world plus the number of ticks played and the checksum
@@ -18,7 +18,8 @@ public static class SaveGame
     private const byte Version = 1;
 
     /// <summary>Writes the save: magic, version, ticks, checksum, the player, then the command log with its header.</summary>
-    public static void Write(Stream stream, SimWorld world, ContentDb content, GameMode mode, ulong galaxySeed, bool threats, int player, bool stationRules = false)
+    public static void Write(Stream stream, SimWorld world, ContentDb content, GameMode mode, ulong galaxySeed, bool threats, int player, bool stationRules = false,
+        bool structures = false)
     {
         using (var w = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true))
         {
@@ -28,7 +29,7 @@ public static class SaveGame
             w.Write(world.Checksum());
             w.Write(player);
         }
-        CommandCodec.WriteLog(stream, world.Log, content.Hash, mode, galaxySeed, threats, stationRules);
+        CommandCodec.WriteLog(stream, world.Log, content.Hash, mode, galaxySeed, threats, stationRules, structures);
     }
 
     /// <summary>Reads only the header (how long the game was, its mode and seed), without replaying anything.</summary>
@@ -36,8 +37,8 @@ public static class SaveGame
     {
         using var r = new BinaryReader(stream, Encoding.UTF8, leaveOpen: true);
         var (ticks, checksum, player) = ReadHeader(r);
-        CommandCodec.ReadLog(stream, out _, out var mode, out ulong seed, out bool threats, out bool stationRules);
-        return new SaveInfo(ticks, checksum, mode, seed, threats, player, stationRules);
+        CommandCodec.ReadLog(stream, out _, out var mode, out ulong seed, out bool threats, out bool stationRules, out bool structures);
+        return new SaveInfo(ticks, checksum, mode, seed, threats, player, stationRules, structures);
     }
 
     /// <summary>
@@ -52,17 +53,18 @@ public static class SaveGame
         using (var r = new BinaryReader(stream, Encoding.UTF8, leaveOpen: true))
             (ticks, checksum, player) = ReadHeader(r);
 
-        var log = CommandCodec.ReadLog(stream, out ulong hash, out var mode, out ulong seed, out bool threats, out bool stationRules);
+        var log = CommandCodec.ReadLog(stream, out ulong hash, out var mode, out ulong seed, out bool threats, out bool stationRules,
+            out bool structures);
         if (hash != content.Hash) throw new InvalidDataException("The save was made with other game content and cannot be loaded.");
         if (ticks < 0 || ticks > 4_000_000_000L) throw new InvalidDataException("The save has an impossible length.");
 
-        var initial = seed != 0 ? SimWorld.CreateGalaxy(content, mode, seed, threats, stationRules) : new SimWorld(content, mode);
+        var initial = seed != 0 ? SimWorld.CreateGalaxy(content, mode, seed, threats, stationRules, structures) : new SimWorld(content, mode);
         initial.Network.EnsurePlayer(player);
         var world = SimWorld.Replay(log, ticks, initial);
         if (world.Tick != ticks || world.Checksum() != checksum)
             throw new InvalidDataException("The save did not replay to the state it was saved in.");
 
-        info = new SaveInfo(ticks, checksum, mode, seed, threats, player, stationRules);
+        info = new SaveInfo(ticks, checksum, mode, seed, threats, player, stationRules, structures);
         return world;
     }
 

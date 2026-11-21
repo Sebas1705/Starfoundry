@@ -750,6 +750,87 @@
     ],
     "growth_percent": 25
   },
+  "structures": {
+    "core": {
+      "cost": [{ "item": "core:iron_ingot", "count": 16 }, { "item": "core:iron_plate", "count": 12 }],
+      "hp": 300,
+      "allows": ["crafter", "lab", "depot", "unloader", "repairer", "belt"],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0
+    },
+    "cockpit": {
+      "cost": [{ "item": "core:iron_plate", "count": 12 }],
+      "hp": 150,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0
+    },
+    "engine": {
+      "cost": [{ "item": "core:iron_plate", "count": 16 }, { "item": "core:carbon", "count": 4 }],
+      "hp": 200,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 100
+    },
+    "reactor": {
+      "cost": [{ "item": "core:iron_plate", "count": 16 }, { "item": "core:carbon", "count": 8 }],
+      "hp": 150,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0
+    },
+    "cargo": {
+      "cost": [{ "item": "core:iron_ingot", "count": 20 }],
+      "hp": 200,
+      "allows": [],
+      "hold_capacity": 60,
+      "thrust_speed_percent": 0
+    },
+    "workshop": {
+      "cost": [{ "item": "core:iron_ingot", "count": 24 }],
+      "hp": 200,
+      "allows": ["crafter", "lab", "depot", "unloader", "repairer", "belt"],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0
+    },
+    "defence": {
+      "cost": [{ "item": "core:iron_plate", "count": 12 }, { "item": "core:iron_ingot", "count": 16 }],
+      "hp": 250,
+      "allows": ["turret", "wall"],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0
+    },
+    "hull": {
+      "cost": [{ "item": "core:iron_ingot", "count": 12 }],
+      "hp": 120,
+      "allows": ["belt"],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0
+    }
+  },
+  "structure_templates": {
+    "starter_ship": {
+      "modules": [
+        { "at": [0, 0, 0], "kind": "cockpit" },
+        { "at": [0, 0, 1], "kind": "workshop" },
+        { "at": [0, 0, 2], "kind": "cargo" },
+        { "at": [0, 0, 3], "kind": "reactor" },
+        { "at": [0, 0, 4], "kind": "engine" }
+      ],
+      "machines": [
+        { "id": "ore_port", "machine": "core:ore_unloader", "at": [0, 1, 9] },
+        { "id": "smelter", "machine": "core:smelter", "at": [3, 1, 9], "recipe": "core:smelt_iron" },
+        { "id": "assembler", "machine": "core:assembler", "at": [3, 1, 11], "recipe": "core:iron_plate" },
+        { "id": "depot", "machine": "core:depot", "at": [7, 1, 10] }
+      ],
+      "belts": [
+        { "at": [1, 1, 9], "dir": "+x", "length": 2, "tier": "mk1", "from": "ore_port", "to": "smelter" },
+        { "at": [4, 1, 9], "dir": "+x", "length": 4, "tier": "mk1", "from": "smelter", "to": "depot" },
+        { "at": [3, 1, 10], "dir": "+z", "length": 1, "tier": "mk1", "from": "smelter", "to": "assembler" },
+        { "at": [4, 1, 11], "dir": "+x", "length": 4, "tier": "mk1", "from": "assembler", "to": "depot" }
+      ]
+    }
+  },
   "threat": {
     "alert_max": 216000,
     "signature_threshold": 8,

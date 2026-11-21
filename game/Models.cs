@@ -295,14 +295,14 @@ public static class Models
 
     private static readonly Dictionary<string, StandardMaterial3D> Mats = new();
 
-    private static StandardMaterial3D Body()
+    internal static StandardMaterial3D Body()
     {
         if (!Mats.TryGetValue("body", out var m))
             Mats["body"] = m = new StandardMaterial3D { VertexColorUseAsAlbedo = true, AlbedoColor = Colors.White, Roughness = 0.55f, Metallic = 0.22f };
         return m;
     }
 
-    private static StandardMaterial3D Glow(Color c, float energy)
+    internal static StandardMaterial3D Glow(Color c, float energy)
     {
         string key = $"glow.{c.ToHtml()}.{energy}";
         if (!Mats.TryGetValue(key, out var m))
@@ -317,7 +317,7 @@ public static class Models
         return m;
     }
 
-    private static StandardMaterial3D GlassMat()
+    internal static StandardMaterial3D GlassMat()
     {
         if (!Mats.TryGetValue("glass", out var m))
             Mats["glass"] = m = new StandardMaterial3D
@@ -349,24 +349,24 @@ public static class Models
         return mesh;
     }
 
-    private static MeshInstance3D Add(Node3D parent, string name, string key, Material mat, Action<Mb> build, Vector3 pos = default, Vector3 rotDeg = default)
+    internal static MeshInstance3D Add(Node3D parent, string name, string key, Material mat, Action<Mb> build, Vector3 pos = default, Vector3 rotDeg = default)
     {
         var mi = new MeshInstance3D { Name = name, Mesh = GetMesh(key, mat, build), Position = pos, RotationDegrees = rotDeg };
         parent.AddChild(mi);
         return mi;
     }
 
-    private static Node3D Pivot(Node3D parent, string name, Vector3 pos)
+    internal static Node3D Pivot(Node3D parent, string name, Vector3 pos)
     {
         var n = new Node3D { Name = name, Position = pos };
         parent.AddChild(n);
         return n;
     }
 
-    private static Vector3 Deg(float x, float y, float z) => new(Mathf.DegToRad(x), Mathf.DegToRad(y), Mathf.DegToRad(z));
+    internal static Vector3 Deg(float x, float y, float z) => new(Mathf.DegToRad(x), Mathf.DegToRad(y), Mathf.DegToRad(z));
 
     /// <summary>Flat-shaded triangle soup builder. Every triangle gets its own vertices and face normal.</summary>
-    private sealed class Mb
+    internal sealed class Mb
     {
         private readonly List<Vector3> _v = new();
         private readonly List<Vector3> _n = new();

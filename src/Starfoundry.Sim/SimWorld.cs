@@ -16,6 +16,10 @@ public sealed class SimWorld
 
     /// <summary>Occupied cells: a segment id (zero or more) or, for machines, -(machine id + 1).</summary>
     private readonly Dictionary<long, int> _cells = new();
+
+    /// <summary>Occupied local cells of every structure other than 0, with the same value encoding as <see cref="_cells"/>.
+    /// Sorted by structure id; an entry exists only while it holds at least one cell.</summary>
+    private readonly SortedDictionary<int, Dictionary<long, int>> _structCells = new();
     private readonly Queue<(int Player, Command Command)> _queue = new();
     private readonly List<LoggedCommand> _log = new();
     private readonly List<CommandResult> _results = new();
@@ -44,13 +48,21 @@ public sealed class SimWorld
     /// Deposits of the home system start revealed; the others stay hidden until scanned. Replays and peers must create
     /// the world with the same arguments (the log header stores mode, content hash and seed).
     /// </summary>
-    public static SimWorld CreateGalaxy(ContentDb content, GameMode mode, ulong seed, bool threats = false, bool stationRules = false)
+    public static SimWorld CreateGalaxy(ContentDb content, GameMode mode, ulong seed, bool threats = false, bool stationRules = false,
+        bool structures = false)
     {
         var galaxy = Galaxy.Generate(content, seed);
-        var net = new BeltNetwork(content, mode, threats, stationRules);
+        var net = new BeltNetwork(content, mode, threats, stationRules, structures);
         foreach (var d in galaxy.Deposits)
             net.AddDeposit(d.Item, d.Amount, d.X, d.Y, d.Z, revealed: d.System == 0);
         net.SetGalaxy(galaxy);
+        // The starter ship is part of the initial world, like the deposits: built before the first command, at no cost, at the
+        // home anchor (the world origin), so replays and saves that call CreateGalaxy with the header flags get it too.
+        if (structures && content.StarterShip is { } ship)
+        {
+            net.EnsurePlayer(0);
+            net.BuildStructureFromTemplate(ship, StructureKind.Ship, 0, 0, 0, 0);
+        }
         return new SimWorld(net);
     }
 
@@ -64,14 +76,14 @@ public sealed class SimWorld
         {
             if (!network.IsAlive(id)) continue;
             var info = network.GetSegmentInfo(id);
-            if (!TryClaim(info.Id, info.OriginX, info.OriginY, info.OriginZ, info.DirX, info.DirY, info.DirZ, info.LengthCells))
+            if (!TryClaim(info.Id, info.OriginX, info.OriginY, info.OriginZ, info.DirX, info.DirY, info.DirZ, info.LengthCells, info.Structure))
                 throw new ArgumentException($"Segment {id} overlaps another segment.", nameof(network));
         }
         for (int id = 0; id < network.MachineIdLimit; id++)
         {
             if (!network.IsMachineAlive(id)) continue;
             var m = network.GetMachineInfo(id);
-            if (!_cells.TryAdd(Key(m.X, m.Y, m.Z), -(id + 1)))
+            if (!CellsFor(m.Structure, create: true)!.TryAdd(Key(m.X, m.Y, m.Z), -(id + 1)))
                 throw new ArgumentException($"Machine {id} overlaps something.", nameof(network));
         }
     }
@@ -100,7 +112,7 @@ public sealed class SimWorld
         Network.Step();
 
         // Machines destroyed by enemies leave their cells free.
-        foreach (var d in Network.TakeDestroyedMachines()) _cells.Remove(Key(d.X, d.Y, d.Z));
+        foreach (var d in Network.TakeDestroyedMachines()) RemoveCell(d.Structure, Key(d.X, d.Y, d.Z));
     }
 
     public void Step(int ticks)
@@ -133,10 +145,15 @@ public sealed class SimWorld
     public enum EntityKind { None, Segment, Machine }
 
     /// <summary>What occupies a cell: a belt segment, a machine, or nothing (id -1). For pickers and tools.</summary>
-    public (EntityKind Kind, int Id) EntityAt(int x, int y, int z)
+    public (EntityKind Kind, int Id) EntityAt(int x, int y, int z) => EntityAt(0, x, y, z);
+
+    /// <summary>What occupies a local cell of a structure (0 = the legacy world, whose cells are world cells).</summary>
+    public (EntityKind Kind, int Id) EntityAt(int structure, int x, int y, int z)
     {
-        if (!InBounds(x) || !InBounds(y) || !InBounds(z)) return (EntityKind.None, -1);
-        if (!_cells.TryGetValue(Key(x, y, z), out int v)) return (EntityKind.None, -1);
+        if (structure == 0 ? !(InBounds(x) && InBounds(y) && InBounds(z)) : !(StructureGrid.InLocalBounds(x) && StructureGrid.InLocalBounds(y) && StructureGrid.InLocalBounds(z)))
+            return (EntityKind.None, -1);
+        var cells = CellsFor(structure, create: false);
+        if (cells is null || !cells.TryGetValue(Key(x, y, z), out int v)) return (EntityKind.None, -1);
         return v >= 0 ? (EntityKind.Segment, v) : (EntityKind.Machine, -(v + 1));
     }
 
@@ -148,15 +165,21 @@ public sealed class SimWorld
     {
         Network.ValidateInvariants();
 
-        var expected = new Dictionary<long, int>();
+        var expected = new SortedDictionary<int, Dictionary<long, int>>();
+        Dictionary<long, int> Of(int structure)
+        {
+            if (!expected.TryGetValue(structure, out var d)) expected[structure] = d = new Dictionary<long, int>();
+            return d;
+        }
         for (int id = 0; id < Network.SegmentIdLimit; id++)
         {
             if (!Network.IsAlive(id)) continue;
             var s = Network.GetSegmentInfo(id);
+            var cells = Of(s.Structure);
             for (int k = 0; k < s.LengthCells; k++)
             {
                 long key = Key(s.OriginX + s.DirX * k, s.OriginY + s.DirY * k, s.OriginZ + s.DirZ * k);
-                if (!expected.TryAdd(key, id))
+                if (!cells.TryAdd(key, id))
                     throw new InvalidOperationException($"Segment {id} overlaps another segment or machine.");
             }
         }
@@ -164,11 +187,20 @@ public sealed class SimWorld
         {
             if (!Network.IsMachineAlive(id)) continue;
             var m = Network.GetMachineInfo(id);
-            if (!expected.TryAdd(Key(m.X, m.Y, m.Z), -(id + 1)))
+            if (!Of(m.Structure).TryAdd(Key(m.X, m.Y, m.Z), -(id + 1)))
                 throw new InvalidOperationException($"Machine {id} overlaps a segment or machine.");
         }
-        if (expected.Count != _cells.Count || expected.Any(kv => !_cells.TryGetValue(kv.Key, out int v) || v != kv.Value))
+
+        static bool Same(Dictionary<long, int> a, Dictionary<long, int> b) =>
+            a.Count == b.Count && a.All(kv => b.TryGetValue(kv.Key, out int v) && v == kv.Value);
+
+        expected.TryGetValue(0, out var world);
+        if (!Same(world ?? new Dictionary<long, int>(), _cells))
             throw new InvalidOperationException("The cell index does not match the segments and machines.");
+        expected.Remove(0);
+        if (expected.Count != _structCells.Count
+            || expected.Any(kv => !_structCells.TryGetValue(kv.Key, out var actual) || !Same(kv.Value, actual)))
+            throw new InvalidOperationException("The structure cell index does not match the segments and machines.");
     }
 
     // ---- command application -------------------------------------------------------------
@@ -196,6 +228,7 @@ public sealed class SimWorld
 
         var snapshot = Network.Clone();
         var cells = new Dictionary<long, int>(_cells);
+        var structCells = _structCells.ToDictionary(kv => kv.Key, kv => new Dictionary<long, int>(kv.Value));
 
         for (int i = 0; i < batch.Commands.Length; i++)
         {
@@ -205,6 +238,8 @@ public sealed class SimWorld
             Network.CopyFrom(snapshot);
             _cells.Clear();
             foreach (var kv in cells) _cells.Add(kv.Key, kv.Value);
+            _structCells.Clear();
+            foreach (var kv in structCells) _structCells.Add(kv.Key, kv.Value);
             created.Clear();
             createdMachines.Clear();
             _revealed.Clear();
@@ -228,6 +263,11 @@ public sealed class SimWorld
     public bool InBuildRange(int player, int x, int y, int z) =>
         Network.CellInRange(player, x, y, z, PlayerRules.BuildRangeCells);
 
+    /// <summary>Build-range check for a cell of any structure: structure 0 measures the world cell from the ship; inside a structure a
+    /// ship of the player is always in range and a station must have the cell near the ship (the world position of the cell).</summary>
+    public bool InBuildRange(int player, int structure, int x, int y, int z) =>
+        structure == 0 ? InBuildRange(player, x, y, z) : StructureCellInRange(player, Network.GetStructure(structure), x, y, z);
+
     private ItemStack[] BeltCost(BeltTier tier) =>
         Network.Content?.Belts[(int)tier]?.CostPerCell ?? System.Array.Empty<ItemStack>();
 
@@ -243,7 +283,7 @@ public sealed class SimWorld
                 int id = Resolve(r.Segment, created);
                 if (!Network.IsAlive(id)) return Reject.UnknownSegment;
                 var info = Network.GetSegmentInfo(id);
-                if (Campaign && !InBuildRange(player, info.OriginX, info.OriginY, info.OriginZ)) return Reject.OutOfRange;
+                if (Campaign && !InBuildRange(player, info.Structure, info.OriginX, info.OriginY, info.OriginZ)) return Reject.OutOfRange;
                 Release(info);
                 Network.RemoveSegment(id);
                 if (Campaign) Network.Refund(player, BeltCost(info.Tier), info.LengthCells);
@@ -326,8 +366,8 @@ public sealed class SimWorld
                 int id = Resolve(rm.Machine, machines);
                 if (!Network.IsMachineAlive(id)) return Reject.UnknownMachine;
                 var m = Network.GetMachineInfo(id);
-                if (Campaign && !InBuildRange(player, m.X, m.Y, m.Z)) return Reject.OutOfRange;
-                _cells.Remove(Key(m.X, m.Y, m.Z));
+                if (Campaign && !InBuildRange(player, m.Structure, m.X, m.Y, m.Z)) return Reject.OutOfRange;
+                RemoveCell(m.Structure, Key(m.X, m.Y, m.Z));
                 Network.RemoveMachine(id);
                 if (Campaign) Network.Refund(player, Network.Content!.Machines[m.Type].Cost);
                 return Reject.None;
@@ -389,11 +429,13 @@ public sealed class SimWorld
 
             case SetMovement mv:
                 if (mv.Dx is < -1 or > 1 || mv.Dy is < -1 or > 1 || mv.Dz is < -1 or > 1) return Reject.InvalidArgument;
+                if ((mv.Dx | mv.Dy | mv.Dz) != 0 && !Network.CanFly(player)) return Reject.NoCockpitOrEngine; // stopping is always allowed
                 Network.SetMovement(player, mv.Dx, mv.Dy, mv.Dz);
                 return Reject.None;
 
             case SetThrust th:
                 if (!PlayerRules.ThrustInRange(th.Dx, th.Dy, th.Dz)) return Reject.InvalidArgument;
+                if ((th.Dx | th.Dy | th.Dz) != 0 && !Network.CanFly(player)) return Reject.NoCockpitOrEngine;
                 Network.SetThrust(player, th.Dx, th.Dy, th.Dz);
                 return Reject.None;
 
@@ -435,11 +477,7 @@ public sealed class SimWorld
                 if (Network.Content!.Machines[Network.GetMachineInfo(id).Type].Role != MachineRole.Drill) return Reject.WrongRole;
                 if (!Network.IsDeposit(ld.Deposit)) return Reject.UnknownDeposit;
                 if (!Network.IsDepositRevealed(ld.Deposit)) return Reject.NotDiscovered;
-                var mi = Network.GetMachineInfo(id);
-                var dp = Network.DepositPosition(ld.Deposit);
-                long ddx = dp.X - (long)mi.X, ddy = dp.Y - (long)mi.Y, ddz = dp.Z - (long)mi.Z;
-                if (ddx * ddx + ddy * ddy + ddz * ddz > (long)ExplorationRules.DrillRangeCells * ExplorationRules.DrillRangeCells)
-                    return Reject.OutOfRange;
+                if (!Network.DrillInRange(id, ld.Deposit)) return Reject.OutOfRange; // world positions: a ship's drill counts where it is now
                 Network.LinkDeposit(id, ld.Deposit);
                 return Reject.None;
             }
@@ -495,7 +533,7 @@ public sealed class SimWorld
                 if (m.Hp >= Network.MaxHp(m.Type)) return Reject.NotDamaged;
                 if (Campaign)
                 {
-                    if (!InBuildRange(player, m.X, m.Y, m.Z)) return Reject.OutOfRange;
+                    if (!InBuildRange(player, m.Structure, m.X, m.Y, m.Z)) return Reject.OutOfRange;
                     var cost = Network.RepairCost(mach);
                     if (!Network.CanPay(player, cost)) return Reject.NotEnoughItems;
                     Network.Pay(player, cost);
@@ -505,7 +543,27 @@ public sealed class SimWorld
             }
 
             case PlaceModule pmod:
+                if (Network.StructureRules) return Reject.NotAllowedHere; // stations are structures now
                 return PlaceModuleCore(player, pmod);
+
+            case PlaceMachineIn pmi:
+                return pmi.Structure == 0
+                    ? PlaceMachineCore(player, new PlaceMachine(pmi.X, pmi.Y, pmi.Z, pmi.Type, pmi.Recipe), machines)
+                    : PlaceMachineInCore(player, pmi, machines);
+
+            case PlaceSegmentIn psi:
+                return psi.Structure == 0
+                    ? Place(player, new PlaceSegment(psi.X, psi.Y, psi.Z, psi.Dir, psi.Length, psi.Tier), created)
+                    : PlaceSegmentInCore(player, psi, created);
+
+            case PlaceModuleIn pmo:
+                return PlaceModuleInCore(player, pmo);
+
+            case RemoveModuleIn rmo:
+                return RemoveModuleInCore(player, rmo);
+
+            case FoundStation fs:
+                return FoundStationCore(player, fs);
 
             case RemoveModule rmod:
                 return RemoveModuleCore(player, rmod);
@@ -540,6 +598,7 @@ public sealed class SimWorld
         if (p.LengthCells < 1 || p.LengthCells > MaxSegmentCells) return Reject.InvalidArgument;
         if (!Enum.IsDefined(p.Tier)) return Reject.InvalidArgument;
         if (Network.SegmentCount >= MaxSegments) return Reject.TooManySegments;
+        if (Network.StructureRules) return Reject.OutsideStation; // the legacy world takes no building with structures on
         if (Campaign && Network.IsBeltLocked(p.Tier)) return Reject.Locked;
 
         var (dx, dy, dz) = Dirs.Vector(p.Direction);
@@ -587,6 +646,7 @@ public sealed class SimWorld
         if (recipe != Reject.None) return recipe;
         if (Network.MachineCount >= MaxMachines) return Reject.TooManyMachines;
         if (!InBounds(p.X) || !InBounds(p.Y) || !InBounds(p.Z)) return Reject.OutOfBounds;
+        if (Network.StructureRules) return Reject.OutsideStation; // the legacy world takes no building with structures on
         if (Campaign && (Network.IsMachineLocked(p.Machine) || (p.Recipe != -1 && Network.IsRecipeLocked(p.Recipe))))
             return Reject.Locked;
 
@@ -654,6 +714,212 @@ public sealed class SimWorld
         return Reject.None;
     }
 
+    // ---- structure commands ---------------------------------------------------------------
+
+    /// <summary>Resolves a structure the player may build in, or the reject that explains why not.</summary>
+    private Reject BuildableStructure(int player, int structure, out Structure? s)
+    {
+        s = null;
+        if (structure <= 0 || !Network.StructureExists(structure)) return Reject.NoSuchStructure;
+        s = Network.GetStructure(structure);
+        return s.Owner == player ? Reject.None : Reject.NotAllowedHere;
+    }
+
+    /// <summary>Build range for structure commands: a ship of the player is always in range; a station must have the point near the ship.
+    /// Without campaign mode or structure rules the range is not checked.</summary>
+    private bool StructurePointInRange(int player, Structure s, long wx, long wy, long wz)
+    {
+        if (!Campaign && !Network.StructureRules) return true;
+        if (s.Kind == StructureKind.Ship) return true;
+        return Network.WorldPointInRange(player, wx, wy, wz, PlayerRules.BuildRangeCells);
+    }
+
+    private bool StructureCellInRange(int player, Structure s, int x, int y, int z)
+    {
+        var (wx, wy, wz) = Network.WorldCentre(s.Id, x, y, z);
+        return StructurePointInRange(player, s, wx, wy, wz);
+    }
+
+    private Reject PlaceMachineInCore(int player, PlaceMachineIn p, List<int> machines)
+    {
+        var content = Network.Content;
+        if (content?.Structures is not { } kinds) return Reject.NoContent;
+        var found = BuildableStructure(player, p.Structure, out var s);
+        if (found != Reject.None) return found;
+        if (!content.IsMachine(p.Type)) return Reject.UnknownMachineType;
+        var def = content.Machines[p.Type];
+        if (def.Role == MachineRole.Ship) return Reject.NotPlaceable;
+        var recipe = CheckRecipe(p.Type, p.Recipe);
+        if (recipe != Reject.None) return recipe;
+        if (Network.MachineCount >= MaxMachines) return Reject.TooManyMachines;
+        if (!StructureGrid.InLocalBounds(p.X) || !StructureGrid.InLocalBounds(p.Y) || !StructureGrid.InLocalBounds(p.Z)) return Reject.OutOfBounds;
+        if (Campaign && (Network.IsMachineLocked(p.Type) || (p.Recipe != -1 && Network.IsRecipeLocked(p.Recipe)))) return Reject.Locked;
+        if (!StructureCellInRange(player, s!, p.X, p.Y, p.Z)) return Reject.OutOfRange;
+
+        if (!Network.TryGetModuleKindAt(p.Structure, p.X, p.Y, p.Z, out var kind)) return Reject.OutsideStation;
+        if (!kinds.AllowsRole(kind, def.Role)) return Reject.KindNotAllowed;
+
+        var cells = CellsFor(p.Structure, create: true)!;
+        long key = Key(p.X, p.Y, p.Z);
+        if (cells.ContainsKey(key)) return Reject.Overlap;
+
+        if (Campaign)
+        {
+            if (!Network.CanPay(player, def.Cost)) return Reject.NotEnoughItems;
+            Network.Pay(player, def.Cost);
+        }
+
+        int id = Network.AddMachine(p.X, p.Y, p.Z, p.Type, p.Recipe, player, p.Structure);
+        cells.Add(key, -(id + 1));
+        machines.Add(id);
+        return Reject.None;
+    }
+
+    private Reject PlaceSegmentInCore(int player, PlaceSegmentIn p, List<int> created)
+    {
+        var content = Network.Content;
+        if (content?.Structures is not { } kinds) return Reject.NoContent;
+        var found = BuildableStructure(player, p.Structure, out var s);
+        if (found != Reject.None) return found;
+        if (!Dirs.IsValid(p.Dir)) return Reject.InvalidArgument;
+        if (p.Length < 1 || p.Length > MaxSegmentCells) return Reject.InvalidArgument;
+        if (!Enum.IsDefined(p.Tier)) return Reject.InvalidArgument;
+        if (Network.SegmentCount >= MaxSegments) return Reject.TooManySegments;
+        if (Campaign && Network.IsBeltLocked(p.Tier)) return Reject.Locked;
+
+        var (dx, dy, dz) = Dirs.Vector(p.Dir);
+        long lastX = (long)p.X + (long)dx * (p.Length - 1), lastY = (long)p.Y + (long)dy * (p.Length - 1), lastZ = (long)p.Z + (long)dz * (p.Length - 1);
+        if (!StructureGrid.InLocalBounds(p.X) || !StructureGrid.InLocalBounds(p.Y) || !StructureGrid.InLocalBounds(p.Z)
+            || !StructureGrid.InLocalBounds(lastX) || !StructureGrid.InLocalBounds(lastY) || !StructureGrid.InLocalBounds(lastZ))
+            return Reject.OutOfBounds;
+
+        if (!StructureCellInRange(player, s!, p.X, p.Y, p.Z) || !StructureCellInRange(player, s!, (int)lastX, (int)lastY, (int)lastZ))
+            return Reject.OutOfRange;
+
+        for (int k = 0; k < p.Length; k++)
+        {
+            if (!Network.TryGetModuleKindAt(p.Structure, p.X + dx * k, p.Y + dy * k, p.Z + dz * k, out var kind)) return Reject.OutsideStation;
+            if (!kinds.AllowsBelts(kind)) return Reject.KindNotAllowed;
+        }
+
+        var cells = CellsFor(p.Structure, create: true)!;
+        for (int k = 0; k < p.Length; k++)
+            if (cells.ContainsKey(Key(p.X + dx * k, p.Y + dy * k, p.Z + dz * k))) return Reject.Overlap;
+
+        if (Campaign)
+        {
+            var cost = BeltCost(p.Tier);
+            if (!Network.CanPay(player, cost, p.Length)) return Reject.NotEnoughItems;
+            Network.Pay(player, cost, p.Length);
+        }
+
+        int id = Network.AddSegment(p.X, p.Y, p.Z, dx, dy, dz, p.Length, p.Tier, p.Structure);
+        TryClaim(id, p.X, p.Y, p.Z, dx, dy, dz, p.Length, p.Structure);
+        created.Add(id);
+        return Reject.None;
+    }
+
+    private Reject PlaceModuleInCore(int player, PlaceModuleIn p)
+    {
+        if (Network.Content?.Structures is not { } kinds) return Reject.NoContent;
+        var found = BuildableStructure(player, p.Structure, out var s);
+        if (found != Reject.None) return found;
+        if (!Enum.IsDefined(p.Kind)) return Reject.InvalidArgument;
+        if (!StructureGrid.IsValidLocalModule(p.Mx, p.My, p.Mz)) return Reject.OutOfBounds;
+        if (s!.Modules.ContainsKey((p.Mx, p.My, p.Mz))) return Reject.Overlap;
+        if (s.Modules.Count > 0)
+        {
+            if (!Network.StructureModuleTouches(p.Structure, p.Mx, p.My, p.Mz)) return Reject.NotAdjacent;
+            if (p.Kind == ModuleKind.Core) return Reject.KindNotAllowed; // only the first module can be the core
+        }
+        else if (s.Kind == StructureKind.Station && p.Kind != ModuleKind.Core) return Reject.KindNotAllowed;
+
+        var centre = ModuleCentre(s, p.Mx, p.My, p.Mz);
+        if (!StructurePointInRange(player, s, centre.X, centre.Y, centre.Z)) return Reject.OutOfRange;
+        if (Campaign)
+        {
+            var cost = kinds.ModuleCost(p.Kind);
+            if (!Network.CanPay(player, cost)) return Reject.NotEnoughItems;
+            Network.Pay(player, cost);
+        }
+        Network.AddStructureModuleUnchecked(p.Structure, p.Mx, p.My, p.Mz, p.Kind);
+        return Reject.None;
+    }
+
+    private Reject RemoveModuleInCore(int player, RemoveModuleIn r)
+    {
+        if (Network.Content?.Structures is not { } kinds) return Reject.NoContent;
+        var found = BuildableStructure(player, r.Structure, out var s);
+        if (found != Reject.None) return found;
+        if (!StructureGrid.IsValidLocalModule(r.Mx, r.My, r.Mz)) return Reject.OutOfBounds;
+        if (!s!.Modules.TryGetValue((r.Mx, r.My, r.Mz), out var kind)) return Reject.OutsideStation;
+        var centre = ModuleCentre(s, r.Mx, r.My, r.Mz);
+        if (!StructurePointInRange(player, s, centre.X, centre.Y, centre.Z)) return Reject.OutOfRange;
+
+        // The core anchors the structure: it can only go when it is the last module.
+        if (kind == ModuleKind.Core && s.Modules.Count > 1) return Reject.ModuleOccupied;
+        if (!Network.StructureStaysConnectedWithout(r.Structure, r.Mx, r.My, r.Mz)) return Reject.ModuleOccupied;
+
+        var cells = CellsFor(r.Structure, create: false);
+        if (cells is not null)
+        {
+            int x0 = r.Mx * StationGrid.ModuleX, y0 = r.My * StationGrid.ModuleY, z0 = r.Mz * StationGrid.ModuleZ;
+            for (int x = x0; x < x0 + StationGrid.ModuleX; x++)
+                for (int y = y0; y < y0 + StationGrid.ModuleY; y++)
+                    for (int z = z0; z < z0 + StationGrid.ModuleZ; z++)
+                        if (cells.ContainsKey(Key(x, y, z))) return Reject.ModuleOccupied;
+        }
+
+        Network.RemoveStructureModuleUnchecked(r.Structure, r.Mx, r.My, r.Mz);
+        if (Campaign)
+            Network.Refund(player, kinds.ModuleCost(kind).Select(c => new ItemStack(c.Item, c.Count / 2)).Where(c => c.Count > 0).ToArray());
+        return Reject.None;
+    }
+
+    private Reject FoundStationCore(int player, FoundStation f)
+    {
+        if (!Network.StructureRules) return Reject.NotAllowedHere;
+        if (Network.Content?.Structures is not { } kinds) return Reject.NoContent;
+        long cu = Units.CellUnits;
+        long limit = PlayerRules.WorldLimitUnits / cu;
+        if (Math.Abs((long)f.Wx) > limit || Math.Abs((long)f.Wy) > limit || Math.Abs((long)f.Wz) > limit) return Reject.OutOfBounds;
+        long ox = f.Wx * cu, oy = f.Wy * cu, oz = f.Wz * cu;
+
+        if (!Network.WorldPointInRange(player, ox + cu / 2, oy + cu / 2, oz + cu / 2, PlayerRules.BuildRangeCells)) return Reject.OutOfRange;
+
+        // The core's volume, [origin, origin + module size) per axis, must not touch any module volume of another structure.
+        long ex = ox + StationGrid.ModuleX * cu, ey = oy + StationGrid.ModuleY * cu, ez = oz + StationGrid.ModuleZ * cu;
+        foreach (var other in Network.Structures())
+        {
+            foreach (var (m, _) in other.Modules)
+            {
+                long mx0 = other.OriginX + (long)m.Mx * StationGrid.ModuleX * cu, my0 = other.OriginY + (long)m.My * StationGrid.ModuleY * cu,
+                    mz0 = other.OriginZ + (long)m.Mz * StationGrid.ModuleZ * cu;
+                if (ox < mx0 + StationGrid.ModuleX * cu && mx0 < ex && oy < my0 + StationGrid.ModuleY * cu && my0 < ey
+                    && oz < mz0 + StationGrid.ModuleZ * cu && mz0 < ez)
+                    return Reject.Overlap;
+            }
+        }
+
+        var cost = kinds.ModuleCost(ModuleKind.Core);
+        if (Campaign)
+        {
+            if (!Network.CanPay(player, cost)) return Reject.NotEnoughItems;
+            Network.Pay(player, cost);
+        }
+        int id = Network.CreateStructure(player, StructureKind.Station, ox, oy, oz);
+        Network.AddStructureModuleUnchecked(id, 0, 0, 0, ModuleKind.Core);
+        return Reject.None;
+    }
+
+    private (long X, long Y, long Z) ModuleCentre(Structure s, int mx, int my, int mz)
+    {
+        long cu = Units.CellUnits;
+        return (s.OriginX + ((long)mx * StationGrid.ModuleX + StationGrid.ModuleX / 2) * cu,
+                s.OriginY + ((long)my * StationGrid.ModuleY + StationGrid.ModuleY / 2) * cu,
+                s.OriginZ + ((long)mz * StationGrid.ModuleZ + StationGrid.ModuleZ / 2) * cu);
+    }
+
     // ---- cell index ----------------------------------------------------------------------
 
     private static bool InBounds(long v) => v >= -MaxCoord && v <= MaxCoord;
@@ -661,11 +927,35 @@ public sealed class SimWorld
     private static long Key(int x, int y, int z) =>
         ((long)(x + MaxCoord) << 30) | ((long)(y + MaxCoord) << 15) | (long)(z + MaxCoord);
 
-    private bool TryClaim(int id, int x, int y, int z, int dx, int dy, int dz, int length)
+    /// <summary>The cell index of a structure: the legacy dictionary for 0, otherwise the per-structure one (created on demand).</summary>
+    private Dictionary<long, int>? CellsFor(int structure, bool create)
     {
+        if (structure == 0) return _cells;
+        if (_structCells.TryGetValue(structure, out var d)) return d;
+        if (!create) return null;
+        return _structCells[structure] = new Dictionary<long, int>();
+    }
+
+    private void RemoveCell(int structure, long key)
+    {
+        var cells = CellsFor(structure, create: false);
+        if (cells is null) return;
+        cells.Remove(key);
+        if (structure != 0 && cells.Count == 0) _structCells.Remove(structure);
+    }
+
+    private bool TryClaim(int id, int x, int y, int z, int dx, int dy, int dz, int length, int structure = 0)
+    {
+        if (structure != 0 && length > 0)
+        {
+            long ex = x + (long)dx * (length - 1), ey = y + (long)dy * (length - 1), ez = z + (long)dz * (length - 1);
+            if (!(StructureGrid.InLocalBounds(x) && StructureGrid.InLocalBounds(y) && StructureGrid.InLocalBounds(z)
+                && StructureGrid.InLocalBounds(ex) && StructureGrid.InLocalBounds(ey) && StructureGrid.InLocalBounds(ez))) return false;
+        }
+        var cells = CellsFor(structure, create: true)!;
         for (int k = 0; k < length; k++)
         {
-            if (!_cells.TryAdd(Key(x + dx * k, y + dy * k, z + dz * k), id)) return false;
+            if (!cells.TryAdd(Key(x + dx * k, y + dy * k, z + dz * k), id)) return false;
         }
         return true;
     }
@@ -673,6 +963,6 @@ public sealed class SimWorld
     private void Release(SegmentInfo s)
     {
         for (int k = 0; k < s.LengthCells; k++)
-            _cells.Remove(Key(s.OriginX + s.DirX * k, s.OriginY + s.DirY * k, s.OriginZ + s.DirZ * k));
+            RemoveCell(s.Structure, Key(s.OriginX + s.DirX * k, s.OriginY + s.DirY * k, s.OriginZ + s.DirZ * k));
     }
 }

@@ -76,7 +76,7 @@ void fragment() {
         new(mx * StationGrid.ModuleX + StationGrid.ModuleX / 2f, my * StationGrid.ModuleY + StationGrid.ModuleY / 2f, mz * StationGrid.ModuleZ + StationGrid.ModuleZ / 2f);
 
     /// <summary>Forces a rebuild on the next <see cref="Sync"/> (the world was replaced, so version numbers are not comparable).</summary>
-    public void Invalidate() => _version = -1;
+    public void Invalidate() { _version = -1; _structVersion = -1; }
 
     /// <summary>Rebuilds when the structure changed and moves the build-layer plates to the layer the player works on.</summary>
     public void Sync(BeltNetwork net, int player, int layerY)
@@ -90,9 +90,91 @@ void fragment() {
         if (layerY != _layerY) { _layerY = layerY; PlaceLayers(); }
     }
 
+    // ---- structures: one root per ship or station, holding one model per module ------------------------------
+
+    private sealed class StructRoot
+    {
+        public Node3D Root = null!;
+        public readonly Dictionary<(int Mx, int My, int Mz), (ModuleKind Kind, Node3D Node)> Modules = new();
+    }
+
+    private readonly Dictionary<int, StructRoot> _structs = new();
+    private readonly Dictionary<int, bool> _thrust = new();
+    private int _structVersion = -1;
+
+    /// <summary>The root node of a structure (move it to move the ship), or null if it is not drawn.</summary>
+    public Node3D? StructureRoot(int id) => _structs.TryGetValue(id, out var s) ? s.Root : null;
+
+    /// <summary>Shows or hides the pilot seat model of a structure's cockpit (hidden while seated, so it does not block the view).</summary>
+    public void SetSeatVisible(int structureId, bool visible)
+    {
+        if (!_structs.TryGetValue(structureId, out var sr)) return;
+        foreach (var (kind, node) in sr.Modules.Values)
+            if (kind == ModuleKind.Cockpit && node.GetNodeOrNull<Node3D>("Seat") is { } seat) seat.Visible = visible;
+    }
+
+    /// <summary>Lights the engine flames of a structure.</summary>
+    public void SetEngines(int structureId, bool active) => _thrust[structureId] = active;
+
+    /// <summary>Position of a structure's origin corner in game cells.</summary>
+    public static Vector3 OriginCells(BeltNetwork net, int id)
+    {
+        var (x, y, z) = net.WorldCentre(id, 0, 0, 0);
+        float half = Units.CellUnits / 2f;
+        return new Vector3((x - half) / Units.CellUnits, (y - half) / Units.CellUnits, (z - half) / Units.CellUnits);
+    }
+
+    /// <summary>Keeps one root Node3D per structure at its world origin and one model per module, by kind. Cheap per frame: modules are rebuilt only when the structure version changes.</summary>
+    public void SyncStructures(BeltNetwork net)
+    {
+        bool rebuild = net.StructureVersion != _structVersion;
+        _structVersion = net.StructureVersion;
+        var alive = new HashSet<int>();
+        foreach (var st in net.Structures())
+        {
+            alive.Add(st.Id);
+            if (!_structs.TryGetValue(st.Id, out var sr))
+            {
+                sr = new StructRoot { Root = new Node3D { Name = $"Structure{st.Id}" } };
+                _structs[st.Id] = sr;
+                AddChild(sr.Root);
+                rebuild = true;
+            }
+            sr.Root.Position = OriginCells(net, st.Id);
+            if (!rebuild) continue;
+            bool ship = st.Kind == StructureKind.Ship;
+            foreach (var key in sr.Modules.Keys.ToList())
+                if (!st.Modules.TryGetValue(key, out var k) || k != sr.Modules[key].Kind)
+                {
+                    sr.Modules[key].Node.QueueFree();
+                    sr.Modules.Remove(key);
+                }
+            foreach (var (key, kind) in st.Modules)
+            {
+                if (sr.Modules.ContainsKey(key)) continue;
+                var node = ModuleModels.Build(kind, ship, st.Id);
+                node.Position = new Vector3(key.Mx * StationGrid.ModuleX, key.My * StationGrid.ModuleY, key.Mz * StationGrid.ModuleZ);
+                sr.Root.AddChild(node);
+                sr.Modules[key] = (kind, node);
+            }
+        }
+        foreach (int id in _structs.Keys.Where(i => !alive.Contains(i)).ToList())
+        {
+            _structs[id].Root.QueueFree();
+            _structs.Remove(id);
+        }
+    }
+
     public override void _Process(double delta)
     {
         _time += delta;
+        foreach (var (id, sr) in _structs)
+        {
+            bool thrust = _thrust.TryGetValue(id, out bool t) && t;
+            foreach (var (kind, node) in sr.Modules.Values)
+                if (kind == ModuleKind.Engine) Models.Animate(node, _time, thrust);
+                else if (kind == ModuleKind.Core) Models.Animate(node, _time, false);
+        }
         if (_coreMarker is { Visible: true } m)
         {
             m.Rotation = new Vector3(0f, (float)_time * 0.8f, 0f);

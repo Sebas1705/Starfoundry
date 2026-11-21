@@ -3,7 +3,7 @@ namespace Starfoundry.Sim;
 /// <summary>Read-only view of a machine, for rendering and tests.</summary>
 public readonly record struct MachineInfo(
     int Id, int X, int Y, int Z, int Type, int Recipe, bool Crafting, int Remaining, int InputItems, int OutputItems,
-    int Deposit = -1, int Hp = 0, int TurretCooldown = 0);
+    int Deposit = -1, int Hp = 0, int TurretCooldown = 0, int Structure = 0);
 
 /// <summary>A one-cell machine with input and output buffers, working through one recipe at a time.</summary>
 internal sealed class Machine
@@ -41,9 +41,12 @@ internal sealed class Machine
     public int OutCount;
     public int RoundRobin;
 
-    public Machine(int id, int x, int y, int z, int type, int itemCount)
+    /// <summary>Structure the machine belongs to (0 = the legacy world); X, Y, Z are local cells of that structure.</summary>
+    public readonly int Structure;
+
+    public Machine(int id, int x, int y, int z, int type, int itemCount, int structure = 0)
     {
-        Id = id; X = x; Y = y; Z = z; Type = type;
+        Id = id; X = x; Y = y; Z = z; Type = type; Structure = structure;
         In = new int[itemCount];
         Out = new int[itemCount];
     }
@@ -60,7 +63,7 @@ internal sealed class Machine
 
     public Machine Clone()
     {
-        var c = new Machine(Id, X, Y, Z, Type, In.Length)
+        var c = new Machine(Id, X, Y, Z, Type, In.Length, Structure)
         {
             Recipe = Recipe, Crafting = Crafting, Remaining = Remaining, OutCount = OutCount, RoundRobin = RoundRobin,
             Deposit = Deposit, Owner = Owner, Hp = Hp, TurretCooldown = TurretCooldown,
