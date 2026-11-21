@@ -80,10 +80,10 @@ public partial class Play : Node3D
     private readonly List<BuildItem> _palette = new();
     private int _selected;
     private int _cursorY;
-    private (int X, int Y, int Z) _cursor;
+    private Cell _cursor;
     private Dir _dir = Dir.PosX;
-    private (int X, int Y, int Z)? _dragStart;
-    private (int X, int Y, int Z)? _beltAnchor; // start of a belt line begun with a click, waiting for the second click
+    private Cell? _dragStart;
+    private Cell? _beltAnchor; // start of a belt line begun with a click, waiting for the second click
     private int _selectedDeposit;
     private readonly Dictionary<int, int> _recipeChoice = new();
     private readonly ToastQueue _toasts = new();
@@ -770,8 +770,11 @@ void fragment() {
             {
                 if (r.Reject == Reject.OutOfRange) _outOfRangeSeen = true;
                 if (r.Command is PlaceSegment or PlaceMachine or PlaceModule or RemoveModule or RemoveSegment or RemoveMachine or StartMining or SetResearch or SetShipRecipe
+                    or PlaceSegmentIn or PlaceMachineIn or PlaceModuleIn or RemoveModuleIn or FoundStation
                     or Scan or Jump)
                     ToastLogistics(Why(r.Reject));
+                else if (r.Command is SetThrust or SetMovement && r.Reject == Reject.NoCockpitOrEngine)
+                    ToastLogistics(Why(r.Reject)); // the ship has lost its cockpit or last engine
                 continue;
             }
             if (r.Command is Scan)
@@ -786,8 +789,10 @@ void fragment() {
                 _jumpsStarted++;
                 Toast(L("toast.jumpCharging", Net.Galaxy!.Systems[j.System].Name));
             }
-            if (r.Command is PlaceSegment && r.Created.Count == 1) AutoLinkSegment(r.Created[0]);
-            else if (r.Command is PlaceMachine pm && r.CreatedMachines.Count == 1) AutoLinkMachine(r.CreatedMachines[0], pm);
+            if (r.Command is PlaceSegment or PlaceSegmentIn && r.Created.Count == 1) AutoLinkSegment(r.Created[0]);
+            else if (r.Command is PlaceMachineIn pmi && r.CreatedMachines.Count == 1) AutoLinkMachine(r.CreatedMachines[0], pmi.Recipe);
+            else if (r.Command is FoundStation) ToastProduction(L("toast.stationFounded"));
+            else if (r.Command is PlaceMachine pm && r.CreatedMachines.Count == 1) AutoLinkMachine(r.CreatedMachines[0], pm.Recipe);
         }
     }
 
@@ -809,6 +814,7 @@ void fragment() {
         {
             if (s == id || !Net.IsAlive(s)) continue;
             var si = Net.GetSegmentInfo(s);
+            if (si.Structure != n.Structure) continue; // cells are local: only neighbours in the same structure touch
             if (!haveIn && Touches(origin, LastCell(si)) && Net.OutputCount(s) == 0 && !Net.IsSink(s) && !Net.FeedsAnyMachine(s))
             {
                 Send(new ConnectSegments(s, id));
@@ -826,6 +832,7 @@ void fragment() {
         {
             if (!Net.IsMachineAlive(m)) continue;
             var mi = Net.GetMachineInfo(m);
+            if (mi.Structure != n.Structure) continue;
             var role = _content.Machines[mi.Type].Role;
             var pos = (mi.X, mi.Y, mi.Z);
             if (!haveIn && role is MachineRole.Crafter or MachineRole.Drill && Touches(pos, origin) && Net.MachineOutputCount(m) < 2)
@@ -841,7 +848,7 @@ void fragment() {
         }
     }
 
-    private void AutoLinkMachine(int machine, PlaceMachine pm)
+    private void AutoLinkMachine(int machine, int placedRecipe)
     {
         var mi = Net.GetMachineInfo(machine);
         var role = _content.Machines[mi.Type].Role;
@@ -849,7 +856,7 @@ void fragment() {
 
         if (role == MachineRole.Drill)
         {
-            var item = _content.Recipes[pm.Recipe].Outputs[0].Item;
+            var item = _content.Recipes[placedRecipe].Outputs[0].Item;
             // The best known deposit of that item that is within the drill's reach.
             int best = -1;
             for (int d = 0; d < Net.DepositCount; d++)
@@ -870,6 +877,7 @@ void fragment() {
         {
             if (!Net.IsAlive(s)) continue;
             var si = Net.GetSegmentInfo(s);
+            if (si.Structure != mi.Structure) continue;
             if (!fed && role != MachineRole.Drill && Touches(pos, LastCell(si)) && Net.OutputCount(s) == 0
                 && !Net.IsSink(s) && !Net.FeedsAnyMachine(s))
             {
@@ -904,40 +912,6 @@ void fragment() {
         ToastProduction(L("toast.recipe", Loc.Name("recipe", _content.Recipes[_recipeChoice[item.Machine]].Id)));
     }
 
-    private void PlaceSelectedAt((int X, int Y, int Z) cell, (int X, int Y, int Z)? dragStart)
-    {
-        var item = _palette[_selected];
-        if (item.IsBelt)
-        {
-            var start = dragStart ?? cell;
-            int dx = cell.X - start.X, dz = cell.Z - start.Z;
-            Dir dir = _dir;
-            int len = 1;
-            if (Math.Abs(dx) >= Math.Abs(dz) && dx != 0) { dir = dx > 0 ? Dir.PosX : Dir.NegX; len = Math.Abs(dx) + 1; }
-            else if (dz != 0) { dir = dz > 0 ? Dir.PosZ : Dir.NegZ; len = Math.Abs(dz) + 1; }
-            Send(new PlaceSegment(start.X, start.Y, start.Z, dir, Math.Min(len, SimWorld.MaxSegmentCells), item.Tier));
-        }
-        else
-        {
-            int recipe = ChosenRecipe(item.Machine);
-            var role = _content.Machines[item.Machine].Role;
-            Send(new PlaceMachine(cell.X, cell.Y, cell.Z, item.Machine, role is MachineRole.Lab or MachineRole.Depot ? -1 : recipe));
-        }
-    }
-
-    private void RemoveAt((int X, int Y, int Z) cell)
-    {
-        var (kind, id) = _world.EntityAt(cell.X, cell.Y, cell.Z);
-        if (kind == SimWorld.EntityKind.Segment) Send(new RemoveSegment(id));
-        else if (kind == SimWorld.EntityKind.Machine) Send(new RemoveMachine(id));
-        else if (_stationRules)
-        {
-            // An empty cell inside a module: take the module away (the sim refuses when it holds something or would split the station).
-            var m = StationGrid.ModuleOfCell(cell.X, cell.Y, cell.Z);
-            if (Net.HasModule(Player, m.Mx, m.My, m.Mz)) Send(new RemoveModule(m.Mx, m.My, m.Mz));
-        }
-    }
-
     // ---- input ---------------------------------------------------------------------------------
 
     /// <summary>The crosshair ray starts at the camera and runs through the screen centre.</summary>
@@ -948,21 +922,6 @@ void fragment() {
     /// <summary>Cells farther than this from the camera are not aimed at at all (the build range is 24; the margin lets the ghost show red beyond it).</summary>
     private const float AimMaxCells = PlayerRules.BuildRangeCells + 16;
     private const float AimMinCells = 2.5f;
-
-    /// <summary>
-    /// The cell whose floor (the plane of the current layer, Y = <c>_cursorY</c>) the crosshair ray meets, or null when the
-    /// ray points away from the plane or the hit is too far to be a candidate.
-    /// </summary>
-    private (int X, int Y, int Z)? CellUnderAim()
-    {
-        var origin = AimOrigin();
-        var dir = AimDirection();
-        if (MathF.Abs(dir.Y) < 1e-4f) return null;
-        float t = (_cursorY - origin.Y) / dir.Y;
-        if (t < AimMinCells || t > AimMaxCells) return null; // too close: the cell would fill the screen
-        var hit = origin + dir * t;
-        return ((int)MathF.Floor(hit.X), _cursorY, (int)MathF.Floor(hit.Z));
-    }
 
 
     private void ToggleRefinery()
@@ -1059,9 +1018,11 @@ void fragment() {
 
     private void UpdateDragGhost()
     {
-        bool show = _dragStart is not null && _palette[_selected].IsBelt;
+        // The preview lives under its structure root, in local cells, so it rides along with a flying ship.
+        bool show = _dragStart is not null && _palette[_selected].IsBelt && _dragStart.Value.S == _cursor.S;
         _dragGhost.Visible = show;
         if (!show) return;
+        Reparent(_dragGhost, RootOf(_cursor.S));
         var a = _dragStart!.Value;
         int dx = _cursor.X - a.X, dz = _cursor.Z - a.Z;
         bool alongX = Math.Abs(dx) >= Math.Abs(dz);
@@ -1116,8 +1077,8 @@ void fragment() {
             // Line 1: iron drill -> smelter -> depot, delivering ingots into the hold.
             case 1: Step(Affordable((ingot, Need(drill, ingot))), () => Send(new PlaceMachine(0, 0, 0, drill, drillIron))); break;
             // These two go through the same code as the mouse: a belt drag from cell 1 to 3, a machine click on the palette selection.
-            case 2: Step(Affordable((ingot, 3)), () => { _selected = 0; PlaceSelectedAt((3, 0, 0), (1, 0, 0)); }); break;
-            case 3: Step(Affordable((ingot, Need(smelter, ingot))), () => { _selected = _palette.FindIndex(b => b.Machine == smelter); PlaceSelectedAt((4, 0, 0), null); }); break;
+            case 2: Step(Affordable((ingot, 3)), () => { _selected = 0; PlaceSelectedAt(new Cell(0, 3, 0, 0), new Cell(0, 1, 0, 0)); }); break;
+            case 3: Step(Affordable((ingot, Need(smelter, ingot))), () => { _selected = _palette.FindIndex(b => b.Machine == smelter); PlaceSelectedAt(new Cell(0, 4, 0, 0), null); }); break;
             case 4: Step(Affordable((ingot, 3)), () => Send(new PlaceSegment(5, 0, 0, Dir.PosX, 3, BeltTier.Mk1))); break;
             case 5:
                 Step(Affordable((ingot, Need(depot, ingot))), () =>
@@ -1136,7 +1097,7 @@ void fragment() {
             case 11: Step(Affordable((ingot, 3)), () => Send(new PlaceSegment(9, 0, 3, Dir.PosX, 3, BeltTier.Mk1))); break;
             case 12: Step(Affordable((ingot, Need(depot, ingot))), () => Send(new PlaceMachine(12, 0, 3, depot, -1))); break;
             // Plates reach the hold; swap the depot for a research lab, which needs 4 of them.
-            case 13: Step(Affordable((plate, Need(lab, plate))), () => RemoveAt((12, 0, 3))); break;
+            case 13: Step(Affordable((plate, Need(lab, plate))), () => RemoveAt(new Cell(0, 12, 0, 3))); break;
             case 14: Step(CellFree(12, 0, 3) && Affordable((plate, Need(lab, plate)), (ingot, Need(lab, ingot))), () => Send(new PlaceMachine(12, 0, 3, lab, -1))); break;
             case 15: Step(true, () => Send(new SetResearch(logistics))); break;
             case 16: Step(Net.IsResearched(logistics), () => { _botDone = true; }); break;

@@ -856,7 +856,7 @@ public partial class Play
             if (!Net.IsMachineAlive(id)) continue;
             var m = Net.GetMachineInfo(id);
             if (m.Hp >= Net.MaxHp(m.Type)) continue;
-            if (!_world.InBuildRange(Player, m.X, m.Y, m.Z)) continue;
+            if (!_world.InBuildRange(Player, m.Structure, m.X, m.Y, m.Z)) continue;
             list.Add(id);
         }
         return list.OrderBy(id => Net.GetMachineInfo(id).Hp / (float)Net.MaxHp(Net.GetMachineInfo(id).Type)).ToList();
@@ -1157,10 +1157,10 @@ public partial class Play
         _helpPanel.Position = new Vector2((size.X - helpSize.X) / 2f, (size.Y - helpSize.Y) / 2f - 40);
 
         // The crosshair sits at the screen centre and the tooltip beside it, kept on screen.
-        _crosshair.Visible = (_mouseLook || _stationDemo) && !_demo;
+        _crosshair.Visible = AimActive && !_demo;
         _crosshair.Position = (size - _crosshair.Size) / 2f;
         var centre = size / 2f;
-        _tooltipLabel.Visible = _tooltipLabel.Text.Length > 0 && !_demo && (_mouseLook || _stationDemo);
+        _tooltipLabel.Visible = _tooltipLabel.Text.Length > 0 && !_demo && AimActive;
         _tooltipLabel.Position = new Vector2(Math.Clamp(centre.X + 24, 8, Math.Max(8, size.X - _tooltipLabel.Size.X - 8)), Math.Clamp(centre.Y + 24, 8, Math.Max(8, size.Y - _tooltipLabel.Size.Y - 8)));
 
         _targetPanel.ResetSize();
@@ -1236,10 +1236,10 @@ public partial class Play
         }
     }
 
-    private (int X, int Y, int Z) CellOfMachine(int id)
+    private Cell CellOfMachine(int id)
     {
         var m = Net.GetMachineInfo(id);
-        return (m.X, m.Y, m.Z);
+        return new Cell(m.Structure, m.X, m.Y, m.Z);
     }
 
     private void OnMouseMotion(InputEventMouseMotion mm)
@@ -1253,15 +1253,26 @@ public partial class Play
     {
         if (_tool == ToolMode.Build)
         {
+            if (StationSelected)
+            {
+                if (_foundAim is { } f && FoundCellUnderAim() is { } now) Send(new FoundStation(now.X, now.Y, now.Z));
+                _dragStart = null;
+                return;
+            }
             if (ModuleSelected)
             {
-                if (ModuleUnderAim() is { } m) Send(new PlaceModule(m.Mx, m.My, m.Mz));
+                if (_structuresOn)
+                {
+                    if (StructModuleUnderAim() is { } sm) Send(new PlaceModuleIn(sm.S, sm.Mx, sm.My, sm.Mz, _moduleKind));
+                }
+                else if (ModuleUnderAim() is { } m) Send(new PlaceModule(m.Mx, m.My, m.Mz));
                 _dragStart = null;
                 return;
             }
             if (_dragStart is { } start && CellUnderAim() is { } end)
             {
                 bool belt = _palette[_selected].IsBelt;
+                if (belt && start.S != end.S) { _beltAnchor = null; _dragStart = null; return; } // a belt line stays inside one structure
                 if (belt && _beltAnchor is null && end == start)
                 {
                     // A plain click starts a line: aim at the end and click again (dragging still works too).
@@ -1334,8 +1345,15 @@ public partial class Play
         if (digit >= 0 && digit < Math.Min(13, _palette.Count) && !_palette[digit].IsModule && !_palette[digit].IsStation) { SelectBuild(digit); return; }
         if (k.Keycode == Key.N)
         {
+            if (_structuresOn) { CycleModuleKind(); return; } // first press: the module tool; next ones: the kind
             int module = _palette.FindIndex(b => b.IsModule);
             if (module >= 0) SelectBuild(module);
+            return;
+        }
+        if (k.Keycode == Key.I && _structuresOn)
+        {
+            int station = _palette.FindIndex(b => b.IsStation);
+            if (station >= 0) SelectBuild(station);
             return;
         }
 
@@ -1514,14 +1532,14 @@ public partial class Play
         return true;
     }
 
-    private (int X, int Y, int Z)? _aimCell;
+    private Cell? _aimCell;
 
     private void UpdateHover()
     {
         _tooltipLabel.Text = "";
         _hover = new Hover(HoverKind.None, -1, "");
         _aimCell = null;
-        if (_demo || (!_mouseLook && !_stationDemo)) return; // only the crosshair aims; a free cursor is for the buttons
+        if (_demo || !AimActive) return; // only the crosshair aims; a free cursor is for the buttons
 
         var origin = AimOrigin();
         var dir = AimDirection();
@@ -1567,7 +1585,7 @@ public partial class Play
         }
         if (_hover.Kind == HoverKind.None && _aimCell is { } aimed)
         {
-            var (kind, id) = _world.EntityAt(aimed.X, aimed.Y, aimed.Z);
+            var (kind, id) = _world.EntityAt(aimed.S, aimed.X, aimed.Y, aimed.Z);
             if (kind == SimWorld.EntityKind.Machine) _hover = new Hover(HoverKind.Machine, id, MachineSummary(id));
             else if (kind == SimWorld.EntityKind.Segment)
             {
@@ -1698,8 +1716,9 @@ public partial class Play
     // ---- build ghost ----------------------------------------------------------------------------------------
 
     /// <summary>Why the selected item cannot be placed in this cell right now, or null if it can.</summary>
-    private string? PlacementProblem((int X, int Y, int Z) cell)
+    private string? PlacementProblem(Cell cell)
     {
+        if (_structuresOn) return StructurePlacementProblem(cell);
         var item = _palette[_selected];
         if (ItemLocked(item)) return L("why.locked");
         if (!_world.InBuildRange(Player, cell.X, cell.Y, cell.Z)) return L("why.outOfRange");
@@ -1726,14 +1745,17 @@ public partial class Play
 
     private void UpdateGhost()
     {
-        bool build = _tool == ToolMode.Build && !_demo && (_mouseLook || _stationDemo) && _aimCell is not null;
+        bool structTool = _structuresOn && (ModuleSelected || StationSelected); // these aim at structures or free space, not at one layer cell
+        bool build = _tool == ToolMode.Build && !_demo && AimActive && (_aimCell is not null || structTool);
         _ghost.Visible = build;
         _crosshair.Tint = Crosshair.Normal;
         if (!build) { _dragGhost.Visible = false; return; }
 
-        if (ModuleSelected) { UpdateModuleGhost(); return; }
+        if (StationSelected) { UpdateFoundGhost(); return; }
+        if (ModuleSelected) { if (_structuresOn) UpdateStructModuleGhost(); else UpdateModuleGhost(); return; }
         _ghost.Scale = Vector3.One;
         var c = _aimCell!.Value;
+        Reparent(_ghost, RootOf(c.S)); // local cells under the structure root
         _ghost.Position = CellCenter(c.X, c.Y, c.Z);
         string? problem = PlacementProblem(c);
         _crosshair.Tint = problem is null ? Crosshair.Normal : Crosshair.Invalid;

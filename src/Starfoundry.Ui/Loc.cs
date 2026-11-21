@@ -404,6 +404,7 @@ public static class Loc
                                  "{0}: aim at the space beside your ship (green = it can be founded) and click. It must be within reach and not touch other structures.   Esc: stop building"),
         ["hint.buildModuleKind"] = ("Módulo: {0} (N cambia el tipo). Apunta junto a un módulo de tu nave o estación (verde = se puede) y haz clic.   Clic derecho en un módulo vacío: retirarlo (devuelve la mitad).   Esc: dejar de construir",
                                     "Module: {0} (N changes the kind). Aim next to a module of your ship or station (green = it can be built) and click.   Right-click an empty module: remove it (refunds half).   Esc: stop building"),
+        ["toast.stationFounded"] = ("¡Estación fundada! Añádele módulos con N.", "Station founded! Add modules to it with N."),
         ["hud.flightReady"] = ("lista para volar", "ready to fly"),
         ["hud.flightNot"] = ("no puede volar: falta cabina o motor", "cannot fly: needs a cockpit and an engine"),
         ["hud.modulesDetail"] = ("Módulos: {0}", "Modules: {0}"),
