@@ -171,7 +171,7 @@ public class MaterialsTests
     {
         var s = C.Structures!;
         int Cost(ModuleKind k, string item) => s.Kinds[(int)k].Cost.Where(c => c.Item == C.ItemIndex(item)).Sum(c => c.Count);
-        Assert.True(Cost(ModuleKind.Engine, "core:titanium_plate") > 0);
+        Assert.Equal(0, Cost(ModuleKind.Engine, "core:titanium_plate")); // a ship that lost its only engine must be able to build one at home (StructureRecoveryTests)
         Assert.Equal(0, Cost(ModuleKind.Defence, "core:titanium_plate")); // turrets must be reachable before the quartz chain
         Assert.Equal(0, Cost(ModuleKind.Reactor, "core:nickel_plate")); // a reactor must be buildable without the nickel plate chain
         Assert.True(Cost(ModuleKind.DroneBay, "core:nickel_plate") > 0);
