@@ -721,6 +721,21 @@
       "count": 5
     }
   ],
+  "modules": {
+    "core_cost": [
+      {
+        "item": "core:iron_ingot",
+        "count": 36
+      }
+    ],
+    "hull_cost": [
+      {
+        "item": "core:iron_ingot",
+        "count": 24
+      }
+    ],
+    "growth_percent": 25
+  },
   "threat": {
     "alert_max": 216000,
     "signature_threshold": 8,

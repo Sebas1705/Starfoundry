@@ -504,6 +504,12 @@ public sealed class SimWorld
                 return Reject.None;
             }
 
+            case PlaceModule pmod:
+                return PlaceModuleCore(player, pmod);
+
+            case RemoveModule rmod:
+                return RemoveModuleCore(player, rmod);
+
             case DisconnectMachine dm:
             {
                 int seg = Resolve(dm.Segment, created), mach = Resolve(dm.Machine, machines);
@@ -593,6 +599,46 @@ public sealed class SimWorld
         int id = Network.AddMachine(p.X, p.Y, p.Z, p.Machine, p.Recipe, player);
         _cells.Add(key, -(id + 1));
         machines.Add(id);
+        return Reject.None;
+    }
+
+    private Reject PlaceModuleCore(int player, PlaceModule p)
+    {
+        if (Network.Content?.Modules is null) return Reject.NoContent;
+        if (!StationGrid.IsValidModule(p.Mx, p.My, p.Mz)) return Reject.OutOfBounds;
+        if (Network.HasModule(player, p.Mx, p.My, p.Mz)) return Reject.Overlap;
+        if (Network.ModuleCount(player) > 0 && !Network.ModuleTouchesStation(player, p.Mx, p.My, p.Mz)) return Reject.NotAdjacent;
+        if (Campaign)
+        {
+            if (!Network.ModuleCentreInRange(player, p.Mx, p.My, p.Mz, PlayerRules.BuildRangeCells)) return Reject.OutOfRange;
+            var cost = Network.NextModuleCost(player);
+            if (!Network.CanPay(player, cost)) return Reject.NotEnoughItems;
+            Network.Pay(player, cost);
+        }
+        Network.AddModuleUnchecked(player, p.Mx, p.My, p.Mz);
+        return Reject.None;
+    }
+
+    private Reject RemoveModuleCore(int player, RemoveModule r)
+    {
+        if (Network.Content?.Modules is null) return Reject.NoContent;
+        if (!StationGrid.IsValidModule(r.Mx, r.My, r.Mz)) return Reject.OutOfBounds;
+        if (!Network.HasModule(player, r.Mx, r.My, r.Mz)) return Reject.OutsideStation;
+        if (Campaign && !Network.ModuleCentreInRange(player, r.Mx, r.My, r.Mz, PlayerRules.BuildRangeCells)) return Reject.OutOfRange;
+
+        // The core anchors the station: it can only go when it is the last module.
+        if (Network.IsCoreModule(player, r.Mx, r.My, r.Mz) && Network.ModuleCount(player) > 1) return Reject.ModuleOccupied;
+        if (!Network.StationStaysConnectedWithout(player, r.Mx, r.My, r.Mz)) return Reject.ModuleOccupied;
+
+        int x0 = r.Mx * StationGrid.ModuleX, y0 = r.My * StationGrid.ModuleY, z0 = r.Mz * StationGrid.ModuleZ;
+        for (int x = x0; x < x0 + StationGrid.ModuleX; x++)
+            for (int y = y0; y < y0 + StationGrid.ModuleY; y++)
+                for (int z = z0; z < z0 + StationGrid.ModuleZ; z++)
+                    if (_cells.ContainsKey(Key(x, y, z))) return Reject.ModuleOccupied;
+
+        var refund = Network.ModuleRefund(player);
+        Network.RemoveModuleUnchecked(player, r.Mx, r.My, r.Mz);
+        if (Campaign) Network.Refund(player, refund);
         return Reject.None;
     }
 

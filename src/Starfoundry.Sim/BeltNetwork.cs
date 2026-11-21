@@ -253,6 +253,7 @@ public sealed partial class BeltNetwork
         Mix(MachineInputsConsumed); Mix(MachineOutputsCreated); Mix((long)(Content?.Hash ?? 0)); Mix((int)Mode); Mix(ThreatsEnabled ? 1 : 0);
         MixMachines(Mix);
         MixEconomy(Mix);
+        MixStation(Mix);
         foreach (var s in _segs)
         {
             if (s is null) { Mix(-1); continue; }
@@ -289,6 +290,7 @@ public sealed partial class BeltNetwork
         _alive = other._alive;
         CopyMachinesFrom(other);
         CopyEconomyFrom(other);
+        CopyStationFrom(other);
         Tick = other.Tick;
         Spawned = other.Spawned;
         Consumed = other.Consumed;
@@ -305,6 +307,8 @@ public sealed partial class BeltNetwork
     public void ValidateInvariants()
     {
         static void Fail(string m) => throw new InvalidOperationException(m);
+
+        ValidateStation();
 
         int alive = 0;
         for (int id = 0; id < _segs.Count; id++)

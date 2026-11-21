@@ -114,6 +114,13 @@ public sealed record UnlinkDeposit(int Machine) : Command;
 /// </summary>
 public sealed record Repair(int Machine) : Command;
 
+/// <summary>Adds a station module at module-grid coordinates (see <see cref="StationRules"/>). The first one becomes the core;
+/// later ones must share a face with an existing module. The cost is paid from the hold.</summary>
+public sealed record PlaceModule(int Mx, int My, int Mz) : Command;
+
+/// <summary>Removes a station module if nothing is built inside it and the station stays connected. Refunds half the cost.</summary>
+public sealed record RemoveModule(int Mx, int My, int Mz) : Command;
+
 /// <summary>Several commands applied atomically: either all succeed or the world is left untouched.</summary>
 public sealed record Batch(Command[] Commands) : Command;
 
@@ -188,6 +195,15 @@ public enum Reject
 
     /// <summary>The machine has all its hit points.</summary>
     NotDamaged,
+
+    /// <summary>The cells are not inside a station module. (A module request not touching the station uses the existing <see cref="NotAdjacent"/>.)</summary>
+    OutsideStation,
+
+    /// <summary>A module cannot be removed while a machine or belt lies inside it, or while removing it would split the station.</summary>
+    ModuleOccupied,
+
+    /// <summary>This kind of structure is not allowed here in this mode.</summary>
+    NotAllowedHere,
 }
 
 /// <summary>Outcome of one submitted command.</summary>

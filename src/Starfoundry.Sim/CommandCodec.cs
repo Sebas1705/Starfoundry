@@ -13,7 +13,7 @@ public static class CommandCodec
         TagPlaceMachine = 10, TagRemoveMachine = 11, TagSetRecipe = 12,
         TagConnectToMachine = 13, TagConnectFromMachine = 14, TagDisconnectMachine = 15,
         TagStartMining = 16, TagStopMining = 17, TagSetShipRecipe = 18, TagSetResearch = 19,
-        TagLinkDeposit = 20, TagUnlinkDeposit = 21, TagSetMovement = 22, TagScan = 23, TagJump = 24, TagSetWeapons = 25, TagRepair = 26, TagSetThrust = 27;
+        TagLinkDeposit = 20, TagUnlinkDeposit = 21, TagSetMovement = 22, TagScan = 23, TagJump = 24, TagSetWeapons = 25, TagRepair = 26, TagSetThrust = 27, TagPlaceModule = 28, TagRemoveModule = 29;
 
     private static readonly byte[] Magic = Encoding.ASCII.GetBytes("SFCL");
 
@@ -47,7 +47,7 @@ public static class CommandCodec
                 or PlaceMachine or RemoveMachine or SetRecipe
                 or ConnectToMachine or ConnectFromMachine or DisconnectMachine
                 or StartMining or StopMining or SetShipRecipe or SetResearch or LinkDeposit or UnlinkDeposit or SetMovement or SetThrust
-                or Scan or Jump or SetWeapons or Repair:
+                or Scan or Jump or SetWeapons or Repair or PlaceModule or RemoveModule:
                 return true;
             default:
                 return false;
@@ -141,6 +141,12 @@ public static class CommandCodec
             case SetThrust th:
                 w.Write(TagSetThrust); w.Write(th.Dx); w.Write(th.Dy); w.Write(th.Dz);
                 break;
+            case PlaceModule pmod:
+                w.Write(TagPlaceModule); w.Write(pmod.Mx); w.Write(pmod.My); w.Write(pmod.Mz);
+                break;
+            case RemoveModule rmod:
+                w.Write(TagRemoveModule); w.Write(rmod.Mx); w.Write(rmod.My); w.Write(rmod.Mz);
+                break;
             case Scan:
                 w.Write(TagScan);
                 break;
@@ -206,6 +212,8 @@ public static class CommandCodec
             case TagRepair: return new Repair(r.ReadInt32());
             case TagSetMovement: return new SetMovement(r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
             case TagSetThrust: return new SetThrust(r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
+            case TagPlaceModule: return new PlaceModule(r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
+            case TagRemoveModule: return new RemoveModule(r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
             case TagScan: return new Scan();
             case TagJump: return new Jump(r.ReadInt32());
             case TagSetWeapons: return new SetWeapons(r.ReadBoolean());
