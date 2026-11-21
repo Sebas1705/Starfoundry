@@ -174,7 +174,9 @@ public class MaterialsTests
         Assert.Equal(0, Cost(ModuleKind.Engine, "core:titanium_plate")); // a ship that lost its only engine must be able to build one at home (StructureRecoveryTests)
         Assert.Equal(0, Cost(ModuleKind.Defence, "core:titanium_plate")); // turrets must be reachable before the quartz chain
         Assert.Equal(0, Cost(ModuleKind.Reactor, "core:nickel_plate")); // a reactor must be buildable without the nickel plate chain
-        Assert.True(Cost(ModuleKind.DroneBay, "core:nickel_plate") > 0);
+        Assert.Equal(0, Cost(ModuleKind.DroneBay, "core:nickel_plate")); // the drone bay is made of home items: automation must not wait for the second system
+        Assert.Equal(0, Cost(ModuleKind.DroneBay, "core:titanium_plate"));
+        Assert.True(Cost(ModuleKind.DroneBay, "core:iron_plate") > 0);
         foreach (var item in new[] { "core:titanium_plate", "core:nickel_plate", "core:titanium_ingot", "core:nickel_ingot", "core:quartz", "core:ice" })
             Assert.Equal(0, Cost(ModuleKind.Core, item));
     }

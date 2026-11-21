@@ -694,6 +694,12 @@ public class StructureDefenceTests
         RemoveWhere("items", "core:silicon", "core:circuit", "core:titanium_alloy", "core:fuel_cell");
         // And before the second balance pass: the small container held 60.
         root["structures"]!["cargo"]!["hold_capacity"] = 60;
+        // And the drone chain: a slow bay made of titanium and nickel plates, and automation behind advanced plating.
+        root["structures"]!["drone_bay"]!["cost"] = System.Text.Json.Nodes.JsonNode.Parse("""[{"item":"core:iron_plate","count":12},{"item":"core:titanium_plate","count":8},{"item":"core:nickel_plate","count":8}]""");
+        root["structures"]!["drone_bay"]!["drone_interval_ticks"] = 90;
+        var da = root["research"]!.AsArray().First(r => r!["id"]!.GetValue<string>() == "core:drone_automation")!.AsObject();
+        da["cost"] = System.Text.Json.Nodes.JsonNode.Parse("""[{"item":"core:iron_plate","count":150},{"item":"core:titanium_plate","count":20},{"item":"core:quartz","count":20}]""");
+        da["requires"] = System.Text.Json.Nodes.JsonNode.Parse("""["core:logistics","core:advanced_plating"]""");
         // And the home ice deposit held 600 to 800.
         var home = root["archetypes"]!.AsArray().First(a => a!["id"]!.GetValue<string>() == "core:home")!["deposits"]!.AsArray();
         home.First(d => d!["item"]!.GetValue<string>() == "core:ice")!["amount"] = System.Text.Json.Nodes.JsonNode.Parse("[600,800]");

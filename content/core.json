@@ -988,17 +988,13 @@
           "count": 150
         },
         {
-          "item": "core:titanium_plate",
-          "count": 20
-        },
-        {
-          "item": "core:quartz",
+          "item": "core:carbon",
           "count": 20
         }
       ],
       "requires": [
         "core:logistics",
-        "core:advanced_plating"
+        "core:carbon_drilling"
       ],
       "unlocks": [],
       "abilities": [
@@ -1497,13 +1493,13 @@
       "thrust_speed_percent": 0
     },
     "drone_bay": {
-      "cost": [{ "item": "core:iron_plate", "count": 12 }, { "item": "core:titanium_plate", "count": 8 }, { "item": "core:nickel_plate", "count": 8 }],
+      "cost": [{ "item": "core:iron_plate", "count": 16 }, { "item": "core:iron_ingot", "count": 16 }],
       "hp": 150,
       "allows": [],
       "hold_capacity": 0,
       "thrust_speed_percent": 0,
       "drone_range_cells": 60,
-      "drone_interval_ticks": 90,
+      "drone_interval_ticks": 36,
       "power_use": 20
     },
     "shield": {

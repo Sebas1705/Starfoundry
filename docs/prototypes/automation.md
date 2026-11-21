@@ -5,7 +5,7 @@ Status: built (2026-11-21), simulation, content and Ui logic only. Decision: [AD
 ## What was built
 | Area | Change |
 | --- | --- |
-| Content | `structures.drone_bay` (12 iron plate, 8 titanium plate, 8 nickel plate; hp 150; `drone_range_cells` 60; `drone_interval_ticks` 90; `power_use` 20); research `core:drone_automation` (ability `drone_bay`, requires `core:logistics` and `core:advanced_plating`, costs 150 iron plate, 20 titanium plate, 20 quartz) |
+| Content | `structures.drone_bay` (16 iron plate, 16 iron ingot; hp 150; `drone_range_cells` 60; `drone_interval_ticks` 36; `power_use` 20); research `core:drone_automation` (ability `drone_bay`, requires `core:logistics` and `core:carbon_drilling` (carbon processing), costs 150 iron plate, 20 carbon). Second balance pass (2026-11-22): it was 12 iron plate, 8 titanium plate, 8 nickel plate, interval 90, behind advanced plating, 20 titanium plate and 20 quartz; see [the structure bot](structure-bot.md) |
 | Simulation | `ModuleKind.DroneBay`; command `AssignDrones` (tag 35); `Reject.NoDroneBay`; a drone step after hand mining; per-structure assignment and per-bay progress; `MinedByDrones` |
 | Accessors | `DroneBays(structure)`, `AssignedDeposit(structure)`, `DroneStatus(structure)` |
 | Ui logic | Names for the module, research and status lines; tip `learn.drones`; objective `Automate` between `Defend` and `Expand`; reject texts for `NoDroneBay` and `Locked`; es and en |
@@ -21,15 +21,15 @@ Rates are asserted by `DroneTests` (counts after a fixed number of ticks). Pay-b
 
 | Density | Items per minute per bay | Hand mining per minute |
 | --- | --- | --- |
-| 25 | 5 | 30 |
-| 50 | 10 | 60 |
-| 100 | 20 | 120 |
-| 200 | 40 | 240 |
+| 25 | 12.5 (12 as an integer) | 30 |
+| 50 | 25 | 60 |
+| 100 | 50 | 120 |
+| 200 | 100 | 240 |
 
-- One bay is one sixth of hand mining at any density, so about 6 bays match a player who mines all the time.
-- Cost in ore: 12 iron plates are 24 iron ore, 8 titanium plates 16 titanium ore, 8 nickel plates 16 nickel ore: 56 ore in all. Hand mining that takes 28 s at density 100. One bay on a density 100 deposit returns the same amount in 2.8 minutes, two bays in 1.4 minutes; one bay on a density 200 deposit in 1.4 minutes.
-- Fuel: one bay is 20 of the reactor's 100 power, about one hydrogen per 150 s of mining (0.4 per minute) on top of the rest of the structure.
-- The throttle is the hold: with the 60-item hold of the test ship, drones and hand mining stop at 45 items. Cargo modules and ports that move ore out let automation keep running.
+- One bay is five twelfths of hand mining at any density (it was one sixth before the second balance pass), so about 2.4 bays match a player who mines all the time.
+- Cost in ore: 16 iron plates are 32 iron ore and 16 iron ingots 16 iron ore: 48 ore in all, hand mining that takes 24 s at density 100. One bay on a density 100 deposit returns the same amount in 58 s, two bays in 29 s; one bay on a density 200 deposit in 29 s. The research costs 150 iron plates (300 ore) and 20 carbon: the plate supply, not the bay, is what it takes.
+- Fuel: one bay is 20 of the reactor's 100 power, about one hydrogen per 150 s of mining (0.4 per minute) on top of the rest of the structure; a bay now mines 2.5 times as much per hydrogen.
+- The throttle is the hold: with the 100-item hold, drones and hand mining stop at 75 items. Cargo modules and ports that move ore out let automation keep running.
 
 ## Not done
 - (Done in the game, see Game below.)

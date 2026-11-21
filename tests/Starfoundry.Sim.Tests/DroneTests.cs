@@ -10,7 +10,7 @@ public class DroneTests
     private static readonly int Ore = C.ItemIndex("core:iron_ore");
     private static readonly int Hydrogen = C.ItemIndex("core:hydrogen");
     private const ulong Seed = 20261121UL;
-    private const int Interval = 90;
+    private const int Interval = 36;
 
     private static SimWorld World(GameMode mode = GameMode.Sandbox, bool emergency = true) =>
         SimWorld.CreateGalaxy(emergency ? C : TestContent.CoreWithoutEmergencyPower, mode, Seed, threats: false, stationRules: false, structures: true);
@@ -46,7 +46,7 @@ public class DroneTests
         Assert.True(st.Working);
         Assert.True(st.PowerOk);
         Assert.False(st.WaitingForHold);
-        Assert.Equal(20, st.RatePerMinute); // 60 s * 30 ticks / 90 ticks
+        Assert.Equal(50, st.RatePerMinute); // 60 s * 30 ticks / 36 ticks
         Assert.Equal(d, w.Network.AssignedDeposit(s));
         w.ValidateInvariants();
     }
@@ -61,7 +61,7 @@ public class DroneTests
         var (w, s, _) = Setup(density: density);
         w.Step(10 * Interval - 1);
         Assert.Equal(expected, w.Network.HoldCount(0, Ore));
-        Assert.Equal(20 * density / 100, w.Network.DroneStatus(s).RatePerMinute);
+        Assert.Equal(50 * density / 100, w.Network.DroneStatus(s).RatePerMinute); // 12.5 at density 25 truncates to 12
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public class DroneTests
         var (w, s, _) = Setup(bays: 2);
         w.Step(10 * Interval - 1);
         Assert.Equal(20, w.Network.HoldCount(0, Ore));
-        Assert.Equal(40, w.Network.DroneStatus(s).RatePerMinute);
+        Assert.Equal(100, w.Network.DroneStatus(s).RatePerMinute);
     }
 
     [Fact]
