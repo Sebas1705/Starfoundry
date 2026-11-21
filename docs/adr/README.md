@@ -20,6 +20,7 @@ One decision per file, `NNNN-slug.md`. An accepted ADR is never rewritten; add a
 | [0014](0014-repeatable-research-with-rising-cost.md) | Repeatable research with rising cost | proposed | 2026-11-20 |
 | [0015](0015-cargo-ports-unload-the-hold-onto-belts.md) | Cargo ports unload the hold onto belts | proposed | 2026-11-20 |
 | [0016](0016-saves-are-the-command-log-replayed.md) | Saves are the command log, replayed | proposed | 2026-11-20 |
+| [0017](0017-stations-as-build-volumes.md) | Stations are the only places to build, made of player-placed modules | proposed | 2026-11-21 |
 
 ## Template
 ```markdown
