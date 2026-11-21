@@ -18,9 +18,32 @@ public partial class Play
     private BodyBox[] _bodyVolumes = Array.Empty<BodyBox>();
     private int _bodyVolumesVersion = -1;
 
-    /// <summary>The pilot seat model (cockpit module at local (0,0,0), seat at z 4.6) and the spot just behind it where a standing pilot appears.</summary>
-    private static readonly Vector3 SeatPosition = new(4f, 0f, 4.6f);
-    private static readonly Vector3 StandSpot = new(4f, 0f, 6.6f);
+    private SeatSpots _seatSpots = SeatLocator.Locate(Array.Empty<System.Collections.Generic.KeyValuePair<(int Mx, int My, int Mz), ModuleKind>>());
+    private int _seatShip = -2, _seatVersion = -1;
+
+    /// <summary>
+    /// The pilot seat of the real Cockpit module of the ship (the first by sorted coordinate; the structure origin when none is left),
+    /// cached per structure version so it follows a destroyed or removed cockpit.
+    /// </summary>
+    private SeatSpots Seat
+    {
+        get
+        {
+            int ship = ShipStruct;
+            if (ship < 0) return _seatSpots;
+            if (ship != _seatShip || _seatVersion != Net.StructureVersion)
+            {
+                _seatShip = ship;
+                _seatVersion = Net.StructureVersion;
+                _seatSpots = SeatLocator.Locate(Net.GetStructure(ship).Modules);
+            }
+            return _seatSpots;
+        }
+    }
+
+    private Vector3 SeatPosition => FromSys(Seat.Seat);
+    private Vector3 StandSpot => FromSys(Seat.Stand);
+    private Vector3 SeatOffset => FromSys(Seat.Eye);
 
     private static System.Numerics.Vector3 Sys(Vector3 v) => new(v.X, v.Y, v.Z);
     private static Vector3 FromSys(System.Numerics.Vector3 v) => new(v.X, v.Y, v.Z);
@@ -72,8 +95,8 @@ public partial class Play
         if (_bodyVolumes.Length == 0) { Sit(); return; }
         if (!BodyMotion.Contains(Sys(_body), _bodyVolumes)) _body = FromSys(BodyMotion.Nearest(Sys(_body), _bodyVolumes)); // the module under the feet was removed
         if (!_mouseLook) return;
-        float forward = (Input.IsKeyPressed(Key.W) ? 1 : 0) - (Input.IsKeyPressed(Key.S) ? 1 : 0);
-        float right = (Input.IsKeyPressed(Key.D) ? 1 : 0) - (Input.IsKeyPressed(Key.A) ? 1 : 0);
+        float forward = (Input.IsPhysicalKeyPressed(Key.W) ? 1 : 0) - (Input.IsPhysicalKeyPressed(Key.S) ? 1 : 0);
+        float right = (Input.IsPhysicalKeyPressed(Key.D) ? 1 : 0) - (Input.IsPhysicalKeyPressed(Key.A) ? 1 : 0);
         if (forward == 0 && right == 0) return;
         var fwd = new Vector3(-MathF.Sin(_yaw), 0f, -MathF.Cos(_yaw));
         var wish = fwd * forward + CockpitRight() * right;

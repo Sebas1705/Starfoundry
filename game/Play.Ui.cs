@@ -355,9 +355,9 @@ public partial class Play
         });
         menu.AddEntry(() => L("pause.load"), () =>
         {
-            if (LoadGameFromDisk("quicksave")) ClosePause();
+            if (LoadGameFromDisk()) ClosePause();
             else menu.SetStatus(L("pause.loadFailed"));
-        }, () => Godot.FileAccess.FileExists(SavePath("quicksave")));
+        }, () => Launch.NewestSave() is not null);
         menu.AddEntry(() => L("menu.settings"), () => menu.Open(MenuScreen.Page.Settings));
         menu.AddEntry(() => L("menu.controls"), () => menu.Open(MenuScreen.Page.Controls));
         menu.AddEntry(() => L("pause.mainMenu"), () =>
@@ -458,7 +458,7 @@ public partial class Play
         if (!_demo)
         {
             _tips ??= new Tips(_content);
-            var tip = _tips.Next(Net, Player);
+            var tip = _tips.Next(Net, Player, _mapOpen);
             if (tip is not null)
             {
                 Toast(L(tip.Key, tip.Args), 14.0); // longer than a toast: these are lessons
@@ -606,7 +606,19 @@ public partial class Play
             _holdFullAgain = now + 25.0;
         }
         _holdWasFull = full;
+
+        // Hand mining stops at the mining limit (75 percent) in structure worlds: say so once per stop.
+        bool paused = MiningPausedByLimit;
+        if (paused && !_miningPausedToasted && !full) ToastLogistics(L("toast.miningPaused"), 8.0);
+        _miningPausedToasted = paused;
     }
+
+    private bool _miningPausedToasted;
+
+    /// <summary>True while a mining order is active but the hold is at the mining limit, so nothing is mined.</summary>
+    private bool MiningPausedByLimit =>
+        _structuresOn && (Net.MiningDeposit(Player) >= 0 || _pendingMine)
+        && HudFormat.MiningLimitReached(Net.HoldTotal(Player), Net.HoldCapacity(Player));
 
     private void UpdateStatus()
     {
@@ -633,6 +645,7 @@ public partial class Play
             depLine = inRange ? L("hud.mining", ItemName(Net.DepositItem(d)), Net.DepositRemaining(d), DensityText(d))
                               : L("hud.miningOut", ItemName(Net.DepositItem(d)));
             if (inRange && p.Hull >= 0 && Net.HoldTotal(Player) >= Net.HoldCapacity(Player)) depLine = L("hud.miningFull");
+            else if (inRange && MiningPausedByLimit) depLine = L("hud.miningPaused");
         }
         else if (Net.IsDeposit(dep) && Net.IsDepositRevealed(dep))
         {
@@ -696,6 +709,7 @@ public partial class Play
         }
         if (_stationRules) sb.Append(L("hud.modules", Net.ModuleCount(Player))).Append('\n');
         if (_structuresOn) StructureHud(sb, details: false);
+        if (MiningPausedByLimit) { sb.Append(L("hud.miningPaused")).Append('\n'); if (colour == Colors.White) colour = WornColor; }
         if (!_objectivesOpen && _objectives.Current is { } cur)
             sb.Append(L("hud.ess.step", L(_objectives.States.First(s => s.Objective == cur).TitleKey))).Append('\n');
         if (_demo) sb.Append(L("hud.speed", _demoSpeed));
@@ -738,9 +752,7 @@ public partial class Play
             DirAccess.MakeDirRecursiveAbsolute(ProjectSettings.GlobalizePath("user://saves"));
             var ms = new System.IO.MemoryStream();
             SaveGame.Write(ms, _world, _content, _gameMode, _galaxySeed, _threatsOn, Player, _stationRules, _structuresOn);
-            using var f = Godot.FileAccess.Open(SavePath(name), Godot.FileAccess.ModeFlags.Write);
-            if (f is null) throw new System.IO.IOException(Godot.FileAccess.GetOpenError().ToString());
-            f.StoreBuffer(ms.ToArray());
+            WriteSlotAtomically(name, ms.ToArray());
             if (!silent) Toast(L("toast.saved", PlayLog.Format(Net.Tick / (double)Units.TicksPerSecond)));
             return true;
         }
@@ -752,12 +764,42 @@ public partial class Play
         }
     }
 
-    /// <summary>Loads the quick save (or the autosave when there is none) by replaying it; the game freezes for a second or two.</summary>
+    /// <summary>
+    /// Writes a slot without ever leaving it half-written: the bytes go to a temporary file first, the slot's previous contents are kept
+    /// (the autosave rotates to <c>autosave.prev</c>, other slots keep a <c>.bak</c>), then the temporary file is renamed over the slot.
+    /// </summary>
+    private static void WriteSlotAtomically(string name, byte[] bytes)
+    {
+        string tmp = SavePath(SaveSlots.TempName(name));
+        using (var f = Godot.FileAccess.Open(tmp, Godot.FileAccess.ModeFlags.Write))
+        {
+            if (f is null) throw new System.IO.IOException(Godot.FileAccess.GetOpenError().ToString());
+            f.StoreBuffer(bytes);
+        }
+        if (!Godot.FileAccess.FileExists(tmp) || Godot.FileAccess.GetFileAsBytes(tmp).Length != bytes.Length)
+            throw new System.IO.IOException("the temporary save file was not written completely");
+        string slot = SavePath(name);
+        string G(string p) => ProjectSettings.GlobalizePath(p);
+        if (Godot.FileAccess.FileExists(slot))
+        {
+            var copy = DirAccess.CopyAbsolute(G(slot), G(SavePath(SaveSlots.PreviousName(name))));
+            if (copy != Error.Ok) GD.PrintErr($"SAVE could not keep the previous {name}: {copy}");
+        }
+        var err = DirAccess.RenameAbsolute(G(tmp), G(slot));
+        if (err != Error.Ok)
+        {
+            DirAccess.RemoveAbsolute(G(slot)); // some platforms do not rename over an existing file
+            err = DirAccess.RenameAbsolute(G(tmp), G(slot));
+            if (err != Error.Ok) throw new System.IO.IOException(err.ToString());
+        }
+    }
+
+    /// <summary>Loads the newest of the quick save and the autosave (or the named slot) by replaying it; the game freezes for a second or two.</summary>
     private bool LoadGameFromDisk(string? slot = null)
     {
         if (_demo) return false;
-        string name = slot ?? (Godot.FileAccess.FileExists(SavePath("quicksave")) ? "quicksave" : "autosave");
-        if (!Godot.FileAccess.FileExists(SavePath(name))) { Toast(L("toast.noSave")); return false; }
+        string? name = slot ?? Launch.NewestSave();
+        if (name is null || !Godot.FileAccess.FileExists(SavePath(name))) { Toast(L("toast.noSave")); return false; }
         try
         {
             byte[] bytes = Godot.FileAccess.GetFileAsBytes(SavePath(name));
@@ -790,7 +832,7 @@ public partial class Play
         catch (Exception e)
         {
             GD.PrintErr("LOAD failed: " + e.Message);
-            Toast(L("toast.loadFailed", e.Message));
+            Toast(L("toast.loadFailed", L(SaveSlots.LoadFailureKey(e))));
             return false;
         }
     }
@@ -1059,7 +1101,7 @@ public partial class Play
         bool mining = Net.MiningDeposit(Player) >= 0 || _pendingMine;
         _btnMine.Text = mining ? L("btn.mineStop") : L("btn.mine");
         _btnMine.SetPressedNoSignal(mining);
-        _btnMine.TooltipText = L("tip.mine");
+        _btnMine.TooltipText = MiningPausedByLimit ? L("tip.minePaused") : L("tip.mine");
 
         int shipRecipe = _content.RecipeIndex("core:ship_smelt");
         bool refining = player.ShipRecipe == shipRecipe;
@@ -1175,7 +1217,7 @@ public partial class Play
         sb.Append(L("obj.title", _objectives.DoneCount, states.Count)).Append('\n');
         if (_objectivesOpen)
         {
-            if (current is null) sb.Append(L("obj.allDone"));
+            if (current is null) sb.Append(L(_structuresOn ? "obj.allDone.structures" : "obj.allDone"));
             else
             {
                 // The step in progress with its hint, then a short look at what comes next.
@@ -1281,10 +1323,19 @@ public partial class Play
         _toolbar.Position = new Vector2((size.X - barSize.X * barScale) / 2f, size.Y - barSize.Y * barScale - 6);
         barSize = new Vector2(barSize.X * barScale, barSize.Y * barScale);
 
-        _modeHint.Position = new Vector2(Math.Max(12, (size.X - _modeHint.Size.X) / 2f), _toolbar.Position.Y - 24);
+        // The bottom hint wraps to the window (up to a readable 1100 px) and grows upwards, so no tail of it is ever clipped.
+        float hintWidth = Math.Clamp(size.X - 24f, 280f, 1100f);
+        if (_mapOpen && Net.Galaxy is not null) hintWidth = Math.Min(hintWidth, Math.Max(280f, size.X - 348f)); // clear of the Jump button at the right
+        _modeHint.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _modeHint.HorizontalAlignment = HorizontalAlignment.Center;
+        _modeHint.CustomMinimumSize = new Vector2(hintWidth, 0);
+        _modeHint.ResetSize();
+        _modeHint.Position = new Vector2((size.X - hintWidth) / 2f, _toolbar.Position.Y - 6 - _modeHint.Size.Y);
 
         // Notifications: up to three lines in a column above the hint, wrapped to a readable width.
         float toastWidth = Math.Clamp(size.X * 0.6f, 300f, 760f);
+        // With the star map open the column narrows so it does not run under the map and its list on the right.
+        if (_mapOpen && Net.Galaxy is not null) toastWidth = Math.Min(toastWidth, Math.Max(300f, size.X - 784f));
         foreach (var l in _toastLabels) l.CustomMinimumSize = new Vector2(toastWidth, 0);
         _toastBox.ResetSize();
         _toastBox.Position = new Vector2((size.X - toastWidth) / 2f, _modeHint.Position.Y - 8 - _toastBox.Size.Y);
@@ -1294,9 +1345,15 @@ public partial class Play
         float y = _objectivesPanel.Position.Y + objSize.Y + 10;
         if (_mapOpen && Net.Galaxy is not null)
         {
-            _map.Position = new Vector2(size.X - _map.Size.X - 12, y);
-            _mapList.Position = new Vector2(size.X - 380, _map.Position.Y + _map.Size.Y + 6);
-            _btnJump.Position = new Vector2(size.X - 162, _mapList.Position.Y + _mapList.Size.Y + 6);
+            // The map shrinks (down to 160 px) so that the map, the system list and the Jump button all end above the bottom strip.
+            var listSize = _mapList.GetCombinedMinimumSize();
+            var jumpSize = _btnJump.GetCombinedMinimumSize();
+            float side = Math.Clamp(_toolbar.Position.Y - 4f - y - listSize.Y - jumpSize.Y - 12f, 160f, 320f);
+            _map.CustomMinimumSize = new Vector2(side, side);
+            _map.Size = _map.CustomMinimumSize;
+            _map.Position = new Vector2(size.X - side - 12, y);
+            _mapList.Position = new Vector2(size.X - 380, y + side + 6);
+            _btnJump.Position = new Vector2(size.X - 162, _mapList.Position.Y + listSize.Y + 6);
         }
         _map.Visible = _mapOpen && Net.Galaxy is not null;
         _mapList.Visible = _map.Visible;
@@ -1571,7 +1628,7 @@ public partial class Play
             case Key.T: ToggleResearchPanel(); break;
             case Key.B: ToggleBuildMenu(); break;
             case Key.P: _paused = !_paused; break;
-            case Key.Equal: case Key.KpAdd: _speed = Math.Min(10, _speed + 1); break;
+            case Key.Equal: case Key.Plus: case Key.KpAdd: _speed = Math.Min(10, _speed + 1); break;
             case Key.Minus: case Key.KpSubtract: _speed = Math.Max(1, _speed - 1); break;
         }
     }
@@ -1628,9 +1685,9 @@ public partial class Play
         var thrust = (0, 0, 0);
         if (_mouseLook)
         {
-            int forward = (Input.IsKeyPressed(Key.W) ? 1 : 0) - (Input.IsKeyPressed(Key.S) ? 1 : 0);
-            int right = (Input.IsKeyPressed(Key.D) ? 1 : 0) - (Input.IsKeyPressed(Key.A) ? 1 : 0);
-            int up = (Input.IsKeyPressed(Key.Space) ? 1 : 0) - (Input.IsKeyPressed(Key.C) ? 1 : 0);
+            int forward = (Input.IsPhysicalKeyPressed(Key.W) ? 1 : 0) - (Input.IsPhysicalKeyPressed(Key.S) ? 1 : 0);
+            int right = (Input.IsPhysicalKeyPressed(Key.D) ? 1 : 0) - (Input.IsPhysicalKeyPressed(Key.A) ? 1 : 0);
+            int up = (Input.IsPhysicalKeyPressed(Key.Space) ? 1 : 0) - (Input.IsPhysicalKeyPressed(Key.C) ? 1 : 0);
             if (forward != 0 || right != 0 || up != 0)
             {
                 _waypoint = null; // flying by hand takes over from the autopilot

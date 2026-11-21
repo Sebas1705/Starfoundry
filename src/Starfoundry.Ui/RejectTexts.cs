@@ -2,25 +2,60 @@ using Starfoundry.Sim;
 
 namespace Starfoundry.Ui;
 
-/// <summary>Maps the rejects of the station rules (and the generic ones they share) to localisation keys.</summary>
+/// <summary>Maps every reject of the sim to a localisation key, so the player never sees an enum name.</summary>
 public static class RejectTexts
 {
-    /// <summary>The <c>toast.reject.*</c> key for a reject, or null when the reject has no dedicated text.</summary>
+    /// <summary>The text key for a reject. <see cref="Reject.None"/> is not a failure and has no text (null).</summary>
     public static string? Key(Reject r) => r switch
     {
-        Reject.OutsideStation => "toast.reject.outsideStation",
+        Reject.None => null,
+        Reject.InvalidArgument => "toast.reject.invalidArgument",
+        Reject.OutOfBounds => "toast.reject.outOfBounds",
+        Reject.Overlap => "toast.reject.overlap",
+        Reject.TooManySegments => "toast.reject.tooManySegments",
+        Reject.UnknownSegment => "toast.reject.unknownSegment",
+        Reject.SelfConnection => "toast.reject.selfConnection",
         Reject.NotAdjacent => "toast.reject.notAdjacent",
+        Reject.OutputsFull => "toast.reject.outputsFull",
+        Reject.AlreadyConnected => "toast.reject.alreadyConnected",
+        Reject.NotConnected => "toast.reject.notConnected",
+        Reject.FromIsSink => "toast.reject.fromIsSink",
+        Reject.SinkHasOutputs => "toast.reject.sinkHasOutputs",
+        Reject.NestedBatch => "toast.reject.nestedBatch",
+        Reject.NoContent => "toast.reject.noContent",
+        Reject.UnknownMachineType => "toast.reject.unknownMachineType",
+        Reject.UnknownMachine => "toast.reject.unknownMachine",
+        Reject.UnknownRecipe => "toast.reject.unknownRecipe",
+        Reject.RecipeMismatch => "toast.reject.recipeMismatch",
+        Reject.TooManyMachines => "toast.reject.tooManyMachines",
+        Reject.MachineOutputsFull => "toast.reject.machineOutputsFull",
+        Reject.SegmentConflict => "toast.reject.segmentConflict",
+        Reject.NotEnoughItems => "toast.reject.notEnoughItems",
+        Reject.Locked => "toast.reject.locked",
+        Reject.UnknownDeposit => "why.unknownDeposit",
+        Reject.UnknownResearch => "toast.reject.unknownResearch",
+        Reject.ResearchUnavailable => "why.researchUnavailable",
+        Reject.NotPlaceable => "toast.reject.notPlaceable",
+        Reject.WrongRole => "toast.reject.wrongRole",
+        Reject.Depleted => "why.depleted",
+        Reject.NotAShipRecipe => "toast.reject.notAShipRecipe",
+        Reject.OutOfRange => "why.outOfRange",
+        Reject.NoGalaxy => "toast.reject.noGalaxy",
+        Reject.UnknownSystem => "toast.reject.unknownSystem",
+        Reject.NotInASystem => "why.notInSystem",
+        Reject.NoLane => "why.noLane",
+        Reject.Busy => "why.busy",
+        Reject.OnCooldown => "why.onCooldown",
+        Reject.NotDiscovered => "why.notDiscovered",
+        Reject.NotDamaged => "why.notDamaged",
+        Reject.OutsideStation => "toast.reject.outsideStation",
         Reject.ModuleOccupied => "toast.reject.moduleOccupied",
         Reject.NotAllowedHere => "toast.reject.notAllowedHere",
-        Reject.Overlap => "toast.reject.overlap",
-        Reject.OutOfBounds => "toast.reject.outOfBounds",
-        Reject.NotEnoughItems => "toast.reject.notEnoughItems",
         Reject.KindNotAllowed => "toast.reject.kindNotAllowed",
         Reject.NoSuchStructure => "toast.reject.noSuchStructure",
         Reject.NoCockpitOrEngine => "toast.reject.noCockpitOrEngine",
         Reject.NoDroneBay => "toast.reject.noDroneBay",
         Reject.LastEssentialModule => "toast.reject.lastEssentialModule",
-        Reject.Locked => "toast.reject.locked",
         _ => null,
     };
 }

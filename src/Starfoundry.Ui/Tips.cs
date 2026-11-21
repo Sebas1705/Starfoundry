@@ -24,11 +24,18 @@ public sealed class Tips
     public Tips(ContentDb content) => _content = content;
 
     /// <summary>The hint to show now, or null. Call it every frame; it is cheap.</summary>
-    public Tip? Next(BeltNetwork net, int player)
+    /// <param name="net">The world.</param>
+    /// <param name="player">The player the hints are for.</param>
+    /// <param name="mapOpen">True while the star map is open (a hint about the jump cost applies then).</param>
+    public Tip? Next(BeltNetwork net, int player, bool mapOpen = false)
     {
         double now = net.Tick / (double)Units.TicksPerSecond;
         Track(net, now);
         if (now - _lastShown < GapSeconds) return null;
+
+        if (!_shown.Contains("jumpCarbon") && mapOpen && net.StructureRules && net.Galaxy is not null && JumpCostShort(net, player, out int missing))
+            return Show("jumpCarbon", "learn.jumpCarbon", now, missing);
+        if (!_shown.Contains("noReactor") && net.StructureRules && StationWithoutReactor(net, player)) return Show("noReactor", "learn.noReactor", now);
 
         // In priority order: what hurts first, then what helps.
         if (!_shown.Contains("needEngine") && net.StructureRules && ShipMissingEngineOrCockpit(net, player)) return Show("needEngine", "learn.needEngine", now);
@@ -74,11 +81,36 @@ public sealed class Tips
         return false;
     }
 
-    private Tip Show(string id, string key, double now)
+    private Tip Show(string id, string key, double now, params object[] args)
     {
         _shown.Add(id);
         _lastShown = now;
-        return new Tip(key);
+        return new Tip(key, args);
+    }
+
+    /// <summary>True when the hold lacks the items one jump costs; <paramref name="cost"/> is the carbon (first stack) a jump needs.</summary>
+    private bool JumpCostShort(BeltNetwork net, int player, out int cost)
+    {
+        cost = 0;
+        bool shortOf = false;
+        foreach (var stack in _content.JumpCost)
+        {
+            if (cost == 0) cost = stack.Count;
+            if (net.HoldCount(player, stack.Item) < stack.Count) shortOf = true;
+        }
+        return shortOf;
+    }
+
+    /// <summary>True when a station of the player has machines but no Reactor module: nothing there can be powered.</summary>
+    private bool StationWithoutReactor(BeltNetwork net, int player)
+    {
+        HashSet<int>? dark = null;
+        foreach (var st in net.Structures())
+            if (st.Owner == player && st.Kind == StructureKind.Station && !st.Modules.Values.Contains(ModuleKind.Reactor)) (dark ??= new()).Add(st.Id);
+        if (dark is null) return false;
+        for (int id = 0; id < net.MachineIdLimit; id++)
+            if (net.IsMachineAlive(id) && dark.Contains(net.GetMachineInfo(id).Structure)) return true;
+        return false;
     }
 
     private void Track(BeltNetwork net, double now)

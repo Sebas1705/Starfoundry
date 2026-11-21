@@ -175,4 +175,13 @@ public class HudTests
         Assert.Equal(ToolState.Affordable, HudFormat.Tool(false, true, true));
         Assert.Equal(ToolState.Short, HudFormat.Tool(false, true, false));
     }
+
+    [Fact]
+    public void Mining_limit_is_seventy_five_percent()
+    {
+        Assert.False(HudFormat.MiningLimitReached(44, 60));
+        Assert.True(HudFormat.MiningLimitReached(45, 60));
+        Assert.True(HudFormat.MiningLimitReached(60, 60));
+        Assert.False(HudFormat.MiningLimitReached(0, 0));
+    }
 }
