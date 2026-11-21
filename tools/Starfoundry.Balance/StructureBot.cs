@@ -72,7 +72,8 @@ public sealed partial class StructureBot
     public double ActionDelaySeconds { get; init; } = 6;
 
     /// <summary>Waves to survive for the win (the game's <see cref="GoalSettings"/> default).</summary>
-    public int GoalWaves { get; init; } = GoalSettings.DefaultWaves;
+    public int GoalWaves { get => _goalWaves ?? Net.Rules.GoalWaves; init => _goalWaves = value; }
+    private int? _goalWaves;
 
     /// <summary>When set, goal changes, notable events and a status line every 30 simulated seconds are written here.</summary>
     public TextWriter? Trace { get; init; }
@@ -85,11 +86,11 @@ public sealed partial class StructureBot
     /// <summary>Waves can be switched off to study the economy alone.</summary>
     public bool Threats { get; init; } = true;
 
-    public StructureBot(ContentDb content, ulong seed = 20261121UL, bool threats = true)
+    public StructureBot(ContentDb content, ulong seed = 20261121UL, bool threats = true, WorldRules? rules = null)
     {
         _c = content;
         Threats = threats;
-        _w = SimWorld.CreateGalaxy(content, GameMode.Campaign, seed, threats, stationRules: false, structures: true);
+        _w = SimWorld.CreateGalaxy(content, GameMode.Campaign, seed, threats, stationRules: false, structures: true, rules: rules);
         _w.Network.EnsurePlayer(0);
         _ship = Net.ShipStructure(0);
     }
