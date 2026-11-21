@@ -136,7 +136,7 @@ public partial class Play
         _uiRoot.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         _layer.AddChild(_uiRoot);
 
-        _objectives = new ObjectiveTracker(_content, _stationRules);
+        _objectives = new ObjectiveTracker(_content, _stationRules, _structuresOn);
         Loc.Lang = Loc.FromLocale(OS.GetLocale());
 
         // Status: the essentials (hull, alert, current step); H opens the full block.
@@ -173,7 +173,7 @@ public partial class Play
         strip.AddThemeConstantOverride("separation", 4);
         var infoRow = new HBoxContainer();
         infoRow.AddThemeConstantOverride("separation", 10);
-        _holdBar = new ProgressBar { MinValue = 0, MaxValue = PlayerRules.HoldCapacity, ShowPercentage = false, CustomMinimumSize = new Vector2(120, 14), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter, MouseFilter = Control.MouseFilterEnum.Ignore };
+        _holdBar = new ProgressBar { MinValue = 0, MaxValue = Net.HoldCapacity(Player), ShowPercentage = false, CustomMinimumSize = new Vector2(120, 14), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter, MouseFilter = Control.MouseFilterEnum.Ignore };
         _holdItems = MakeText(13);
         _holdItems.ClipText = true;
         _holdItems.CustomMinimumSize = new Vector2(430, 0);
@@ -311,7 +311,7 @@ public partial class Play
     {
         foreach (var old in _buildButtons) old.QueueFree();
         _buildButtons.Clear();
-        for (int i = 0; i < _palette.Count && (i < 13 || _palette[i].IsModule); i++)
+        for (int i = 0; i < _palette.Count && (i < 13 || _palette[i].IsModule || _palette[i].IsStation); i++)
         {
             int index = i;
             var b = MakeButton("", () => SelectBuild(index), toggle: true);
@@ -465,7 +465,8 @@ public partial class Play
 
     private void UpdateHold()
     {
-        int total = Net.HoldTotal(Player), cap = PlayerRules.HoldCapacity;
+        int total = Net.HoldTotal(Player), cap = Net.HoldCapacity(Player);
+        _holdBar.MaxValue = Math.Max(1, cap);
         _holdBar.Value = total;
         bool full = total >= cap;
         _holdBar.AddThemeStyleboxOverride("fill", Box(full ? BadColor : HudFormat.Band(cap - total, cap) == HealthBand.Critical ? WornColor : GoodColor, null, 3, 0f));
@@ -512,7 +513,7 @@ public partial class Play
             bool inRange = Net.InMineRange(Player, d);
             depLine = inRange ? L("hud.mining", ItemName(Net.DepositItem(d)), Net.DepositRemaining(d))
                               : L("hud.miningOut", ItemName(Net.DepositItem(d)));
-            if (inRange && p.Hull >= 0 && Net.HoldTotal(Player) >= PlayerRules.HoldCapacity) depLine = L("hud.miningFull");
+            if (inRange && p.Hull >= 0 && Net.HoldTotal(Player) >= Net.HoldCapacity(Player)) depLine = L("hud.miningFull");
         }
         else if (Net.IsDeposit(dep) && Net.IsDepositRevealed(dep))
         {
@@ -615,7 +616,7 @@ public partial class Play
         {
             DirAccess.MakeDirRecursiveAbsolute(ProjectSettings.GlobalizePath("user://saves"));
             var ms = new System.IO.MemoryStream();
-            SaveGame.Write(ms, _world, _content, _gameMode, GalaxySeed, _threatsOn, Player, _stationRules);
+            SaveGame.Write(ms, _world, _content, _gameMode, GalaxySeed, _threatsOn, Player, _stationRules, _structuresOn);
             using var f = Godot.FileAccess.Open(SavePath(name), Godot.FileAccess.ModeFlags.Write);
             if (f is null) throw new System.IO.IOException(Godot.FileAccess.GetOpenError().ToString());
             f.StoreBuffer(ms.ToArray());
@@ -643,8 +644,11 @@ public partial class Play
             _gameMode = info.Mode;
             _threatsOn = info.Threats;
             // The save decides the rules, whatever the running game started with.
-            bool rulesChanged = _stationRules != info.StationRules;
-            _stationRules = info.StationRules;
+            bool structures = info.Structures && _content.StarterShip is not null;
+            bool rules = info.StationRules && !structures; // structures win over the station rules
+            bool rulesChanged = _stationRules != rules || _structuresOn != structures;
+            _stationRules = rules;
+            _structuresOn = structures;
             if (rulesChanged) RebuildPalette();
             _stationView.Invalidate();
             ResetAfterLoad();
@@ -744,12 +748,15 @@ public partial class Play
     private void ResetAfterLoad()
     {
         _structureVersion = -1; // rebuilds belts, machines and deposits from the loaded world
+        _beltAnchor = null;
+        _dragStart = null;
+        if (_structuresOn && _cursorY == 0) _cursorY = DefaultStructureLayer;
         _selMachine = -1;
         _waypoint = null;
         _pendingMine = false;
         _tool = ToolMode.Pointer;
         _selectedDeposit = RevealedDeposits().FirstOrDefault();
-        _objectives = new ObjectiveTracker(_content, _stationRules);
+        _objectives = new ObjectiveTracker(_content, _stationRules, _structuresOn);
         _tips = null;
         _lowOreWarned.Clear();
         _warned = false;
@@ -757,7 +764,7 @@ public partial class Play
         {
             _logFile?.StoreLine($"-- loaded a save at game time {PlayLog.Format(Net.Tick / (double)Units.TicksPerSecond)}");
             _logFile?.Flush();
-            _playLog = new PlayLog(_content, _stationRules);
+            _playLog = new PlayLog(_content, _stationRules, _structuresOn);
             _playLog.Update(Net, Player); // what was already done is not news
         }
     }
@@ -785,7 +792,7 @@ public partial class Play
     /// </summary>
     private void StartPlayLog()
     {
-        _playLog = new PlayLog(_content, _stationRules);
+        _playLog = new PlayLog(_content, _stationRules, _structuresOn);
         try
         {
             string dir = ProjectSettings.GlobalizePath("user://playlogs");
@@ -864,16 +871,17 @@ public partial class Play
     }
 
     /// <summary>The key that picks build item i: 1 to 9, then 0, then Q.</summary>
-    private string KeyLabel(int i) => _palette[i].IsModule ? "N" : i < 9 ? (i + 1).ToString() : i == 9 ? "0" : i == 10 ? "Q" : i == 11 ? "B" : "U";
+    private string KeyLabel(int i) => _palette[i].IsModule ? "N" : _palette[i].IsStation ? "I" : i < 9 ? (i + 1).ToString() : i == 9 ? "0" : i == 10 ? "Q" : i == 11 ? "B" : "U";
 
     private string ItemName(BuildItem item) =>
-        item.IsModule ? ModuleName() : item.IsBelt ? L("ui.belt", (int)item.Tier + 1) : MachineName(item.Machine);
+        item.IsStation ? L("ui.foundStation") : item.IsModule ? ModuleName() : item.IsBelt ? L("ui.belt", (int)item.Tier + 1) : MachineName(item.Machine);
 
     private bool ItemLocked(BuildItem item) =>
-        !item.IsModule && (item.IsBelt ? Net.IsBeltLocked(item.Tier) : Net.IsMachineLocked(item.Machine));
+        !item.IsModule && !item.IsStation && (item.IsBelt ? Net.IsBeltLocked(item.Tier) : Net.IsMachineLocked(item.Machine));
 
     private ItemStack[] ItemCost(BuildItem item) =>
-        item.IsModule ? Net.NextModuleCost(Player)
+        item.IsStation ? _content.Structures?.ModuleCost(ModuleKind.Core) ?? Array.Empty<ItemStack>()
+        : item.IsModule ? (_structuresOn ? _content.Structures?.ModuleCost(_moduleKind) ?? Array.Empty<ItemStack>() : Net.NextModuleCost(Player))
         : item.IsBelt ? _content.Belts[(int)item.Tier]?.CostPerCell ?? Array.Empty<ItemStack>() : _content.Machines[item.Machine].Cost;
 
     private void UpdateButtons()
@@ -977,7 +985,9 @@ public partial class Play
         var sb = new StringBuilder();
         sb.Append(ItemName(item)).Append('\n');
         sb.Append(L("tip.cost", cost.Length == 0 ? L("ui.free") : Stacks(cost) + (item.IsBelt ? L("ui.perCell") : ""))).Append('\n');
-        if (item.IsModule) sb.Append(L("tip.module", ModuleName())).Append('\n');
+        if (item.IsStation) sb.Append(L("tip.foundStation")).Append('\n');
+        else if (item.IsModule && _structuresOn) sb.Append(L("module." + _moduleKind.ToString().ToLowerInvariant() + ".purpose")).Append('\n');
+        else if (item.IsModule) sb.Append(L("tip.module", ModuleName())).Append('\n');
         else if (!item.IsBelt)
         {
             var def = _content.Machines[item.Machine];
@@ -997,7 +1007,7 @@ public partial class Play
         {
             var item = _palette[_selected];
             string name = ItemName(item);
-            _modeHint.Text = L(item.IsModule ? "hint.buildModule" : item.IsBelt ? "hint.buildBelt" : "hint.buildMachine", name);
+            _modeHint.Text = L(item.IsStation ? "hint.foundStation" : item.IsModule && _structuresOn ? "hint.buildModuleKind" : item.IsModule ? "hint.buildModule" : item.IsBelt ? "hint.buildBelt" : "hint.buildMachine", name);
         }
         else _modeHint.Text = L("hint.pointer");
     }
@@ -1321,7 +1331,7 @@ public partial class Play
         if (k.Keycode == Key.Q) digit = 10;
         if (k.Keycode == Key.B) digit = 11;
         if (k.Keycode == Key.U) digit = 12; // the thirteenth entry, the ore port
-        if (digit >= 0 && digit < Math.Min(13, _palette.Count) && !_palette[digit].IsModule) { SelectBuild(digit); return; }
+        if (digit >= 0 && digit < Math.Min(13, _palette.Count) && !_palette[digit].IsModule && !_palette[digit].IsStation) { SelectBuild(digit); return; }
         if (k.Keycode == Key.N)
         {
             int module = _palette.FindIndex(b => b.IsModule);
@@ -1522,7 +1532,7 @@ public partial class Play
         {
             if (!Net.IsMachineAlive(id)) continue;
             var m = Net.GetMachineInfo(id);
-            if (RayHitsBox(origin, dir, new Vector3(m.X, m.Y, m.Z), out float tb) && tb < best)
+            if (RayHitsBox(origin, dir, new Vector3(m.X, m.Y, m.Z) + StructOrigin(m.Structure), out float tb) && tb < best) // local cell + structure origin = world
             {
                 best = tb;
                 _hover = new Hover(HoverKind.Machine, id, MachineSummary(id));
@@ -1583,7 +1593,7 @@ public partial class Play
             case MachineRole.Lab:
                 return Net.CurrentResearch < 0 ? L("status.labNone") : L("status.labWorking", Loc.Name("research", _content.Research[Net.CurrentResearch].Id));
             case MachineRole.Depot:
-                if (Net.HoldTotal(Player) >= PlayerRules.HoldCapacity) return L("status.depotFull");
+                if (Net.HoldTotal(Player) >= Net.HoldCapacity(Player)) return L("status.depotFull");
                 foreach (var item in _content.Items)
                     if (Net.HoldCount(Player, item.Index) >= PlayerRules.DepotItemCap)
                         return L("status.depotCap", Loc.Name("item", item.Id), PlayerRules.DepotItemCap);

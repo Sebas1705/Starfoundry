@@ -27,7 +27,7 @@ public partial class Play : Node3D
     private static readonly Color[] TierColors =
         { new(0.35f, 0.40f, 0.50f), new(0.20f, 0.55f, 0.60f), new(0.85f, 0.50f, 0.20f) };
 
-    private record BuildItem(string Label, bool IsBelt, BeltTier Tier, int Machine, bool IsModule = false);
+    private record BuildItem(string Label, bool IsBelt, BeltTier Tier, int Machine, bool IsModule = false, bool IsStation = false);
 
     private ContentDb _content = null!;
     private SimWorld _world = null!;
@@ -45,17 +45,34 @@ public partial class Play : Node3D
     private const float CockpitFov = 80f;
     private const uint ShipLayer = 1u << 1; // render layer 2: the ship model, hidden from the cockpit camera
     private static readonly Vector3 CockpitOffset = new(0f, 1.8f, 0f); // eye height above the ship: near cells stay small enough to aim at
-    private MultiMeshInstance3D? _slabNode, _itemNode;
-    private MultiMesh _items = null!;
-    private Node3D? _machineRoot;
+    // Structures: the pilot station inside the cockpit module, in cells from the ship structure origin (the seat model is at z 4.6; the eye
+    // stands just behind the seat, so the workshop stays in view when looking aft). The eye sits about 1.7 above the
+    // workshop build layer (y = 1), as in the legacy view, so near cells stay small enough to aim at.
+    private static readonly Vector3 SeatOffset = new(4f, 2.7f, 6.6f);
+    private const int DefaultStructureLayer = 1; // the workshop machines of the starter ship sit in local layer 1
     private readonly Dictionary<int, Node3D> _machineModels = new();
     private double _animTime;
-    private float[] _itemBuf = Array.Empty<float>();
     private ItemSample[] _samples = Array.Empty<ItemSample>();
     private int _sampleCount;
     private int[] _machineIds = Array.Empty<int>();
     private (float Ox, float Oy, float Oz, float Dx, float Dy, float Dz, int Length, int Speed)[] _segs = Array.Empty<(float, float, float, float, float, float, int, int)>();
     private int _structureVersion = -1;
+
+    /// <summary>
+    /// What is drawn for one structure: slabs, the item MultiMesh and the machine models, all children of the structure's root
+    /// node (structure 0 is the world root), so a flying ship carries its factory and item positions are local to it.
+    /// </summary>
+    private sealed class Geo
+    {
+        public Node3D Machines = null!;
+        public MultiMeshInstance3D? Slabs, ItemNode;
+        public MultiMesh Items = null!;
+        public float[] Buf = Array.Empty<float>();
+        public int Count, Capacity;
+    }
+
+    private readonly Dictionary<int, Geo> _geos = new();
+    private Geo?[] _segGeo = Array.Empty<Geo?>(); // by segment id
     private readonly List<Node3D> _depositNodes = new();
     private MeshInstance3D _ghost = null!, _dragGhost = null!;
 
@@ -103,16 +120,24 @@ public partial class Play : Node3D
         if (st is not null && int.TryParse(st["--stress=".Length..], out int sn)) _stressMachines = Math.Clamp(sn, 1, 5000);
         // A generated galaxy: the same seed always gives the same systems. Home's deposits start revealed; scan to find the rest.
         // The Remnant are on in the game and the threat demo; the production and exploration demos run without them.
-        bool threats = !(args.Contains("--demo") || _exploreDemo) && _stressMachines == 0;
+        _structuresShotPath = args.FirstOrDefault(a => a.StartsWith("--structures-shot="))?["--structures-shot=".Length..];
+        _structuresShot = _structuresShotPath is not null;
+        bool threats = !(args.Contains("--demo") || _exploreDemo) && _stressMachines == 0 && !(_structuresShot && !args.Contains("--threats"));
         _stationDemo = args.Contains("--station-demo");
         // --station-demo: a sandbox world with the station rules on and a scripted station, for screenshots of the build rules.
-        _gameMode = _exploreDemo || _threatDemo || _stressMachines > 0 || (_stationDemo && !args.Contains("--station-campaign")) || args.Contains("--structure-demo") ? GameMode.Sandbox : GameMode.Campaign;
+        _gameMode = _exploreDemo || _threatDemo || _stressMachines > 0 || (_stationDemo && !args.Contains("--station-campaign")) || args.Contains("--structure-demo")
+            || args.Contains("--shot-sandbox") ? GameMode.Sandbox : GameMode.Campaign;
         _threatsOn = threats;
         // The campaign builds only inside station modules; the scripted demos and the stress test keep the free build, and
         // --station-rules=false starts a campaign with the old rules for comparison.
-        _stationRules = _stationDemo
-            || (_gameMode == GameMode.Campaign && !_demo && _stressMachines == 0 && !args.Contains("--station-rules=false"));
-        _world = SimWorld.CreateGalaxy(_content, _gameMode, GalaxySeed, threats, _stationRules);
+        // The campaign starts in the starter ship (structures); --structures=false falls back to the station rules. Sandbox, the
+        // demos and the stress test keep the free build. Structures win over the station rules.
+        _structuresOn = !_demo && _stressMachines == 0 && !_stationDemo && !args.Contains("--structure-demo") && !args.Contains("--structures=false")
+            && (_gameMode == GameMode.Campaign || _structuresShot) && _content.StarterShip is not null;
+        _stationRules = !_structuresOn && (_stationDemo
+            || (_gameMode == GameMode.Campaign && !_demo && _stressMachines == 0 && !args.Contains("--station-rules=false")));
+        _world = SimWorld.CreateGalaxy(_content, _gameMode, GalaxySeed, threats, _stationRules, _structuresOn);
+        if (_structuresOn) { _yaw = MathF.PI; _pitch = -0.35f; _cursorY = DefaultStructureLayer; } // face the workshop from the pilot seat
         _world.Network.EnsurePlayer(Player); // the ship starts at the origin, inside Home
         if (args.Contains("--structure-demo")) BuildStructureDemo(args);
         // For screenshots: finish every research that carries a bonus, so the upgrade line of the status panel shows.
@@ -128,9 +153,20 @@ public partial class Play : Node3D
         BuildThreatVisuals();
         RebuildGeometry();
         if (_stationDemo) StationDemoSelect(args);
-        if (!_demo && !_stationDemo) StartPlayLog();
+        if (!_demo && !_stationDemo && !_structuresShot) StartPlayLog();
         if (!_demo) Toast(L("toast.welcome"));
+        if (_structuresShot) StructuresShotSetup(args);
     }
+
+    private bool _structuresOn;
+    private bool _structuresShot;
+    private string? _structuresShotPath;
+
+    /// <summary>The ship structure the player flies and works in, or -1 (legacy world or no ship).</summary>
+    private int ShipStruct => _structuresOn ? Net.ShipStructure(Player) : -1;
+
+    /// <summary>World origin of a structure in cells: the live root position (the ship's is interpolated per frame), 0 for structure 0.</summary>
+    private Vector3 StructOrigin(int s) => s == 0 ? Vector3.Zero : _stationView.StructureRoot(s)?.Position ?? StationView.OriginCells(Net, s);
 
     // ---- setup ---------------------------------------------------------------------------------
 
@@ -142,11 +178,17 @@ public partial class Play : Node3D
         foreach (var m in _content.Machines)
         {
             if (m.Role == MachineRole.Ship || m.SandboxOnly) continue;
-            if (_stationRules && m.Role == MachineRole.Drill) continue; // drills are always rejected under the station rules
+            if ((_stationRules || _structuresOn) && m.Role == MachineRole.Drill) continue; // drills are always rejected under the station and structure rules
             _palette.Add(new BuildItem(Nice(m.Id), false, BeltTier.Mk1, m.Index));
         }
         // The station module is the last entry and has its own key (N), so it never shifts the number keys.
         if (_stationRules && _content.Modules is not null) _palette.Add(new BuildItem("Module", false, BeltTier.Mk1, -1, IsModule: true));
+        // Structures: the module tool (N picks it, then cycles the kind) and the found-a-station tool (I), after the numbered entries.
+        if (_structuresOn)
+        {
+            _palette.Add(new BuildItem("Module", false, BeltTier.Mk1, -1, IsModule: true));
+            _palette.Add(new BuildItem("Station", false, BeltTier.Mk1, -1, IsStation: true));
+        }
     }
 
     // ---- station modules -------------------------------------------------------------------------
@@ -155,6 +197,7 @@ public partial class Play : Node3D
     private bool _stationDemo;
     private StationView _stationView = null!;
     private (int Mx, int My, int Mz)? _moduleAim;
+    private ModuleKind _moduleKind = ModuleKind.Workshop; // the kind the module tool places (N cycles it)
 
     private bool ModuleSelected => _tool == ToolMode.Build && _palette[_selected].IsModule;
 
@@ -215,7 +258,7 @@ public partial class Play : Node3D
         return null;
     }
 
-    private string ModuleName() => Net.ModuleCount(Player) == 0 ? L("ui.core") : L("ui.module");
+    private string ModuleName() => _structuresOn ? L("module." + _moduleKind.ToString().ToLowerInvariant()) : Net.ModuleCount(Player) == 0 ? L("ui.core") : L("ui.module");
 
     /// <summary>A scripted station for screenshots: a core, a hull module beside it and a few machines and belts inside.</summary>
     private void BuildStationDemo(string[] args)
@@ -342,13 +385,15 @@ void fragment() {
     {
         if (!Net.HasPlayer(Player)) return Vector3.Zero;
         var p = Net.GetPlayerInfo(Player);
+        // With structures the engines set the speed (a share of the base speed); without a ship structure it is the base speed.
+        float engine = ShipStruct >= 0 ? Net.ShipSpeedUnitsPerTick(Player) / (float)PlayerRules.MoveUnitsPerTick : 1f;
         if ((p.ThrustX | p.ThrustY | p.ThrustZ) != 0)
         {
-            float step = PlayerRules.MoveUnitsPerTick * alpha / 1024f;
+            float step = PlayerRules.MoveUnitsPerTick * engine * alpha / 1024f;
             return new Vector3(p.X + p.ThrustX * step, p.Y + p.ThrustY * step, p.Z + p.ThrustZ * step) / CellUnits;
         }
         int axes = Math.Abs(p.MoveX) + Math.Abs(p.MoveY) + Math.Abs(p.MoveZ);
-        float speed = axes switch { 0 => 0, 1 => PlayerRules.MoveUnitsPerTick, 2 => PlayerRules.MoveUnitsPerTickDiagonal2, _ => PlayerRules.MoveUnitsPerTickDiagonal3 };
+        float speed = engine * axes switch { 0 => 0, 1 => PlayerRules.MoveUnitsPerTick, 2 => PlayerRules.MoveUnitsPerTickDiagonal2, _ => PlayerRules.MoveUnitsPerTickDiagonal3 };
         return new Vector3(p.X + p.MoveX * speed * alpha, p.Y + p.MoveY * speed * alpha, p.Z + p.MoveZ * speed * alpha) / CellUnits;
     }
 
@@ -356,6 +401,19 @@ void fragment() {
     {
         if (node is VisualInstance3D v) v.Layers = layers;
         foreach (var c in node.GetChildren()) SetLayers(c, layers);
+    }
+
+    /// <summary>Keeps every structure root at its world origin; the player's ship structure follows the interpolated ship position and lights its engines.</summary>
+    private void UpdateStructureRoots(float alpha)
+    {
+        if (!_structuresOn) return;
+        _stationView.SyncStructures(Net);
+        int ship = ShipStruct;
+        if (ship < 0 || !Net.HasPlayer(Player)) return;
+        if (_stationView.StructureRoot(ship) is { } root) root.Position = ShipPosition(_demo ? 0f : alpha);
+        var pi = Net.GetPlayerInfo(Player);
+        bool thrusting = Net.CanFly(Player) && (pi.MoveX | pi.MoveY | pi.MoveZ | pi.ThrustX | pi.ThrustY | pi.ThrustZ) != 0;
+        _stationView.SetEngines(ship, thrusting);
     }
 
     private void UpdateShip(float alpha, float dt)
@@ -374,11 +432,14 @@ void fragment() {
         }
         _ship.Rotation = new Vector3(0, _shipYaw, 0);
         _ship.Position = pos;
-        _ship.Visible = !(Net.HasPlayer(Player) && Net.GetPlayerInfo(Player).RespawnRemaining > 0); // hidden while being rebuilt
+        // With structures the ship structure is the ship; the small legacy model stays hidden.
+        _ship.Visible = !_structuresOn && !(Net.HasPlayer(Player) && Net.GetPlayerInfo(Player).RespawnRemaining > 0); // hidden while being rebuilt
         Ambience.Retint(Ambience.SystemSeed(GalaxySeed, Net.CurrentSystem(Player))); // no-op unless the system changed
         // The range discs lie on the build plane (a disc at the ship's own height would be edge-on to the cockpit camera).
-        float floorY = _cursorY + 0.02f;
-        float dy = Math.Abs(pos.Y - (_cursorY + 0.5f));
+        // With structures the layer is local to the ship, so its world height is the ship's origin plus the layer.
+        float layerWorldY = _cursorY + (ShipStruct >= 0 ? pos.Y : 0f);
+        float floorY = layerWorldY + 0.02f;
+        float dy = Math.Abs(pos.Y - (layerWorldY + 0.5f));
         foreach (var (disc, radius) in new[] { (_buildRange, (float)PlayerRules.BuildRangeCells), (_mineRange, (float)PlayerRules.MineRangeCells) })
         {
             float r = MathF.Sqrt(MathF.Max(0.01f, radius * radius - dy * dy)) / radius;
@@ -422,7 +483,14 @@ void fragment() {
             _camera.LookAtFromPosition(_overviewTarget + offset, _overviewTarget);
             return;
         }
-        _camera.Position = shipPos + CockpitOffset;
+        if (_shotOutside && ShipStruct >= 0)
+        {
+            // --structures-shot: a view from outside the ship, looking at its middle (the ship is 40 cells long, the workshop is in the middle).
+            var mid = shipPos + new Vector3(4f, 1.5f, 17f);
+            _camera.LookAtFromPosition(mid + new Vector3(30f, 15f, 14f), mid);
+            return;
+        }
+        _camera.Position = shipPos + (ShipStruct >= 0 ? SeatOffset : CockpitOffset);
         _camera.Rotation = new Vector3(_pitch, _yaw, 0f);
     }
 
@@ -444,63 +512,90 @@ void fragment() {
 
     private void RebuildGeometry()
     {
-        _slabNode?.QueueFree();
-        _itemNode?.QueueFree();
-        _machineRoot?.QueueFree();
+        if (_structuresOn) _stationView.SyncStructures(Net); // makes sure every structure has its root before children are added
+        foreach (var old in _geos.Values)
+        {
+            old.Slabs?.QueueFree();
+            old.ItemNode?.QueueFree();
+            old.Machines.QueueFree();
+        }
+        _geos.Clear();
+
+        Node3D ParentOf(int structure) => structure == 0 ? this : _stationView.StructureRoot(structure) ?? this;
+        Geo GeoFor(int structure)
+        {
+            if (_geos.TryGetValue(structure, out var g)) return g;
+            g = new Geo { Machines = new Node3D() };
+            ParentOf(structure).AddChild(g.Machines);
+            _geos[structure] = g;
+            return g;
+        }
+        GeoFor(0);
+        foreach (var st in Net.Structures()) GeoFor(st.Id);
 
         _segs = new (float, float, float, float, float, float, int, int)[Net.SegmentIdLimit];
-        var alive = new List<int>();
-        int capacity = 0;
+        _segGeo = new Geo?[Net.SegmentIdLimit];
+        var alive = new Dictionary<int, List<int>>();
         for (int id = 0; id < _segs.Length; id++)
         {
             if (!Net.IsAlive(id)) continue;
             var s = Net.GetSegmentInfo(id);
             _segs[id] = (s.OriginX, s.OriginY, s.OriginZ, s.DirX, s.DirY, s.DirZ, s.Length, s.Speed);
-            alive.Add(id);
-            capacity += s.Length / Units.ItemSpacing + 2;
+            var geo = GeoFor(s.Structure);
+            _segGeo[id] = geo;
+            geo.Capacity += s.Length / Units.ItemSpacing + 2;
+            if (!alive.TryGetValue(s.Structure, out var list)) alive[s.Structure] = list = new List<int>();
+            list.Add(id);
         }
 
-        var slabs = new MultiMesh
+        int total = 0;
+        foreach (var (structure, geo) in _geos)
         {
-            TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true,
-            Mesh = new BoxMesh { Size = Vector3.One, Material = VertexMaterial() }, InstanceCount = alive.Count,
-        };
-        var slabBuf = new float[alive.Count * FloatsPerItem];
-        for (int i = 0; i < alive.Count; i++)
-        {
-            var s = Net.GetSegmentInfo(alive[i]);
-            float len = s.LengthCells;
-            var origin = CellCenter(s.OriginX, s.OriginY, s.OriginZ);
-            var center = origin + new Vector3(s.DirX, s.DirY, s.DirZ) * (len - 1) / 2f;
-            var scale = new Vector3(s.DirX != 0 ? len : 0.9f, s.DirY != 0 ? len : 0.2f, s.DirZ != 0 ? len : 0.9f);
-            if (s.DirY == 0) center.Y = s.OriginY + 0.1f;
-            Write(slabBuf, i * FloatsPerItem, scale, center, TierColors[(int)s.Tier]);
-        }
-        slabs.Buffer = slabBuf;
-        _slabNode = new MultiMeshInstance3D { Multimesh = slabs };
-        AddChild(_slabNode);
+            var ids = alive.TryGetValue(structure, out var l) ? l : new List<int>();
+            var parent = ParentOf(structure);
 
-        _samples = new ItemSample[capacity];
-        _items = new MultiMesh
-        {
-            TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true,
-            Mesh = new BoxMesh { Size = Vector3.One, Material = VertexMaterial() },
-            InstanceCount = capacity, VisibleInstanceCount = 0,
-        };
-        _itemBuf = new float[capacity * FloatsPerItem];
-        _itemNode = new MultiMeshInstance3D { Multimesh = _items };
-        AddChild(_itemNode);
+            var slabs = new MultiMesh
+            {
+                TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true,
+                Mesh = new BoxMesh { Size = Vector3.One, Material = VertexMaterial() }, InstanceCount = ids.Count,
+            };
+            var slabBuf = new float[ids.Count * FloatsPerItem];
+            for (int i = 0; i < ids.Count; i++)
+            {
+                var s = Net.GetSegmentInfo(ids[i]);
+                float len = s.LengthCells;
+                var origin = CellCenter(s.OriginX, s.OriginY, s.OriginZ);
+                var center = origin + new Vector3(s.DirX, s.DirY, s.DirZ) * (len - 1) / 2f;
+                var scale = new Vector3(s.DirX != 0 ? len : 0.9f, s.DirY != 0 ? len : 0.2f, s.DirZ != 0 ? len : 0.9f);
+                if (s.DirY == 0) center.Y = s.OriginY + 0.1f;
+                Write(slabBuf, i * FloatsPerItem, scale, center, TierColors[(int)s.Tier]);
+            }
+            slabs.Buffer = slabBuf;
+            geo.Slabs = new MultiMeshInstance3D { Multimesh = slabs };
+            parent.AddChild(geo.Slabs);
+
+            geo.Items = new MultiMesh
+            {
+                TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true,
+                Mesh = new BoxMesh { Size = Vector3.One, Material = VertexMaterial() },
+                InstanceCount = geo.Capacity, VisibleInstanceCount = 0,
+            };
+            geo.Buf = new float[geo.Capacity * FloatsPerItem];
+            geo.Count = 0;
+            geo.ItemNode = new MultiMeshInstance3D { Multimesh = geo.Items };
+            parent.AddChild(geo.ItemNode);
+            total += geo.Capacity;
+        }
+        _samples = new ItemSample[total];
 
         _machineIds = Enumerable.Range(0, Net.MachineIdLimit).Where(Net.IsMachineAlive).ToArray();
-        _machineRoot = new Node3D();
-        AddChild(_machineRoot);
         _machineModels.Clear();
         foreach (int id in _machineIds)
         {
             var m = Net.GetMachineInfo(id);
             var model = Models.Machine(_content.Machines[m.Type].Id);
-            model.Position = CellCenter(m.X, m.Y, m.Z);
-            _machineRoot.AddChild(model);
+            model.Position = CellCenter(m.X, m.Y, m.Z); // local to the structure's root
+            GeoFor(m.Structure).Machines.AddChild(model);
             _machineModels[id] = model;
         }
 
@@ -519,7 +614,7 @@ void fragment() {
 
     private void UpdateMachines()
     {
-        if (_machineRoot is null) return;
+        if (_geos.Count == 0) return;
         var planes = _camera.GetFrustum().ToArray();
         int visible = 0;
         var enemies = _content.Threat is null ? null : Net.Enemies();
@@ -529,7 +624,7 @@ void fragment() {
             // Machines outside the camera's view are not animated: nobody sees them, and a big base is mostly out of view.
             // The frustum planes are fetched once a frame and tested here in managed code; a margin of a cell and a half keeps
             // the machines about to enter the view already moving.
-            if (!InView(planes, model.Position)) continue;
+            if (!InView(planes, model.GlobalPosition)) continue; // the model is local to its structure: the frustum needs its world position
             visible++;
             var m = Net.GetMachineInfo(id);
             var def = _content.Machines[m.Type];
@@ -544,7 +639,7 @@ void fragment() {
             if (def.Role == MachineRole.Turret && enemies is not null && enemies.Count > 0)
             {
                 // Turrets track the nearest enemy; they hold their last aim when none is around.
-                var at = model.Position;
+                var at = model.GlobalPosition;
                 float best = float.MaxValue;
                 Vector3 target = at;
                 foreach (var e in enemies)
@@ -891,10 +986,11 @@ void fragment() {
     public override void _PhysicsProcess(double delta)
     {
         if (_paused && !_demo) return;
-        int ticks = _demo ? _demoSpeed : _speed;
+        int ticks = _demo || (_structuresShot && _shotPhase < 3) ? _demoSpeed : _speed;
         for (int i = 0; i < ticks; i++)
         {
             if (_demo) { if (_threatDemo) ThreatThink(); else if (_exploreDemo) ExploreThink(); else BotThink(); }
+            else if (_structuresShot) StructuresShotThink();
             _world.Step();
             CollectResults();
             WatchThreat();
@@ -919,23 +1015,33 @@ void fragment() {
     public override void _Process(double delta)
     {
         float alpha = (float)Engine.GetPhysicsInterpolationFraction();
+        UpdateStructureRoots(alpha); // first: the machine and item nodes are children of these roots
+        foreach (var geo in _geos.Values) geo.Count = 0;
         for (int i = 0; i < _sampleCount; i++)
         {
             var s = _samples[i];
+            var geo = _segGeo[s.Segment];
+            if (geo is null || geo.Count >= geo.Capacity) continue;
             var g = _segs[s.Segment];
             float p = MathF.Min(s.Pos + g.Speed * alpha, g.Length) / CellUnits;
+            // Local to the segment's structure: the root node carries the item to its world position.
             var pos = new Vector3(g.Ox + 0.5f + g.Dx * (p - 0.5f), g.Oy + (g.Dy != 0 ? 0.5f + g.Dy * (p - 0.5f) : 0.3f), g.Oz + 0.5f + g.Dz * (p - 0.5f));
-            Write(_itemBuf, i * FloatsPerItem, Vector3.One * 0.22f, pos, ItemColors[s.Type % ItemColors.Length]);
+            Write(geo.Buf, geo.Count++ * FloatsPerItem, Vector3.One * 0.22f, pos, ItemColors[s.Type % ItemColors.Length]);
         }
-        _items.VisibleInstanceCount = _sampleCount;
-        _items.Buffer = _itemBuf;
+        foreach (var geo in _geos.Values)
+        {
+            if (geo.Items is null) continue;
+            geo.Items.VisibleInstanceCount = geo.Count;
+            geo.Items.Buffer = geo.Buf;
+        }
         _animTime += delta;
         UpdateMachines();
         UpdateEnemies((float)delta);
         UpdateDeposits();
         UpdateShip(alpha, (float)delta);
-        _stationView.Sync(Net, Player, _cursorY);
+        if (!_structuresOn) _stationView.Sync(Net, Player, _cursorY);
         if (_structureDemo) StructureDemoTick();
+        if (_structuresShot) StructuresShotFrame();
         UpdateMap();
 
         UpdateHover();

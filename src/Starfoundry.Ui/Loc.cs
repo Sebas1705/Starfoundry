@@ -388,7 +388,8 @@ public static class Loc
         ["obj.watchFactory.hint"] = ("La nave inicial mina a mano y guarda el mineral en el contenedor; el puerto de mineral lo lleva al horno y el ensamblador hace placas. Espera a que llegue la primera a tu bodega.",
                                      "The starter ship mines by hand into the container; the ore port feeds the smelter and the assembler makes plates. Wait for the first one to reach your hold."),
         ["obj.foundStation"] = ("Funda una estación", "Found a station"),
-        ["obj.foundStation.hint"] = ("Pulsa su tecla para fundar una estación: empieza con un módulo núcleo donde estás.", "Press its key to found a station: it starts with a core module where you are."),
+        ["obj.foundStation.hint"] = ("Pulsa I para elegir la herramienta de estación, apunta al espacio junto a tu nave (el volumen verde = se puede) y haz clic: empieza con un módulo núcleo. Cuesta objetos de la bodega.",
+                                     "Press I to pick the station tool, aim at the space beside your ship (the green volume = it can be founded) and click: it starts with a core module. It costs items from the hold."),
         ["obj.addModule"] = ("Añade módulos", "Add modules"),
         ["obj.addModule.hint"] = ("Amplía tu nave o tu estación con más módulos (taller, defensa, casco) pegados a una cara: cada tipo permite construir cosas distintas.",
                                   "Grow your ship or station with more modules (workshop, defence, hull) touching a face: each kind allows different things to be built."),
@@ -397,6 +398,15 @@ public static class Loc
         // ---- station modules ----
         ["ui.module"] = ("Módulo", "Module"),
         ["ui.core"] = ("Núcleo", "Core"),
+        ["ui.foundStation"] = ("Fundar estación", "Found station"),
+        ["tip.foundStation"] = ("Funda una estación nueva: un módulo núcleo en el espacio junto a tu nave.", "Founds a new station: a core module in the space beside your ship."),
+        ["hint.foundStation"] = ("{0}: apunta al espacio junto a tu nave (verde = se puede fundar) y haz clic. Debe estar a tu alcance y sin tocar otras estructuras.   Esc: dejar de construir",
+                                 "{0}: aim at the space beside your ship (green = it can be founded) and click. It must be within reach and not touch other structures.   Esc: stop building"),
+        ["hint.buildModuleKind"] = ("Módulo: {0} (N cambia el tipo). Apunta junto a un módulo de tu nave o estación (verde = se puede) y haz clic.   Clic derecho en un módulo vacío: retirarlo (devuelve la mitad).   Esc: dejar de construir",
+                                    "Module: {0} (N changes the kind). Aim next to a module of your ship or station (green = it can be built) and click.   Right-click an empty module: remove it (refunds half).   Esc: stop building"),
+        ["hud.flightReady"] = ("lista para volar", "ready to fly"),
+        ["hud.flightNot"] = ("no puede volar: falta cabina o motor", "cannot fly: needs a cockpit and an engine"),
+        ["hud.modulesDetail"] = ("Módulos: {0}", "Modules: {0}"),
         ["hint.buildModule"] = ("Construyendo: {0}. Apunta a donde quieras el módulo (verde = se puede) y haz clic.   Clic derecho en un módulo vacío: retirarlo (devuelve la mitad).   Esc: dejar de construir",
                                 "Building: {0}. Aim where you want the module (green = it can be built) and click.   Right-click an empty module: remove it (refunds half).   Esc: stop building"),
         ["tip.module"] = ("{0} de estación: una caja de 8 x 8 x 4 celdas donde se puede construir.", "Station {0}: an 8 x 8 x 4 cell box where you can build."),
@@ -421,6 +431,7 @@ public static class Loc
             "  1-9, 0, Q, B, U   elegir qué construir (N: módulo de estación)       Esc   dejar de construir\n" +
             "  Y   cambiar receta       R   girar cintas sueltas       Z / X   cambiar de capa\n" +
             "  N   módulo de estación (el primero es el núcleo; solo se construye dentro de los módulos)\n" +
+            "  Estructuras: N elige la herramienta de módulos y, pulsada otra vez, cambia su tipo (cabina, motor, reactor, bodega, taller, defensa, casco); I elige fundar una estación junto a la nave; cada tipo de módulo admite máquinas distintas\n" +
             "  Clic en una máquina sin herramienta: ver su estado y cambiar su receta (Tab para usar sus botones).\n  E   reparar todas las máquinas dañadas a tu alcance (cuesta la mitad de su coste, en proporción al daño)\n\n" +
             "Otros\n" +
             "  T   elegir investigación      G   mapa estelar (flechas y J para saltar)\n" +
@@ -439,6 +450,7 @@ public static class Loc
             "  1-9, 0, Q, B, U   choose what to build (N: station module)       Esc   stop building\n" +
             "  Y   change recipe       R   rotate single belts       Z / X   change layer\n" +
             "  N   station module (the first one is the core; you can only build inside modules)\n" +
+            "  Structures: N picks the module tool and, pressed again, changes its kind (cockpit, engine, reactor, cargo, workshop, defence, hull); I picks founding a station beside the ship; each module kind allows different machines\n" +
             "  With no tool, click a machine: see its status and change its recipe (Tab to use its buttons).\n  E   repair every damaged machine within reach (half the build cost, in proportion to the damage)\n\n" +
             "Other\n" +
             "  T   choose research      G   star map (arrows and J to jump)\n" +

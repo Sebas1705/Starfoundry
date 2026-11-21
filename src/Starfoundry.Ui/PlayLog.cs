@@ -26,10 +26,11 @@ public sealed class PlayLog
     private bool _warned;
 
     /// <param name="stationRules">True when the played world uses the station rules (the guided steps then include the core and the cargo port).</param>
-    public PlayLog(ContentDb content, bool stationRules = false)
+    /// <param name="structures">True when the played world uses structures (the starter ship); it wins over the station rules.</param>
+    public PlayLog(ContentDb content, bool stationRules = false, bool structures = false)
     {
         _content = content;
-        _objectives = new ObjectiveTracker(content, stationRules);
+        _objectives = new ObjectiveTracker(content, stationRules, structures);
         _levels = new int[content.Research.Count];
     }
 

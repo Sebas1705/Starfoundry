@@ -76,7 +76,7 @@ void fragment() {
         new(mx * StationGrid.ModuleX + StationGrid.ModuleX / 2f, my * StationGrid.ModuleY + StationGrid.ModuleY / 2f, mz * StationGrid.ModuleZ + StationGrid.ModuleZ / 2f);
 
     /// <summary>Forces a rebuild on the next <see cref="Sync"/> (the world was replaced, so version numbers are not comparable).</summary>
-    public void Invalidate() => _version = -1;
+    public void Invalidate() { _version = -1; _structVersion = -1; }
 
     /// <summary>Rebuilds when the structure changed and moves the build-layer plates to the layer the player works on.</summary>
     public void Sync(BeltNetwork net, int player, int layerY)
