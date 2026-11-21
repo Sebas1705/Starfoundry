@@ -786,26 +786,8 @@ void fragment() {
 
     private void ToastProduction(string text, double seconds = 6.0) => Toast(text, seconds, ToastCategory.Production);
 
-    private static string Why(Reject r) => RejectTexts.Key(r) is { } key ? L(key) : WhyLegacy(r);
-
-    private static string WhyLegacy(Reject r) => r switch
-    {
-        Reject.NotEnoughItems => L("why.notEnough"),
-        Reject.Locked => L("why.locked"),
-        Reject.Overlap => L("why.overlap"),
-        Reject.OutOfRange => L("why.outOfRange"),
-        Reject.OutOfBounds => L("why.outOfBounds"),
-        Reject.UnknownDeposit => L("why.unknownDeposit"),
-        Reject.Depleted => L("why.depleted"),
-        Reject.ResearchUnavailable => L("why.researchUnavailable"),
-        Reject.NotDiscovered => L("why.notDiscovered"),
-        Reject.NotDamaged => L("why.notDamaged"),
-        Reject.OnCooldown => L("why.onCooldown"),
-        Reject.NoLane => L("why.noLane"),
-        Reject.NotInASystem => L("why.notInSystem"),
-        Reject.Busy => L("why.busy"),
-        _ => r.ToString(),
-    };
+    /// <summary>The player-facing reason of a reject; every value has a text (a test checks), and the enum name is never shown.</summary>
+    private static string Why(Reject r) => RejectTexts.Key(r) is { } key ? L(key) : L("toast.reject.unknown");
 
     private void CollectResults()
     {
@@ -819,6 +801,8 @@ void fragment() {
                     or PlaceSegmentIn or PlaceMachineIn or PlaceModuleIn or RemoveModuleIn or FoundStation
                     or Scan or Jump or AssignDrones)
                     ToastLogistics(Why(r.Reject));
+                else if (r.Command is ConnectSegments or ConnectFromMachine or ConnectToMachine or LinkDeposit)
+                    ToastLogistics(L("toast.autoLinkFailed", Why(r.Reject))); // an automatic link that did not work: say why
                 else if (r.Command is SetThrust or SetMovement && r.Reject == Reject.NoCockpitOrEngine)
                     ToastLogistics(Why(r.Reject)); // the ship has lost its cockpit or last engine
                 continue;
