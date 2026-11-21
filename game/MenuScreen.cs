@@ -33,6 +33,9 @@ public partial class MenuScreen : Control
 
     public Page Current { get; private set; } = Page.Main;
 
+    /// <summary>An optional line under the title of the main page (the pause menu shows the galaxy seed there).</summary>
+    public Func<string>? InfoLine { get; init; }
+
     /// <summary>Raised when Esc is pressed on the main page (the pause menu uses it to resume).</summary>
     public event Action? CloseRequested;
 
@@ -134,6 +137,13 @@ public partial class MenuScreen : Control
     {
         _panel.CustomMinimumSize = new Vector2(420, 0);
         Header(_titleKey == "menu.title" ? "menu.subtitle" : "");
+        if (InfoLine?.Invoke() is { Length: > 0 } info)
+        {
+            var line = UiKit.Text(13, Muted);
+            line.Text = info;
+            line.HorizontalAlignment = HorizontalAlignment.Center;
+            _body.AddChild(line);
+        }
         foreach (var e in _entries)
         {
             var b = UiKit.Button(e.Text(), e.OnPressed, 17, 420 - 44);

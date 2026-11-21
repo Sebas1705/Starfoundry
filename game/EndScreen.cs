@@ -28,7 +28,7 @@ public partial class EndScreen : Control
     public override void _Ready() => SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
 
     /// <summary>Shows the overlay for a result: <paramref name="victory"/> picks the title and colours.</summary>
-    public void Present(OutcomeResult result, bool victory, int goalWaves, string note, IReadOnlyList<Choice> choices)
+    public void Present(OutcomeResult result, bool victory, int goalWaves, string note, IReadOnlyList<Choice> choices, ulong? seed = null)
     {
         foreach (var child in GetChildren()) { RemoveChild(child); child.QueueFree(); }
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
@@ -79,6 +79,7 @@ public partial class EndScreen : Control
         Row("end.stat.waves", st.WavesSurvived.ToString(Loc.Culture));
         Row("end.stat.mined", $"{st.MinedByHand} / {st.MinedByDrones}");
         Row("end.stat.lost", $"{st.ModulesLost} / {st.MachinesLost}");
+        if (seed is { } s) Row("end.stat.seed", s.ToString(System.Globalization.CultureInfo.InvariantCulture));
         body.AddChild(grid);
         body.AddChild(new HSeparator());
 

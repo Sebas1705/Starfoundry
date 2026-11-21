@@ -69,7 +69,7 @@ public partial class Play
             choices.Add(new EndScreen.Choice(L("end.newGame"), NewGameFromEnd));
             choices.Add(new EndScreen.Choice(L("end.mainMenu"), GoToMainMenu)); // no autosave: the lost world must not replace the good one
         }
-        _endScreen.Present(r, victory, _goal.WavesToWin, note, choices);
+        _endScreen.Present(r, victory, _goal.WavesToWin, note, choices, _galaxySeed);
     }
 
     private void ContinueEndless()
@@ -113,7 +113,7 @@ public partial class Play
         string text = r.Kind == OutcomeKind.Won
             ? $"victory: {s.WavesSurvived} waves survived with a station"
             : "defeat: the ship was lost";
-        text += $" (modules built {s.ModulesBuilt}, stations {s.StationsFounded} founded and {s.StationsLost} lost, mined {s.MinedByHand} by hand and {s.MinedByDrones} by drones, " +
+        text += $" (galaxy seed {_galaxySeed}, modules built {s.ModulesBuilt}, stations {s.StationsFounded} founded and {s.StationsLost} lost, mined {s.MinedByHand} by hand and {s.MinedByDrones} by drones, " +
                 $"modules lost {s.ModulesLost}, machines lost {s.MachinesLost})";
         _logFile?.StoreLine(PlayLog.Line(_playLog.Note(Net, "Outcome", text)));
         _logFile?.Flush();
