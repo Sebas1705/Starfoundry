@@ -17,7 +17,7 @@ public static class RejectTexts
         Reject.NotEnoughItems => "toast.reject.notEnoughItems",
         Reject.KindNotAllowed => "toast.reject.kindNotAllowed",
         Reject.NoSuchStructure => "toast.reject.noSuchStructure",
-        // Reject.NoCockpitOrEngine -> "toast.reject.noCockpitOrEngine" is wired by the integrator once the enum value exists.
+        Reject.NoCockpitOrEngine => "toast.reject.noCockpitOrEngine",
         _ => null,
     };
 }
