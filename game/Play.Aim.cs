@@ -398,4 +398,57 @@ public partial class Play
         ((StandardMaterial3D)_ghost.MaterialOverride).AlbedoColor = problem is null ? new Color(0.4f, 1f, 0.5f, 0.22f) : new Color(1f, 0.3f, 0.25f, 0.22f);
         _tooltipLabel.Text = problem ?? $"{L("ui.foundStation")}: {L("tip.cost", Stacks(_content.Structures?.ModuleCost(ModuleKind.Core) ?? Array.Empty<ItemStack>()))}";
     }
+
+    // ---- HUD and markers of structures -------------------------------------------------------------------------
+
+    /// <summary>The ship's name, kind and flight readiness; with <paramref name="details"/> also its modules by kind and every station.</summary>
+    private void StructureHud(System.Text.StringBuilder sb, bool details)
+    {
+        int ship = ShipStruct;
+        if (ship >= 0)
+        {
+            string flight = Net.CanFly(Player) ? L("hud.flightReady") : L("hud.flightNot");
+            sb.Append(L("hud.structure", L("structure.ship"), flight)).Append('\n');
+            if (details) sb.Append(L("hud.modulesDetail", ModuleSummary(Net.GetStructure(ship)))).Append('\n');
+        }
+        if (!details) return;
+        foreach (var st in Net.Structures().Where(s => s.Kind == StructureKind.Station))
+            sb.Append(L("hud.structure", L("structure.station"), ModuleSummary(st))).Append('\n');
+    }
+
+    /// <summary>"Cockpit 1, Workshop 2": the module count per kind, in kind order.</summary>
+    private string ModuleSummary(Structure st) =>
+        string.Join(", ", st.Modules.Values.GroupBy(k => k).OrderBy(g => (int)g.Key).Select(g => $"{KindName(g.Key)} {g.Count()}"));
+
+    /// <summary>The nearest station and the machine the current guided step points at on the ship.</summary>
+    private void StructureMarkers(Action<string, Color, Vector3, float> add)
+    {
+        var eye = _camera.GlobalPosition;
+        bool found = false;
+        Vector3 nearestAt = default;
+        float best = float.MaxValue;
+        foreach (var st in Net.Structures().Where(s => s.Kind == StructureKind.Station))
+        {
+            var origin = StructOrigin(st.Id);
+            foreach (var (mx, my, mz) in st.Modules.Keys)
+            {
+                var c = origin + StationView.Centre(mx, my, mz);
+                float d = (c - eye).LengthSquared();
+                if (d < best) { best = d; nearestAt = c; found = true; }
+            }
+        }
+        if (found) add(L("mark.station"), new Color(0.45f, 0.8f, 1f), nearestAt, 10f);
+
+        // The guided step about the factory points at the ship's assembler (where the first plate appears).
+        int ship = ShipStruct;
+        if (ship >= 0 && _objectives.Current == Starfoundry.Ui.Objective.WatchFactory)
+            foreach (int id in _machineIds)
+            {
+                if (!Net.IsMachineAlive(id)) continue;
+                var m = Net.GetMachineInfo(id);
+                if (m.Structure != ship || _content.Machines[m.Type].Id != "core:assembler") continue;
+                add(MachineName(m.Type), new Color(1f, 0.8f, 0.35f), StructOrigin(ship) + CellCenter(m.X, m.Y, m.Z), 3f);
+                break;
+            }
+    }
 }

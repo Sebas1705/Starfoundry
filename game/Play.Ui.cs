@@ -439,6 +439,8 @@ public partial class Play
         }
         if (nearest is { } e) Add(Loc.Name("enemy", _content.Enemies[e.Type].Id), new Color(1f, 0.35f, 0.3f), new Vector3(e.X, e.Y, e.Z) / CellUnits, 3f);
 
+        if (_structuresOn) { StructureMarkers(Add); _markers.Set(items); return; }
+
         _baseTmp.Clear();
         foreach (int id in _machineIds)
         {
@@ -504,6 +506,7 @@ public partial class Play
         }
         _statusLabel.AddThemeColorOverride("font_color", Colors.White);
         if (_stationRules) sb.Append(L("hud.modules", Net.ModuleCount(Player))).Append('\n');
+        if (_structuresOn) StructureHud(sb, details: true);
 
         int dep = _selectedDeposit;
         string depLine;
@@ -576,6 +579,7 @@ public partial class Play
             else if (HudFormat.Band(p.Hull, Net.ShipMaxHull) != HealthBand.Good) colour = WornColor;
         }
         if (_stationRules) sb.Append(L("hud.modules", Net.ModuleCount(Player))).Append('\n');
+        if (_structuresOn) StructureHud(sb, details: false);
         if (!_objectivesOpen && _objectives.Current is { } cur)
             sb.Append(L("hud.ess.step", L(_objectives.States.First(s => s.Objective == cur).TitleKey))).Append('\n');
         if (_demo) sb.Append(L("hud.speed", _demoSpeed));
