@@ -11,6 +11,12 @@ public static class StructureGrid
     public const int LocalLimit = 512;
 
     public static bool InLocalBounds(long v) => v >= -LocalLimit && v <= LocalLimit;
+
+    /// <summary>True if every cell of the module (module size is <see cref="StationGrid"/>) lies inside the local grid limit.</summary>
+    public static bool IsValidLocalModule(long mx, long my, long mz) =>
+        InLocalBounds(mx * StationGrid.ModuleX) && InLocalBounds(mx * StationGrid.ModuleX + StationGrid.ModuleX - 1)
+        && InLocalBounds(my * StationGrid.ModuleY) && InLocalBounds(my * StationGrid.ModuleY + StationGrid.ModuleY - 1)
+        && InLocalBounds(mz * StationGrid.ModuleZ) && InLocalBounds(mz * StationGrid.ModuleZ + StationGrid.ModuleZ - 1);
 }
 
 /// <summary>

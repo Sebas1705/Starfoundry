@@ -42,6 +42,46 @@ public sealed partial class BeltNetwork
         StructureVersion++;
     }
 
+    /// <summary>Removes a module of a structure without any rule check (commands validate before calling this).</summary>
+    public void RemoveStructureModuleUnchecked(int id, int mx, int my, int mz)
+    {
+        if (!GetStructure(id).ModuleMap.Remove((mx, my, mz))) throw new InvalidOperationException("No such module.");
+        StructureVersion++;
+    }
+
+    /// <summary>The kind of the module that contains a local cell of a structure, or false if the cell lies in no module.</summary>
+    public bool TryGetModuleKindAt(int structure, int x, int y, int z, out ModuleKind kind)
+    {
+        kind = default;
+        return _structures.TryGetValue(structure, out var s) && s.ModuleMap.TryGetValue(StationGrid.ModuleOfCell(x, y, z), out kind);
+    }
+
+    /// <summary>True if the module shares a face with a module of the structure (diagonal neighbours do not count).</summary>
+    public bool StructureModuleTouches(int id, int mx, int my, int mz)
+    {
+        var map = GetStructure(id).ModuleMap;
+        foreach (var (dx, dy, dz) in FaceSteps)
+            if (map.ContainsKey((mx + dx, my + dy, mz + dz))) return true;
+        return false;
+    }
+
+    /// <summary>True if the structure's modules, minus the given one, are still one face-connected piece (or none are left).</summary>
+    public bool StructureStaysConnectedWithout(int id, int mx, int my, int mz)
+    {
+        var remaining = new HashSet<(int, int, int)>(GetStructure(id).ModuleMap.Keys);
+        remaining.Remove((mx, my, mz));
+        return IsConnected(remaining);
+    }
+
+    /// <summary>True if a world point (units) is within the range (cells) of the player's ship.</summary>
+    public bool WorldPointInRange(int player, long wx, long wy, long wz, int rangeCells)
+    {
+        var p = _players.TryGetValue(player, out var found) ? found : null;
+        long dx = wx - (p?.X ?? 0), dy = wy - (p?.Y ?? 0), dz = wz - (p?.Z ?? 0);
+        long r = (long)rangeCells * Units.CellUnits;
+        return dx * dx + dy * dy + dz * dz <= r * r;
+    }
+
     /// <summary>World position in units of the centre of a local cell: origin + local * cell size + half a cell, per axis.
     /// Structure 0 is the legacy world with its origin at 0.</summary>
     public (long X, long Y, long Z) WorldCentre(int structure, int x, int y, int z)

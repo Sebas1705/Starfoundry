@@ -121,6 +121,19 @@ public sealed record PlaceModule(int Mx, int My, int Mz) : Command;
 /// <summary>Removes a station module if nothing is built inside it and the station stays connected. Refunds half the cost.</summary>
 public sealed record RemoveModule(int Mx, int My, int Mz) : Command;
 
+/// <summary>Places a machine at a local cell of a structure (0 = the legacy world, as <see cref="PlaceMachine"/>). The cell must lie in a module whose kind allows the machine's role.</summary>
+public sealed record PlaceMachineIn(int Structure, int X, int Y, int Z, int Type, int Recipe) : Command;
+
+/// <summary>Places a belt segment at local cells of a structure. Every cell must lie in a module that allows belts.</summary>
+public sealed record PlaceSegmentIn(int Structure, int X, int Y, int Z, Dir Dir, int Length, BeltTier Tier) : Command;
+
+/// <summary>Adds a module of a kind to a structure at module-grid coordinates. The first module of a structure sets its core
+/// (a station's must be <see cref="ModuleKind.Core"/>); later ones must share a face with an existing module. The cost is paid from the hold.</summary>
+public sealed record PlaceModuleIn(int Structure, int Mx, int My, int Mz, ModuleKind Kind) : Command;
+
+/// <summary>Removes a module of a structure if nothing is built inside it and the structure stays connected. Refunds half the cost.</summary>
+public sealed record RemoveModuleIn(int Structure, int Mx, int My, int Mz) : Command;
+
 /// <summary>Several commands applied atomically: either all succeed or the world is left untouched.</summary>
 public sealed record Batch(Command[] Commands) : Command;
 
@@ -204,6 +217,12 @@ public enum Reject
 
     /// <summary>This kind of structure is not allowed here in this mode.</summary>
     NotAllowedHere,
+
+    /// <summary>The module under the cell is of a kind that does not allow this machine or belt.</summary>
+    KindNotAllowed,
+
+    /// <summary>The command names a structure that does not exist.</summary>
+    NoSuchStructure,
 }
 
 /// <summary>Outcome of one submitted command.</summary>

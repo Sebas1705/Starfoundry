@@ -179,15 +179,20 @@ public sealed class ContentDb
 
     /// <summary>Station module costs, or null if the content has no station modules (then module commands are rejected).</summary>
     public ModuleRules? Modules { get; }
+
+    /// <summary>Module kinds of ships and stations (cost, hit points, allowed machine roles), or null if the content has none
+    /// (then the structure commands that place modules are rejected).</summary>
+    public StructureContent? Structures { get; }
     public IReadOnlyList<EnemyDef> Enemies { get; }
     public IReadOnlyList<WaveSpec> Waves { get; }
     public ulong Hash { get; }
 
     private ContentDb(List<ItemDef> items, List<MachineDef> machines, List<RecipeDef> recipes, BeltDef?[] belts, List<ResearchDef> research,
         GalaxyRules? galaxy, List<ArchetypeDef> archetypes, ItemStack[] jumpCost,
-        ThreatRules? threat, List<EnemyDef> enemies, List<WaveSpec> waves, ModuleRules? modules)
+        ThreatRules? threat, List<EnemyDef> enemies, List<WaveSpec> waves, ModuleRules? modules, StructureContent? structures)
     {
         Modules = modules;
+        Structures = structures;
         Threat = threat;
         Enemies = enemies;
         Waves = waves;
@@ -242,7 +247,7 @@ public sealed class ContentDb
         {
             var root = doc.RootElement;
             RequireObject(root, "content", "schema", "items", "machines", "recipes", "belts", "research", "galaxy", "archetypes", "jump_cost",
-                "threat", "enemies", "waves", "modules");
+                "threat", "enemies", "waves", "modules", "structures");
             if (!root.TryGetProperty("schema", out var schema) || schema.ValueKind != JsonValueKind.Number || schema.GetInt32() != 1)
                 throw new InvalidDataException("Unsupported or missing content schema (expected 1).");
 
@@ -578,6 +583,9 @@ public sealed class ContentDb
                     Int(mod, "growth_percent", "modules", 0, 1000));
             }
 
+            StructureContent? structures = null;
+            if (root.TryGetProperty("structures", out var st)) structures = LoadStructures(st, itemIds);
+
             var enemies = new List<EnemyDef>();
             var enemyIds = new Dictionary<string, int>();
             if (root.TryGetProperty("enemies", out _))
@@ -615,11 +623,57 @@ public sealed class ContentDb
             }
             else if (enemies.Count > 0 || waves.Count > 0) throw new InvalidDataException("Enemies and waves need a threat section.");
 
-            return new ContentDb(items, machines, recipes, belts, research, galaxy, archetypes, jumpCost, threat, enemies, waves, modules);
+            return new ContentDb(items, machines, recipes, belts, research, galaxy, archetypes, jumpCost, threat, enemies, waves, modules, structures);
         }
     }
 
     public const int MaxSystems = 64;
+
+    private static StructureContent LoadStructures(JsonElement st, Dictionary<string, int> itemIds)
+    {
+        var names = Enum.GetValues<ModuleKind>().Select(k => k.ToString().ToLowerInvariant()).ToArray();
+        RequireObject(st, "structures", names);
+        var kinds = new ModuleKindDef[names.Length];
+        for (int i = 0; i < names.Length; i++)
+        {
+            if (!st.TryGetProperty(names[i], out var k)) throw new InvalidDataException($"'structures' needs an entry for '{names[i]}'.");
+            string owner = "structures." + names[i];
+            RequireObject(k, owner, "cost", "hp", "allows", "hold_capacity", "thrust_speed_percent");
+            var roles = new List<MachineRole>();
+            bool belts = false;
+            if (!k.TryGetProperty("allows", out var al) || al.ValueKind != JsonValueKind.Array)
+                throw new InvalidDataException($"'allows' in {owner} must be an array.");
+            foreach (var a in al.EnumerateArray())
+            {
+                string? s = a.ValueKind == JsonValueKind.String ? a.GetString() : null;
+                if (s == "belt")
+                {
+                    if (belts) throw new InvalidDataException($"'allows' in {owner} lists 'belt' twice.");
+                    belts = true;
+                    continue;
+                }
+                MachineRole role = s switch
+                {
+                    "crafter" => MachineRole.Crafter,
+                    "drill" => MachineRole.Drill,
+                    "lab" => MachineRole.Lab,
+                    "depot" => MachineRole.Depot,
+                    "turret" => MachineRole.Turret,
+                    "wall" => MachineRole.Wall,
+                    "repairer" => MachineRole.Repairer,
+                    "unloader" => MachineRole.Unloader,
+                    _ => throw new InvalidDataException($"'allows' in {owner} has an unknown entry '{s}'."),
+                };
+                if (roles.Contains(role)) throw new InvalidDataException($"'allows' in {owner} lists '{s}' twice.");
+                roles.Add(role);
+            }
+            kinds[i] = new ModuleKindDef((ModuleKind)i,
+                Stacks(k, "cost", owner, itemIds, allowEmpty: false, max: MaxCostStack),
+                Int(k, "hp", owner, 1, 100_000), roles.ToArray(), belts,
+                Int(k, "hold_capacity", owner, 0, 100_000), Int(k, "thrust_speed_percent", owner, 0, 10_000));
+        }
+        return new StructureContent(kinds);
+    }
 
     private static int Int(JsonElement e, string name, string owner, int min, int max)
     {
@@ -759,6 +813,16 @@ public sealed class ContentDb
         }
         MixStacks(JumpCost);
         if (Modules is { } mo) { MixStacks(mo.CoreCost); MixStacks(mo.HullCost); Mix(mo.GrowthPercent); }
+        else Mix(-1);
+        if (Structures is { } sc)
+        {
+            foreach (var k in sc.Kinds)
+            {
+                Mix((int)k.Kind); MixStacks(k.Cost); Mix(k.Hp);
+                Mix(k.AllowedRoles.Length); foreach (var r in k.AllowedRoles) Mix((int)r);
+                Mix(k.AllowsBelts ? 1 : 0); Mix(k.HoldCapacity); Mix(k.ThrustSpeedPercent);
+            }
+        }
         else Mix(-1);
         if (Threat is { } th)
         {

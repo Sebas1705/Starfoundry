@@ -34,8 +34,14 @@ public sealed partial class BeltNetwork
     /// and the cargo port is available without research. Part of the world's creation settings.</summary>
     public bool StationRules { get; }
 
-    public BeltNetwork(ContentDb? content = null, GameMode mode = GameMode.Sandbox, bool threats = false, bool stationRules = false)
+    /// <summary>Whether the structure rules are on: building happens inside ships and stations (structure commands),
+    /// and placing into the legacy world (structure 0) is refused. Part of the world's creation settings.</summary>
+    public bool StructureRules { get; }
+
+    public BeltNetwork(ContentDb? content = null, GameMode mode = GameMode.Sandbox, bool threats = false, bool stationRules = false,
+        bool structures = false)
     {
+        StructureRules = structures;
         Content = content;
         Mode = mode;
         ThreatsEnabled = threats;
@@ -257,7 +263,7 @@ public sealed partial class BeltNetwork
         }
 
         Mix(Tick); Mix(Spawned); Mix(Consumed); Mix(Destroyed); Mix(_segs.Count);
-        Mix(MachineInputsConsumed); Mix(MachineOutputsCreated); Mix((long)(Content?.Hash ?? 0)); Mix((int)Mode); Mix(ThreatsEnabled ? 1 : 0); if (StationRules) Mix(2);
+        Mix(MachineInputsConsumed); Mix(MachineOutputsCreated); Mix((long)(Content?.Hash ?? 0)); Mix((int)Mode); Mix(ThreatsEnabled ? 1 : 0); if (StationRules) Mix(2); if (StructureRules) Mix(4);
         MixMachines(Mix);
         MixEconomy(Mix);
         MixStation(Mix);
@@ -287,7 +293,7 @@ public sealed partial class BeltNetwork
     /// <summary>Deep copy of the whole state.</summary>
     public BeltNetwork Clone()
     {
-        var c = new BeltNetwork(Content, Mode, ThreatsEnabled, StationRules);
+        var c = new BeltNetwork(Content, Mode, ThreatsEnabled, StationRules, StructureRules);
         c.CopyFrom(this);
         return c;
     }
