@@ -40,6 +40,18 @@ public class PlayLogTests
     }
 
     [Fact]
+    public void StationRulesLogTheCoreStepAndPlainRulesDoNot()
+    {
+        var w = SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, false, stationRules: true);
+        w.Network.EnsurePlayer(0);
+        var station = new PlayLog(C, stationRules: true);
+        var plain = new PlayLog(C);
+        w.Network.AddModuleUnchecked(0, 0, 0, 0);
+        Assert.Contains(station.Update(w.Network, 0), e => e is { Kind: "Step", Text: "Core" });
+        Assert.DoesNotContain(plain.Update(w.Network, 0), e => e.Text == "Core");
+    }
+
+    [Fact]
     public void ResearchAndItsLevelsAreLogged()
     {
         var w = World();
