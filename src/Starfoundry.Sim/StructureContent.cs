@@ -14,10 +14,11 @@ namespace Starfoundry.Sim;
 /// <param name="DroneIntervalTicks">Ticks one bay needs per item at density 100 (drone bay only; 0 otherwise).</param>
 /// <param name="DefenceBonusPercent">Percent each module of this kind adds to the turret damage of its structure (defence only; 0 otherwise).</param>
 /// <param name="EmergencyPower">Power a reactor of this kind yields while it has no hydrogen and is not burning (reactor only; 0 otherwise).</param>
+/// <param name="RegenHp">Hit points a damaged module of this kind regains each passive regeneration step (1 by default).</param>
 /// <param name="PowerUse">Power one bay draws while its structure has an assigned deposit (drone bay only; 0 otherwise).</param>
 public sealed record ModuleKindDef(
     ModuleKind Kind, ItemStack[] Cost, int Hp, MachineRole[] AllowedRoles, bool AllowsBelts, int HoldCapacity, int ThrustSpeedPercent,
-    int PowerOutput = 0, int BurnIntervalTicks = 0, int DroneRangeCells = 0, int DroneIntervalTicks = 0, int PowerUse = 0, int DefenceBonusPercent = 0, int EmergencyPower = 0);
+    int PowerOutput = 0, int BurnIntervalTicks = 0, int DroneRangeCells = 0, int DroneIntervalTicks = 0, int PowerUse = 0, int DefenceBonusPercent = 0, int EmergencyPower = 0, int RegenHp = 1);
 
 /// <summary>The module kinds of ships and stations, from the <c>structures</c> section of the content.</summary>
 public sealed class StructureContent
@@ -68,6 +69,9 @@ public sealed class StructureContent
 
     /// <summary>Percent one module of this kind adds to its structure's turret damage (0 unless it is a defence module).</summary>
     public int DefenceBonusPercent(ModuleKind kind) => _kinds[(int)kind].DefenceBonusPercent;
+
+    /// <summary>Hit points a damaged module of this kind regains at each passive regeneration step.</summary>
+    public int RegenHp(ModuleKind kind) => _kinds[(int)kind].RegenHp;
 
     /// <summary>Power one drone bay draws while mining (0 unless it is a drone bay).</summary>
     public int ModulePowerUse(ModuleKind kind) => _kinds[(int)kind].PowerUse;

@@ -143,6 +143,10 @@ public sealed record FoundStation(int Wx, int Wy, int Wz) : Command;
 /// range of the structure, and the structure needs a drone bay module. Needs structure rules.</summary>
 public sealed record AssignDrones(int Structure, int Deposit) : Command;
 
+/// <summary>Throws items out of the commanding player's hold; they are lost. A <see cref="Count"/> of zero or less, or more than
+/// the hold has, discards every item of the kind. The item must exist and the hold must hold at least one.</summary>
+public sealed record DumpItems(int Item, int Count) : Command;
+
 /// <summary>Several commands applied atomically: either all succeed or the world is left untouched.</summary>
 public sealed record Batch(Command[] Commands) : Command;
 

@@ -95,7 +95,7 @@ public static class Loc
         ["recipe.core:nickel_plate"] = ("placa de níquel", "nickel plate"),
 
         ["research.core:logistics"] = ("Logística", "Logistics"),
-        ["research.core:carbon_drilling"] = ("Perforación de carbono", "Carbon drilling"),
+        ["research.core:carbon_drilling"] = ("Procesado de carbono", "Carbon processing"),
         ["research.core:advanced_logistics"] = ("Logística avanzada", "Advanced logistics"),
         ["research.core:jump_drive"] = ("Motor de salto", "Jump drive"),
         ["research.core:turret_calibration"] = ("Calibración de torretas", "Turret calibration"),
@@ -257,6 +257,7 @@ public static class Loc
 
         // ---- map ----
         ["map.title"] = ("MAPA ESTELAR  (* estás aquí, > elegido)", "STAR MAP  (* you are here, > selected)"),
+        ["map.jumpCost"] = ("Saltar [J]: {0}", "Jump [J]: {0}"),
         ["map.visited"] = ("visitado", "visited"),
         ["map.known"] = ("conocido", "known"),
         ["map.lane"] = ("ruta", "lane"),
@@ -384,6 +385,8 @@ public static class Loc
                            "All steps done. Explore, expand and keep the base defended."),
         ["obj.allDone.structures"] = ("Todos los pasos hechos. Siguiente: explora otros sistemas (G), consigue titanio y cuarzo, construye drones y defiéndete.",
                                       "All steps done. Next: scout other systems (G), get titanium and quartz, build drones, defend."),
+        ["learn.portOre"] = ("Llevas {1} de {0} en la bodega y ningún puerto lo saca a una cinta. Construye un puerto de ese mineral (menú B, Logística; los puertos son gratis) para que alimente tu fábrica o tu laboratorio.",
+                             "You hold {1} {0} and no port puts it on a belt. Build a port for that ore (B menu, Logistics; ports are free) so it can feed your factory or lab."),
         ["learn.noReactor"] = ("Tu estación no tiene energía: añade un módulo Reactor (N) y mantén hidrógeno en la bodega.",
                                "Your station has no power: add a Reactor module (N) and keep hydrogen in the hold."),
         ["learn.jumpCarbon"] = ("Cada salto cuesta {0} de carbono de tu bodega y los sistemas de níquel o titanio no tienen carbono: mina carbono antes de salir para poder volver.",
@@ -473,6 +476,8 @@ public static class Loc
         ["mark.droneTarget"] = ("Drones: pulsa F7", "Drones: press F7"),
         ["mark.drones"] = ("Drones aquí", "Drones here"),
         ["toast.dronesAssigned"] = ("Los drones minarán {0} ({1}/min).", "The drones will mine {0} ({1}/min)."),
+        ["toast.dumped"] = ("Tiras {1} de {0} al espacio.", "You dump {1} {0} into space."),
+        ["toast.dumpNothing"] = ("No hay nada que tirar: solo se tiran carbono, cuarzo, mineral de titanio o níquel y hielo sobrante (el carbono del salto y el hidrógeno se quedan).", "Nothing to dump: only spare carbon, quartz, titanium or nickel ore and ice go (the jump carbon and the hydrogen stay)."),
         ["toast.dronesUnassigned"] = ("Drones sin yacimiento asignado.", "Drones unassigned."),
         ["toast.dronesNoDeposit"] = ("Elige antes un yacimiento descubierto ([ ] o clic).", "Pick a discovered deposit first ([ ] or click)."),
         ["toast.dronesOutOfRange"] = ("Ese yacimiento está a más de {0} celdas del hangar.", "That deposit is more than {0} cells from the bay."),
@@ -672,7 +677,7 @@ public static class Loc
         ["bonus.ship_hull"] = ("casco de la nave", "ship hull"),
         ["bonus.ship_damage"] = ("arma de la nave", "ship weapon"),
         ["research.core:logistics.desc"] = ("Cintas más rápidas: desbloquea la cinta Mk2. Es la base de casi todo lo demás.", "Faster belts: unlocks belt Mk2. The base of almost everything else."),
-        ["research.core:carbon_drilling.desc"] = ("Requisito de la logística avanzada y del motor de salto. Desbloquea el taladro de carbono; en los mundos de estructuras el carbono ya se mina a mano sin investigar nada.", "A requirement for advanced logistics and the jump drive. Unlocks the carbon drill; in structure worlds carbon is already hand-mined without any research."),
+        ["research.core:carbon_drilling.desc"] = ("Aprovecha el carbono en carcasas más resistentes: las máquinas tienen un 20 % más de vida. Requisito de la logística avanzada y del motor de salto. En los mundos antiguos también desbloquea el taladro de carbono; en los de estructuras el carbono se mina a mano sin investigar nada.", "Puts carbon into tougher casings: machines have 20 % more hit points. A requirement for advanced logistics and the jump drive. In legacy worlds it also unlocks the carbon drill; in structure worlds carbon is hand-mined without any research."),
         ["research.core:advanced_logistics.desc"] = ("Las cintas más rápidas: desbloquea la cinta Mk3.", "The fastest belts: unlocks belt Mk3."),
         ["research.core:jump_drive.desc"] = ("Permite saltar por las rutas del mapa estelar a otros sistemas (G abre el mapa, J salta). Cada salto cuesta 5 de carbono de la bodega.", "Lets the ship jump along the star map lanes to other systems (G opens the map, J jumps). Every jump costs 5 carbon from the hold."),
         ["research.core:turret_calibration.desc"] = ("Las torretas hacen más daño por disparo.", "Turrets do more damage per shot."),
@@ -749,6 +754,7 @@ public static class Loc
             "  N   módulo de estación (con estaciones antiguas: el primero es el núcleo; solo se construye dentro de los módulos)\n" +
             "  Estructuras: N elige la herramienta de módulos y, pulsada otra vez, cambia su tipo (cabina, motor, reactor, bodega, taller, defensa, casco, hangar de drones tras investigarlo); I elige fundar una estación junto a la nave; cada tipo de módulo admite máquinas distintas\n" +
             "  F7   asignar los drones de tu nave o estación al yacimiento elegido ([ ] o clic); de nuevo con el mismo yacimiento, quitarlos\n" +
+            "  Ctrl+Supr   tirar al espacio la mayor pila de mineral sobrante de la bodega (carbono, cuarzo, titanio, níquel; hielo si hay 20 de hidrógeno); no toca el hierro, el hidrógeno ni el carbono del salto\n" +
             "  Clic en una máquina sin herramienta: ver su estado y cambiar su receta (Tab para usar sus botones).\n  Retroceso   reparar todas las máquinas dañadas a tu alcance (cuesta la mitad de su coste, en proporción al daño)\n\n" +
             "Otros\n" +
             "  T   panel de investigación (flechas e Intro eligen; ahí se ve qué necesita y qué desbloquea cada una)      G   mapa estelar (flechas y J para saltar)\n" +
@@ -771,6 +777,7 @@ public static class Loc
             "  N   station module (older station rules: the first one is the core; you can only build inside modules)\n" +
             "  Structures: N picks the module tool and, pressed again, changes its kind (cockpit, engine, reactor, cargo, workshop, defence, hull, drone bay once researched); I picks founding a station beside the ship; each module kind allows different machines\n" +
             "  F7   assign your ship's or station's drones to the selected deposit ([ ] or click); again on the same deposit, unassign them\n" +
+            "  Ctrl+Delete   dump the largest stack of spare ore from the hold into space (carbon, quartz, titanium, nickel; ice while you hold 20 hydrogen); it never touches iron, hydrogen or the jump carbon\n" +
             "  With no tool, click a machine: see its status and change its recipe (Tab to use its buttons).\n  Backspace   repair every damaged machine within reach (half the build cost, in proportion to the damage)\n\n" +
             "Other\n" +
             "  T   research panel (arrows and Enter choose; it shows what each one needs and unlocks)      G   star map (arrows and J to jump)\n" +

@@ -630,12 +630,18 @@
       "cost": [
         {
           "item": "core:iron_plate",
-          "count": 135
+          "count": 60
         }
       ],
       "requires": [],
       "unlocks": [
         "core:drill_carbon"
+      ],
+      "bonuses": [
+        {
+          "kind": "machine_hp",
+          "percent": 20
+        }
       ]
     },
     {
@@ -1157,6 +1163,21 @@
             400,
             800
           ]
+        },
+        {
+          "item": "core:carbon",
+          "count": [
+            1,
+            1
+          ],
+          "amount": [
+            200,
+            400
+          ],
+          "density": [
+            80,
+            120
+          ]
         }
       ]
     },
@@ -1238,6 +1259,21 @@
           "amount": [
             400,
             800
+          ]
+        },
+        {
+          "item": "core:carbon",
+          "count": [
+            1,
+            1
+          ],
+          "amount": [
+            200,
+            400
+          ],
+          "density": [
+            80,
+            120
           ]
         }
       ]
@@ -1357,7 +1393,8 @@
       "allows": ["turret", "wall"],
       "hold_capacity": 0,
       "thrust_speed_percent": 0,
-      "defence_bonus_percent": 10
+      "defence_bonus_percent": 10,
+      "regen_hp": 5
     },
     "hull": {
       "cost": [{ "item": "core:iron_ingot", "count": 12 }],
@@ -1417,7 +1454,8 @@
     },
     "respawn_seconds": 5,
     "module_regen_seconds": 10,
-    "first_wave_grace_seconds": 480
+    "first_wave_grace_seconds": 480,
+    "structure_ship_damage_percent": 150
   },
   "enemies": [
     {

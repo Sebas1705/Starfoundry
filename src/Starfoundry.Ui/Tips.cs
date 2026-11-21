@@ -54,7 +54,10 @@ public sealed class Tips
             && !net.Structures().Any(st => st.Owner == player && st.Modules.Values.Contains(ModuleKind.DroneBay))) return Show("drones", "learn.drones", now);
         if (!_shown.Contains("deliver") && net.ModuleCount(player) > 0 && !HasMachine(net, "core:ore_unloader")
             && net.HoldCount(player, _content.ItemIndex("core:iron_ore")) >= PlayerRules.HoldCapacity) return Show("deliver", "learn.deliver", now);
-        if (!_shown.Contains("port") && net.IsResearched(_content.ResearchIndex("core:jump_drive")) && !Has(net, MachineRole.Unloader)
+        // Structure worlds: ports are free and the starter ship already has an iron ore port, so the tip is about any other ore piling up in the hold.
+        if (!_shown.Contains("portOre") && net.StructureRules && OreWithoutPort(net, player) is var ore and >= 0)
+            return Show("portOre", "learn.portOre", now, Loc.Name("item", _content.Items[ore].Id), HoldCountOf(net, player, ore));
+        if (!_shown.Contains("port") && !net.StructureRules && net.IsResearched(_content.ResearchIndex("core:jump_drive")) && !Has(net, MachineRole.Unloader)
             && HomeIronLow(net, player)) return Show("port", "learn.port", now);
         return null;
     }
@@ -104,12 +107,39 @@ public sealed class Tips
     /// <summary>True when a station of the player has machines but no Reactor module: nothing there can be powered.</summary>
     private bool StationWithoutReactor(BeltNetwork net, int player)
     {
-        HashSet<int>? dark = null;
         foreach (var st in net.Structures())
-            if (st.Owner == player && st.Kind == StructureKind.Station && !st.Modules.Values.Contains(ModuleKind.Reactor)) (dark ??= new()).Add(st.Id);
-        if (dark is null) return false;
+            if (st.Owner == player && net.StationHasNoReactor(st.Id)) return true;
+        return false;
+    }
+
+    /// <summary>Ore held in quantity that has no port to put it on a belt (structure worlds); returns its item index, or -1.</summary>
+    private int OreWithoutPort(BeltNetwork net, int player)
+    {
+        foreach (var def in _content.Machines)
+        {
+            if (def.Role != MachineRole.Unloader || def.Unloader is not { Item: >= 0 } u) continue;
+            int spare = net.HoldCount(player, u.Item);
+            foreach (var j in _content.JumpCost)
+                if (j.Item == u.Item) spare -= j.Count; // carbon kept for a jump is not a surplus
+            if (spare < PortTipOreCount || PortStands(net, u.Item)) continue;
+            return u.Item;
+        }
+        return -1;
+    }
+
+    /// <summary>Hold count of an ore (or ice) from which a port tip is worth showing.</summary>
+    public const int PortTipOreCount = 15;
+
+    private static int HoldCountOf(BeltNetwork net, int player, int item) => net.HoldCount(player, item);
+
+    private bool PortStands(BeltNetwork net, int item)
+    {
         for (int id = 0; id < net.MachineIdLimit; id++)
-            if (net.IsMachineAlive(id) && dark.Contains(net.GetMachineInfo(id).Structure)) return true;
+        {
+            if (!net.IsMachineAlive(id)) continue;
+            var def = _content.Machines[net.GetMachineInfo(id).Type];
+            if (def.Role == MachineRole.Unloader && def.Unloader is { } u && u.Item == item) return true;
+        }
         return false;
     }
 

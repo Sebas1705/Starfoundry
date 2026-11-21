@@ -664,6 +664,19 @@ public class StructureDefenceTests
         root["structures"]!["reactor"]!.AsObject().Remove("emergency_power");
         root["structures"]!["reactor"]!["cost"] = System.Text.Json.Nodes.JsonNode.Parse("""[{"item":"core:iron_plate","count":16},{"item":"core:carbon","count":8},{"item":"core:nickel_plate","count":6}]""");
         root["structures"]!["defence"]!["cost"] = System.Text.Json.Nodes.JsonNode.Parse("""[{"item":"core:iron_plate","count":12},{"item":"core:iron_ingot","count":16},{"item":"core:titanium_plate","count":4}]""");
+        // And before the second audit: nickel fields and titanium veins had no carbon deposit.
+        foreach (var id in new[] { "core:nickel_field", "core:titanium_vein" })
+        {
+            var deposits = root["archetypes"]!.AsArray().First(a => a!["id"]!.GetValue<string>() == id)!["deposits"]!.AsArray();
+            deposits.Remove(deposits.First(d => d!["item"]!.GetValue<string>() == "core:carbon"));
+        }
+        // And before the wave balance pass: no stronger ship cannon in structure worlds and the same regeneration for every module.
+        root["threat"]!.AsObject().Remove("structure_ship_damage_percent");
+        root["structures"]!["defence"]!.AsObject().Remove("regen_hp");
+        // And before carbon drilling became carbon processing: 135 plates and no bonus.
+        var cd = root["research"]!.AsArray().First(r => r!["id"]!.GetValue<string>() == "core:carbon_drilling")!.AsObject();
+        cd.Remove("bonuses");
+        cd["cost"] = System.Text.Json.Nodes.JsonNode.Parse("""[{"item":"core:iron_plate","count":135}]""");
         return ContentDb.FromJson(root.ToJsonString());
     }
 

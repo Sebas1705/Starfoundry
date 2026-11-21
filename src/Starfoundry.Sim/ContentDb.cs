@@ -66,7 +66,7 @@ public sealed record WaveSpec(int Enemy, int Base, int PerWave, int FromWave = 0
 public sealed record ThreatRules(
     int AlertMax, int SignatureThreshold, int DecayPerTick, int AlertAfterWave, int WarningTicks, int NodeDistanceCells,
     int MaxEnemies, int ShipHull, int ShipWeaponRangeCells, int ShipWeaponDamage, int ShipWeaponIntervalTicks, int RespawnTicks,
-    int ModuleRegenTicks = ThreatRules.DefaultModuleRegenTicks, int FirstWaveGraceTicks = 0)
+    int ModuleRegenTicks = ThreatRules.DefaultModuleRegenTicks, int FirstWaveGraceTicks = 0, int StructureShipDamagePercent = 100)
 {
     /// <summary>Structure worlds: every module regenerates one hit point this often while its structure is fully powered (10 s).</summary>
     public const int DefaultModuleRegenTicks = 10 * Units.TicksPerSecond;
@@ -612,7 +612,7 @@ public sealed class ContentDb
             if (root.TryGetProperty("threat", out var th))
             {
                 RequireObject(th, "threat", "alert_max", "signature_threshold", "decay_per_tick", "alert_after_wave", "warning_seconds",
-                    "node_distance_cells", "max_enemies", "ship_hull", "ship_weapon", "respawn_seconds", "module_regen_seconds", "first_wave_grace_seconds");
+                    "node_distance_cells", "max_enemies", "ship_hull", "ship_weapon", "respawn_seconds", "module_regen_seconds", "first_wave_grace_seconds", "structure_ship_damage_percent");
                 if (!th.TryGetProperty("ship_weapon", out var sw)) throw new InvalidDataException("'ship_weapon' in threat must be an object.");
                 RequireObject(sw, "ship_weapon", "range_cells", "damage", "interval_ticks");
                 int alertMax = Int(th, "alert_max", "threat", 100, 10_000_000);
@@ -630,7 +630,8 @@ public sealed class ContentDb
                     Int(sw, "interval_ticks", "ship_weapon", 1, 600),
                     Int(th, "respawn_seconds", "threat", 1, 600) * Units.TicksPerSecond,
                     th.TryGetProperty("module_regen_seconds", out _) ? Int(th, "module_regen_seconds", "threat", 1, 3600) * Units.TicksPerSecond : ThreatRules.DefaultModuleRegenTicks,
-                    th.TryGetProperty("first_wave_grace_seconds", out _) ? Int(th, "first_wave_grace_seconds", "threat", 0, 36_000) * Units.TicksPerSecond : 0);
+                    th.TryGetProperty("first_wave_grace_seconds", out _) ? Int(th, "first_wave_grace_seconds", "threat", 0, 36_000) * Units.TicksPerSecond : 0,
+                    th.TryGetProperty("structure_ship_damage_percent", out _) ? Int(th, "structure_ship_damage_percent", "threat", 100, 1000) : 100);
             }
 
             ModuleRules? modules = null;
@@ -710,7 +711,7 @@ public sealed class ContentDb
             if (!st.TryGetProperty(names[i], out var k)) throw new InvalidDataException($"'structures' needs an entry for '{names[i]}'.");
             string owner = "structures." + names[i];
             RequireObject(k, owner, "cost", "hp", "allows", "hold_capacity", "thrust_speed_percent", "power_output", "burn_interval_ticks",
-                "drone_range_cells", "drone_interval_ticks", "power_use", "defence_bonus_percent", "emergency_power");
+                "drone_range_cells", "drone_interval_ticks", "power_use", "defence_bonus_percent", "emergency_power", "regen_hp");
             bool isReactor = (ModuleKind)i == ModuleKind.Reactor;
             bool isBay = (ModuleKind)i == ModuleKind.DroneBay;
             if (!isBay && (k.TryGetProperty("drone_range_cells", out _) || k.TryGetProperty("drone_interval_ticks", out _) || k.TryGetProperty("power_use", out _)))
@@ -758,7 +759,8 @@ public sealed class ContentDb
             kinds[i] = new ModuleKindDef((ModuleKind)i,
                 Stacks(k, "cost", owner, itemIds, allowEmpty: false, max: MaxCostStack),
                 Int(k, "hp", owner, 1, 100_000), roles.ToArray(), belts,
-                Int(k, "hold_capacity", owner, 0, 100_000), Int(k, "thrust_speed_percent", owner, 0, 10_000), powerOutput, burnInterval, droneRange, droneInterval, bayPower, defenceBonus, emergency);
+                Int(k, "hold_capacity", owner, 0, 100_000), Int(k, "thrust_speed_percent", owner, 0, 10_000), powerOutput, burnInterval, droneRange, droneInterval, bayPower, defenceBonus, emergency,
+                k.TryGetProperty("regen_hp", out _) ? Int(k, "regen_hp", owner, 1, 1000) : 1);
         }
         return new StructureContent(kinds);
     }
@@ -1052,6 +1054,7 @@ public sealed class ContentDb
                 if (k.Kind == ModuleKind.Reactor && k.EmergencyPower != 15) Mix(k.EmergencyPower); // 15 is the default
                 if (k.DroneIntervalTicks != 0) { Mix(k.DroneRangeCells); Mix(k.DroneIntervalTicks); Mix(k.PowerUse); }
                 if (k.Kind == ModuleKind.Defence && k.DefenceBonusPercent != 10) Mix(k.DefenceBonusPercent); // 10 is the default
+                if (k.RegenHp != 1) Mix(k.RegenHp); // 1 is the default
             }
         }
         else Mix(-1);
@@ -1072,6 +1075,7 @@ public sealed class ContentDb
             Mix(th.NodeDistanceCells); Mix(th.MaxEnemies); Mix(th.ShipHull); Mix(th.ShipWeaponRangeCells); Mix(th.ShipWeaponDamage);
             Mix(th.ShipWeaponIntervalTicks); Mix(th.RespawnTicks);
             if (th.ModuleRegenTicks != ThreatRules.DefaultModuleRegenTicks || th.FirstWaveGraceTicks != 0) { Mix(th.ModuleRegenTicks); Mix(th.FirstWaveGraceTicks); }
+            if (th.StructureShipDamagePercent != 100) Mix(th.StructureShipDamagePercent);
         }
         else Mix(-1);
         Mix(Enemies.Count);
