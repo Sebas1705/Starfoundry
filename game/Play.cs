@@ -27,7 +27,7 @@ public partial class Play : Node3D
     private static readonly Color[] TierColors =
         { new(0.35f, 0.40f, 0.50f), new(0.20f, 0.55f, 0.60f), new(0.85f, 0.50f, 0.20f) };
 
-    private record BuildItem(string Label, bool IsBelt, BeltTier Tier, int Machine);
+    private record BuildItem(string Label, bool IsBelt, BeltTier Tier, int Machine, bool IsModule = false);
 
     private ContentDb _content = null!;
     private SimWorld _world = null!;
@@ -103,14 +103,21 @@ public partial class Play : Node3D
         // A generated galaxy: the same seed always gives the same systems. Home's deposits start revealed; scan to find the rest.
         // The Remnant are on in the game and the threat demo; the production and exploration demos run without them.
         bool threats = !(args.Contains("--demo") || _exploreDemo) && _stressMachines == 0;
-        _gameMode = _exploreDemo || _threatDemo || _stressMachines > 0 ? GameMode.Sandbox : GameMode.Campaign;
+        _stationDemo = args.Contains("--station-demo");
+        // --station-demo: a sandbox world with the station rules on and a scripted station, for screenshots of the build rules.
+        _gameMode = _exploreDemo || _threatDemo || _stressMachines > 0 || (_stationDemo && !args.Contains("--station-campaign")) ? GameMode.Sandbox : GameMode.Campaign;
         _threatsOn = threats;
-        _world = SimWorld.CreateGalaxy(_content, _gameMode, GalaxySeed, threats);
+        // The campaign builds only inside station modules; the scripted demos and the stress test keep the free build, and
+        // --station-rules=false starts a campaign with the old rules for comparison.
+        _stationRules = _stationDemo
+            || (_gameMode == GameMode.Campaign && !_demo && _stressMachines == 0 && !args.Contains("--station-rules=false"));
+        _world = SimWorld.CreateGalaxy(_content, _gameMode, GalaxySeed, threats, _stationRules);
         _world.Network.EnsurePlayer(Player); // the ship starts at the origin, inside Home
         // For screenshots: finish every research that carries a bonus, so the upgrade line of the status panel shows.
         if (args.Contains("--grant-upgrades"))
             foreach (var node in _content.Research.Where(r => r.Bonuses.Length > 0)) _world.Network.GrantResearch(node.Index);
         if (_stressMachines > 0) BuildStressBase();
+        if (_stationDemo) BuildStationDemo(args);
         _selectedDeposit = RevealedDeposits().FirstOrDefault();
 
         BuildPalette();
@@ -118,7 +125,8 @@ public partial class Play : Node3D
         BuildUi();
         BuildThreatVisuals();
         RebuildGeometry();
-        if (!_demo) StartPlayLog();
+        if (_stationDemo) StationDemoSelect(args);
+        if (!_demo && !_stationDemo) StartPlayLog();
         if (!_demo) Toast(L("toast.welcome"));
     }
 
@@ -132,8 +140,121 @@ public partial class Play : Node3D
         foreach (var m in _content.Machines)
         {
             if (m.Role == MachineRole.Ship || m.SandboxOnly) continue;
+            if (_stationRules && m.Role == MachineRole.Drill) continue; // drills are always rejected under the station rules
             _palette.Add(new BuildItem(Nice(m.Id), false, BeltTier.Mk1, m.Index));
         }
+        // The station module is the last entry and has its own key (N), so it never shifts the number keys.
+        if (_stationRules && _content.Modules is not null) _palette.Add(new BuildItem("Module", false, BeltTier.Mk1, -1, IsModule: true));
+    }
+
+    // ---- station modules -------------------------------------------------------------------------
+
+    private bool _stationRules;
+    private bool _stationDemo;
+    private StationView _stationView = null!;
+    private (int Mx, int My, int Mz)? _moduleAim;
+
+    private bool ModuleSelected => _tool == ToolMode.Build && _palette[_selected].IsModule;
+
+    /// <summary>
+    /// The module a module ghost snaps to: with no station, the module under the aim cell; with one, the aim cell's module
+    /// when it touches the station, otherwise the free face-adjacent module whose centre is nearest the aim ray.
+    /// </summary>
+    private (int Mx, int My, int Mz)? ModuleUnderAim()
+    {
+        var origin = AimOrigin();
+        var dir = AimDirection();
+        var cell = CellUnderAim();
+        (int Mx, int My, int Mz)? hit = cell is { } c ? StationGrid.ModuleOfCell(c.X, c.Y, c.Z) : null;
+        if (Net.ModuleCount(Player) == 0) return hit is { } h && StationGrid.IsValidModule(h.Mx, h.My, h.Mz) ? hit : null;
+        if (hit is { } m && !Net.HasModule(Player, m.Mx, m.My, m.Mz) && Net.ModuleTouchesStation(Player, m.Mx, m.My, m.Mz)) return m;
+
+        Vector3? planeHit = cell is not null ? origin + dir * ((_cursorY - origin.Y) / dir.Y) : null;
+        (int, int, int)? best = null;
+        float bestD = float.MaxValue;
+        foreach (var (mx, my, mz, _) in Net.Modules(Player))
+            foreach (var (dx, dy, dz) in new[] { (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1) })
+            {
+                int nx = mx + dx, ny = my + dy, nz = mz + dz;
+                if (Net.HasModule(Player, nx, ny, nz) || !StationGrid.IsValidModule(nx, ny, nz)) continue;
+                var centre = StationView.Centre(nx, ny, nz);
+                float d;
+                if (planeHit is { } ph) d = (centre - ph).LengthSquared(); // nearest to where the aim meets the build layer
+                else
+                {
+                    // Aim not on the layer (looking up or too far): nearest to the ray itself.
+                    var to = centre - origin;
+                    float along = to.Dot(dir);
+                    if (along <= 0f) continue;
+                    d = (to - dir * along).LengthSquared();
+                }
+                if (d < bestD) { bestD = d; best = (nx, ny, nz); }
+            }
+        return best is { } b ? (b.Item1, b.Item2, b.Item3) : null;
+    }
+
+    /// <summary>Why <see cref="PlaceModule"/> would be refused for this module right now (the sim's own checks, as text), or null if it would succeed.</summary>
+    private string? ModuleProblem((int Mx, int My, int Mz) m)
+    {
+        if (!StationGrid.IsValidModule(m.Mx, m.My, m.Mz)) return Why(Reject.OutOfBounds);
+        if (Net.HasModule(Player, m.Mx, m.My, m.Mz)) return L("why.moduleExists");
+        if (Net.ModuleCount(Player) > 0 && !Net.ModuleTouchesStation(Player, m.Mx, m.My, m.Mz)) return Why(Reject.NotAdjacent);
+        if (_gameMode == GameMode.Campaign)
+        {
+            if (!Net.ModuleCentreInRange(Player, m.Mx, m.My, m.Mz, PlayerRules.BuildRangeCells)) return Why(Reject.OutOfRange);
+            var cost = Net.NextModuleCost(Player);
+            if (!Net.CanPay(Player, cost))
+            {
+                var missing = cost.Where(s => Net.HoldCount(Player, s.Item) < s.Count)
+                    .Select(s => new ItemStack(s.Item, s.Count - Net.HoldCount(Player, s.Item))).ToArray();
+                return L("why.moduleMissing", Stacks(missing));
+            }
+        }
+        return null;
+    }
+
+    private string ModuleName() => Net.ModuleCount(Player) == 0 ? L("ui.core") : L("ui.module");
+
+    /// <summary>A scripted station for screenshots: a core, a hull module beside it and a few machines and belts inside.</summary>
+    private void BuildStationDemo(string[] args)
+    {
+        bool campaign = _gameMode == GameMode.Campaign; // --station-campaign: costs apply, so the station is added without commands
+        foreach (var (mx, my, mz) in new[] { (2, 0, 0), (3, 0, 0), (3, 1, 0) })
+        {
+            if (campaign) Net.AddModuleUnchecked(Player, mx, my, mz);
+            else _world.Submit(Player, new PlaceModule(mx, my, mz));
+        }
+        _world.Step();
+        int Machine(string id) => _content.MachineIndex(id);
+        int Recipe(int machine) => _content.Recipes.FirstOrDefault(r => r.Machine == machine)?.Index ?? -1;
+        foreach (var (id, x, y, z) in new[] { ("core:smelter", 18, 0, 1), ("core:assembler", 21, 0, 1), ("core:unloader", 17, 0, 2), ("core:depot", 25, 0, 2) })
+        {
+            int mt = Machine(id);
+            var role = _content.Machines[mt].Role;
+            if (campaign) continue; // machines only in the sandbox variant
+            _world.Submit(Player, new PlaceMachine(x, y, z, mt, role is MachineRole.Lab or MachineRole.Depot or MachineRole.Unloader ? -1 : Recipe(mt)));
+        }
+        if (!campaign) _world.Submit(Player, new PlaceSegment(19, 0, 1, Dir.PosX, 2, BeltTier.Mk1));
+        _world.Step();
+        _yaw = -MathF.PI / 2f - 0.12f;
+        _pitch = -0.12f;
+        if (args.Contains("--station-high"))
+        {
+            // Rise above the floor and look down, to see the floor plates and their grid.
+            _world.Submit(Player, new SetMovement(0, 1, 0));
+            for (int i = 0; i < 25; i++) _world.Step();
+            _world.Submit(Player, new SetMovement(0, 0, 0));
+            _world.Step();
+            _pitch = -0.55f;
+        }
+    }
+
+    /// <summary>--station-select=module|N picks the build tool of a station demo (default: the module).</summary>
+    private void StationDemoSelect(string[] args)
+    {
+        string? sel = args.FirstOrDefault(a => a.StartsWith("--station-select="))?["--station-select=".Length..];
+        int index = sel is null || sel == "module" ? _palette.FindIndex(b => b.IsModule) : int.TryParse(sel, out int n) ? n - 1 : -1;
+        if (index >= 0) SelectBuild(index);
     }
 
     private void BuildScene()
@@ -163,6 +284,9 @@ void fragment() {
         };
         grid.MaterialOverride = new ShaderMaterial { Shader = floorShader };
         AddChild(grid);
+
+        _stationView = new StationView();
+        AddChild(_stationView);
 
         var ghostMat = new StandardMaterial3D
         {
@@ -520,7 +644,9 @@ void fragment() {
 
     private void ToastProduction(string text, double seconds = 6.0) => Toast(text, seconds, ToastCategory.Production);
 
-    private static string Why(Reject r) => r switch
+    private static string Why(Reject r) => RejectTexts.Key(r) is { } key ? L(key) : WhyLegacy(r);
+
+    private static string WhyLegacy(Reject r) => r switch
     {
         Reject.NotEnoughItems => L("why.notEnough"),
         Reject.Locked => L("why.locked"),
@@ -546,7 +672,7 @@ void fragment() {
             if (!r.Ok)
             {
                 if (r.Reject == Reject.OutOfRange) _outOfRangeSeen = true;
-                if (r.Command is PlaceSegment or PlaceMachine or RemoveSegment or RemoveMachine or StartMining or SetResearch or SetShipRecipe
+                if (r.Command is PlaceSegment or PlaceMachine or PlaceModule or RemoveModule or RemoveSegment or RemoveMachine or StartMining or SetResearch or SetShipRecipe
                     or Scan or Jump)
                     ToastLogistics(Why(r.Reject));
                 continue;
@@ -673,7 +799,7 @@ void fragment() {
     private void CycleRecipe()
     {
         var item = _palette[_selected];
-        if (item.IsBelt) return;
+        if (item.IsBelt || item.IsModule) return;
         var options = _content.Recipes.Where(r => r.Machine == item.Machine && !Net.IsRecipeLocked(r.Index)).Select(r => r.Index).ToList();
         if (options.Count < 2) { Toast(L("toast.oneRecipe")); return; }
         int cur = ChosenRecipe(item.Machine);
@@ -707,6 +833,12 @@ void fragment() {
         var (kind, id) = _world.EntityAt(cell.X, cell.Y, cell.Z);
         if (kind == SimWorld.EntityKind.Segment) Send(new RemoveSegment(id));
         else if (kind == SimWorld.EntityKind.Machine) Send(new RemoveMachine(id));
+        else if (_stationRules)
+        {
+            // An empty cell inside a module: take the module away (the sim refuses when it holds something or would split the station).
+            var m = StationGrid.ModuleOfCell(cell.X, cell.Y, cell.Z);
+            if (Net.HasModule(Player, m.Mx, m.My, m.Mz)) Send(new RemoveModule(m.Mx, m.My, m.Mz));
+        }
     }
 
     // ---- input ---------------------------------------------------------------------------------
@@ -799,6 +931,7 @@ void fragment() {
         UpdateEnemies((float)delta);
         UpdateDeposits();
         UpdateShip(alpha, (float)delta);
+        _stationView.Sync(Net, Player, _cursorY);
         UpdateMap();
 
         UpdateHover();

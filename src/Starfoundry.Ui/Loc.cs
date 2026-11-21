@@ -362,6 +362,17 @@ public static class Loc
         ["toast.reject.outOfBounds"] = ("Fuera de los límites del mundo", "Out of the world limits"),
         ["toast.reject.notEnoughItems"] = ("No tienes los objetos en la bodega", "Not enough items in the hold"),
 
+        // ---- station modules ----
+        ["ui.module"] = ("Módulo", "Module"),
+        ["ui.core"] = ("Núcleo", "Core"),
+        ["hint.buildModule"] = ("Construyendo: {0}. Apunta a donde quieras el módulo (verde = se puede) y haz clic.   Clic derecho en un módulo vacío: retirarlo (devuelve la mitad).   Esc: dejar de construir",
+                                "Building: {0}. Aim where you want the module (green = it can be built) and click.   Right-click an empty module: remove it (refunds half).   Esc: stop building"),
+        ["tip.module"] = ("{0} de estación: una caja de 8 x 8 x 4 celdas donde se puede construir.", "Station {0}: an 8 x 8 x 4 cell box where you can build."),
+        ["why.moduleMissing"] = ("Te falta: {0}", "Missing: {0}"),
+        ["why.moduleExists"] = ("Ya hay un módulo ahí", "There is already a module there"),
+        ["hud.modules"] = ("Módulos {0}", "Modules {0}"),
+        ["mark.station"] = ("Estación", "Station"),
+
         // ---- help overlay ----
         ["help.text"] = (
             "CONTROLES   (F1 para cerrar)\n\n" +
@@ -377,6 +388,7 @@ public static class Loc
             "Construcción\n" +
             "  1-9, 0, Q, B   elegir qué construir (otra vez para guardarlo)       Esc   dejar de construir\n" +
             "  Y   cambiar receta       R   girar cintas sueltas       Z / X   cambiar de capa\n" +
+            "  N   módulo de estación (el primero es el núcleo; solo se construye dentro de los módulos)\n" +
             "  Clic en una máquina sin herramienta: ver su estado y cambiar su receta (Tab para usar sus botones).\n  E   reparar todas las máquinas dañadas a tu alcance (cuesta la mitad de su coste, en proporción al daño)\n\n" +
             "Otros\n" +
             "  T   elegir investigación      G   mapa estelar (flechas y J para saltar)\n" +
@@ -394,6 +406,7 @@ public static class Loc
             "Building\n" +
             "  1-9, 0, Q, B   choose what to build (again to put it away)       Esc   stop building\n" +
             "  Y   change recipe       R   rotate single belts       Z / X   change layer\n" +
+            "  N   station module (the first one is the core; you can only build inside modules)\n" +
             "  With no tool, click a machine: see its status and change its recipe (Tab to use its buttons).\n  E   repair every damaged machine within reach (half the build cost, in proportion to the damage)\n\n" +
             "Other\n" +
             "  T   choose research      G   star map (arrows and J to jump)\n" +
