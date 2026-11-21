@@ -65,18 +65,17 @@ public class StationPacingTests
         var homeSystem = net.CurrentSystem(0);
         bool mining = false;
         var module = (0, 0, 0);
-        int nextX = 0, nextY = 0;
+        int nextX = 0;
         long end = (long)minutes * 60 * Tps;
         var placed = new List<int>();
 
         // Cells inside the core module that are free for the next building, one row at a time.
         (int, int, int) NextCell()
         {
-            int x = module.Item1 * StationGrid.ModuleX + 1 + (nextX % 6) * 1;
-            int y = module.Item2 * StationGrid.ModuleY + 1 + nextY;
-            int z = module.Item3 * StationGrid.ModuleZ + 1;
+            int x = module.Item1 * StationGrid.ModuleX + (nextX % 8);
+            int y = module.Item2 * StationGrid.ModuleY + 1;
+            int z = module.Item3 * StationGrid.ModuleZ + (nextX / 8) % StationGrid.ModuleZ;
             nextX++;
-            if (nextX % 6 == 0) nextY += 2;
             return (x, y, z);
         }
 

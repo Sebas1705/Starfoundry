@@ -7,8 +7,8 @@ namespace Starfoundry.Sim;
 public static class StationGrid
 {
     public const int ModuleX = 8;
-    public const int ModuleY = 8;
-    public const int ModuleZ = 4;
+    public const int ModuleY = 4;
+    public const int ModuleZ = 8;
 
     /// <summary>Lowest and highest valid module coordinate per axis: every cell of the module must lie inside the world limits.</summary>
     public static int MinX => MinCoord(ModuleX);

@@ -51,7 +51,7 @@ public class StationRulesTests
         Ok(w, new PlaceModule(0, 0, 0));
         Assert.Equal(Reject.OutsideStation, Run(w, new PlaceMachine(8, 0, 0, Smelter, -1))); // next module over
         Assert.Equal(Reject.OutsideStation, Run(w, new PlaceMachine(-1, 0, 0, Smelter, -1)));
-        Assert.Equal(Reject.OutsideStation, Run(w, new PlaceMachine(0, 0, 4, Smelter, -1))); // above the module
+        Assert.Equal(Reject.OutsideStation, Run(w, new PlaceMachine(0, 4, 0, Smelter, -1))); // above the module
         Assert.Equal(0, w.Network.MachineCount);
     }
 
@@ -61,9 +61,9 @@ public class StationRulesTests
         var w = World(rules: true);
         Ok(w, new PlaceModule(0, 0, 0));
         Ok(w, new PlaceMachine(2, 2, 1, Smelter, -1));
-        Ok(w, new PlaceMachine(7, 7, 3, Smelter, -1)); // far corner of the module
+        Ok(w, new PlaceMachine(7, 3, 7, Smelter, -1)); // far corner of the module
         Ok(w, new PlaceMachine(0, 0, 0, Smelter, -1)); // near corner
-        Ok(w, new PlaceSegment(1, 5, 2, Dir.PosX, 4, BeltTier.Mk1));
+        Ok(w, new PlaceSegment(1, 2, 5, Dir.PosX, 4, BeltTier.Mk1));
         w.ValidateInvariants();
     }
 

@@ -306,12 +306,12 @@ public partial class Play
 
     private HBoxContainer _buildBar = null!;
 
-    /// <summary>One button per palette entry: the number keys cover the first twelve, the module entry (key N) always gets one.</summary>
+    /// <summary>One button per palette entry: the keys cover the first thirteen (1-9, 0, Q, B, U), the module entry (key N) always gets one.</summary>
     private void FillBuildBar()
     {
         foreach (var old in _buildButtons) old.QueueFree();
         _buildButtons.Clear();
-        for (int i = 0; i < _palette.Count && (i < 12 || _palette[i].IsModule); i++)
+        for (int i = 0; i < _palette.Count && (i < 13 || _palette[i].IsModule); i++)
         {
             int index = i;
             var b = MakeButton("", () => SelectBuild(index), toggle: true);
@@ -861,7 +861,7 @@ public partial class Play
     }
 
     /// <summary>The key that picks build item i: 1 to 9, then 0, then Q.</summary>
-    private string KeyLabel(int i) => _palette[i].IsModule ? "N" : i < 9 ? (i + 1).ToString() : i == 9 ? "0" : i == 10 ? "Q" : "B";
+    private string KeyLabel(int i) => _palette[i].IsModule ? "N" : i < 9 ? (i + 1).ToString() : i == 9 ? "0" : i == 10 ? "Q" : i == 11 ? "B" : "U";
 
     private string ItemName(BuildItem item) =>
         item.IsModule ? ModuleName() : item.IsBelt ? L("ui.belt", (int)item.Tier + 1) : MachineName(item.Machine);
@@ -1302,7 +1302,8 @@ public partial class Play
         if (k.Keycode == Key.Key0) digit = 9;
         if (k.Keycode == Key.Q) digit = 10;
         if (k.Keycode == Key.B) digit = 11;
-        if (digit >= 0 && digit < Math.Min(12, _palette.Count) && !_palette[digit].IsModule) { SelectBuild(digit); return; }
+        if (k.Keycode == Key.U) digit = 12; // the thirteenth entry, the ore port
+        if (digit >= 0 && digit < Math.Min(13, _palette.Count) && !_palette[digit].IsModule) { SelectBuild(digit); return; }
         if (k.Keycode == Key.N)
         {
             int module = _palette.FindIndex(b => b.IsModule);

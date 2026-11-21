@@ -386,7 +386,7 @@ public static class Loc
             "  W S   avanzar / retroceder hacia donde miras     A D   desplazarse a los lados     Espacio / C   subir / bajar\n" +
             "  M   minar (vuela primero al yacimiento)      F   refinería       K   escanear       V   armas\n  Marcadores: yacimiento elegido, enemigo más cercano y tu base; en el borde de la pantalla señalan hacia dónde mirar\n\n" +
             "Construcción\n" +
-            "  1-9, 0, Q, B   elegir qué construir (otra vez para guardarlo)       Esc   dejar de construir\n" +
+            "  1-9, 0, Q, B, U   elegir qué construir (N: módulo de estación)       Esc   dejar de construir\n" +
             "  Y   cambiar receta       R   girar cintas sueltas       Z / X   cambiar de capa\n" +
             "  N   módulo de estación (el primero es el núcleo; solo se construye dentro de los módulos)\n" +
             "  Clic en una máquina sin herramienta: ver su estado y cambiar su receta (Tab para usar sus botones).\n  E   reparar todas las máquinas dañadas a tu alcance (cuesta la mitad de su coste, en proporción al daño)\n\n" +
@@ -404,7 +404,7 @@ public static class Loc
             "  W S   forward / back where you look     A D   strafe     Space / C   up / down\n" +
             "  M   mine (flies to the deposit first)      F   refinery       K   scan       V   weapons\n  Markers: the selected deposit, the nearest enemy and your base; at the screen edge they point where to look\n\n" +
             "Building\n" +
-            "  1-9, 0, Q, B   choose what to build (again to put it away)       Esc   stop building\n" +
+            "  1-9, 0, Q, B, U   choose what to build (N: station module)       Esc   stop building\n" +
             "  Y   change recipe       R   rotate single belts       Z / X   change layer\n" +
             "  N   station module (the first one is the core; you can only build inside modules)\n" +
             "  With no tool, click a machine: see its status and change its recipe (Tab to use its buttons).\n  E   repair every damaged machine within reach (half the build cost, in proportion to the damage)\n\n" +
