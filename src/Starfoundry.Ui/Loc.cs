@@ -257,6 +257,7 @@ public static class Loc
 
         // ---- map ----
         ["map.title"] = ("MAPA ESTELAR  (* estás aquí, > elegido)", "STAR MAP  (* you are here, > selected)"),
+        ["map.jumpCost"] = ("Saltar [J]: {0}", "Jump [J]: {0}"),
         ["map.visited"] = ("visitado", "visited"),
         ["map.known"] = ("conocido", "known"),
         ["map.lane"] = ("ruta", "lane"),

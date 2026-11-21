@@ -664,6 +664,12 @@ public class StructureDefenceTests
         root["structures"]!["reactor"]!.AsObject().Remove("emergency_power");
         root["structures"]!["reactor"]!["cost"] = System.Text.Json.Nodes.JsonNode.Parse("""[{"item":"core:iron_plate","count":16},{"item":"core:carbon","count":8},{"item":"core:nickel_plate","count":6}]""");
         root["structures"]!["defence"]!["cost"] = System.Text.Json.Nodes.JsonNode.Parse("""[{"item":"core:iron_plate","count":12},{"item":"core:iron_ingot","count":16},{"item":"core:titanium_plate","count":4}]""");
+        // And before the second audit: nickel fields and titanium veins had no carbon deposit.
+        foreach (var id in new[] { "core:nickel_field", "core:titanium_vein" })
+        {
+            var deposits = root["archetypes"]!.AsArray().First(a => a!["id"]!.GetValue<string>() == id)!["deposits"]!.AsArray();
+            deposits.Remove(deposits.First(d => d!["item"]!.GetValue<string>() == "core:carbon"));
+        }
         return ContentDb.FromJson(root.ToJsonString());
     }
 
