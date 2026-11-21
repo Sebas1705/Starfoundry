@@ -219,7 +219,7 @@ public partial class Play
     // ---- the module tool (structures) -------------------------------------------------------------------------
 
     private static readonly ModuleKind[] PlaceableKinds =
-        { ModuleKind.Cockpit, ModuleKind.Engine, ModuleKind.Reactor, ModuleKind.Cargo, ModuleKind.Workshop, ModuleKind.Defence, ModuleKind.Hull };
+        { ModuleKind.Cockpit, ModuleKind.Engine, ModuleKind.Reactor, ModuleKind.Cargo, ModuleKind.Workshop, ModuleKind.Defence, ModuleKind.Hull, ModuleKind.DroneBay };
 
     private string KindName(ModuleKind k) => L("module." + k.ToString().ToLowerInvariant());
 
@@ -232,7 +232,8 @@ public partial class Play
         {
             int i = Array.IndexOf(PlaceableKinds, _moduleKind);
             _moduleKind = PlaceableKinds[(i + 1) % PlaceableKinds.Length];
-            Toast($"{KindName(_moduleKind)}: {L("module." + _moduleKind.ToString().ToLowerInvariant() + ".purpose")}", 4.0);
+            string note = DroneBayLocked(_moduleKind) ? $"\n{Why(Reject.Locked)}" : "";
+            Toast($"{KindName(_moduleKind)}: {L("module." + _moduleKind.ToString().ToLowerInvariant() + ".purpose")}{note}", 4.0);
         }
         else SelectBuild(tool);
     }
@@ -294,6 +295,7 @@ public partial class Play
     private string? StructModuleProblem(int s, int mx, int my, int mz)
     {
         var st = Net.GetStructure(s);
+        if (DroneBayLocked(_moduleKind)) return Why(Reject.Locked);
         if (!StructureGrid.IsValidLocalModule(mx, my, mz)) return Why(Reject.OutOfBounds);
         if (st.Modules.ContainsKey((mx, my, mz))) return L("why.moduleExists");
         if (st.Modules.Count > 0)
@@ -411,6 +413,7 @@ public partial class Play
             sb.Append(L("hud.structure", L("structure.ship"), flight)).Append('\n');
             if (details) sb.Append(L("hud.modulesDetail", ModuleSummary(Net.GetStructure(ship)))).Append('\n');
         }
+        DroneHud(sb);
         if (!details) return;
         foreach (var st in Net.Structures().Where(s => s.Kind == StructureKind.Station))
         {
@@ -443,6 +446,7 @@ public partial class Play
         if (found) add(L("mark.station"), new Color(0.45f, 0.8f, 1f), nearestAt, 10f);
 
         IceMarker(add);
+        DroneMarkers(add);
 
         // The guided step about the factory points at the ship's assembler (where the first plate appears).
         int ship = ShipStruct;

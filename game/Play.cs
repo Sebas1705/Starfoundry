@@ -122,7 +122,8 @@ public partial class Play : Node3D
         // The Remnant are on in the game and the threat demo; the production and exploration demos run without them.
         _structuresShotPath = args.FirstOrDefault(a => a.StartsWith("--structures-shot="))?["--structures-shot=".Length..];
         _powerShotPath = args.FirstOrDefault(a => a.StartsWith("--power-shot="))?["--power-shot=".Length..];
-        _structuresShot = _structuresShotPath is not null || _powerShotPath is not null;
+        _droneShotPath = args.FirstOrDefault(a => a.StartsWith("--drone-shot="))?["--drone-shot=".Length..];
+        _structuresShot = _structuresShotPath is not null || _powerShotPath is not null || _droneShotPath is not null;
         _walkShotPath = args.FirstOrDefault(a => a.StartsWith("--walk-shot="))?["--walk-shot=".Length..];
         _walkShot = _walkShotPath is not null;
         bool threats = !(args.Contains("--demo") || _exploreDemo) && _stressMachines == 0 && !((_structuresShot || _walkShot) && !args.Contains("--threats"));
@@ -154,6 +155,7 @@ public partial class Play : Node3D
         BuildScene();
         BuildUi();
         BuildThreatVisuals();
+        BuildDroneVisuals();
         RebuildGeometry();
         if (_stationDemo) StationDemoSelect(args);
         if (!_demo && !_stationDemo && !_structuresShot && Launch.MenuShotPath is null) StartPlayLog();
@@ -493,6 +495,7 @@ void fragment() {
             _camera.LookAtFromPosition(_overviewTarget + offset, _overviewTarget);
             return;
         }
+        if (_shotOutside && _shotCam is { } sc) { _camera.LookAtFromPosition(sc.From, sc.At); return; }
         if (_shotOutside && ShipStruct >= 0)
         {
             // --structures-shot: a view from outside the ship, looking at its middle (the ship is 40 cells long, the workshop is in the middle).
@@ -788,7 +791,7 @@ void fragment() {
                 if (r.Reject == Reject.OutOfRange) _outOfRangeSeen = true;
                 if (r.Command is PlaceSegment or PlaceMachine or PlaceModule or RemoveModule or RemoveSegment or RemoveMachine or StartMining or SetResearch or SetShipRecipe
                     or PlaceSegmentIn or PlaceMachineIn or PlaceModuleIn or RemoveModuleIn or FoundStation
-                    or Scan or Jump)
+                    or Scan or Jump or AssignDrones)
                     ToastLogistics(Why(r.Reject));
                 else if (r.Command is SetThrust or SetMovement && r.Reject == Reject.NoCockpitOrEngine)
                     ToastLogistics(Why(r.Reject)); // the ship has lost its cockpit or last engine
@@ -809,6 +812,7 @@ void fragment() {
             if (r.Command is PlaceSegment or PlaceSegmentIn && r.Created.Count == 1) AutoLinkSegment(r.Created[0]);
             else if (r.Command is PlaceMachineIn pmi && r.CreatedMachines.Count == 1) AutoLinkMachine(r.CreatedMachines[0], pmi.Recipe);
             else if (r.Command is FoundStation) ToastProduction(L("toast.stationFounded"));
+            else if (r.Command is AssignDrones ad) DronesAssignedToast(ad);
             else if (r.Command is PlaceMachine pm && r.CreatedMachines.Count == 1) AutoLinkMachine(r.CreatedMachines[0], pm.Recipe);
         }
     }
@@ -1028,6 +1032,7 @@ void fragment() {
         UpdateMachines();
         UpdateEnemies((float)delta);
         UpdateDeposits();
+        UpdateDrones((float)delta);
         if (!Overview) _camera.Fov = SettingsStore.Current.Fov;
         UpdateBody((float)delta); // before the camera is placed by UpdateShip
         UpdateShip(alpha, (float)delta);
@@ -1035,7 +1040,7 @@ void fragment() {
         if (!_structuresOn) _stationView.Sync(Net, Player, _cursorY);
         if (_structureDemo) StructureDemoTick();
         if (_structuresShot) StructuresShotFrame();
-        if (_powerShotPath is not null) PowerShotFrame();
+        if (_powerShotPath is not null || _droneShotPath is not null) PowerShotFrame();
         UpdateMap();
 
         UpdateHover();

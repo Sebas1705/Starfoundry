@@ -522,7 +522,7 @@ public partial class Play
         if (Net.IsDeposit(_selectedDeposit) && Net.IsDepositRevealed(_selectedDeposit) && Net.DepositRemaining(_selectedDeposit) > 0)
         {
             var dp = Net.DepositPosition(_selectedDeposit);
-            Add($"{ItemName(Net.DepositItem(_selectedDeposit))} - {DensityText(_selectedDeposit)}", new Color(1f, 0.8f, 0.35f), new Vector3(dp.X, dp.Y, dp.Z), 6f);
+            Add($"{ItemName(Net.DepositItem(_selectedDeposit))} - {DensityText(_selectedDeposit)}{(DepositHasDrones(_selectedDeposit) ? " - " + L("mark.drones") : "")}", new Color(1f, 0.8f, 0.35f), new Vector3(dp.X, dp.Y, dp.Z), 6f);
         }
 
         int system = Net.CurrentSystem(Player);
@@ -1500,6 +1500,7 @@ public partial class Play
                 break;
             case Key.F6: SaveGameToDisk("quicksave", silent: false); break;
             case Key.F9: LoadGameFromDisk(); break;
+            case Key.F7: AssignDronesKey(); break;
             case Key.L: ToggleLanguage(); break;
             case Key.O: _objectivesOpen = !_objectivesOpen; break;
             case Key.H: _detailsOpen = !_detailsOpen; break;
