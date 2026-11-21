@@ -207,6 +207,145 @@ void fragment() {
         }
     }
 
+    // ---- damage: tint, hit flash, sparks and smoke -------------------------------------------------------------
+
+    private const float FlashSeconds = 0.3f;
+
+    private sealed class ModuleFx
+    {
+        public CpuParticles3D Sparks = null!;
+        public OmniLight3D Light = null!;
+        public MeshInstance3D? Flash;
+        public StandardMaterial3D? FlashMat;
+    }
+
+    private readonly Dictionary<(int S, int Mx, int My, int Mz), ModuleFx> _fx = new();
+    private readonly Dictionary<(int S, int Mx, int My, int Mz), float> _flash = new();
+    private readonly List<(int, int, int, int)> _fxGone = new();
+    private Gradient? _sparkRamp;
+    private Mesh? _sparkMesh;
+
+    /// <summary>Lights a module's box for a moment (a hit). Cheap; call it for every hit event.</summary>
+    public void Flash(int structure, int mx, int my, int mz, float strength = 1f) =>
+        _flash[(structure, mx, my, mz)] = FlashSeconds * Math.Clamp(strength, 0.3f, 2f);
+
+    /// <summary>Hit points of a module as a 0..1 fraction, or 1 when the module is unknown.</summary>
+    public static float HpFraction(BeltNetwork net, int structure, int mx, int my, int mz, ModuleKind kind)
+    {
+        int max = net.ModuleMaxHp(kind);
+        return max <= 0 ? 1f : Math.Clamp(net.ModuleHp(structure, mx, my, mz) / (float)max, 0f, 1f);
+    }
+
+    /// <summary>
+    /// Per frame: darkens and reddens damaged modules, gives those below half their hit points flickering light, sparks and smoke, and
+    /// plays the hit flashes. Nothing happens for undamaged modules, so a quiet base costs only the hit point lookups.
+    /// </summary>
+    public void UpdateDamage(BeltNetwork net, float dt)
+    {
+        if (!net.StructureRules) return;
+        float t = (float)_time;
+        foreach (var st in net.Structures())
+        {
+            if (!_structs.TryGetValue(st.Id, out var sr)) continue;
+            foreach (var (key, (kind, node)) in sr.Modules)
+            {
+                if (!GodotObject.IsInstanceValid(node)) continue;
+                float frac = HpFraction(net, st.Id, key.Mx, key.My, key.Mz, kind);
+                var fxKey = (st.Id, key.Mx, key.My, key.Mz);
+                Models.SetDamage(node, 1f - frac);
+                bool burning = frac < 0.5f;
+                bool flashing = _flash.ContainsKey(fxKey);
+                if (!burning && !flashing)
+                {
+                    if (_fx.Remove(fxKey, out var old)) { old.Sparks.QueueFree(); old.Light.QueueFree(); old.Flash?.QueueFree(); }
+                    continue;
+                }
+                if (!_fx.TryGetValue(fxKey, out var fx) || !GodotObject.IsInstanceValid(fx.Sparks) || fx.Sparks.GetParent() != node)
+                {
+                    fx = MakeFx(node);
+                    _fx[fxKey] = fx;
+                }
+                fx.Sparks.Emitting = burning;
+                // The worse the damage, the more sparks and the stronger the flicker.
+                float sev = burning ? Math.Clamp((0.5f - frac) * 2f, 0f, 1f) : 0f;
+                fx.Sparks.Amount = 10 + (int)(18 * sev);
+                float flick = 0.55f + 0.45f * MathF.Sin(t * 31f + key.Mx * 1.7f) * MathF.Sin(t * 13f + key.Mz);
+                fx.Light.Visible = burning;
+                fx.Light.LightEnergy = (0.4f + 1.2f * sev) * Math.Clamp(flick, 0.05f, 1f);
+
+                if (flashing)
+                {
+                    float left = _flash[fxKey] - dt;
+                    if (left <= 0f) { _flash.Remove(fxKey); fx.Flash!.Visible = false; }
+                    else
+                    {
+                        _flash[fxKey] = left;
+                        fx.Flash!.Visible = true;
+                        fx.FlashMat!.AlbedoColor = new Color(1f, 0.42f, 0.28f, 0.34f * Math.Clamp(left / FlashSeconds, 0f, 1f));
+                    }
+                }
+                else if (fx.Flash is { Visible: true }) fx.Flash.Visible = false;
+            }
+        }
+        // Flashes for modules that no longer exist, and effects of modules that were rebuilt or removed.
+        _fxGone.Clear();
+        foreach (var k in _flash.Keys) if (!net.Structures().Any(s => s.Id == k.S && s.Modules.ContainsKey((k.Mx, k.My, k.Mz)))) _fxGone.Add(k);
+        foreach (var k in _fxGone) _flash.Remove(k);
+        _fxGone.Clear();
+        foreach (var (k, fx) in _fx) if (!GodotObject.IsInstanceValid(fx.Sparks)) _fxGone.Add(k);
+        foreach (var k in _fxGone) _fx.Remove(k);
+    }
+
+    private ModuleFx MakeFx(Node3D module)
+    {
+        _sparkRamp ??= new Gradient
+        {
+            Offsets = new[] { 0f, 0.25f, 0.6f, 1f },
+            Colors = new[] { new Color(1f, 0.9f, 0.5f, 1f), new Color(1f, 0.45f, 0.1f, 0.95f), new Color(0.25f, 0.22f, 0.22f, 0.6f), new Color(0.12f, 0.12f, 0.12f, 0f) },
+        };
+        _sparkMesh ??= new SphereMesh
+        {
+            Radius = 0.14f, Height = 0.28f, RadialSegments = 6, Rings = 3,
+            Material = new StandardMaterial3D
+            {
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                VertexColorUseAsAlbedo = true,
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            },
+        };
+        var centre = new Vector3(ModuleModels.W / 2f, ModuleModels.H / 2f, ModuleModels.D / 2f);
+        var sparks = new CpuParticles3D
+        {
+            Name = "DamageSparks",
+            Position = centre + new Vector3(0f, 0.6f, 0f),
+            Amount = 12, Lifetime = 1.5f, Emitting = true, LocalCoords = false,
+            Mesh = _sparkMesh, ColorRamp = _sparkRamp,
+            EmissionShape = CpuParticles3D.EmissionShapeEnum.Box, EmissionBoxExtents = new Vector3(2.8f, 0.4f, 2.8f),
+            Direction = Vector3.Up, Spread = 40f, InitialVelocityMin = 0.7f, InitialVelocityMax = 2.4f,
+            Gravity = new Vector3(0f, 0.4f, 0f), ScaleAmountMin = 0.5f, ScaleAmountMax = 1.7f,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        };
+        var light = new OmniLight3D
+        {
+            Name = "DamageLight", Position = centre + new Vector3(0f, 0.8f, 0f), OmniRange = 7f, LightColor = new Color(1f, 0.5f, 0.2f), ShadowEnabled = false,
+        };
+        var mat = new StandardMaterial3D
+        {
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled, AlbedoColor = new Color(1f, 0.4f, 0.3f, 0f),
+        };
+        var flash = new MeshInstance3D
+        {
+            Name = "HitFlash", Position = centre, Visible = false, MaterialOverride = mat,
+            Mesh = new BoxMesh { Size = new Vector3(ModuleModels.W, ModuleModels.H, ModuleModels.D) * 1.01f },
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        };
+        module.AddChild(sparks);
+        module.AddChild(light);
+        module.AddChild(flash);
+        return new ModuleFx { Sparks = sparks, Light = light, Flash = flash, FlashMat = mat };
+    }
+
     private float _coreBaseY;
 
     private static void Write(float[] b, int o, Vector3 scale, Vector3 pos, Color c)

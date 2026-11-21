@@ -55,6 +55,8 @@ public partial class Play
     /// <summary>Called before every simulation tick of a <c>--structures-shot</c> run.</summary>
     private void StructuresShotThink()
     {
+        if (_endShotPath is not null) return;
+        if (_defenceShotPath is not null) { DefenceShotThink(); return; }
         if (_powerShotPath is not null) { PowerShotThink(); return; }
         if (_droneShotPath is not null) { DroneShotThink(); return; }
         if (_world.PendingCommands > 0 || ShipStruct < 0) return;

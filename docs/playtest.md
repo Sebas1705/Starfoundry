@@ -21,6 +21,7 @@ Open the `game/` folder in Godot and press F5. The game opens on the main menu. 
   ```
 
   Delete that file to go back to the defaults. Saves are in `saves\` beside it.
+- **Difficulty: goal waves** (3 to 30, default 10) is in the same Settings page, stored as `goal_waves`.
 - Any command-line flag (`--demo`, `--shot=`, `--hud-shot=`, `--structures-shot=`, `--stress=`, `--save-test` and the rest) skips the menu and starts the game directly, as does running `Play.tscn` from the editor. `--menu-shot=path` saves the main menu (`path`), the Settings page (`path.settings.png`), the Controls page (`path.controls.png`) and the pause overlay over the game (`path.pause.png`), then quits.
 
 ## The first ten minutes
@@ -30,6 +31,15 @@ Open the `game/` folder in Godot and press F5. The game opens on the main menu. 
 3. Build a drill (`4`), a smelter (`5`), a depot (`8`) and join them with belts (`1`): look down at the ground and the crosshair picks the cell (it turns red when you cannot place there); click to place, for belts press, move the crosshair and release. Right click demolishes, `R` rotates, `Y` changes the recipe of the item you are placing. Click a machine with no tool to see its status; `Tab` then lets you use its buttons.
 4. Make plates with an assembler (`6`), build a lab (`7`), press `T` and pick Logistics.
 5. When the warning says a wave is coming, build a turret (`9`) fed with ammo by belt, and switch your weapon on (`V`).
+
+## The goal and the end
+The last line of the steps panel is the goal, pinned even when the list is folded: "Goal: survive 10 waves with a station (N/10)". A wave counts as survived once every enemy of it is dead; the goal also needs a station of yours standing, so found one (`I`) before the last wave.
+
+- **Victory** ("Station secured"): the goal is met. The game pauses and shows the play time, modules built, stations founded and lost, waves survived, what was mined by hand and by drones, and what was lost. It writes an extra `victory` save. Buttons: Keep playing (endless, the screen never comes back), Main menu, Quit.
+- **Defeat** ("Ship lost"): the ship's last cockpit fell (there is no respawn in the structures campaign). The play log gets an `Outcome` line. Your autosave and quick save are untouched (a lost world is never autosaved), so Load last save takes you back; or New game, or Main menu (which does not autosave).
+- Screenshots of both overlays: `--end-shot=path` saves `path.victory.png` (made-up numbers) and `path.defeat.png` (a real loss).
+
+While a structure is under attack: modules darken and redden with their damage and, below half, throw sparks and smoke with a flickering light; a hit flashes the module and, if it is your ship's, a red vignette pulses; the status block shows the ship's integrity bar; a wave countdown and then the enemy count are shown large at the top; a module you aim at (or one hit in the last seconds) shows its hit points; losing a module or a station raises a toast and an explosion. `--defence-shot=path` renders these (`path`, `path.cockpit.png`, `path.destroyed.png`, `path.station.png`).
 
 ## What to try after that
 - Walls (`0`) in front of the base and the repair button (`Backspace`) during a wave; a repair bay (`Q`) fed ingots by belt.

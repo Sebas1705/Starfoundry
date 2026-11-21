@@ -411,13 +411,13 @@ public partial class Play
         {
             string flight = Net.CanFly(Player) ? L("hud.flightReady") : L("hud.flightNot");
             sb.Append(L("hud.structure", L("structure.ship"), flight)).Append('\n');
-            if (details) sb.Append(L("hud.modulesDetail", ModuleSummary(Net.GetStructure(ship)))).Append('\n');
+            if (details) sb.Append(L("hud.modulesDetail", ModuleSummary(Net.GetStructure(ship)) + ", " + L("hud.integrity", Net.StructureHpFraction(ship) / 10))).Append('\n');
         }
         DroneHud(sb);
         if (!details) return;
         foreach (var st in Net.Structures().Where(s => s.Kind == StructureKind.Station))
         {
-            sb.Append(L("hud.structure", L("structure.station"), ModuleSummary(st))).Append('\n');
+            sb.Append(L("hud.structure", L("structure.station"), ModuleSummary(st) + ", " + L("hud.integrity", Net.StructureHpFraction(st.Id) / 10))).Append('\n');
             sb.Append("  ").Append(StructurePowerLine(st.Id, L("structure.station"))).Append('\n');
         }
     }

@@ -123,10 +123,12 @@ public partial class Play : Node3D
         _structuresShotPath = args.FirstOrDefault(a => a.StartsWith("--structures-shot="))?["--structures-shot=".Length..];
         _powerShotPath = args.FirstOrDefault(a => a.StartsWith("--power-shot="))?["--power-shot=".Length..];
         _droneShotPath = args.FirstOrDefault(a => a.StartsWith("--drone-shot="))?["--drone-shot=".Length..];
-        _structuresShot = _structuresShotPath is not null || _powerShotPath is not null || _droneShotPath is not null;
+        _defenceShotPath = args.FirstOrDefault(a => a.StartsWith("--defence-shot="))?["--defence-shot=".Length..];
+        _endShotPath = args.FirstOrDefault(a => a.StartsWith("--end-shot="))?["--end-shot=".Length..];
+        _structuresShot = _structuresShotPath is not null || _powerShotPath is not null || _droneShotPath is not null || _defenceShotPath is not null || _endShotPath is not null;
         _walkShotPath = args.FirstOrDefault(a => a.StartsWith("--walk-shot="))?["--walk-shot=".Length..];
         _walkShot = _walkShotPath is not null;
-        bool threats = !(args.Contains("--demo") || _exploreDemo) && _stressMachines == 0 && !((_structuresShot || _walkShot) && !args.Contains("--threats"));
+        bool threats = !(args.Contains("--demo") || _exploreDemo) && _stressMachines == 0 && !((_structuresShot || _walkShot) && !args.Contains("--threats") && _defenceShotPath is null && _endShotPath is null);
         _stationDemo = args.Contains("--station-demo");
         // --station-demo: a sandbox world with the station rules on and a scripted station, for screenshots of the build rules.
         _gameMode = _exploreDemo || _threatDemo || _stressMachines > 0 || (_stationDemo && !args.Contains("--station-campaign")) || args.Contains("--structure-demo")
@@ -161,6 +163,8 @@ public partial class Play : Node3D
         if (!_demo && !_stationDemo && !_structuresShot && Launch.MenuShotPath is null) StartPlayLog();
         if (!_demo) Toast(L("toast.welcome"));
         if (_structuresShot) StructuresShotSetup(args);
+        if (_defenceShotPath is not null) DefenceShotSetup();
+        if (_endShotPath is not null) EndShotSetup();
         if (Launch.Mode == Launch.Intent.Continue && Launch.ContinueSave is { } slot)
         {
             Launch.Mode = Launch.Intent.New;
@@ -975,7 +979,7 @@ void fragment() {
     public override void _PhysicsProcess(double delta)
     {
         if (_paused && !_demo) return;
-        int ticks = _demo || (_structuresShot && _shotPhase < 3) ? _demoSpeed : _speed;
+        int ticks = _demo || (_structuresShot && _shotPhase < 3) ? _demoSpeed : _defenceShotPath is not null ? _dfTicksPerFrame : _speed;
         for (int i = 0; i < ticks; i++)
         {
             if (_demo) { if (_threatDemo) ThreatThink(); else if (_exploreDemo) ExploreThink(); else BotThink(); }
@@ -983,6 +987,7 @@ void fragment() {
             _world.Step();
             CollectResults();
             WatchThreat();
+            WatchDefence();
             if (_botDone) break;
         }
         if (Net.StructureVersion != _structureVersion) RebuildGeometry();
@@ -1054,8 +1059,11 @@ void fragment() {
 
         UpdateHover();
         UpdateGhost();
+        UpdateDefenceUi((float)delta);
         UpdateUi((float)delta);
         MenuShotTick();
+        EndShotFrame();
+        DefenceShotFrame();
         if (_shotCountdown > 0 && --_shotCountdown == 0 && _shotPath != null)
             GetViewport().GetTexture().GetImage().SavePng(_shotPath);
         if (_finishCountdown > 0 && --_finishCountdown == 0)
@@ -1228,7 +1236,7 @@ void fragment() {
             if (length < 0.01f) continue;
             var beam = new MeshInstance3D
             {
-                Mesh = new BoxMesh { Size = new Vector3(0.07f, 0.07f, length) },
+                Mesh = new BoxMesh { Size = s.Kind == ShotKind.Enemy ? new Vector3(0.14f, 0.14f, length) : new Vector3(0.07f, 0.07f, length) }, // enemy beams are fat: they end in the module they hit
                 MaterialOverride = s.Kind == ShotKind.Turret ? _fxTurret : s.Kind == ShotKind.Ship ? _fxShip : _fxEnemy,
             };
             AddChild(beam);
@@ -1252,8 +1260,13 @@ void fragment() {
         else if (home.WarningRemaining < 0) _warned = false;
 
         if (Net.WavesSpawned > _lastWaves) { _lastWaves = Net.WavesSpawned; ToastThreat(L("toast.waveArrived", Net.WavesSpawned, Net.EnemyCount)); }
-        if (Net.MachinesLost > _lastLost) { ToastThreat(L("toast.machineLost", Net.MachinesLost)); _lastLost = Net.MachinesLost; }
-        if (Net.ShipsLost > _lastShipsLost) { ToastThreat(L("toast.shipLost")); _lastShipsLost = Net.ShipsLost; }
+        // A module that falls says so itself (with its contents lost): no extra line about the machines inside it.
+        if (Net.MachinesLost > _lastLost)
+        {
+            if (!(_structuresOn && Net.ModuleHits.Any(h => h.Destroyed))) ToastThreat(L("toast.machineLost", Net.MachinesLost));
+            _lastLost = Net.MachinesLost;
+        }
+        if (Net.ShipsLost > _lastShipsLost) { ToastThreat(L(_structuresOn ? "toast.shipLostCockpit" : "toast.shipLost"), 10.0); _lastShipsLost = Net.ShipsLost; }
     }
 
     private void ToggleWeapons()

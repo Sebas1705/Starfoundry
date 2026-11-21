@@ -152,6 +152,7 @@ public partial class Play
         var statusBox = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
         statusBox.AddChild(_statusLabel);
         BuildPowerBox(statusBox);
+        BuildDefenceUi(statusBox);
         _statusPanel = MakePanel(statusBox);
         _statusPanel.MouseFilter = Control.MouseFilterEnum.Ignore;
 
@@ -235,6 +236,10 @@ public partial class Play
         objButtons.AddChild(_btnLang);
         obj.AddChild(objButtons);
         obj.AddChild(_objectivesText);
+        // The goal stays pinned as the last line, whether the list is open or folded.
+        _goalLabel = MakeText(14, new Color(1f, 0.85f, 0.45f));
+        _goalLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        obj.AddChild(_goalLabel);
         _objectivesPanel = MakePanel(obj);
 
         // The star map and its list are the existing nodes; the jump button sits under them.
@@ -325,6 +330,7 @@ public partial class Play
         _markers = new MarkerLayer { Visible = false };
         _uiRoot.AddChild(_markers);
         if (!_demo) BuildPauseMenu();
+        if (!_demo) BuildEndScreen();
     }
 
     // ---- pause menu ------------------------------------------------------------------------------------
@@ -437,6 +443,7 @@ public partial class Play
         _objectives.Update(Net, Player);
         UpdatePlayLog();
         AutosaveTick();
+        UpdateOutcome();
         if (_saveTest) SaveSelfTest();
         if (_stressMachines > 0) StressTick(dt);
         if (!_demo)
@@ -715,6 +722,7 @@ public partial class Play
     private bool SaveGameToDisk(string name, bool silent)
     {
         if (_demo) return false;
+        if (name == "autosave" && Net.StructureRules && Net.ShipLost(Player)) return false; // a lost world never replaces the autosave
         try
         {
             DirAccess.MakeDirRecursiveAbsolute(ProjectSettings.GlobalizePath("user://saves"));
@@ -869,6 +877,15 @@ public partial class Play
         _tips = null;
         _lowOreWarned.Clear();
         _warned = false;
+        _snaps.Clear();
+        _hitBars.Clear();
+        _vigAlpha = 0f;
+        _lastLost = Net.MachinesLost;
+        _lastShipsLost = Net.ShipsLost;
+        _lastWaves = Net.WavesSpawned;
+        _outcomeShown = false;
+        _continueEndless = false;
+        _endScreen?.Dismiss();
         if (_playLog is not null)
         {
             _logFile?.StoreLine($"-- loaded a save at game time {PlayLog.Format(Net.Tick / (double)Units.TicksPerSecond)}");
@@ -881,7 +898,7 @@ public partial class Play
     /// <summary>Every five minutes of real time a played game saves itself to the autosave slot.</summary>
     private void AutosaveTick()
     {
-        if (_demo) return;
+        if (_demo || EndOpen || (Net.StructureRules && Net.ShipLost(Player))) return; // a lost world never replaces the autosave
         double now = Time.GetTicksMsec() / 1000.0;
         if (_lastAutosave == 0) { _lastAutosave = now; return; }
         if (now - _lastAutosave < 300) return;
@@ -1124,6 +1141,8 @@ public partial class Play
     private void UpdateObjectivesPanel()
     {
         _objectivesPanel.Visible = true;
+        UpdateGoalLine();
+        _goalLabel.CustomMinimumSize = new Vector2(Math.Clamp(GetViewport().GetVisibleRect().Size.X * 0.3f, 240, 420), 0);
         var states = _objectives.States;
         var current = _objectives.Current;
         var sb = new StringBuilder();
@@ -1222,7 +1241,7 @@ public partial class Play
         // The essentials are short and narrow; the full block (H) is wide but never runs under the steps panel.
         _statusLabel.CustomMinimumSize = new Vector2(_detailsOpen ? Math.Clamp(size.X - objMin.X - 60, 260, 760) : Math.Min(300f, Math.Max(180f, size.X * 0.22f)), 0);
         _statusLabel.Visible = _statusLabel.Text.Length > 0;
-        _statusPanel.Visible = _statusLabel.Visible || _powerBox.Visible;
+        _statusPanel.Visible = _statusLabel.Visible || _powerBox.Visible || _integrityBox.Visible;
         _statusPanel.ResetSize();
         _statusPanel.Position = new Vector2(12, 10);
 
@@ -1290,6 +1309,7 @@ public partial class Play
         var ts =_targetPanel.GetCombinedMinimumSize();
         _targetPanel.Position = new Vector2(Math.Clamp(centre.X + 28, 8, Math.Max(8, size.X - ts.X - 8)), Math.Clamp(centre.Y + 28, 8, Math.Max(8, size.Y - ts.Y - barSize.Y - 14)));
         _markers.Size = size;
+        LayoutDefenceUi(size, centre);
     }
 
     // ---- selecting tools ------------------------------------------------------------------------------
@@ -1319,7 +1339,7 @@ public partial class Play
 
     public override void _UnhandledInput(InputEvent e)
     {
-        if (_demo || PauseOpen) return;
+        if (_demo || PauseOpen || EndOpen) return;
 
         switch (e)
         {
@@ -1433,7 +1453,7 @@ public partial class Play
     // ---- cursor capture ------------------------------------------------------------------------------------
 
     /// <summary>Panels that need the pointer: the help overlay and the star map.</summary>
-    private bool PanelOpen() => PauseOpen || _helpOpen || (_mapOpen && Net.Galaxy is not null);
+    private bool PanelOpen() => PauseOpen || EndOpen || _helpOpen || (_mapOpen && Net.Galaxy is not null);
 
     /// <summary>Releases or captures the mouse so it matches what the player wants and what is on screen.</summary>
     private void UpdateCapture()
