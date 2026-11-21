@@ -118,11 +118,14 @@ public class StarterShipTests
     public void Found_station_costs_items_and_creates_a_core()
     {
         var w = World(GameMode.Campaign);
-        int cost = C.Structures!.ModuleCost(ModuleKind.Core).Single().Count;
+        var coreCost = C.Structures!.ModuleCost(ModuleKind.Core);
+        int cost = coreCost.Single(c => c.Item == Ingot).Count;
+        int plates = coreCost.Single(c => c.Item == Plate).Count;
         Assert.Equal(Reject.NotEnoughItems, Run(w, new FoundStation(12, 0, 0)).Reject);
         Assert.Equal(0, Stations(w));
 
         w.Network.GiveItems(0, Ingot, cost + 4);
+        w.Network.GiveItems(0, Plate, plates);
         var r = Run(w, new FoundStation(12, 0, 0));
         Assert.True(r.Ok, r.Reject.ToString());
         Assert.Equal(4, w.Network.HoldCount(0, Ingot));

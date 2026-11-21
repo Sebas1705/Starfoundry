@@ -28,7 +28,25 @@ What changes if the game starts inside a modular ship whose factory keeps workin
 - `--structures=false` starts a campaign with the old rules, to compare.
 
 ## Measured
-To be filled in by the pacing task
+Measured by `StructurePacingTests` (scripted player, sim commands only, 30 ticks per second, time counted from the first tick of hand mining at the home iron deposit):
+
+| Event | Ticks | Time |
+| --- | --- | --- |
+| First ore in the hold | 14 | 0.5 s |
+| First ingot in the hold | 255 | 8 s |
+| First plate in the hold | 525 | 18 s |
+| Station affordable (16 ingots + 12 plates) | 3165 | 106 s |
+| Station founded next to the ship | 3166 | 106 s |
+| First wave | none in 12 minutes | the starter factory signature (8) equals the threshold, so the alert never rises |
+
+Before the fix (hand mining filled the whole hold, core cost 36 ingots): the hold sat at ore 49 of 60, the depot could not deliver, and the station was never affordable. The depot also caps each item at 24 in the hold, so a 36-ingot cost could never be reached at all.
+
+Rules that came out of it:
+- Hand mining stops while the hold is at or above 75 percent (`PlayerRules.MiningHoldLimitPercent`), only with structure rules, so 25 percent stays free for factory output.
+- The core costs 16 ingots and 12 plates, so both the smelter and the assembler output are spent. Other module costs are unchanged; no single-item cost may exceed the depot cap of 24.
+- Over ten minutes without building, ingots rise to the depot cap (24) with no stall longer than 254 ticks (8.5 s), and plates follow.
+
+Not measured: real hand play after this change, flight time to a deposit other than the home one, and later stages (more modules, a station factory).
 
 ## Limits
 - Power, materials, walking inside, defence of structures and detailed visuals are later projects. Reactors and defence modules exist as kinds with minimal behaviour.

@@ -752,7 +752,7 @@
   },
   "structures": {
     "core": {
-      "cost": [{ "item": "core:iron_ingot", "count": 36 }],
+      "cost": [{ "item": "core:iron_ingot", "count": 16 }, { "item": "core:iron_plate", "count": 12 }],
       "hp": 300,
       "allows": ["crafter", "lab", "depot", "unloader", "repairer", "belt"],
       "hold_capacity": 0,

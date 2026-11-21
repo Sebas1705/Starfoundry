@@ -226,13 +226,13 @@ public class StructureFlightTests
         Assert.Equal(PlayerRules.HoldCapacity, World(structures: false).Network.HoldCapacity(0));
         Assert.Equal(PlayerRules.HoldCapacity, World().Network.HoldCapacity(3));
 
-        // Hand mining stops when the cargo is full, and does not start without any cargo.
+        // Hand mining stops at the reserve limit (75 percent) so the rest stays free for the factory, and does not start without cargo.
         var full = World();
         Ship(full, cargos: 1);
         int dep = full.Network.AddDeposit(Ore, 1000, 0, 0, 0);
         Ok(full, new StartMining(dep));
         full.Step(15 * 90);
-        Assert.Equal(60, full.Network.HoldTotal(0));
+        Assert.Equal(60 * PlayerRules.MiningHoldLimitPercent / 100, full.Network.HoldTotal(0));
 
         var none = World();
         Ship(none, cargos: 0);

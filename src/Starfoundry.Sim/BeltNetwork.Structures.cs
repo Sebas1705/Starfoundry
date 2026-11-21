@@ -99,6 +99,10 @@ public sealed partial class BeltNetwork
     public int HoldCapacity(int player) =>
         _players.TryGetValue(player, out var p) ? HoldCapacityOf(p) : PlayerRules.HoldCapacity;
 
+    /// <summary>True when structure rules are on and the hold is at or above <see cref="PlayerRules.MiningHoldLimitPercent"/>.</summary>
+    private bool MiningHoldLimitReached(Player p) =>
+        StructureRules && (long)p.HoldTotal * 100 >= (long)HoldCapacityOf(p) * PlayerRules.MiningHoldLimitPercent;
+
     private int HoldCapacityOf(Player p)
     {
         int fs = FlightStructure(p);

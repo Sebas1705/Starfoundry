@@ -23,6 +23,12 @@ public static class PlayerRules
     /// <summary>Hand mining: one item every 15 ticks (2 per second).</summary>
     public const int MineTicksPerItem = 15;
 
+    /// <summary>
+    /// Structure worlds only: hand mining stops while the hold is at or above this percentage of its capacity, so the rest is
+    /// always free for what the factory delivers. Without it the hand-mined ore fills the hold and the depot can never deliver.
+    /// </summary>
+    public const int MiningHoldLimitPercent = 75;
+
     /// <summary>The ship's micro-refinery works this many times slower than the recipe time.</summary>
     public const int ShipCraftMultiplier = 2;
 
@@ -524,7 +530,7 @@ public sealed partial class BeltNetwork
                     p.MiningDeposit = -1;
                     p.MineProgress = 0;
                 }
-                else if (p.HoldTotal + p.ShipReserved < HoldCapacityOf(p) && InMineRange(p.Id, p.MiningDeposit)
+                else if (p.HoldTotal + p.ShipReserved < HoldCapacityOf(p) && !MiningHoldLimitReached(p) && InMineRange(p.Id, p.MiningDeposit)
                     && ++p.MineProgress >= PlayerRules.MineTicksPerItem)
                 {
                     p.MineProgress = 0;
