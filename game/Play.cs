@@ -112,8 +112,9 @@ public partial class Play : Node3D
         string? sp = args.FirstOrDefault(a => a.StartsWith("--speed="));
         if (sp != null && int.TryParse(sp["--speed=".Length..], out int s)) _demoSpeed = Math.Clamp(s, 1, 200);
 
-        string path = ProjectSettings.GlobalizePath("res://../content/core.json");
-        _content = ContentDb.FromFile(path);
+        var content = ContentSource.Load(args, out var contentLookup, out string? contentError);
+        if (content is null) { ContentSource.ShowError(this, contentLookup, contentError); SetProcess(false); SetPhysicsProcess(false); SetProcessUnhandledInput(false); return; }
+        _content = content;
         _exploreDemo = args.Contains("--explore-demo");
         _saveTest = args.Contains("--save-test");
         if (args.Contains("--load-bench")) { RunLoadBench(); GetTree().Quit(); return; } // measures the command log and the load time, then quits
