@@ -416,6 +416,9 @@ public partial class Play
         void Add(string label, Color color, Vector3 target, float hideBelow = 4f)
         {
             var p = Markers.Place(V(target - eye), cam, size.X, size.Y, left, 58f, 24f, bottom, hideBelow);
+            // A marker behind the steps panel is unreadable (and hides its text): slide it just below the panel.
+            var steps = new Rect2(_objectivesPanel.Position - new Vector2(240f, 0f), _objectivesPanel.Size + new Vector2(240f + 14f, 8f));
+            if (_objectivesPanel.Visible && steps.HasPoint(new Vector2(p.X, p.Y))) p = p with { Y = steps.End.Y + 22f };
             if (p.Visible) items.Add(new MarkerLayer.Item($"{label}  {L("mark.dist", p.Distance.ToString("F0", Loc.Culture))}", color, p));
         }
 
@@ -1163,6 +1166,8 @@ public partial class Play
         if (index < 0 || index >= _palette.Count) return;
         // Pressing the same number again keeps it selected (Esc puts it away): a double press while building must not undo the choice.
         _selected = index;
+        _beltAnchor = null;
+        _dragStart = null;
         _tool = ToolMode.Build;
         _selMachine = -1;
         _waypoint = null;
@@ -1209,12 +1214,13 @@ public partial class Play
         switch (mb.ButtonIndex)
         {
             case MouseButton.Right:
+                if (_beltAnchor is not null) { _beltAnchor = null; _dragStart = null; break; } // cancels a belt line in progress
                 // Right click demolishes what the crosshair is on.
                 if (_hover.Kind == HoverKind.Machine) RemoveAt(CellOfMachine(_hover.Id));
                 else if (CellUnderAim() is { } cell) RemoveAt(cell);
                 break;
             case MouseButton.Left:
-                if (mb.Pressed) _dragStart = _tool == ToolMode.Build ? CellUnderAim() : null;
+                if (mb.Pressed) _dragStart = _tool == ToolMode.Build ? (_beltAnchor ?? CellUnderAim()) : null;
                 else OnLeftRelease();
                 break;
         }
@@ -1244,7 +1250,18 @@ public partial class Play
                 return;
             }
             if (_dragStart is { } start && CellUnderAim() is { } end)
-                PlaceSelectedAt(end, _palette[_selected].IsBelt ? start : null);
+            {
+                bool belt = _palette[_selected].IsBelt;
+                if (belt && _beltAnchor is null && end == start)
+                {
+                    // A plain click starts a line: aim at the end and click again (dragging still works too).
+                    _beltAnchor = start;
+                    _dragStart = start;
+                    return;
+                }
+                PlaceSelectedAt(end, belt ? start : null);
+            }
+            _beltAnchor = null;
             _dragStart = null;
             return;
         }
@@ -1290,6 +1307,7 @@ public partial class Play
         {
             // Letting go of the mouse stops the ship and any autopilot run: no thrust is left running unattended.
             _waypoint = null;
+            _beltAnchor = null;
             _pendingMine = false;
             _dragStart = null;
             SendThrust((0, 0, 0), force: true);
@@ -1315,6 +1333,7 @@ public partial class Play
         {
             case Key.Escape:
                 if (_helpOpen) _helpOpen = false;
+                else if (_beltAnchor is not null) { _beltAnchor = null; _dragStart = null; } // first Esc cancels a belt line in progress
                 else if (_selMachine >= 0) _selMachine = -1;
                 else if (_tool == ToolMode.Build) _tool = ToolMode.Pointer;
                 else if (_mapOpen) _mapOpen = false;

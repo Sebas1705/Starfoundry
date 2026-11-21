@@ -66,6 +66,7 @@ public partial class Play : Node3D
     private (int X, int Y, int Z) _cursor;
     private Dir _dir = Dir.PosX;
     private (int X, int Y, int Z)? _dragStart;
+    private (int X, int Y, int Z)? _beltAnchor; // start of a belt line begun with a click, waiting for the second click
     private int _selectedDeposit;
     private readonly Dictionary<int, int> _recipeChoice = new();
     private readonly ToastQueue _toasts = new();

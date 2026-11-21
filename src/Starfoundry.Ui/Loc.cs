@@ -165,8 +165,8 @@ public static class Loc
         // ---- hints under the bar ----
         ["hint.pointer"] = ("Ratón: mirar   WASD: volar   Espacio/C: subir/bajar   Clic: inspeccionar lo que apuntas   1-9: construir   Tab: soltar el ratón   F1: ayuda",
                             "Mouse: look   WASD: fly   Space/C: up/down   Click: inspect what you aim at   1-9: build   Tab: free the mouse   F1: help"),
-        ["hint.buildBelt"] = ("Construyendo: {0}. Apunta al suelo; clic, mueve la mirilla y suelta para tender una línea.   Clic derecho: demoler.   R: girar.   Esc: dejar de construir",
-                              "Building: {0}. Aim at the ground; click, move the crosshair and release to lay a line.   Right-click: demolish.   R: rotate.   Esc: stop building"),
+        ["hint.buildBelt"] = ("Construyendo: {0}. Apunta al suelo y haz clic donde empieza la línea; apunta al final y haz clic otra vez (o arrastra).   Clic derecho: cancelar o demoler.   R: girar.   Esc: dejar de construir",
+                              "Building: {0}. Aim at the ground and click where the line starts; aim at the end and click again (or drag).   Right-click: cancel or demolish.   R: rotate.   Esc: stop building"),
         ["hint.buildMachine"] = ("Construyendo: {0}. Apunta al suelo y haz clic para colocarlo.   Clic derecho: demoler.   Y: cambiar receta.   Esc: dejar de construir",
                                  "Building: {0}. Aim at the ground and click to place it.   Right-click: demolish.   Y: change recipe.   Esc: stop building"),
 
@@ -314,8 +314,8 @@ public static class Loc
         ["obj.drill.hint"] = ("Elige Taladro en la barra (4) y apunta al suelo a menos de 16 celdas del yacimiento (mira hacia abajo); clic para colocarlo. Cuesta lingotes.",
                               "Choose Drill in the bar (4), aim at the ground within 16 cells of the deposit (look down) and click to place it. It costs ingots."),
         ["obj.smelter"] = ("Construye un horno", "Build a smelter"),
-        ["obj.smelter.hint"] = ("Elige Horno (5) y colócalo delante del taladro; une ambos con cintas (1): clic, mueve la mirilla y suelta.",
-                                "Choose Smelter (5) and place it in front of the drill; join them with belts (1): click, move the crosshair and release."),
+        ["obj.smelter.hint"] = ("Elige Horno (5) y colócalo delante del taladro; une ambos con cintas (1): clic al inicio y clic al final.",
+                                "Choose Smelter (5) and place it in front of the drill; join them with belts (1): click the start, then click the end."),
         ["obj.depot"] = ("Entrega lingotes a tu bodega", "Deliver ingots to your hold"),
         ["obj.depot.hint"] = ("Tiende cintas desde el horno hasta un Depósito (8): mete en tu bodega todo lo que le llega.",
                               "Lay belts from the smelter to a Depot (8): it puts everything that arrives into your hold."),
@@ -379,7 +379,7 @@ public static class Loc
             "Ratón\n" +
             "  Mover el ratón   mirar (la vista es la cabina de la nave); la mirilla del centro es tu puntería\n" +
             "  Clic izquierdo   inspeccionar lo que apuntas o elegir un yacimiento\n" +
-            "                   construyendo: apunta al suelo y coloca (cintas: clic, mueve la mirilla, suelta)\n" +
+            "                   construyendo: apunta al suelo y coloca (cintas: clic al inicio y clic al final, o arrastra)\n" +
             "  Clic derecho     demoler lo que apuntas (se devuelve el coste)\n" +
             "  Tab              soltar el ratón para usar los botones (clic en el juego para volver a mirar)\n\n" +
             "Nave\n" +
@@ -397,7 +397,7 @@ public static class Loc
             "Mouse\n" +
             "  Move the mouse   look (the view is the ship's cockpit); the centre crosshair is your aim\n" +
             "  Left click       inspect what you aim at or pick a deposit\n" +
-            "                   building: aim at the ground and place (belts: click, move the crosshair, release)\n" +
+            "                   building: aim at the ground and place (belts: click the start and click the end, or drag)\n" +
             "  Right click      demolish what you aim at (the cost is refunded)\n" +
             "  Tab              free the mouse to use the buttons (click in the game to look again)\n\n" +
             "Ship\n" +
