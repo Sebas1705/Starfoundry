@@ -113,6 +113,9 @@ public sealed class SimWorld
 
         // Machines destroyed by enemies leave their cells free.
         foreach (var d in Network.TakeDestroyedMachines()) RemoveCell(d.Structure, Key(d.X, d.Y, d.Z));
+        // So do belts that fell with a destroyed module or station.
+        foreach (var d in Network.TakeDestroyedSegments())
+            for (int k = 0; k < d.LengthCells; k++) RemoveCell(d.Structure, Key(d.OriginX + d.DirX * k, d.OriginY + d.DirY * k, d.OriginZ + d.DirZ * k));
     }
 
     public void Step(int ticks)

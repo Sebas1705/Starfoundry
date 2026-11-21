@@ -79,6 +79,10 @@ public sealed class Structure
     /// <summary>Progress per drone bay module, in per mille ticks (only bays with progress have an entry).</summary>
     internal SortedDictionary<(int Mx, int My, int Mz), int> DroneProgress { get; private set; } = new();
 
+    /// <summary>Current hit points of the damaged modules only: an undamaged module has no entry and counts as at full
+    /// <c>structures.&lt;kind&gt;.hp</c>. Entries are in 1 .. max - 1. See <c>BeltNetwork.ModuleHp</c>.</summary>
+    internal SortedDictionary<(int Mx, int My, int Mz), int> ModuleDamage { get; private set; } = new();
+
     internal int PowerProduction, PowerDemand, Satisfaction = PowerRules.FullSatisfaction;
 
     internal Structure(int id, StructureKind kind, int owner, long ox, long oy, long oz)
@@ -91,6 +95,7 @@ public sealed class Structure
         var c = new Structure(Id, Kind, Owner, OriginX, OriginY, OriginZ);
         c.ModuleMap = new SortedDictionary<(int, int, int), ModuleKind>(ModuleMap);
         c.BurnRemaining = new SortedDictionary<(int, int, int), int>(BurnRemaining);
+        c.ModuleDamage = new SortedDictionary<(int, int, int), int>(ModuleDamage);
         c.DroneDeposit = DroneDeposit;
         c.DroneProgress = new SortedDictionary<(int, int, int), int>(DroneProgress);
         c.PowerProduction = PowerProduction; c.PowerDemand = PowerDemand; c.Satisfaction = Satisfaction;

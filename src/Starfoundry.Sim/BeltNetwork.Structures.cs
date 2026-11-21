@@ -90,6 +90,7 @@ public sealed partial class BeltNetwork
     public bool CanFly(int player)
     {
         if (!_players.TryGetValue(player, out var p)) return true;
+        if (p.ShipLost) return false;
         int fs = FlightStructure(p);
         return fs < 0 || CanFlyStructure(_structures[fs]);
     }
@@ -223,6 +224,7 @@ public sealed partial class BeltNetwork
         if (!s.ModuleMap.Remove((mx, my, mz))) throw new InvalidOperationException("No such module.");
         s.BurnRemaining.Remove((mx, my, mz)); // a removed reactor loses the hydrogen it was burning
         s.DroneProgress.Remove((mx, my, mz));
+        s.ModuleDamage.Remove((mx, my, mz));
         if (s.DroneDeposit >= 0 && ModuleCount(s, ModuleKind.DroneBay) == 0) s.DroneDeposit = -1; // the last bay is gone: nothing mines
         StructureVersion++;
     }
@@ -300,6 +302,11 @@ public sealed partial class BeltNetwork
             if (!StructureRules) continue; // power state exists only under the structure rules
             mix(s.PowerProduction); mix(s.PowerDemand); mix(s.Satisfaction); mix(s.BurnRemaining.Count);
             foreach (var (m, rem) in s.BurnRemaining) { mix(m.Mx); mix(m.My); mix(m.Mz); mix(rem); }
+            if (s.ModuleDamage.Count > 0) // undamaged structures hash as before module hit points existed
+            {
+                mix(s.ModuleDamage.Count);
+                foreach (var (m, hp) in s.ModuleDamage) { mix(m.Mx); mix(m.My); mix(m.Mz); mix(hp); }
+            }
             if (s.DroneDeposit >= 0 || s.DroneProgress.Count > 0) // structures without drone work hash as before drones existed
             {
                 mix(s.DroneDeposit); mix(s.DroneProgress.Count);
@@ -323,6 +330,12 @@ public sealed partial class BeltNetwork
                 if (!s.ModuleMap.TryGetValue(m, out var rk) || rk != ModuleKind.Reactor) Fail($"structure {id} burns a module {m} that is no reactor");
                 if (rem < 1 || rem > (Content?.Structures?.BurnIntervalTicks(ModuleKind.Reactor) ?? 0)) Fail($"structure {id} burn time {rem} out of range");
             }
+            foreach (var (m, hp) in s.ModuleDamage)
+            {
+                if (!s.ModuleMap.TryGetValue(m, out var dk)) { Fail($"structure {id} has damage on a missing module {m}"); continue; }
+                if (!StructureRules) Fail($"structure {id} has module damage without the structure rules");
+                if (hp < 1 || hp >= ModuleMaxHp(dk)) Fail($"structure {id} module {m} hit points {hp} out of range");
+            }
             if (s.DroneDeposit != -1 && !IsDeposit(s.DroneDeposit)) Fail($"structure {id} drones mine an unknown deposit");
             if (s.DroneDeposit >= 0 && ModuleCount(s, ModuleKind.DroneBay) == 0) Fail($"structure {id} has a drone assignment but no drone bay");
             foreach (var (m, pr) in s.DroneProgress)
@@ -335,6 +348,7 @@ public sealed partial class BeltNetwork
         }
         foreach (var p in _players.Values)
         {
+            if (p.ShipLost && !StructureRules) Fail($"player {p.Id} lost a ship without the structure rules");
             if (p.ShipStructure < 0) continue;
             if (!_structures.TryGetValue(p.ShipStructure, out var ship) || ship.Kind != StructureKind.Ship || ship.Owner != p.Id)
                 Fail($"player {p.Id} has an invalid ship structure {p.ShipStructure}");

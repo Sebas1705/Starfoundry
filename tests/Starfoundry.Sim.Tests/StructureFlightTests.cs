@@ -301,21 +301,24 @@ public class StructureFlightTests
         Assert.Equal((82 * Cell + Cell / 2, 1 * Cell + Cell / 2, -20 * Cell + Cell + Cell / 2), world);
 
         w.Network.ScheduleWave(0);
-        bool fired = false;
-        for (int i = 0; i < 20_000 && w.Network.IsMachineAlive(lab); i++)
+        // Enemies hit modules, not the machines inside: every shot lands on the world centre of a module of the ship
+        // where the ship put it, never on a local cell. (Changed with structure defence: it used to hit the machine.)
+        var centres = w.Network.GetStructure(s).Modules.Keys
+            .Select(k => w.Network.ModuleWorldCentre(s, k.Mx, k.My, k.Mz))
+            .Select(c => ((int)c.X, (int)c.Y, (int)c.Z)).ToHashSet();
+        int fired = 0;
+        for (int i = 0; i < 3_000 && fired < 5; i++)
         {
             w.Step();
             foreach (var shot in w.Network.Shots)
             {
                 if (shot.Kind != ShotKind.Enemy) continue;
-                fired = true;
-                // Every enemy shot hits the machine where the ship put it, never its local cell.
-                Assert.Equal(((int)world.X, (int)world.Y, (int)world.Z), (shot.ToX, shot.ToY, shot.ToZ));
+                fired++;
+                Assert.Contains((shot.ToX, shot.ToY, shot.ToZ), centres);
             }
         }
-        Assert.True(fired);
-        Assert.False(w.Network.IsMachineAlive(lab), "the enemies never reached the machine");
-        Assert.Equal(1, w.Network.MachinesLost);
+        Assert.True(fired >= 5, "the enemies never attacked");
+        Assert.True(w.Network.IsMachineAlive(lab), "a hit on the module does not hurt the machine inside");
         w.ValidateInvariants();
 
         // The system of a structure machine follows the ship: carry the ship out of the home system and the signature leaves it.

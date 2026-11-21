@@ -19,7 +19,7 @@ public sealed class PlayLog
     private readonly List<PlayLogEntry> _entries = new();
     private readonly HashSet<Objective> _seenObjectives = new();
     private readonly int[] _levels;
-    private long _waves, _machinesLost, _wallsLost, _shipsLost;
+    private long _waves, _machinesLost, _wallsLost, _shipsLost, _stationsLost, _modulesLost;
     private int _visited = 1;
     private int _holdFullTicks;
     private long _lastTick;
@@ -71,6 +71,8 @@ public sealed class PlayLog
             if (net.MachinesLost > _machinesLost) { Add("Loss", $"{net.MachinesLost - _machinesLost} machine(s) destroyed ({net.MachinesLost} in total)"); _machinesLost = net.MachinesLost; }
             if (net.WallsLost > _wallsLost) { Add("Loss", $"{net.WallsLost - _wallsLost} wall(s) destroyed ({net.WallsLost} in total)"); _wallsLost = net.WallsLost; }
             if (net.ShipsLost > _shipsLost) { Add("Loss", "the ship was destroyed"); _shipsLost = net.ShipsLost; }
+            if (net.StationsLost > _stationsLost) { Add("Loss", $"{net.StationsLost - _stationsLost} station(s) lost with their core ({net.StationsLost} in total)"); _stationsLost = net.StationsLost; }
+            if (net.ModulesLost > _modulesLost) { Add("Loss", $"{net.ModulesLost - _modulesLost} module(s) destroyed ({net.ModulesLost} in total)"); _modulesLost = net.ModulesLost; }
         }
 
         int visited = Enumerable.Range(0, net.SystemCount).Count(net.IsSystemVisited);

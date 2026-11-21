@@ -12,10 +12,11 @@ namespace Starfoundry.Sim;
 /// <param name="BurnIntervalTicks">Ticks one hydrogen keeps a reactor burning (reactor only; 0 otherwise).</param>
 /// <param name="DroneRangeCells">How far from the structure its drones reach a deposit, in cells (drone bay only; 0 otherwise).</param>
 /// <param name="DroneIntervalTicks">Ticks one bay needs per item at density 100 (drone bay only; 0 otherwise).</param>
+/// <param name="DefenceBonusPercent">Percent each module of this kind adds to the turret damage of its structure (defence only; 0 otherwise).</param>
 /// <param name="PowerUse">Power one bay draws while its structure has an assigned deposit (drone bay only; 0 otherwise).</param>
 public sealed record ModuleKindDef(
     ModuleKind Kind, ItemStack[] Cost, int Hp, MachineRole[] AllowedRoles, bool AllowsBelts, int HoldCapacity, int ThrustSpeedPercent,
-    int PowerOutput = 0, int BurnIntervalTicks = 0, int DroneRangeCells = 0, int DroneIntervalTicks = 0, int PowerUse = 0);
+    int PowerOutput = 0, int BurnIntervalTicks = 0, int DroneRangeCells = 0, int DroneIntervalTicks = 0, int PowerUse = 0, int DefenceBonusPercent = 0);
 
 /// <summary>The module kinds of ships and stations, from the <c>structures</c> section of the content.</summary>
 public sealed class StructureContent
@@ -60,6 +61,9 @@ public sealed class StructureContent
 
     /// <summary>Ticks one drone bay needs per item at density 100 (0 unless it is a drone bay).</summary>
     public int DroneIntervalTicks(ModuleKind kind) => _kinds[(int)kind].DroneIntervalTicks;
+
+    /// <summary>Percent one module of this kind adds to its structure's turret damage (0 unless it is a defence module).</summary>
+    public int DefenceBonusPercent(ModuleKind kind) => _kinds[(int)kind].DefenceBonusPercent;
 
     /// <summary>Power one drone bay draws while mining (0 unless it is a drone bay).</summary>
     public int ModulePowerUse(ModuleKind kind) => _kinds[(int)kind].PowerUse;

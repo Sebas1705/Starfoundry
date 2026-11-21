@@ -24,18 +24,25 @@ internal sealed class SystemThreat
     /// <summary>Ticks until the scheduled wave spawns, or -1 if none is scheduled.</summary>
     public int Warning = -1;
 
-    public SystemThreat Clone() => new() { Alert = Alert, Wave = Wave, Warning = Warning };
+    /// <summary>Structure worlds: ticks this system has spent above the signature threshold before its first wave (up to the content's grace).</summary>
+    public int Grace;
+
+    public SystemThreat Clone() => new() { Alert = Alert, Wave = Wave, Warning = Warning, Grace = Grace };
 }
 
 internal sealed class Enemy
 {
     public int Id, Type, System, X, Y, Z, Hp, Cooldown;
 
+    /// <summary>What the enemy attacked last tick (structure worlds; not part of the state): a structure id and module, or -1.</summary>
+    public int TargetStructure = -1, TargetMx, TargetMy, TargetMz;
+
     public Enemy Clone() => (Enemy)MemberwiseClone();
 }
 
 /// <summary>An enemy for rendering and tests. Position in units.</summary>
-public readonly record struct EnemyInfo(int Id, int Type, int System, int X, int Y, int Z, int Hp);
+public readonly record struct EnemyInfo(int Id, int Type, int System, int X, int Y, int Z, int Hp,
+    int TargetStructure = -1, int TargetMx = 0, int TargetMy = 0, int TargetMz = 0);
 
 public enum ShotKind { Turret, Ship, Enemy }
 
@@ -87,7 +94,7 @@ public sealed partial class BeltNetwork
     }
 
     public IReadOnlyList<EnemyInfo> Enemies() =>
-        _enemies.Select(e => new EnemyInfo(e.Id, e.Type, e.System, e.X, e.Y, e.Z, e.Hp)).ToList();
+        _enemies.Select(e => new EnemyInfo(e.Id, e.Type, e.System, e.X, e.Y, e.Z, e.Hp, e.TargetStructure, e.TargetMx, e.TargetMy, e.TargetMz)).ToList();
 
     private void InitThreat()
     {
@@ -188,7 +195,15 @@ public sealed partial class BeltNetwork
                 // Lowest share of hit points first; the lowest id wins ties.
                 if (best is null || (long)t.Hp * MaxHp(best.Type) < (long)best.Hp * max) best = t;
             }
-            if (best is null) continue;
+            if (best is null)
+            {
+                // Nothing to mend among the machines: a bay in a structure mends the structure's modules.
+                if (!HealFirstDamagedModule(m, def)) continue;
+                m.In[def.Item]--;
+                MachineInputsConsumed++;
+                m.TurretCooldown = def.IntervalTicks;
+                continue;
+            }
 
             int before = best.Hp;
             best.Hp = Math.Min(MaxHp(best.Type), best.Hp + RepairHeal(def));
@@ -204,6 +219,7 @@ public sealed partial class BeltNetwork
     private void StepThreat()
     {
         _shots.Clear();
+        _moduleHits.Clear();
         if (!ThreatActive) return;
         var rules = Content!.Threat!;
         int n = Galaxy!.Systems.Count;
@@ -231,9 +247,15 @@ public sealed partial class BeltNetwork
             bool active = t.Warning >= 0 || _enemies.Any(e => e.System == s);
             if (!active)
             {
-                if (signature[s] > rules.SignatureThreshold) t.Alert = Math.Min(rules.AlertMax, t.Alert + (signature[s] - rules.SignatureThreshold));
+                bool graceOn = StructureRules && t.Wave == 0 && rules.FirstWaveGraceTicks > 0;
+                if (signature[s] > rules.SignatureThreshold)
+                {
+                    t.Alert = Math.Min(rules.AlertMax, t.Alert + (signature[s] - rules.SignatureThreshold));
+                    if (graceOn && t.Grace < rules.FirstWaveGraceTicks) t.Grace++;
+                }
                 else t.Alert = Math.Max(0, t.Alert - rules.DecayPerTick);
-                if (t.Alert >= rules.AlertMax) t.Warning = rules.WarningTicks;
+                // Structure worlds: the first warning waits for the grace time, counted from when the system first got loud.
+                if (t.Alert >= rules.AlertMax && !(graceOn && t.Grace < rules.FirstWaveGraceTicks)) t.Warning = rules.WarningTicks;
             }
             if (t.Warning > 0 && --t.Warning == 0)
             {
@@ -247,29 +269,49 @@ public sealed partial class BeltNetwork
         // Enemies move and attack (in id order).
         if (_enemies.Count > 0)
         {
+            HashSet<int>? withMachines = null;
             foreach (var e in _enemies)
             {
                 if (e.Hp <= 0) continue;
                 var def = Content.Enemies[e.Type];
                 if (e.Cooldown > 0) e.Cooldown--;
 
-                // The nearest ship within 15 cells, otherwise the machine with the highest signature in the enemy's system.
                 Player? ship = null;
-                long best = 15L * Units.CellUnits * 15 * Units.CellUnits;
-                foreach (var p in _players.Values)
-                {
-                    if (p.RespawnRemaining > 0) continue;
-                    long dx = p.X - e.X, dy = p.Y - e.Y, dz = p.Z - e.Z;
-                    long d = dx * dx + dy * dy + dz * dz;
-                    if (d <= best) { best = d; ship = p; }
-                }
-
-                Machine? machine = ship is null ? NearestWall(e) ?? PickTargetMachine(e.System) : null;
-                if (ship is null && machine is null) continue;
-
+                Machine? machine = null;
+                int modStructure = -1;
+                (int Mx, int My, int Mz) modKey = default;
                 long tx, ty, tz;
-                if (ship is not null) { tx = ship.X; ty = ship.Y; tz = ship.Z; }
-                else (tx, ty, tz) = MachineCentre(machine!);
+                if (StructureRules)
+                {
+                    // Structure worlds: walls first (decoys), then the ship's nearest module within 15 cells, otherwise the nearest
+                    // module of a structure in the enemy's system that holds a machine or is a ship.
+                    machine = NearestWall(e);
+                    (long X, long Y, long Z) mc = default;
+                    if (machine is not null) mc = MachineCentre(machine);
+                    else if (TryPickShipModule(e, out modStructure, out var k1, out mc) || TryPickNearestModule(e, withMachines ??= StructuresWithMachines(), out modStructure, out k1, out mc))
+                        modKey = k1;
+                    else { e.TargetStructure = -1; continue; }
+                    (tx, ty, tz) = mc;
+                }
+                else
+                {
+                    // The nearest ship within 15 cells, otherwise the machine with the highest signature in the enemy's system.
+                    long best = 15L * Units.CellUnits * 15 * Units.CellUnits;
+                    foreach (var p in _players.Values)
+                    {
+                        if (p.RespawnRemaining > 0) continue;
+                        long dx = p.X - e.X, dy = p.Y - e.Y, dz = p.Z - e.Z;
+                        long d = dx * dx + dy * dy + dz * dz;
+                        if (d <= best) { best = d; ship = p; }
+                    }
+
+                    machine = ship is null ? NearestWall(e) ?? PickTargetMachine(e.System) : null;
+                    if (ship is null && machine is null) continue;
+                    if (ship is not null) { tx = ship.X; ty = ship.Y; tz = ship.Z; }
+                    else (tx, ty, tz) = MachineCentre(machine!);
+                }
+                e.TargetStructure = modStructure;
+                (e.TargetMx, e.TargetMy, e.TargetMz) = modKey;
                 long rx = tx - e.X, ry = ty - e.Y, rz = tz - e.Z;
                 long dist2 = rx * rx + ry * ry + rz * rz;
                 long range = (long)def.RangeCells * Units.CellUnits;
@@ -288,7 +330,8 @@ public sealed partial class BeltNetwork
                     e.Cooldown = def.IntervalTicks;
                     _shots.Add(new ShotEvent(ShotKind.Enemy, e.X, e.Y, e.Z, (int)tx, (int)ty, (int)tz));
                     if (ship is not null) DamageShip(ship, def.Damage);
-                    else DamageMachine(machine!, def.Damage);
+                    else if (machine is not null) DamageMachine(machine, def.Damage);
+                    else DamageModule(modStructure, modKey, def.Damage);
                 }
             }
         }
@@ -306,7 +349,7 @@ public sealed partial class BeltNetwork
             var target = NearestEnemy(cx, cy, cz, (long)turret.RangeCells * Units.CellUnits);
             if (target is null) continue;
 
-            target.Hp -= TurretDamage(turret);
+            target.Hp -= TurretDamageOf(m, turret);
             m.In[turret.AmmoItem]--;
             MachineInputsConsumed++;
             AmmoFired++;
@@ -315,6 +358,7 @@ public sealed partial class BeltNetwork
         }
 
         StepRepairers();
+        StepModuleRegen();
 
         // Ship weapons (player id order).
         foreach (var p in _players.Values)
@@ -473,16 +517,22 @@ public sealed partial class BeltNetwork
         WallsLost = other.WallsLost;
         AutoRepaired = other.AutoRepaired;
         ShipsLost = other.ShipsLost;
+        ModulesLost = other.ModulesLost;
+        StationsLost = other.StationsLost;
         AmmoFired = other.AmmoFired;
         _destroyedMachines.Clear();
         _destroyedMachines.AddRange(other._destroyedMachines);
+        _destroyedSegments.Clear();
+        _destroyedSegments.AddRange(other._destroyedSegments);
+        _moduleHits.Clear();
         _shots.Clear();
     }
 
     private void MixThreat(Action<long> mix)
     {
         mix(WavesSpawned); mix(EnemiesSpawned); mix(EnemiesKilled); mix(MachinesLost); mix(WallsLost); mix(AutoRepaired); mix(ShipsLost); mix(AmmoFired); mix(_nextEnemyId);
-        foreach (var t in _threat) { mix(t.Alert); mix(t.Wave); mix(t.Warning); }
+        if (ModulesLost != 0 || StationsLost != 0) { mix(ModulesLost); mix(StationsLost); } // worlds that lost no module hash as before
+        foreach (var t in _threat) { mix(t.Alert); mix(t.Wave); mix(t.Warning); if (t.Grace != 0) mix(t.Grace); }
         mix(_enemies.Count);
         foreach (var e in _enemies) { mix(e.Id); mix(e.Type); mix(e.System); mix(e.X); mix(e.Y); mix(e.Z); mix(e.Hp); mix(e.Cooldown); }
     }
@@ -494,7 +544,7 @@ public sealed partial class BeltNetwork
         if (!ThreatActive)
         {
             if (_enemies.Count != 0) Fail("enemies exist while threats are inactive");
-            if (WavesSpawned != 0 || MachinesLost != 0 || WallsLost != 0 || AutoRepaired != 0) Fail("threat counters changed while threats are inactive");
+            if (WavesSpawned != 0 || MachinesLost != 0 || WallsLost != 0 || AutoRepaired != 0 || ModulesLost != 0 || StationsLost != 0) Fail("threat counters changed while threats are inactive");
             return;
         }
 
@@ -506,6 +556,7 @@ public sealed partial class BeltNetwork
             if (t.Alert < 0 || t.Alert > rules.AlertMax) Fail($"system {s} alert {t.Alert} out of range");
             if (t.Warning < -1 || t.Warning > rules.WarningTicks) Fail($"system {s} warning {t.Warning} out of range");
             if (t.Wave < 0) Fail($"system {s} wave count is negative");
+            if (t.Grace < 0 || t.Grace > rules.FirstWaveGraceTicks || (t.Grace != 0 && !StructureRules)) Fail($"system {s} grace {t.Grace} out of range");
         }
 
         int lastId = -1;

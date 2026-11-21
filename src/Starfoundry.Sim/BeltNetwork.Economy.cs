@@ -97,6 +97,9 @@ internal sealed class Player
     /// <summary>The ship structure this player flies (-1 when none). With structure rules on, its origin is the source of truth for X/Y/Z.</summary>
     public int ShipStructure = -1;
 
+    /// <summary>Structure worlds: the ship lost its last cockpit, so this player can no longer fly. Never set in legacy worlds.</summary>
+    public bool ShipLost;
+
     public bool HasThrust => (ThrustX | ThrustY | ThrustZ) != 0;
 
     public void ClearThrust()
@@ -138,7 +141,7 @@ internal sealed class Player
             ThrustX = ThrustX, ThrustY = ThrustY, ThrustZ = ThrustZ, ThrustRemX = ThrustRemX, ThrustRemY = ThrustRemY, ThrustRemZ = ThrustRemZ,
             ScanCooldown = ScanCooldown, JumpTarget = JumpTarget, JumpRemaining = JumpRemaining,
             Hull = Hull, Armed = Armed, WeaponCooldown = WeaponCooldown, RespawnRemaining = RespawnRemaining,
-            ShipStructure = ShipStructure,
+            ShipStructure = ShipStructure, ShipLost = ShipLost,
         };
         Array.Copy(Hold, c.Hold, Hold.Length);
         return c;
@@ -779,6 +782,7 @@ public sealed partial class BeltNetwork
             mix(p.ThrustX); mix(p.ThrustY); mix(p.ThrustZ); mix(p.ThrustRemX); mix(p.ThrustRemY); mix(p.ThrustRemZ);
             mix(p.Id); mix(p.HoldTotal); mix(p.MiningDeposit); mix(p.MineProgress);
             if (p.ShipStructure >= 0) mix(p.ShipStructure);
+            if (p.ShipLost) mix(-77);
             mix(p.ShipRecipe); mix(p.ShipCrafting ? 1 : 0); mix(p.ShipRemaining); mix(p.ShipReserved);
             foreach (int h in p.Hold) mix(h);
         }

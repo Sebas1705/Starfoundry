@@ -1316,10 +1316,11 @@
     },
     "defence": {
       "cost": [{ "item": "core:iron_plate", "count": 12 }, { "item": "core:iron_ingot", "count": 16 }, { "item": "core:titanium_plate", "count": 4 }],
-      "hp": 250,
+      "hp": 400,
       "allows": ["turret", "wall"],
       "hold_capacity": 0,
-      "thrust_speed_percent": 0
+      "thrust_speed_percent": 0,
+      "defence_bonus_percent": 10
     },
     "hull": {
       "cost": [{ "item": "core:iron_ingot", "count": 12 }],
@@ -1377,7 +1378,9 @@
       "damage": 6,
       "interval_ticks": 10
     },
-    "respawn_seconds": 5
+    "respawn_seconds": 5,
+    "module_regen_seconds": 10,
+    "first_wave_grace_seconds": 480
   },
   "enemies": [
     {

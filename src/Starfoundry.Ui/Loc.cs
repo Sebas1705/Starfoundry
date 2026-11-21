@@ -335,6 +335,9 @@ public static class Loc
         ["toast.waveArrived"] = ("Ha llegado la oleada {0}: {1} enemigos.", "Wave {0} has arrived: {1} enemies."),
         ["toast.machineLost"] = ("Han destruido una máquina ({0} perdidas en total).", "A machine was destroyed ({0} lost in total)."),
         ["toast.shipLost"] = ("Han destruido tu nave. Se reconstruye en el ancla...", "Your ship was destroyed. Rebuilding at the anchor..."),
+        ["toast.moduleDestroyed"] = ("Han destruido un módulo ({0}). Lo que había dentro se ha perdido.", "A module was destroyed ({0}). Everything inside it is lost."),
+        ["toast.stationLost"] = ("Han destruido el núcleo de tu estación: la estación entera se ha perdido.", "Your station core was destroyed: the whole station is lost."),
+        ["toast.shipLostCockpit"] = ("Han destruido la cabina de tu nave: ya no puedes pilotarla.", "Your ship's cockpit was destroyed: you can no longer fly it."),
 
         // ---- guided steps ----
         ["obj.title"] = ("PRIMEROS PASOS  {0}/{1}", "FIRST STEPS  {0}/{1}"),
@@ -456,6 +459,8 @@ public static class Loc
         ["machine.core:hydrogen_cracker"] = ("craqueador de hidrógeno", "hydrogen cracker"),
         ["machine.core:ice_unloader"] = ("puerto de hielo", "ice port"),
         ["recipe.core:crack_ice"] = ("craquear hielo", "crack ice"),
+        ["learn.defence"] = ("Los Remnant atacan módulos enteros y, al caer uno, pierdes lo que hay dentro; si cae el núcleo de una estación se pierde toda. Construye un módulo de defensa, pon torretas con munición por cinta (y muros delante) y un taller con taller de reparación.",
+                             "The Remnant attack whole modules, and when one falls you lose everything inside it; if a station core falls the whole station is lost. Build a defence module, put turrets in it fed with ammo by belt (and walls in front) and a repair bay in a workshop."),
         ["learn.noFuel"] = ("Te queda poco hidrógeno y el reactor de tu nave lo gasta. Se hace con hielo: mina hielo en el sistema inicial, construye un craqueador de hidrógeno en el taller y llévale el hielo con un puerto de hielo; un depósito devuelve el hidrógeno a tu bodega.",
                             "Your hydrogen is running low and your ship's reactor burns it. It is made from ice: mine ice in the home system, build a hydrogen cracker in the workshop and feed it ice with an ice port; a depot returns the hydrogen to your hold."),
         ["learn.lowPower"] = ("Sin hidrógeno no hay energía: las máquinas van más lentas o paradas y la nave no acelera. Consigue hielo y fabrica hidrógeno.",

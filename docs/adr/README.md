@@ -24,6 +24,7 @@ One decision per file, `NNNN-slug.md`. An accepted ADR is never rewritten; add a
 | [0018](0018-modular-structures.md) | Ships and stations are one thing: structures of typed modules on a local grid | proposed | 2026-11-21 |
 | [0019](0019-power-and-fuel.md) | Reactors burn hydrogen from the owner's hold; power satisfaction scales machines and engines | proposed | 2026-11-21 |
 | [0020](0020-drone-automation.md) | Drone bays mine an assigned deposit for the owner without moving entities in the simulation | proposed | 2026-11-21 |
+| [0021](0021-structure-defence.md) | Waves hit structure modules, modules have hit points, a station dies with its core and a ship with its last cockpit | proposed | 2026-11-21 |
 
 ## Template
 ```markdown
