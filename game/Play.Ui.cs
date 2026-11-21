@@ -32,8 +32,7 @@ public partial class Play
     private const float MaxPitch = 85f * MathF.PI / 180f;
     private bool _wantCapture = true; // the player's wish; the cursor is also released while a panel is open or the window is unfocused
     private bool _mouseLook; // true while the cursor is captured and the mouse turns the ship's view
-    private (int X, int Y, int Z) _lastThrust;
-    private double _lastThrustAt;
+    private readonly ThrustThrottle _throttle = new(); // what is sent to the simulation: quantised and at most 10 changes a second
     private bool _helpOpen;
     private bool _objectivesOpen = true;
     private bool _holdWasFull;
@@ -174,7 +173,7 @@ public partial class Play
         _btnScan = MakeButton("", () => Send(new Scan()), minWidth: 170);
         _btnMap = MakeButton("", () => _mapOpen = !_mapOpen, toggle: true, minWidth: 170);
         _btnWeapons = MakeButton("", ToggleWeapons, toggle: true, minWidth: 170);
-        _btnResearch = MakeButton("", CycleResearch, minWidth: 170);
+        _btnResearch = MakeButton("", ToggleResearchPanel, toggle: true, minWidth: 170);
         _btnRepair = MakeButton("", RepairAll, minWidth: 170);
         foreach (var b in new[] { _btnMine, _btnRefine, _btnScan, _btnMap, _btnWeapons, _btnRepair, _btnResearch }) actions.AddChild(b);
         _actions = MakePanel(actions);
@@ -329,6 +328,7 @@ public partial class Play
         // Directional markers go last so they are never hidden under a panel.
         _markers = new MarkerLayer { Visible = false };
         _uiRoot.AddChild(_markers);
+        if (!_demo) BuildPanels();
         if (!_demo) BuildPauseMenu();
         if (!_demo) BuildEndScreen();
     }
@@ -345,7 +345,7 @@ public partial class Play
     {
         var layer = new CanvasLayer { Layer = 20 };
         AddChild(layer);
-        var menu = _pauseMenu = new MenuScreen("pause.title", dim: true) { Visible = false };
+        var menu = _pauseMenu = new MenuScreen("pause.title", dim: true) { Visible = false, InfoLine = () => L("pause.seed", _galaxySeed) };
         menu.AddEntry(() => L("pause.resume"), ClosePause);
         menu.AddEntry(() => L("pause.save"), () =>
         {
@@ -395,34 +395,42 @@ public partial class Play
 
     private VBoxContainer _buildBar = null!;
 
-    /// <summary>Entries reached by the number keys (1-9, 0, Q, B, U); the next ones take F2 to F5, the module (N) and station (I) entries have their own key.</summary>
-    private const int DirectKeys = 13;
+    /// <summary>Palette entries reached by the number keys: 1-9, 0 and Q. The module (N) and station (I) tools have their own key; everything else is in the build menu (B).</summary>
+    private const int DirectKeys = 11;
+
+    /// <summary>Buttons of the quick bar: the keyed entries plus the module tool (twelve at most), then a button that opens the build menu.</summary>
+    private const int QuickBarSize = 12;
+
+    private readonly List<int> _quickIndices = new();
+    private Button _btnBuildMenu = null!;
 
     /// <summary>
-    /// One button per palette entry, in two rows so the strip stays inside 1280 pixels with the whole palette (belts, every machine, the
-    /// module and the station tool): the first half in the top row, the rest below.
+    /// The compact quick bar: one row with the first twelve favourites (the keyed entries and the module tool) and a button for the
+    /// build menu. Every other entry is reached through the menu (B); the selected tool and its cost are in the line above the bar.
     /// </summary>
     private void FillBuildBar()
     {
         foreach (var old in _buildBar.GetChildren()) old.QueueFree();
         _buildButtons.Clear();
-        int perRow = (_palette.Count + 1) / 2;
-        HBoxContainer? row = null;
-        for (int i = 0; i < _palette.Count; i++)
+        _quickIndices.Clear();
+        for (int i = 0; i < _palette.Count && _quickIndices.Count < QuickBarSize; i++)
+            if (i < DirectKeys || _palette[i].IsModule) _quickIndices.Add(i);
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 4);
+        _buildBar.AddChild(row);
+        foreach (int index in _quickIndices)
         {
-            if (i % perRow == 0)
-            {
-                row = new HBoxContainer();
-                row.AddThemeConstantOverride("separation", 4);
-                _buildBar.AddChild(row);
-            }
-            int index = i;
-            var b = MakeButton("", () => SelectBuild(index), toggle: true);
+            int i = index;
+            var b = MakeButton("", () => SelectBuild(i), toggle: true);
             b.AddThemeFontSizeOverride("font_size", 12);
             b.CustomMinimumSize = new Vector2(0, 26);
             _buildButtons.Add(b);
-            row!.AddChild(b);
+            row.AddChild(b);
         }
+        _btnBuildMenu = MakeButton("", ToggleBuildMenu, toggle: true);
+        _btnBuildMenu.AddThemeFontSizeOverride("font_size", 12);
+        _btnBuildMenu.CustomMinimumSize = new Vector2(0, 26);
+        row.AddChild(_btnBuildMenu);
     }
 
     /// <summary>Rebuilds the palette after the rules changed (a loaded save with the other station-rules setting).</summary>
@@ -433,6 +441,7 @@ public partial class Play
         _selected = 0;
         _tool = ToolMode.Pointer;
         FillBuildBar();
+        _catalog = BuildCatalog.Entries(_content, _structuresOn, _stationRules);
     }
 
     // ---- per-frame refresh --------------------------------------------------------------------------
@@ -470,6 +479,7 @@ public partial class Play
         UpdateTarget();
         UpdateFlight();
         UpdateHelp();
+        UpdatePanels();
         UpdateToasts();
         UpdateModeHint();
         LayoutUi(size);
@@ -727,7 +737,7 @@ public partial class Play
         {
             DirAccess.MakeDirRecursiveAbsolute(ProjectSettings.GlobalizePath("user://saves"));
             var ms = new System.IO.MemoryStream();
-            SaveGame.Write(ms, _world, _content, _gameMode, GalaxySeed, _threatsOn, Player, _stationRules, _structuresOn);
+            SaveGame.Write(ms, _world, _content, _gameMode, _galaxySeed, _threatsOn, Player, _stationRules, _structuresOn);
             using var f = Godot.FileAccess.Open(SavePath(name), Godot.FileAccess.ModeFlags.Write);
             if (f is null) throw new System.IO.IOException(Godot.FileAccess.GetOpenError().ToString());
             f.StoreBuffer(ms.ToArray());
@@ -751,8 +761,17 @@ public partial class Play
         try
         {
             byte[] bytes = Godot.FileAccess.GetFileAsBytes(SavePath(name));
+            // A save of another galaxy cannot be loaded into this scene (its deposits and sky are built from the seed): reopen the scene on it.
+            if (SaveGame.Peek(new System.IO.MemoryStream(bytes)).GalaxySeed != _galaxySeed)
+            {
+                FinishPlayLog();
+                Launch.Mode = Launch.Intent.Continue;
+                Launch.ContinueSave = name;
+                Launch.MenuShotPath = null;
+                GetTree().CallDeferred(SceneTree.MethodName.ReloadCurrentScene);
+                return true;
+            }
             var world = SaveGame.Read(new System.IO.MemoryStream(bytes), _content, out var info);
-            if (info.GalaxySeed != GalaxySeed) throw new System.IO.InvalidDataException("The save is from another galaxy.");
             _world = world;
             _gameMode = info.Mode;
             _threatsOn = info.Threats;
@@ -888,7 +907,7 @@ public partial class Play
         _endScreen?.Dismiss();
         if (_playLog is not null)
         {
-            _logFile?.StoreLine($"-- loaded a save at game time {PlayLog.Format(Net.Tick / (double)Units.TicksPerSecond)}");
+            _logFile?.StoreLine($"-- loaded a save at game time {PlayLog.Format(Net.Tick / (double)Units.TicksPerSecond)} (galaxy seed {_galaxySeed})");
             _logFile?.Flush();
             _playLog = new PlayLog(_content, _stationRules, _structuresOn);
             _playLog.Update(Net, Player); // what was already done is not news
@@ -925,7 +944,9 @@ public partial class Play
             DirAccess.MakeDirRecursiveAbsolute(dir);
             string path = $"user://playlogs/playlog-{DateTime.Now:yyyyMMdd-HHmmss}.txt";
             _logFile = Godot.FileAccess.Open(path, Godot.FileAccess.ModeFlags.Write);
-            GD.Print("PLAYLOG " + ProjectSettings.GlobalizePath(path));
+            _logFile?.StoreLine($"-- galaxy seed {_galaxySeed}"); // the seed rebuilds the same galaxy, so a play log can be compared with another run of it
+            _logFile?.Flush();
+            GD.Print("PLAYLOG " + ProjectSettings.GlobalizePath(path) + $" (galaxy seed {_galaxySeed})");
         }
         catch (Exception e) { GD.PrintErr("PLAYLOG unavailable: " + e.Message); _logFile = null; }
     }
@@ -997,7 +1018,7 @@ public partial class Play
     }
 
     /// <summary>The key that picks build item i: 1 to 9, then 0, then Q.</summary>
-    private string KeyLabel(int i) => _palette[i].IsModule ? "N" : _palette[i].IsStation ? "I" : i < 9 ? (i + 1).ToString() : i == 9 ? "0" : i == 10 ? "Q" : i == 11 ? "B" : i == 12 ? "U" : i < DirectKeys + 4 ? $"F{i - DirectKeys + 2}" : "";
+    private string KeyLabel(int i) => _palette[i].IsModule ? "N" : _palette[i].IsStation ? "I" : i < 9 ? (i + 1).ToString() : i == 9 ? "0" : i == 10 ? "Q" : "";
 
     private string ItemName(BuildItem item) =>
         item.IsStation ? L("ui.foundStation") : item.IsModule ? ModuleName() : item.IsBelt ? L("ui.belt", (int)item.Tier + 1) : MachineName(item.Machine);
@@ -1013,20 +1034,24 @@ public partial class Play
     private void UpdateButtons()
     {
         // Build bar.
-        for (int i = 0; i < _buildButtons.Count; i++)
+        for (int q = 0; q < _buildButtons.Count && q < _quickIndices.Count; q++)
         {
+            int i = _quickIndices[q];
             var item = _palette[i];
             bool locked = ItemLocked(item);
             var cost = ItemCost(item);
             bool affordable = Net.CanPay(Player, cost);
             string name = ItemName(item);
-            var b = _buildButtons[i];
+            var b = _buildButtons[q];
             b.Text = $"{KeyLabel(i)} {name}";
             b.Disabled = locked;
             b.SetPressedNoSignal(_tool == ToolMode.Build && _selected == i);
             b.Modulate = !locked && !affordable ? new Color(1f, 0.75f, 0.7f) : Colors.White;
-            b.TooltipText = BuildTooltip(item, cost, locked, affordable);
+            b.TooltipText = BuildTooltip(item, cost, locked, affordable) + "\n" + L("build.barTip");
         }
+        _btnBuildMenu.Text = L("build.bar");
+        _btnBuildMenu.SetPressedNoSignal(BuildOpen);
+        _btnBuildMenu.TooltipText = L("build.barTip");
         UpdateToolLabel();
 
         // Actions.
@@ -1063,7 +1088,8 @@ public partial class Play
         _btnRepair.Disabled = damagedNow.Count == 0;
         _btnRepair.TooltipText = damagedNow.Count == 0 ? L("tip.repairNone") : L("tip.repair", Stacks(damagedNow.SelectMany(id => Net.RepairCost(id)).GroupBy(s => s.Item).Select(g => new ItemStack(g.Key, g.Sum(s => s.Count))).ToArray()));
 
-        _btnResearch.Text = Net.CurrentResearch >= 0 ? L("btn.researchNext") : L("btn.research");
+        _btnResearch.Text = L("btn.research");
+        _btnResearch.SetPressedNoSignal(ResearchOpen);
         _btnResearch.TooltipText = L("tip.research");
 
         _btnJump.Visible = _mapOpen && Net.Galaxy is not null;
@@ -1324,6 +1350,8 @@ public partial class Play
         _tool = ToolMode.Build;
         _selMachine = -1;
         _waypoint = null;
+        if (ResearchOpen) CloseResearchPanel();
+        if (BuildOpen) CloseBuildMenu();
     }
 
     private void ToggleLanguage()
@@ -1452,8 +1480,8 @@ public partial class Play
 
     // ---- cursor capture ------------------------------------------------------------------------------------
 
-    /// <summary>Panels that need the pointer: the help overlay and the star map.</summary>
-    private bool PanelOpen() => PauseOpen || EndOpen || _helpOpen || (_mapOpen && Net.Galaxy is not null);
+    /// <summary>Panels that need the pointer: the help overlay, the research panel, the build menu and the star map.</summary>
+    private bool PanelOpen() => PauseOpen || EndOpen || _helpOpen || ResearchOpen || BuildOpen || (_mapOpen && Net.Galaxy is not null);
 
     /// <summary>Releases or captures the mouse so it matches what the player wants and what is on screen.</summary>
     private void UpdateCapture()
@@ -1486,9 +1514,6 @@ public partial class Play
         int digit = k.Keycode is >= Key.Key1 and <= Key.Key9 ? (int)(k.Keycode - Key.Key1) : -1;
         if (k.Keycode == Key.Key0) digit = 9;
         if (k.Keycode == Key.Q) digit = 10;
-        if (k.Keycode == Key.B) digit = 11;
-        if (k.Keycode == Key.U) digit = 12; // the thirteenth entry, the ore port
-        if (k.Keycode is >= Key.F2 and <= Key.F5) digit = DirectKeys + (int)(k.Keycode - Key.F2); // the entries past the direct keys
         if (digit >= 0 && digit < _palette.Count && !_palette[digit].IsModule && !_palette[digit].IsStation) { SelectBuild(digit); return; }
         if (k.Keycode == Key.N)
         {
@@ -1507,7 +1532,9 @@ public partial class Play
         switch (k.Keycode)
         {
             case Key.Escape:
-                if (_helpOpen) _helpOpen = false;
+                if (ResearchOpen) CloseResearchPanel();
+                else if (BuildOpen) CloseBuildMenu();
+                else if (_helpOpen) _helpOpen = false;
                 else if (_beltAnchor is not null) { _beltAnchor = null; _dragStart = null; } // first Esc cancels a belt line in progress
                 else if (_selMachine >= 0) _selMachine = -1;
                 else if (_tool == ToolMode.Build) _tool = ToolMode.Pointer;
@@ -1541,7 +1568,8 @@ public partial class Play
             case Key.Up: CycleSystem(-1); break;
             case Key.Down: CycleSystem(1); break;
             case Key.F: ToggleRefinery(); break;
-            case Key.T: CycleResearch(); break;
+            case Key.T: ToggleResearchPanel(); break;
+            case Key.B: ToggleBuildMenu(); break;
             case Key.P: _paused = !_paused; break;
             case Key.Equal: case Key.KpAdd: _speed = Math.Min(10, _speed + 1); break;
             case Key.Minus: case Key.KpSubtract: _speed = Math.Max(1, _speed - 1); break;
@@ -1563,15 +1591,14 @@ public partial class Play
         return t;
     }
 
+    /// <summary>
+    /// Sends the wanted thrust through the <see cref="ThrustThrottle"/>: components in steps of 64/1024 and at most ten changes a second,
+    /// a stop at once. Every SetThrust is a logged command that a save replays, so mouse steering would otherwise fill the log (and the
+    /// load time) with thousands of near-identical commands. The sim is unchanged; the heading error is under 2 degrees for most directions and 5.5 at worst.
+    /// </summary>
     private void SendThrust((int X, int Y, int Z) thrust, bool force = false)
     {
-        if (!force && thrust == _lastThrust) return;
-        double now = Time.GetTicksMsec() / 1000.0;
-        // The simulation takes one command per tick at most (30 a second): keep a changing direction from flooding the queue; a stop is never held back.
-        if (!force && thrust != (0, 0, 0) && now - _lastThrustAt < 1.0 / 30.0) return;
-        _lastThrust = thrust;
-        _lastThrustAt = now;
-        Send(new SetThrust(thrust.X, thrust.Y, thrust.Z));
+        if (_throttle.Offer(thrust, Time.GetTicksMsec() / 1000.0, force) is { } t) Send(new SetThrust(t.X, t.Y, t.Z));
     }
 
     /// <summary>
@@ -1586,7 +1613,7 @@ public partial class Play
         if (Net.HasPlayer(Player) && _world.PendingCommands == 0)
         {
             var pi = Net.GetPlayerInfo(Player);
-            if (pi.JumpRemaining == 0 && pi.RespawnRemaining == 0 && (pi.ThrustX, pi.ThrustY, pi.ThrustZ) != _lastThrust) _lastThrust = (int.MinValue, 0, 0);
+            if (pi.JumpRemaining == 0 && pi.RespawnRemaining == 0 && _throttle.Differs((pi.ThrustX, pi.ThrustY, pi.ThrustZ))) _throttle.Invalidate();
         }
 
         if (Standing)
@@ -1594,7 +1621,7 @@ public partial class Play
             // Standing: no flight. WASD walk (see UpdateBody); the autopilot is off and the ship holds still.
             _waypoint = null;
             _pendingMine = false;
-            SendThrust((0, 0, 0), force: _lastThrust != (0, 0, 0));
+            SendThrust((0, 0, 0), force: _throttle.LastSent != (0, 0, 0));
             return;
         }
 
@@ -1626,7 +1653,7 @@ public partial class Play
             Send(new StartMining(_selectedDeposit));
         }
 
-        SendThrust(thrust, force: thrust == (0, 0, 0) && _lastThrust != (0, 0, 0));
+        SendThrust(thrust, force: thrust == (0, 0, 0) && _throttle.LastSent != (0, 0, 0));
     }
 
     /// <summary>The M button: fly to the selected deposit if needed, then mine it.</summary>

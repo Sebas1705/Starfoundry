@@ -53,3 +53,13 @@ Not measured: real hand play after this change, flight time to a deposit other t
 - Power, materials, defence of structures and detailed visuals are later projects. Reactors and defence modules exist as kinds with minimal behaviour.
 - The balance bot does not play structures, so earlier balance numbers do not describe this mode.
 - No docking, one ship per player, no ship-to-ship transfer.
+- Thrust in the command log: a save is the command log replayed, and every change of the ship's thrust is a logged `SetThrust`. Steering with the mouse changes the thrust vector every frame, so the game now sends it through `ThrustThrottle` (`src/Starfoundry.Ui`): components quantised to steps of 64/1024 (typically under 2 degrees of heading error, 5.5 at worst, for directions almost along an axis where rounding up would make the vector too long and it is truncated instead), at most ten changes a second, and a stop is sent at once. The final wanted value is always delivered because the game offers it every frame. The simulation is unchanged. Measured with `Godot --path game --headless -- --load-bench` (a scripted pilot for 30 minutes of game time at 60 frames a second, the view turning all the time, W held, now and then a strafe, a straight stretch and a stop; one routine of 60 s repeated; the starter ship, no threats, JIT warmed up by a first pass, three runs agree):
+
+  | Sending rule | Thrust commands in the log | Save size | Load (replay 54 000 ticks) |
+  | --- | --- | --- | --- |
+  | Parked (no thrust, the floor) | 0 | 52 bytes | 54 to 64 ms |
+  | Old (every change, at most 30 a second) | 25 549 | 638 777 bytes | 98 to 105 ms |
+  | New (64/1024 steps, at most 10 a second) | 8 609 | 215 277 bytes | 80 to 82 ms |
+
+  So the log and the save are about a third of their size. The load time of this nearly idle world is dominated by replaying the ticks (and by the sim moving the ship), so the saving there is small, about 20 ms; the commands matter more for long games with big bases, which were not measured here. Not measured: real mouse steering by hand, and the feel of the quantised heading in flight.
+- The build menu and research panel are documented in the [play-test guide](../playtest.md); the `ResearchView` and `BuildCatalog` models are covered by tests, the drawing by screenshots only (`--ui-shot`).

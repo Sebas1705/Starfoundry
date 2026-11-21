@@ -17,7 +17,9 @@ namespace Starfoundry.Game;
 public partial class Play : Node3D
 {
     private const int Player = 0;
-    private const ulong GalaxySeed = 20261120UL;
+    /// <summary>The galaxy seed of the scripted runs (demos, screenshots, benchmarks): fixed, so they stay comparable. A played new game picks a random one.</summary>
+    private const ulong ScriptedSeed = 20261120UL;
+    private ulong _galaxySeed = ScriptedSeed;
     private const int FloatsPerItem = 16;
     private const float CellUnits = Units.CellUnits;
 
@@ -115,6 +117,11 @@ public partial class Play : Node3D
         _content = ContentDb.FromFile(path);
         _exploreDemo = args.Contains("--explore-demo");
         _saveTest = args.Contains("--save-test");
+        if (args.Contains("--load-bench")) { RunLoadBench(); GetTree().Quit(); return; } // measures the command log and the load time, then quits
+        _uiShotPath = args.FirstOrDefault(a => a.StartsWith("--ui-shot="))?["--ui-shot=".Length..];
+        // --continue=slot (quicksave, autosave, ...): continue that save, as the Continue button does; the galaxy comes from its header.
+        if (args.FirstOrDefault(a => a.StartsWith("--continue="))?["--continue=".Length..] is { Length: > 0 } cont) { Launch.Mode = Launch.Intent.Continue; Launch.ContinueSave = cont; }
+        _galaxySeed = ChooseSeed(args);
         string? st = args.FirstOrDefault(a => a.StartsWith("--stress="));
         _stressActive = args.Contains("--stress-active");
         _stressClose = args.Contains("--stress-close");
@@ -143,7 +150,7 @@ public partial class Play : Node3D
             && (_gameMode == GameMode.Campaign || _structuresShot) && _content.StarterShip is not null;
         _stationRules = !_structuresOn && (_stationDemo
             || (_gameMode == GameMode.Campaign && !_demo && _stressMachines == 0 && !args.Contains("--station-rules=false")));
-        _world = SimWorld.CreateGalaxy(_content, _gameMode, GalaxySeed, threats, _stationRules, _structuresOn);
+        _world = SimWorld.CreateGalaxy(_content, _gameMode, _galaxySeed, threats, _stationRules, _structuresOn);
         if (_structuresOn) { _yaw = MathF.PI; _pitch = -0.35f; _cursorY = DefaultStructureLayer; } // face the workshop from the pilot seat
         _world.Network.EnsurePlayer(Player); // the ship starts at the origin, inside Home
         if (args.Contains("--structure-demo")) BuildStructureDemo(args);
@@ -161,7 +168,8 @@ public partial class Play : Node3D
         BuildDroneVisuals();
         RebuildGeometry();
         if (_stationDemo) StationDemoSelect(args);
-        if (!_demo && !_stationDemo && !_structuresShot && Launch.MenuShotPath is null) StartPlayLog();
+        if (!_demo && !_stationDemo && !_structuresShot && Launch.MenuShotPath is null && _uiShotPath is null) StartPlayLog();
+        if (_uiShotPath is not null) UiShotSetup(args);
         if (!_demo) Toast(L("toast.welcome"));
         if (_structuresShot) StructuresShotSetup(args);
         if (_defenceShotPath is not null) DefenceShotSetup();
@@ -320,7 +328,7 @@ public partial class Play : Node3D
 
     private void BuildScene()
     {
-        Ambience.Build(this, Ambience.SystemSeed(GalaxySeed, Net.CurrentSystem(Player))); // sky, sun light and dust
+        Ambience.Build(this, Ambience.SystemSeed(_galaxySeed, Net.CurrentSystem(Player))); // sky, sun light and dust
 
         _camera = new Camera3D { Far = 500f, Fov = Overview ? 75f : CockpitFov, CullMask = Overview ? 0xFFFFFu : 0xFFFFFu & ~ShipLayer };
         AddChild(_camera);
@@ -451,7 +459,7 @@ void fragment() {
         _ship.Position = pos;
         // With structures the ship structure is the ship; the small legacy model stays hidden.
         _ship.Visible = !_structuresOn && !(Net.HasPlayer(Player) && Net.GetPlayerInfo(Player).RespawnRemaining > 0); // hidden while being rebuilt
-        Ambience.Retint(Ambience.SystemSeed(GalaxySeed, Net.CurrentSystem(Player))); // no-op unless the system changed
+        Ambience.Retint(Ambience.SystemSeed(_galaxySeed, Net.CurrentSystem(Player))); // no-op unless the system changed
         // The range discs lie on the build plane (a disc at the ship's own height would be edge-on to the cockpit camera).
         // With structures the layer is local to the ship, so its world height is the ship's origin plus the layer.
         float layerWorldY = _cursorY + (ShipStruct >= 0 ? pos.Y : 0f);
@@ -971,15 +979,6 @@ void fragment() {
         Send(new SetShipRecipe(on ? -1 : recipe));
     }
 
-    private void CycleResearch()
-    {
-        var options = Enumerable.Range(0, _content.Research.Count).Where(Net.CanResearch).ToList();
-        if (options.Count == 0) { Send(new SetResearch(-1)); ToastProduction(L("toast.nothingToResearch")); return; }
-        int cur = Net.CurrentResearch;
-        int next = cur < 0 ? options[0] : options[(options.IndexOf(cur) + 1) % options.Count];
-        Send(new SetResearch(next));
-    }
-
     // ---- frame loop ----------------------------------------------------------------------------
 
     public override void _PhysicsProcess(double delta)
@@ -1071,6 +1070,7 @@ void fragment() {
         UpdateAudio((float)delta);
         MenuShotTick();
         EndShotFrame();
+        UiShotFrame();
         DefenceShotFrame();
         if (_shotCountdown > 0 && --_shotCountdown == 0 && _shotPath != null)
             GetViewport().GetTexture().GetImage().SavePng(_shotPath);
