@@ -14,7 +14,7 @@ public static class CommandCodec
         TagConnectToMachine = 13, TagConnectFromMachine = 14, TagDisconnectMachine = 15,
         TagStartMining = 16, TagStopMining = 17, TagSetShipRecipe = 18, TagSetResearch = 19,
         TagLinkDeposit = 20, TagUnlinkDeposit = 21, TagSetMovement = 22, TagScan = 23, TagJump = 24, TagSetWeapons = 25, TagRepair = 26, TagSetThrust = 27, TagPlaceModule = 28, TagRemoveModule = 29,
-        TagPlaceMachineIn = 30, TagPlaceSegmentIn = 31, TagPlaceModuleIn = 32, TagRemoveModuleIn = 33;
+        TagPlaceMachineIn = 30, TagPlaceSegmentIn = 31, TagPlaceModuleIn = 32, TagRemoveModuleIn = 33, TagFoundStation = 34;
 
     private static readonly byte[] Magic = Encoding.ASCII.GetBytes("SFCL");
 
@@ -53,7 +53,7 @@ public static class CommandCodec
                 or ConnectToMachine or ConnectFromMachine or DisconnectMachine
                 or StartMining or StopMining or SetShipRecipe or SetResearch or LinkDeposit or UnlinkDeposit or SetMovement or SetThrust
                 or Scan or Jump or SetWeapons or Repair or PlaceModule or RemoveModule
-                or PlaceMachineIn or PlaceSegmentIn or PlaceModuleIn or RemoveModuleIn:
+                or PlaceMachineIn or PlaceSegmentIn or PlaceModuleIn or RemoveModuleIn or FoundStation:
                 return true;
             default:
                 return false;
@@ -169,6 +169,9 @@ public static class CommandCodec
             case RemoveModuleIn rmo:
                 w.Write(TagRemoveModuleIn); w.Write(rmo.Structure); w.Write(rmo.Mx); w.Write(rmo.My); w.Write(rmo.Mz);
                 break;
+            case FoundStation fs:
+                w.Write(TagFoundStation); w.Write(fs.Wx); w.Write(fs.Wy); w.Write(fs.Wz);
+                break;
             case Scan:
                 w.Write(TagScan);
                 break;
@@ -248,6 +251,7 @@ public static class CommandCodec
             }
             case TagPlaceModuleIn: return new PlaceModuleIn(r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), (ModuleKind)r.ReadByte());
             case TagRemoveModuleIn: return new RemoveModuleIn(r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
+            case TagFoundStation: return new FoundStation(r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
             case TagScan: return new Scan();
             case TagJump: return new Jump(r.ReadInt32());
             case TagSetWeapons: return new SetWeapons(r.ReadBoolean());

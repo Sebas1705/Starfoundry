@@ -134,6 +134,11 @@ public sealed record PlaceModuleIn(int Structure, int Mx, int My, int Mz, Module
 /// <summary>Removes a module of a structure if nothing is built inside it and the structure stays connected. Refunds half the cost.</summary>
 public sealed record RemoveModuleIn(int Structure, int Mx, int My, int Mz) : Command;
 
+/// <summary>Founds a station: a new structure owned by the commanding player with a <see cref="ModuleKind.Core"/> module at module (0,0,0),
+/// whose world origin is the corner of the world cell (Wx, Wy, Wz). The cell must be within build range of the ship and the
+/// core's volume must not overlap any other structure. The core's cost is paid from the hold in campaign mode. Needs structure rules.</summary>
+public sealed record FoundStation(int Wx, int Wy, int Wz) : Command;
+
 /// <summary>Several commands applied atomically: either all succeed or the world is left untouched.</summary>
 public sealed record Batch(Command[] Commands) : Command;
 

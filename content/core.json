@@ -808,6 +808,29 @@
       "thrust_speed_percent": 0
     }
   },
+  "structure_templates": {
+    "starter_ship": {
+      "modules": [
+        { "at": [0, 0, 0], "kind": "cockpit" },
+        { "at": [0, 0, 1], "kind": "workshop" },
+        { "at": [0, 0, 2], "kind": "cargo" },
+        { "at": [0, 0, 3], "kind": "reactor" },
+        { "at": [0, 0, 4], "kind": "engine" }
+      ],
+      "machines": [
+        { "id": "ore_port", "machine": "core:ore_unloader", "at": [0, 1, 9] },
+        { "id": "smelter", "machine": "core:smelter", "at": [3, 1, 9], "recipe": "core:smelt_iron" },
+        { "id": "assembler", "machine": "core:assembler", "at": [3, 1, 11], "recipe": "core:iron_plate" },
+        { "id": "depot", "machine": "core:depot", "at": [7, 1, 10] }
+      ],
+      "belts": [
+        { "at": [1, 1, 9], "dir": "+x", "length": 2, "tier": "mk1", "from": "ore_port", "to": "smelter" },
+        { "at": [4, 1, 9], "dir": "+x", "length": 4, "tier": "mk1", "from": "smelter", "to": "depot" },
+        { "at": [3, 1, 10], "dir": "+z", "length": 1, "tier": "mk1", "from": "smelter", "to": "assembler" },
+        { "at": [4, 1, 11], "dir": "+x", "length": 4, "tier": "mk1", "from": "assembler", "to": "depot" }
+      ]
+    }
+  },
   "threat": {
     "alert_max": 216000,
     "signature_threshold": 8,
