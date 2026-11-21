@@ -355,9 +355,9 @@ public partial class Play
         });
         menu.AddEntry(() => L("pause.load"), () =>
         {
-            if (LoadGameFromDisk("quicksave")) ClosePause();
+            if (LoadGameFromDisk()) ClosePause();
             else menu.SetStatus(L("pause.loadFailed"));
-        }, () => Godot.FileAccess.FileExists(SavePath("quicksave")));
+        }, () => Launch.NewestSave() is not null);
         menu.AddEntry(() => L("menu.settings"), () => menu.Open(MenuScreen.Page.Settings));
         menu.AddEntry(() => L("menu.controls"), () => menu.Open(MenuScreen.Page.Controls));
         menu.AddEntry(() => L("pause.mainMenu"), () =>
@@ -752,9 +752,7 @@ public partial class Play
             DirAccess.MakeDirRecursiveAbsolute(ProjectSettings.GlobalizePath("user://saves"));
             var ms = new System.IO.MemoryStream();
             SaveGame.Write(ms, _world, _content, _gameMode, _galaxySeed, _threatsOn, Player, _stationRules, _structuresOn);
-            using var f = Godot.FileAccess.Open(SavePath(name), Godot.FileAccess.ModeFlags.Write);
-            if (f is null) throw new System.IO.IOException(Godot.FileAccess.GetOpenError().ToString());
-            f.StoreBuffer(ms.ToArray());
+            WriteSlotAtomically(name, ms.ToArray());
             if (!silent) Toast(L("toast.saved", PlayLog.Format(Net.Tick / (double)Units.TicksPerSecond)));
             return true;
         }
@@ -766,12 +764,42 @@ public partial class Play
         }
     }
 
-    /// <summary>Loads the quick save (or the autosave when there is none) by replaying it; the game freezes for a second or two.</summary>
+    /// <summary>
+    /// Writes a slot without ever leaving it half-written: the bytes go to a temporary file first, the slot's previous contents are kept
+    /// (the autosave rotates to <c>autosave.prev</c>, other slots keep a <c>.bak</c>), then the temporary file is renamed over the slot.
+    /// </summary>
+    private static void WriteSlotAtomically(string name, byte[] bytes)
+    {
+        string tmp = SavePath(SaveSlots.TempName(name));
+        using (var f = Godot.FileAccess.Open(tmp, Godot.FileAccess.ModeFlags.Write))
+        {
+            if (f is null) throw new System.IO.IOException(Godot.FileAccess.GetOpenError().ToString());
+            f.StoreBuffer(bytes);
+        }
+        if (!Godot.FileAccess.FileExists(tmp) || Godot.FileAccess.GetFileAsBytes(tmp).Length != bytes.Length)
+            throw new System.IO.IOException("the temporary save file was not written completely");
+        string slot = SavePath(name);
+        string G(string p) => ProjectSettings.GlobalizePath(p);
+        if (Godot.FileAccess.FileExists(slot))
+        {
+            var copy = DirAccess.CopyAbsolute(G(slot), G(SavePath(SaveSlots.PreviousName(name))));
+            if (copy != Error.Ok) GD.PrintErr($"SAVE could not keep the previous {name}: {copy}");
+        }
+        var err = DirAccess.RenameAbsolute(G(tmp), G(slot));
+        if (err != Error.Ok)
+        {
+            DirAccess.RemoveAbsolute(G(slot)); // some platforms do not rename over an existing file
+            err = DirAccess.RenameAbsolute(G(tmp), G(slot));
+            if (err != Error.Ok) throw new System.IO.IOException(err.ToString());
+        }
+    }
+
+    /// <summary>Loads the newest of the quick save and the autosave (or the named slot) by replaying it; the game freezes for a second or two.</summary>
     private bool LoadGameFromDisk(string? slot = null)
     {
         if (_demo) return false;
-        string name = slot ?? (Godot.FileAccess.FileExists(SavePath("quicksave")) ? "quicksave" : "autosave");
-        if (!Godot.FileAccess.FileExists(SavePath(name))) { Toast(L("toast.noSave")); return false; }
+        string? name = slot ?? Launch.NewestSave();
+        if (name is null || !Godot.FileAccess.FileExists(SavePath(name))) { Toast(L("toast.noSave")); return false; }
         try
         {
             byte[] bytes = Godot.FileAccess.GetFileAsBytes(SavePath(name));
@@ -804,7 +832,7 @@ public partial class Play
         catch (Exception e)
         {
             GD.PrintErr("LOAD failed: " + e.Message);
-            Toast(L("toast.loadFailed", e.Message));
+            Toast(L("toast.loadFailed", L(SaveSlots.LoadFailureKey(e))));
             return false;
         }
     }

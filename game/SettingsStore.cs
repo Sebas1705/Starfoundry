@@ -98,15 +98,10 @@ public static class Launch
     /// <summary>The newest existing save slot ("quicksave" or "autosave"), or null.</summary>
     public static string? NewestSave()
     {
-        string? best = null;
-        ulong bestTime = 0;
-        foreach (string name in new[] { "quicksave", "autosave" })
+        return SaveSlots.Newest(name =>
         {
             string path = SavePath(name);
-            if (!Godot.FileAccess.FileExists(path)) continue;
-            ulong t = Godot.FileAccess.GetModifiedTime(path);
-            if (best is null || t > bestTime) { best = name; bestTime = t; }
-        }
-        return best;
+            return Godot.FileAccess.FileExists(path) ? Godot.FileAccess.GetModifiedTime(path) : null;
+        });
     }
 }
