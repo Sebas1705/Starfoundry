@@ -73,7 +73,7 @@ public partial class Play : Node3D
 
     private readonly Dictionary<int, Geo> _geos = new();
     private Geo?[] _segGeo = Array.Empty<Geo?>(); // by segment id
-    private readonly List<Node3D> _depositNodes = new();
+    private readonly List<DepositView> _depositNodes = new();
     private MeshInstance3D _ghost = null!, _dragGhost = null!;
 
     // Interaction
@@ -355,9 +355,9 @@ void fragment() {
         // Deposits: spheres where the simulation says they are, shrinking as they run dry.
         for (int d = 0; d < Net.DepositCount; d++)
         {
-            var color = Net.DepositItem(d) == _content.ItemIndex("core:iron_ore") ? new Color(0.65f, 0.4f, 0.3f) : new Color(0.25f, 0.25f, 0.28f);
             var (dx, dy, dz) = Net.DepositPosition(d);
-            var n = Models.Deposit(color, d);
+            var n = new DepositView(_content.Items[Net.DepositItem(d)].Id, Net.DepositDensity(d), Net.DepositInitial(d), d);
+            n.Refresh(Net.DepositRemaining(d));
             n.Position = new Vector3(dx, dy, dz);
             AddChild(n);
             _depositNodes.Add(n);
@@ -666,8 +666,7 @@ void fragment() {
     {
         for (int d = 0; d < _depositNodes.Count; d++)
         {
-            float f = Net.DepositInitial(d) == 0 ? 0 : (float)Net.DepositRemaining(d) / Net.DepositInitial(d);
-            _depositNodes[d].Scale = Vector3.One * Mathf.Max(0.15f, 0.35f + 0.65f * f);
+            _depositNodes[d].Refresh(Net.DepositRemaining(d)); // chunks shrink in 5% steps; the rock keeps its size
             _depositNodes[d].Visible = Net.IsDepositRevealed(d) && Net.DepositRemaining(d) > 0; // hidden until scanned
         }
     }

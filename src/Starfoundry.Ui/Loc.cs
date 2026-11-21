@@ -183,8 +183,8 @@ public static class Loc
         ["tip.role.unloader"] = ("Saca de tu bodega un objeto y lo pone en una cinta: el puerto de carga lleva lingotes (sin tocar los últimos 10) y el de mineral lleva mineral (sin reserva). Así lo que mines en otro sistema puede alimentar una fábrica lejos de él.", "Takes one kind of item out of your hold and puts it on a belt: the cargo port carries ingots (leaving the last 10) and the ore port carries ore (no reserve). What you mine in another system can feed a factory far from it."),
         ["tip.role.ship"] = ("Va en la nave.", "Lives on the ship."),
         ["tip.belt"] = ("Cinta Mk{0}: {1} celdas, {2} objetos encima", "Belt Mk{0}: {1} cells, {2} items on it"),
-        ["tip.deposit"] = ("Yacimiento de {0}: quedan {1} de {2}.\nClic izquierdo para elegirlo; M para minarlo.",
-                           "{0} deposit: {1} of {2} left.\nLeft click to select it; M to mine it."),
+        ["tip.deposit"] = ("Yacimiento de {0} ({3}): quedan {1} de {2}.\nClic izquierdo para elegirlo; M para minarlo.",
+                           "{0} deposit ({3}): {1} of {2} left.\nLeft click to select it; M to mine it."),
         ["tip.enemy"] = ("Enemigo: {0}  (vida {1})", "Enemy: {0}  (HP {1})"),
 
         // ---- hints under the bar ----
@@ -205,8 +205,8 @@ public static class Loc
         // ---- status panel ----
         ["hud.hold"] = ("Bodega {0}/{1}", "Hold {0}/{1}"),
         ["hud.noDeposit"] = ("Sin yacimiento elegido: apunta a una roca y haz clic, o pulsa M.", "No deposit selected: aim at a rock and click, or press M."),
-        ["hud.depositSelected"] = ("Yacimiento elegido: {0} (quedan {1}), a {2} celdas", "Selected deposit: {0} ({1} left), {2} cells away"),
-        ["hud.mining"] = ("Minando {0} (quedan {1})", "Mining {0} ({1} left)"),
+        ["hud.depositSelected"] = ("Yacimiento elegido: {0}, {3} (quedan {1}), a {2} celdas", "Selected deposit: {0}, {3} ({1} left), {2} cells away"),
+        ["hud.mining"] = ("Minando {0}, {2} (quedan {1})", "Mining {0}, {2} ({1} left)"),
         ["hud.miningOut"] = ("Minería de {0} en pausa: la nave está lejos del yacimiento", "Mining {0} paused: the ship is too far from the deposit"),
         ["hud.miningFull"] = ("¡BODEGA LLENA! La minería y los depósitos están parados. Gasta o construye algo.",
                               "HOLD FULL! Mining and depots are paused. Spend items or build something."),
@@ -238,6 +238,9 @@ public static class Loc
         ["hud.flightSpeed"] = ("{0} celdas/s", "{0} cells/s"),
         ["hud.tool.pointer"] = ("Sin herramienta: clic inspecciona", "No tool: click inspects"),
         ["hud.tool"] = ("{0}  -  {1}", "{0}  -  {1}"),
+        ["density.poor"] = ("Veta pobre ({0} %)", "Poor vein ({0} %)"),
+        ["density.normal"] = ("Veta normal ({0} %)", "Normal vein ({0} %)"),
+        ["density.rich"] = ("Veta rica ({0} %)", "Rich vein ({0} %)"),
         ["mark.dist"] = ("{0} celdas", "{0} cells"),
         ["mark.base"] = ("Base", "Base"),
         ["hud.alert"] = ("alerta {0}%", "alert {0}%"),

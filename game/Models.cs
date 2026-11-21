@@ -935,7 +935,7 @@ public static class Models
 
     // ---- deposits ---------------------------------------------------------------------------------------
 
-    private sealed class Rng
+    internal sealed class Rng
     {
         private uint _s;
         public Rng(int seed) { unchecked { _s = (uint)seed * 2654435761u + 0x9E3779B9u; } if (_s == 0) _s = 1; }
@@ -947,7 +947,7 @@ public static class Models
         }
     }
 
-    private static float Hash3(int x, int y, int z, int seed)
+    internal static float Hash3(int x, int y, int z, int seed)
     {
         unchecked
         {
@@ -972,7 +972,7 @@ public static class Models
     }
 
     /// <summary>Surface point of the asteroid in direction <paramref name="d"/> (unit vector).</summary>
-    private static Vector3 RockPoint(Vector3 d, int seed)
+    internal static Vector3 RockPoint(Vector3 d, int seed)
     {
         var off = new Vector3(seed * 1.7f, seed * 0.9f, seed * 2.3f);
         float n = Noise3(d * 1.5f + off, seed) * 0.6f + Noise3(d * 3.3f + off * 2f, seed + 1) * 0.3f + Noise3(d * 7f + off, seed + 2) * 0.1f;
@@ -981,7 +981,7 @@ public static class Models
         return new Vector3(d.X * rad, d.Y * rad * 0.86f, d.Z * rad);
     }
 
-    private static void BuildRock(Mb mb, Color tint, int seed)
+    internal static void BuildRock(Mb mb, Color tint, int seed, float tone = 1f, float tintShare = 0.13f)
     {
         // icosphere, one subdivision level above the base: 320 faces
         float t = (1f + MathF.Sqrt(5f)) / 2f;
@@ -1016,7 +1016,8 @@ public static class Models
         }
         var pos = new Vector3[verts.Count];
         for (int i = 0; i < pos.Length; i++) pos[i] = RockPoint(verts[i], seed);
-        var rock = new Color(0.09f, 0.085f, 0.10f).Lerp(tint, 0.13f);
+        var rock = new Color(0.09f, 0.085f, 0.10f).Lerp(tint, tintShare);
+        rock = new Color(rock.R * tone, rock.G * tone, rock.B * tone);
         int fi = 0;
         foreach (var (a, b, c) in faces)
         {

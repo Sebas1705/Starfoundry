@@ -75,6 +75,13 @@ public partial class Play
 
     private static string L(string key, params object[] args) => Loc.T(key, args);
 
+    /// <summary>Vein richness as a word plus percent, e.g. "Rich vein (150 %)".</summary>
+    private string DensityText(int deposit)
+    {
+        int d = Net.DepositDensity(deposit);
+        return L(d < 60 ? "density.poor" : d <= 120 ? "density.normal" : "density.rich", d);
+    }
+
     private string ItemName(int item) => Loc.Name("item", _content.Items[item].Id);
 
     private string MachineName(int type) => Loc.Name("machine", _content.Machines[type].Id);
@@ -494,7 +501,7 @@ public partial class Play
         if (Net.IsDeposit(_selectedDeposit) && Net.IsDepositRevealed(_selectedDeposit) && Net.DepositRemaining(_selectedDeposit) > 0)
         {
             var dp = Net.DepositPosition(_selectedDeposit);
-            Add(ItemName(Net.DepositItem(_selectedDeposit)), new Color(1f, 0.8f, 0.35f), new Vector3(dp.X, dp.Y, dp.Z), 6f);
+            Add($"{ItemName(Net.DepositItem(_selectedDeposit))} - {DensityText(_selectedDeposit)}", new Color(1f, 0.8f, 0.35f), new Vector3(dp.X, dp.Y, dp.Z), 6f);
         }
 
         int system = Net.CurrentSystem(Player);
@@ -583,7 +590,7 @@ public partial class Play
         {
             int d = Net.MiningDeposit(Player);
             bool inRange = Net.InMineRange(Player, d);
-            depLine = inRange ? L("hud.mining", ItemName(Net.DepositItem(d)), Net.DepositRemaining(d))
+            depLine = inRange ? L("hud.mining", ItemName(Net.DepositItem(d)), Net.DepositRemaining(d), DensityText(d))
                               : L("hud.miningOut", ItemName(Net.DepositItem(d)));
             if (inRange && p.Hull >= 0 && Net.HoldTotal(Player) >= Net.HoldCapacity(Player)) depLine = L("hud.miningFull");
         }
@@ -591,7 +598,7 @@ public partial class Play
         {
             var pos = Net.DepositPosition(dep);
             float dist = (new Vector3(pos.X, pos.Y, pos.Z) - ShipPosition(0f)).Length();
-            depLine = L("hud.depositSelected", ItemName(Net.DepositItem(dep)), Net.DepositRemaining(dep), dist.ToString("F0", Loc.Culture));
+            depLine = L("hud.depositSelected", ItemName(Net.DepositItem(dep)), Net.DepositRemaining(dep), dist.ToString("F0", Loc.Culture), DensityText(dep));
         }
         else depLine = L("hud.noDeposit");
         sb.Append(depLine).Append('\n');
@@ -1667,11 +1674,11 @@ public partial class Play
         {
             if (!Net.IsDepositRevealed(d) || Net.DepositRemaining(d) <= 0) continue;
             var pos = Net.DepositPosition(d);
-            float scale = Mathf.Max(0.15f, 0.35f + 0.65f * Net.DepositRemaining(d) / Net.DepositInitial(d));
+            float scale = DepositView.RockScale(Net.DepositInitial(d));
             if (RayHitsSphere(origin, dir, new Vector3(pos.X, pos.Y, pos.Z), 1.5f * scale, out float t) && t < best)
             {
                 best = t;
-                _hover = new Hover(HoverKind.Deposit, d, L("tip.deposit", ItemName(Net.DepositItem(d)), Net.DepositRemaining(d), Net.DepositInitial(d)));
+                _hover = new Hover(HoverKind.Deposit, d, L("tip.deposit", ItemName(Net.DepositItem(d)), Net.DepositRemaining(d), Net.DepositInitial(d), DensityText(d)));
             }
         }
 
