@@ -74,6 +74,8 @@ public static class Models
         "core:titanium_ore_unloader" => BuildUnloader(),
         "core:nickel_ore_unloader" => BuildUnloader(),
         "core:ice_unloader" => BuildUnloader(),
+        "core:quartz_unloader" => BuildUnloader(),
+        "core:carbon_unloader" => BuildUnloader(),
         "core:hydrogen_cracker" => BuildCracker(),
         _ => BuildCrate(),
     };
