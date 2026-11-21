@@ -28,6 +28,9 @@ public sealed record GameSettings
 
     public bool Fullscreen { get; init; }
 
+    /// <summary>Difficulty: how many waves must be cleared (with a station standing) to win; 3 to 30, 10 by default.</summary>
+    public int GoalWaves { get; init; } = GoalSettings.DefaultWaves;
+
     /// <summary>The defaults for a system locale: Spanish for "es*" locales, English for any other known one, Spanish when there is none.</summary>
     public static GameSettings Defaults(string? locale = null) =>
         new() { Language = string.IsNullOrWhiteSpace(locale) ? Language.Es : Loc.FromLocale(locale) };
@@ -39,6 +42,7 @@ public sealed record GameSettings
         MouseSensitivity = Clamp(MouseSensitivity, MinMouseSensitivity, MaxMouseSensitivity, 1f),
         Fov = Clamp(Fov, MinFov, MaxFov, DefaultFov),
         MasterVolume = Clamp(MasterVolume, 0f, 1f, 0.8f),
+        GoalWaves = Math.Clamp(GoalWaves, GoalSettings.MinWaves, GoalSettings.MaxWaves),
     };
 
     private static float Clamp(float v, float min, float max, float fallback) =>
@@ -56,6 +60,7 @@ public sealed record GameSettings
             new KeyValuePair<string, string>("master_volume", s.MasterVolume.ToString("0.###", CultureInfo.InvariantCulture)),
             new KeyValuePair<string, string>("invert_mouse_y", s.InvertMouseY ? "true" : "false"),
             new KeyValuePair<string, string>("fullscreen", s.Fullscreen ? "true" : "false"),
+            new KeyValuePair<string, string>("goal_waves", s.GoalWaves.ToString(CultureInfo.InvariantCulture)),
         };
     }
 
@@ -81,6 +86,7 @@ public sealed record GameSettings
                 case "master_volume" when TryFloat(value, out float v): s = s with { MasterVolume = v }; break;
                 case "invert_mouse_y" when bool.TryParse(value, out bool i): s = s with { InvertMouseY = i }; break;
                 case "fullscreen" when bool.TryParse(value, out bool fs): s = s with { Fullscreen = fs }; break;
+                case "goal_waves" when int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int gw): s = s with { GoalWaves = gw }; break;
             }
         }
         return s.Clamped();
