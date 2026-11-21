@@ -147,4 +147,63 @@ public class TipsTests
         // Home ore is full: no suggestion yet.
         for (int i = 0; i < Units.TicksPerSecond * 30; i++) { w.Step(); Assert.NotEqual("learn.port", tips.Next(w.Network, 0)?.Key); }
     }
+
+    private static (SimWorld W, int Station) StationWithSmelter()
+    {
+        var content = TestContent.CoreWithoutStarterShip;
+        var w = SimWorld.CreateGalaxy(content, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true);
+        w.Network.EnsurePlayer(0);
+        int st = w.Network.CreateStructure(0, StructureKind.Station, 0, 0, 0);
+        Ok(w, new PlaceModuleIn(st, 0, 0, 0, ModuleKind.Core));
+        Ok(w, new PlaceModuleIn(st, 1, 0, 0, ModuleKind.Workshop));
+        Ok(w, new PlaceMachineIn(st, 9, 1, 1, content.MachineIndex("core:smelter"), -1));
+        return (w, st);
+    }
+
+    [Fact]
+    public void AStationWithMachinesButNoReactorTeachesTheReactorOnce()
+    {
+        var (w, st) = StationWithSmelter();
+        var tips = new Tips(TestContent.CoreWithoutStarterShip);
+        var tip = tips.Next(w.Network, 0);
+        Assert.Equal("learn.noReactor", tip?.Key);
+        w.Step(Units.TicksPerSecond * 60);
+        Assert.NotEqual("learn.noReactor", tips.Next(w.Network, 0)?.Key); // once only
+        Assert.True(Loc.Has("learn.noReactor"));
+    }
+
+    [Fact]
+    public void AStationWithAReactorGetsNoReactorTip()
+    {
+        var (w, st) = StationWithSmelter();
+        Ok(w, new PlaceModuleIn(st, 0, 0, 1, ModuleKind.Reactor));
+        var tips = new Tips(TestContent.CoreWithoutStarterShip);
+        Assert.NotEqual("learn.noReactor", tips.Next(w.Network, 0)?.Key);
+    }
+
+    [Fact]
+    public void OpeningTheMapWithoutJumpCarbonTeachesTheCostOnce()
+    {
+        var content = TestContent.CoreWithoutStarterShip;
+        var w = SimWorld.CreateGalaxy(content, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true);
+        w.Network.EnsurePlayer(0);
+        var tips = new Tips(content);
+        Assert.NotEqual("learn.jumpCarbon", tips.Next(w.Network, 0, mapOpen: false)?.Key);
+        var tip = tips.Next(w.Network, 0, mapOpen: true);
+        Assert.Equal("learn.jumpCarbon", tip?.Key);
+        Assert.Equal(content.JumpCost[0].Count, tip!.Args[0]);
+        w.Step(Units.TicksPerSecond * 60);
+        Assert.NotEqual("learn.jumpCarbon", tips.Next(w.Network, 0, mapOpen: true)?.Key);
+    }
+
+    [Fact]
+    public void NoJumpCarbonTipWhenTheHoldPaysForTheJump()
+    {
+        var content = TestContent.CoreWithoutStarterShip;
+        var w = SimWorld.CreateGalaxy(content, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true);
+        w.Network.EnsurePlayer(0);
+        foreach (var stack in content.JumpCost) w.Network.GiveItems(0, stack.Item, stack.Count);
+        var tips = new Tips(content);
+        Assert.NotEqual("learn.jumpCarbon", tips.Next(w.Network, 0, mapOpen: true)?.Key);
+    }
 }

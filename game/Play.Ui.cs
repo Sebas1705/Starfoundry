@@ -458,7 +458,7 @@ public partial class Play
         if (!_demo)
         {
             _tips ??= new Tips(_content);
-            var tip = _tips.Next(Net, Player);
+            var tip = _tips.Next(Net, Player, _mapOpen);
             if (tip is not null)
             {
                 Toast(L(tip.Key, tip.Args), 14.0); // longer than a toast: these are lessons
@@ -1217,7 +1217,7 @@ public partial class Play
         sb.Append(L("obj.title", _objectives.DoneCount, states.Count)).Append('\n');
         if (_objectivesOpen)
         {
-            if (current is null) sb.Append(L("obj.allDone"));
+            if (current is null) sb.Append(L(_structuresOn ? "obj.allDone.structures" : "obj.allDone"));
             else
             {
                 // The step in progress with its hint, then a short look at what comes next.
