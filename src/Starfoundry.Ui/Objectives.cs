@@ -103,7 +103,8 @@ public sealed class ObjectiveTracker
         if (StationRules)
         {
             Mark(Objective.Core, () => net.ModuleCount(player) > 0);
-            Mark(Objective.CargoPort, () => AnyMachine(net, m => _content.Machines[m.Type].Role == MachineRole.Unloader));
+            // The ore port: it is the one that brings hand-mined ore to a smelter (the cargo port only moves ingots).
+            Mark(Objective.CargoPort, () => AnyMachine(net, m => _content.Machines[m.Type].Id == "core:ore_unloader"));
         }
         else
             Mark(Objective.Drill, () => AnyMachine(net, m => _content.Machines[m.Type].Role == MachineRole.Drill && m.Deposit >= 0));

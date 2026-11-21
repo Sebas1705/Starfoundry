@@ -37,7 +37,7 @@ public sealed class Tips
         if (!_shown.Contains("research") && _labIdleSince is double since && now - since >= 20 && AnyResearchAvailable(net)) return Show("research", "learn.research", now);
         if (!_shown.Contains("upgrades") && _logisticsAt is double at && now - at >= 90 && NoDefenceUpgradeYet(net) && net.CurrentResearch < 0 && Has(net, MachineRole.Lab))
             return Show("upgrades", "learn.upgrades", now);
-        if (!_shown.Contains("deliver") && net.ModuleCount(player) > 0 && !Has(net, MachineRole.Unloader)
+        if (!_shown.Contains("deliver") && net.ModuleCount(player) > 0 && !HasMachine(net, "core:ore_unloader")
             && net.HoldCount(player, _content.ItemIndex("core:iron_ore")) >= PlayerRules.HoldCapacity) return Show("deliver", "learn.deliver", now);
         if (!_shown.Contains("port") && net.IsResearched(_content.ResearchIndex("core:jump_drive")) && !Has(net, MachineRole.Unloader)
             && HomeIronLow(net, player)) return Show("port", "learn.port", now);
@@ -59,6 +59,13 @@ public sealed class Tips
         bool labIdle = Has(net, MachineRole.Lab) && net.CurrentResearch < 0;
         if (labIdle) _labIdleSince ??= now;
         else _labIdleSince = null;
+    }
+
+    private bool HasMachine(BeltNetwork net, string machineId)
+    {
+        for (int id = 0; id < net.MachineIdLimit; id++)
+            if (net.IsMachineAlive(id) && _content.Machines[net.GetMachineInfo(id).Type].Id == machineId) return true;
+        return false;
     }
 
     private bool Has(BeltNetwork net, MachineRole role)

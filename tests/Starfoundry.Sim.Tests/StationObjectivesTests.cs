@@ -69,7 +69,7 @@ public class StationObjectivesTests
         Assert.True(t.IsDone(Objective.Core));
         Assert.False(t.IsDone(Objective.CargoPort));
 
-        Add(w, "core:unloader");
+        Add(w, "core:ore_unloader");
         t.Update(w.Network, 0);
         Assert.True(t.IsDone(Objective.CargoPort));
     }
@@ -192,7 +192,7 @@ public class StationObjectivesTests
     {
         w.Network.AddModuleUnchecked(0, 0, 0, 0);
         w.Network.GiveItems(0, C.ItemIndex("core:iron_ore"), PlayerRules.HoldCapacity);
-        if (port) Add(w, "core:unloader");
+        if (port) Add(w, "core:ore_unloader");
         return new Tips(C);
     }
 
