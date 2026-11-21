@@ -23,6 +23,15 @@ public enum Objective
 
     /// <summary>Station rules only: a cargo port (unloader) is built.</summary>
     CargoPort,
+
+    /// <summary>Structures only: the first iron plate reached the hold or an assembler output.</summary>
+    WatchFactory,
+
+    /// <summary>Structures only: the player owns a station.</summary>
+    FoundStation,
+
+    /// <summary>Structures only: the player added modules beyond the starter set.</summary>
+    AddModule,
 }
 
 public sealed record ObjectiveState(Objective Objective, bool Done, bool StationRules = false)
@@ -60,16 +69,29 @@ public sealed class ObjectiveTracker
         Objective.Assembler, Objective.Lab, Objective.Research, Objective.Scan, Objective.Defend, Objective.Expand,
     };
 
+    private static readonly Objective[] StructuresOrder =
+    {
+        Objective.Fly, Objective.Mine, Objective.WatchFactory, Objective.FoundStation, Objective.AddModule,
+        Objective.Research, Objective.Scan, Objective.Defend, Objective.Expand,
+    };
+
+    /// <summary>Modules of the starter ship; a player with more than this has added some.</summary>
+    public const int StarterModuleCount = 5;
+
     /// <param name="content">Game content.</param>
     /// <param name="stationRules">True when machines may only be built inside station modules (a different step list).</param>
-    public ObjectiveTracker(ContentDb content, bool stationRules = false)
+    /// <param name="structures">True for the structures mode (ships and stations); it wins over <paramref name="stationRules"/>.</param>
+    public ObjectiveTracker(ContentDb content, bool stationRules = false, bool structures = false)
     {
         _content = content;
-        StationRules = stationRules;
-        _order = stationRules ? StationOrder : OldOrder;
+        Structures = structures;
+        StationRules = stationRules && !structures;
+        _order = structures ? StructuresOrder : stationRules ? StationOrder : OldOrder;
     }
 
     public bool StationRules { get; }
+
+    public bool Structures { get; }
 
     public IReadOnlyList<ObjectiveState> States =>
         _order.Select(o => new ObjectiveState(o, _done[(int)o], StationRules)).ToList();
@@ -100,7 +122,24 @@ public sealed class ObjectiveTracker
         });
         Mark(Objective.Mine, () => net.MinedByHand >= 5);
         Mark(Objective.Refine, () => Has(net, player, "core:iron_ingot", 3));
-        if (StationRules)
+        if (Structures)
+        {
+            Mark(Objective.WatchFactory, () => Has(net, player, "core:iron_plate", 1)
+                || AnyMachine(net, m => _content.Machines[m.Type].Id == "core:assembler" && m.OutputItems > 0));
+            Mark(Objective.FoundStation, () => net.Structures().Any(st => st.Owner == player && st.Kind == StructureKind.Station));
+            Mark(Objective.AddModule, () =>
+            {
+                int total = 0;
+                foreach (var st in net.Structures())
+                {
+                    if (st.Owner != player) continue;
+                    total += st.Modules.Count;
+                    if (st.Kind == StructureKind.Station && st.Modules.Count > 1) return true;
+                }
+                return total > StarterModuleCount;
+            });
+        }
+        else if (StationRules)
         {
             Mark(Objective.Core, () => net.ModuleCount(player) > 0);
             // The ore port: it is the one that brings hand-mined ore to a smelter (the cargo port only moves ingots).

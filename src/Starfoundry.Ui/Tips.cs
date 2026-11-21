@@ -31,6 +31,7 @@ public sealed class Tips
         if (now - _lastShown < GapSeconds) return null;
 
         // In priority order: what hurts first, then what helps.
+        if (!_shown.Contains("needEngine") && net.StructureRules && ShipMissingEngineOrCockpit(net, player)) return Show("needEngine", "learn.needEngine", now);
         if (!_shown.Contains("ammo") && TurretWithoutAmmoUnderAttack(net)) return Show("ammo", "learn.ammo", now);
         if (!_shown.Contains("repair") && AnyDamaged(net)) return Show("repair", "learn.repair", now);
         if (!_shown.Contains("walls") && net.MachinesLost > 0 && !Has(net, MachineRole.Wall)) return Show("walls", "learn.walls", now);
@@ -42,6 +43,17 @@ public sealed class Tips
         if (!_shown.Contains("port") && net.IsResearched(_content.ResearchIndex("core:jump_drive")) && !Has(net, MachineRole.Unloader)
             && HomeIronLow(net, player)) return Show("port", "learn.port", now);
         return null;
+    }
+
+    /// <summary>True when the player owns a ship with modules that lacks an engine or a cockpit (it cannot fly yet).</summary>
+    private static bool ShipMissingEngineOrCockpit(BeltNetwork net, int player)
+    {
+        foreach (var st in net.Structures())
+        {
+            if (st.Owner != player || st.Kind != StructureKind.Ship || st.Modules.Count == 0) continue;
+            if (!st.Modules.Values.Contains(ModuleKind.Engine) || !st.Modules.Values.Contains(ModuleKind.Cockpit)) return true;
+        }
+        return false;
     }
 
     private Tip Show(string id, string key, double now)
