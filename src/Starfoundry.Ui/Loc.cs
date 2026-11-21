@@ -165,6 +165,13 @@ public static class Loc
         // ---- hints under the bar ----
         ["hint.pointer"] = ("Ratón: mirar   WASD: volar   Espacio/C: subir/bajar   Clic: inspeccionar lo que apuntas   1-9: construir   Tab: soltar el ratón   F1: ayuda",
                             "Mouse: look   WASD: fly   Space/C: up/down   Click: inspect what you aim at   1-9: build   Tab: free the mouse   F1: help"),
+        ["hint.pointerWalk"] = ("Ratón: mirar   WASD: caminar   Mayús: correr   E: sentarte en el asiento (para volar)   Clic: inspeccionar lo que apuntas   1-9: construir   Tab: soltar el ratón   F1: ayuda",
+                                "Mouse: look   WASD: walk   Shift: run   E: sit at the pilot seat (to fly)   Click: inspect what you aim at   1-9: build   Tab: free the mouse   F1: help"),
+        ["hint.sit"] = ("E: sentarse", "E: sit"),
+        ["hint.stand"] = ("E: levantarse", "E: stand"),
+        ["toast.sitToFly"] = ("De pie no puedes pilotar ni usar el piloto automático: siéntate en el asiento del piloto (E).", "You cannot fly or use the autopilot standing up: sit at the pilot seat (E)."),
+        ["toast.seatTooFar"] = ("Estás lejos del asiento del piloto: acércate para sentarte (E).", "You are too far from the pilot seat: walk closer to sit (E)."),
+        ["toast.stoodUp"] = ("Te levantas: WASD camina por la nave (Mayús corre). La nave se queda quieta hasta que te sientes (E).", "You stand up: WASD walks around the ship (Shift runs). The ship holds still until you sit (E)."),
         ["hint.buildBelt"] = ("Construyendo: {0}. Apunta al suelo y haz clic donde empieza la línea; apunta al final y haz clic otra vez (o arrastra).   Clic derecho: cancelar o demoler.   R: girar.   Esc: dejar de construir",
                               "Building: {0}. Aim at the ground and click where the line starts; aim at the end and click again (or drag).   Right-click: cancel or demolish.   R: rotate.   Esc: stop building"),
         ["hint.buildMachine"] = ("Construyendo: {0}. Apunta al suelo y haz clic para colocarlo.   Clic derecho: demoler.   Y: cambiar receta.   Esc: dejar de construir",
@@ -188,8 +195,8 @@ public static class Loc
         ["hud.researchNone"] = ("Sin investigación elegida (T).", "No research selected (T)."),
         ["hud.oreLow"] = ("Queda poco {0} en este sistema ({1}%): escanea (K) y salta (G, J) a otro sistema.", "Little {0} left in this system ({1}%): scan (K) and jump (G, J) to another system."),
         ["learn.ammo"] = ("Tus torretas no tienen munición. Hace falta una línea que la fabrique (ensamblador con la receta de munición) y una cinta hasta cada torreta.", "Your turrets have no ammo. They need a line that makes it (an assembler on the ammo recipe) and a belt to each turret."),
-        ["learn.repair"] = ("Hay máquinas dañadas. Pulsa E para repararlas (cuesta la mitad de lo que costaron) o construye un taller de reparación (Q) con una cinta de lingotes.", "Some machines are damaged. Press E to repair them (half their build cost) or build a repair bay (Q) fed ingots by belt."),
-        ["learn.walls"] = ("Los enemigos atacan primero el muro más cercano. Pon muros (0) delante de la base, al alcance de las torretas, y repáralos con E durante la oleada.", "Enemies attack the nearest wall first. Put walls (0) in front of the base, within reach of the turrets, and repair them with E during the wave."),
+        ["learn.repair"] = ("Hay máquinas dañadas. Pulsa Retroceso para repararlas (cuesta la mitad de lo que costaron) o construye un taller de reparación (Q) con una cinta de lingotes.", "Some machines are damaged. Press Backspace to repair them (half their build cost) or build a repair bay (Q) fed ingots by belt."),
+        ["learn.walls"] = ("Los enemigos atacan primero el muro más cercano. Pon muros (0) delante de la base, al alcance de las torretas, y repáralos con Retroceso durante la oleada.", "Enemies attack the nearest wall first. Put walls (0) in front of the base, within reach of the turrets, and repair them with Backspace during the wave."),
         ["learn.research"] = ("El laboratorio está parado. Pulsa T para elegir qué investigar y asegúrate de que le llegan placas por cinta.", "The lab is idle. Press T to choose what to research and make sure plates reach it by belt."),
         ["learn.upgrades"] = ("Hay mejoras de defensa por investigar (T): daño y cadencia de torretas, vida de las máquinas y reparación.", "There are defence upgrades to research (T): turret damage and fire rate, machine hit points and repair."),
         ["learn.port"] = ("Con el motor de salto puedes construir un puerto de carga (B): saca lingotes de tu bodega a una cinta, así lo que mines en otro sistema alimenta tu fábrica.", "With the jump drive you can build a cargo port (B): it takes ingots out of your hold onto a belt, so what you mine in another system feeds your factory."),
@@ -427,13 +434,13 @@ public static class Loc
             "  Tab              soltar el ratón para usar los botones (clic en el juego para volver a mirar)\n\n" +
             "Nave\n" +
             "  W S   avanzar / retroceder hacia donde miras     A D   desplazarse a los lados     Espacio / C   subir / bajar\n" +
-            "  M   minar (vuela primero al yacimiento)      F   refinería       K   escanear       V   armas\n  Marcadores: yacimiento elegido, enemigo más cercano y tu base; en el borde de la pantalla señalan hacia dónde mirar\n\n" +
+            "  E   sentarte / levantarte del asiento del piloto (de pie: WASD camina, Mayús corre y no se vuela)\n  M   minar (vuela primero al yacimiento)      F   refinería       K   escanear       V   armas\n  Marcadores: yacimiento elegido, enemigo más cercano y tu base; en el borde de la pantalla señalan hacia dónde mirar\n\n" +
             "Construcción\n" +
             "  1-9, 0, Q, B, U   elegir qué construir (N: módulo de estación)       Esc   dejar de construir\n" +
             "  Y   cambiar receta       R   girar cintas sueltas       Z / X   cambiar de capa\n" +
             "  N   módulo de estación (el primero es el núcleo; solo se construye dentro de los módulos)\n" +
             "  Estructuras: N elige la herramienta de módulos y, pulsada otra vez, cambia su tipo (cabina, motor, reactor, bodega, taller, defensa, casco); I elige fundar una estación junto a la nave; cada tipo de módulo admite máquinas distintas\n" +
-            "  Clic en una máquina sin herramienta: ver su estado y cambiar su receta (Tab para usar sus botones).\n  E   reparar todas las máquinas dañadas a tu alcance (cuesta la mitad de su coste, en proporción al daño)\n\n" +
+            "  Clic en una máquina sin herramienta: ver su estado y cambiar su receta (Tab para usar sus botones).\n  Retroceso   reparar todas las máquinas dañadas a tu alcance (cuesta la mitad de su coste, en proporción al daño)\n\n" +
             "Otros\n" +
             "  T   elegir investigación      G   mapa estelar (flechas y J para saltar)\n" +
             "  P   pausa       + / -   velocidad       L   idioma       O   pasos       [ ]   cambiar yacimiento\n  H   más / menos detalles en el panel de estado       F6   guardar       F9   cargar (se guarda sola cada 5 minutos)       F11   pantalla completa",
@@ -446,13 +453,13 @@ public static class Loc
             "  Tab              free the mouse to use the buttons (click in the game to look again)\n\n" +
             "Ship\n" +
             "  W S   forward / back where you look     A D   strafe     Space / C   up / down\n" +
-            "  M   mine (flies to the deposit first)      F   refinery       K   scan       V   weapons\n  Markers: the selected deposit, the nearest enemy and your base; at the screen edge they point where to look\n\n" +
+            "  E   sit at / stand up from the pilot seat (standing: WASD walks, Shift runs, no flying)\n  M   mine (flies to the deposit first)      F   refinery       K   scan       V   weapons\n  Markers: the selected deposit, the nearest enemy and your base; at the screen edge they point where to look\n\n" +
             "Building\n" +
             "  1-9, 0, Q, B, U   choose what to build (N: station module)       Esc   stop building\n" +
             "  Y   change recipe       R   rotate single belts       Z / X   change layer\n" +
             "  N   station module (the first one is the core; you can only build inside modules)\n" +
             "  Structures: N picks the module tool and, pressed again, changes its kind (cockpit, engine, reactor, cargo, workshop, defence, hull); I picks founding a station beside the ship; each module kind allows different machines\n" +
-            "  With no tool, click a machine: see its status and change its recipe (Tab to use its buttons).\n  E   repair every damaged machine within reach (half the build cost, in proportion to the damage)\n\n" +
+            "  With no tool, click a machine: see its status and change its recipe (Tab to use its buttons).\n  Backspace   repair every damaged machine within reach (half the build cost, in proportion to the damage)\n\n" +
             "Other\n" +
             "  T   choose research      G   star map (arrows and J to jump)\n" +
             "  P   pause       + / -   speed       L   language       O   steps       [ ]   change deposit\n  H   more / fewer details in the status panel       F6   save       F9   load (it also saves itself every 5 minutes)       F11   fullscreen"),
