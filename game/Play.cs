@@ -50,7 +50,6 @@ public partial class Play : Node3D
     // Structures: the pilot station inside the cockpit module, in cells from the ship structure origin (the seat model is at z 4.6; the eye
     // stands just behind the seat, so the workshop stays in view when looking aft). The eye sits about 1.7 above the
     // workshop build layer (y = 1), as in the legacy view, so near cells stay small enough to aim at.
-    private static readonly Vector3 SeatOffset = new(4f, 2.7f, 6.6f);
     private const int DefaultStructureLayer = 1; // the workshop machines of the starter ship sit in local layer 1
     private readonly Dictionary<int, Node3D> _machineModels = new();
     private double _animTime;
