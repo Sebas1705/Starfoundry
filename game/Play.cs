@@ -149,7 +149,7 @@ public partial class Play : Node3D
             foreach (var node in _content.Research.Where(r => r.Bonuses.Length > 0)) _world.Network.GrantResearch(node.Index);
         if (_stressMachines > 0) BuildStressBase();
         if (_stationDemo) BuildStationDemo(args);
-        _selectedDeposit = RevealedDeposits().FirstOrDefault();
+        _selectedDeposit = DefaultDeposit();
 
         BuildPalette();
         BuildScene();
@@ -693,6 +693,15 @@ void fragment() {
             .OrderBy(d => { var p = Net.DepositPosition(d); return (new Vector3(p.X, p.Y, p.Z) - ship).LengthSquared(); })
             .ThenBy(d => d)
             .ToList();
+    }
+
+    /// <summary>The deposit selected at the start: the nearest iron one (the guided steps assume iron), else the nearest of any item.</summary>
+    private int DefaultDeposit()
+    {
+        var list = RevealedDeposits();
+        int iron = _content.ItemIndex("core:iron_ore");
+        foreach (int d in list) if (Net.DepositItem(d) == iron) return d;
+        return list.FirstOrDefault();
     }
 
     private void CycleDeposit(int step)
