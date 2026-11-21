@@ -56,6 +56,13 @@ public sealed class SimWorld
         foreach (var d in galaxy.Deposits)
             net.AddDeposit(d.Item, d.Amount, d.X, d.Y, d.Z, revealed: d.System == 0);
         net.SetGalaxy(galaxy);
+        // The starter ship is part of the initial world, like the deposits: built before the first command, at no cost, at the
+        // home anchor (the world origin), so replays and saves that call CreateGalaxy with the header flags get it too.
+        if (structures && content.StarterShip is { } ship)
+        {
+            net.EnsurePlayer(0);
+            net.BuildStructureFromTemplate(ship, StructureKind.Ship, 0, 0, 0, 0);
+        }
         return new SimWorld(net);
     }
 
@@ -555,6 +562,9 @@ public sealed class SimWorld
             case RemoveModuleIn rmo:
                 return RemoveModuleInCore(player, rmo);
 
+            case FoundStation fs:
+                return FoundStationCore(player, fs);
+
             case RemoveModule rmod:
                 return RemoveModuleCore(player, rmod);
 
@@ -863,6 +873,42 @@ public sealed class SimWorld
         Network.RemoveStructureModuleUnchecked(r.Structure, r.Mx, r.My, r.Mz);
         if (Campaign)
             Network.Refund(player, kinds.ModuleCost(kind).Select(c => new ItemStack(c.Item, c.Count / 2)).Where(c => c.Count > 0).ToArray());
+        return Reject.None;
+    }
+
+    private Reject FoundStationCore(int player, FoundStation f)
+    {
+        if (!Network.StructureRules) return Reject.NotAllowedHere;
+        if (Network.Content?.Structures is not { } kinds) return Reject.NoContent;
+        long cu = Units.CellUnits;
+        long limit = PlayerRules.WorldLimitUnits / cu;
+        if (Math.Abs((long)f.Wx) > limit || Math.Abs((long)f.Wy) > limit || Math.Abs((long)f.Wz) > limit) return Reject.OutOfBounds;
+        long ox = f.Wx * cu, oy = f.Wy * cu, oz = f.Wz * cu;
+
+        if (!Network.WorldPointInRange(player, ox + cu / 2, oy + cu / 2, oz + cu / 2, PlayerRules.BuildRangeCells)) return Reject.OutOfRange;
+
+        // The core's volume, [origin, origin + module size) per axis, must not touch any module volume of another structure.
+        long ex = ox + StationGrid.ModuleX * cu, ey = oy + StationGrid.ModuleY * cu, ez = oz + StationGrid.ModuleZ * cu;
+        foreach (var other in Network.Structures())
+        {
+            foreach (var (m, _) in other.Modules)
+            {
+                long mx0 = other.OriginX + (long)m.Mx * StationGrid.ModuleX * cu, my0 = other.OriginY + (long)m.My * StationGrid.ModuleY * cu,
+                    mz0 = other.OriginZ + (long)m.Mz * StationGrid.ModuleZ * cu;
+                if (ox < mx0 + StationGrid.ModuleX * cu && mx0 < ex && oy < my0 + StationGrid.ModuleY * cu && my0 < ey
+                    && oz < mz0 + StationGrid.ModuleZ * cu && mz0 < ez)
+                    return Reject.Overlap;
+            }
+        }
+
+        var cost = kinds.ModuleCost(ModuleKind.Core);
+        if (Campaign)
+        {
+            if (!Network.CanPay(player, cost)) return Reject.NotEnoughItems;
+            Network.Pay(player, cost);
+        }
+        int id = Network.CreateStructure(player, StructureKind.Station, ox, oy, oz);
+        Network.AddStructureModuleUnchecked(id, 0, 0, 0, ModuleKind.Core);
         return Reject.None;
     }
 

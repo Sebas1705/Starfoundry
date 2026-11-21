@@ -7,6 +7,16 @@ internal static class TestContent
 {
     public static readonly ContentDb Core =
         ContentDb.FromFile(Path.Combine(AppContext.BaseDirectory, "content", "core.json"));
+
+    /// <summary>The core content without the starter ship: structure worlds that build their own ships by hand start empty.</summary>
+    public static readonly ContentDb CoreWithoutStarterShip = ContentDb.FromJson(RemoveStarterShip());
+
+    private static string RemoveStarterShip()
+    {
+        var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", "core.json")))!.AsObject();
+        root.Remove("structure_templates");
+        return root.ToJsonString();
+    }
 }
 
 public class ContentTests

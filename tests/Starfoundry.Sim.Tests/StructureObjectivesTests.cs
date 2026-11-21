@@ -6,7 +6,7 @@ namespace Starfoundry.Sim.Tests;
 
 public class StructureObjectivesTests
 {
-    private static readonly ContentDb C = TestContent.Core;
+    private static readonly ContentDb C = TestContent.CoreWithoutStarterShip;
     private const ulong Seed = 20261121UL;
 
     private static readonly Objective[] StructuresOrder =

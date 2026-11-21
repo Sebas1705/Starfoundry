@@ -5,7 +5,7 @@ namespace Starfoundry.Sim.Tests;
 
 public class StructureCommandTests
 {
-    private static readonly ContentDb C = TestContent.Core;
+    private static readonly ContentDb C = TestContent.CoreWithoutStarterShip;
     private static readonly int Smelter = C.MachineIndex("core:smelter");
     private static readonly int Turret = C.MachineIndex("core:turret");
     private static readonly int Ingot = C.ItemIndex("core:iron_ingot");

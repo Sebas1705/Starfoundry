@@ -7,7 +7,7 @@ namespace Starfoundry.Sim.Tests;
 /// capacity come from modules.</summary>
 public class StructureFlightTests
 {
-    private static readonly ContentDb C = TestContent.Core;
+    private static readonly ContentDb C = TestContent.CoreWithoutStarterShip;
     private static readonly int Smelter = C.MachineIndex("core:smelter");
     private static readonly int Depot = C.MachineIndex("core:depot");
     private static readonly int OrePort = C.MachineIndex("core:ore_unloader");
