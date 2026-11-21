@@ -11,6 +11,19 @@ internal static class TestContent
     /// <summary>The core content without the starter ship: structure worlds that build their own ships by hand start empty.</summary>
     public static readonly ContentDb CoreWithoutStarterShip = ContentDb.FromJson(RemoveStarterShip());
 
+    /// <summary>
+    /// <see cref="CoreWithoutStarterShip"/> with <c>emergency_power</c> 0: an unfuelled reactor yields nothing, so tests of a full
+    /// blackout (machines, engines, drones, regeneration and turrets stopped) can still be written.
+    /// </summary>
+    public static readonly ContentDb CoreWithoutEmergencyPower = ContentDb.FromJson(RemoveEmergencyPower());
+
+    private static string RemoveEmergencyPower()
+    {
+        var root = System.Text.Json.Nodes.JsonNode.Parse(RemoveStarterShip())!.AsObject();
+        root["structures"]!["reactor"]!["emergency_power"] = 0;
+        return root.ToJsonString();
+    }
+
     private static string RemoveStarterShip()
     {
         var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", "core.json")))!.AsObject();
@@ -32,7 +45,7 @@ public class ContentTests
     {
         var c = TestContent.Core;
         Assert.Equal(14, c.Items.Count);
-        Assert.Equal(16, c.Machines.Count);
+        Assert.Equal(18, c.Machines.Count); // 16 plus the quartz and carbon ports
         Assert.Equal(17, c.Recipes.Count);
         Assert.Equal(17, c.Research.Count);
         Assert.Equal(new GalaxyRules(12, 800, 2, 150), c.Galaxy);

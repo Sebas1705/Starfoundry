@@ -167,24 +167,29 @@ public class HydrogenTests
     }
 
     [Fact]
-    public void A_ship_with_no_hydrogen_is_revived_by_the_hydrogen_the_cracker_makes()
+    public void A_ship_with_no_hydrogen_recovers_without_any_hydrogen_cheat()
     {
         var w = SimWorld.CreateGalaxy(TestContent.CoreWithoutStarterShip, GameMode.Sandbox, Seed, structures: true);
         var n = w.Network;
-        int s = PowerTests.Ship(w); // reactor, no hydrogen: power is 0
-        int input = n.AddSegment(0, 3, 0, 0, 0, 1, 3, BeltTier.Mk1, s);
-        n.SetSource(input, new ushort[] { (ushort)Ice });
-        int cracker = n.AddMachine(0, 3, 3, Cracker, CrackIce, owner: 0, structure: s);
+        int s = PowerTests.Ship(w); // reactor, no hydrogen: only the emergency output
+        n.GiveItems(0, Ice, 20); // the ice the player mined by hand: the only item placed in the hold
+        // Hold -> ice port -> belt -> cracker -> belt -> depot -> hold.
+        int port = n.AddMachine(0, 3, 0, IcePort, -1, owner: 0, structure: s);
+        int input = n.AddSegment(1, 3, 0, 1, 0, 0, 2, BeltTier.Mk1, s);
+        n.ConnectFromMachine(port, input);
+        int cracker = n.AddMachine(3, 3, 0, Cracker, CrackIce, owner: 0, structure: s);
         n.ConnectToMachine(input, cracker);
-        int output = n.AddSegment(0, 3, 4, 0, 0, 1, 3, BeltTier.Mk1, s);
+        int output = n.AddSegment(4, 3, 0, 1, 0, 0, 2, BeltTier.Mk1, s);
         n.ConnectFromMachine(cracker, output);
-        n.ConnectToMachine(output, n.AddMachine(0, 3, 7, Depot, -1, owner: 0, structure: s));
+        n.ConnectToMachine(output, n.AddMachine(6, 3, 0, Depot, -1, owner: 0, structure: s));
+        Assert.Equal(0, n.HoldCount(0, Hydrogen));
+        w.Step(2400);
+        Assert.True(n.PowerStatus(s).SatisfactionPermille > 0, "a dead ship still has emergency power");
+        Assert.True(n.HoldCount(0, Hydrogen) >= 3 || n.PowerStatus(s).Burning, "the cracker brought hydrogen back");
+        Assert.True(n.DepotDelivered >= 3);
         w.Step(600);
-        Assert.Equal(0, n.DepotDelivered); // the cracker needs power too: a dead ship cannot restart itself
-        n.GiveItems(0, Hydrogen, 1); // a single unit by hand (the player's last resort) starts the loop again
-        w.Step(1200);
-        Assert.True(n.DepotDelivered > 3);
-        Assert.True(n.PowerStatus(s).Burning);
+        Assert.True(n.PowerStatus(s).Burning || n.HoldCount(0, Hydrogen) > 0);
+        w.Network.ValidateInvariants();
     }
 
     // ---- Ui: tips and objective ------------------------------------------------------------------
@@ -220,7 +225,7 @@ public class HydrogenTests
         var w = StarterWorld();
         var tips = new Tips(C);
         w.Step(20 * 900 + 10); // the fuel is gone
-        Assert.Equal(0, w.Network.ShipPower(0).SatisfactionPermille);
+        Assert.Equal(535, w.Network.ShipPower(0).SatisfactionPermille); // only the emergency output (15 against 28)
         Assert.Equal("learn.noFuel", tips.Next(w.Network, 0)?.Key);
         w.Step(Tps * 30);
         Assert.Equal("learn.lowPower", tips.Next(w.Network, 0)?.Key);

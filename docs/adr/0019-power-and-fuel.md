@@ -29,3 +29,6 @@
 - **A. Fuel from the owner's hold (chosen).** Nothing new to store per structure; the same hold that the depot fills and the ice port empties; stations and the ship share the pool of their owner.
 - **B. A hydrogen tank per structure.** Rejected for now: it needs a new storage module, new commands to fill it and a way to move fuel between structures. It can be added later without changing the burn rules.
 - **C. Satisfaction as a plain speed multiplier (no work credit).** Rejected: crafting times are integer ticks, so a multiplier would need fractional time; the credit keeps every machine on whole ticks and stays deterministic.
+
+## Update (2026-11-21, see ADR 0022)
+A reactor module with no hydrogen and nothing burning now yields an emergency output `structures.reactor.emergency_power` (default 15) instead of nothing. Production is `power_output` while a reactor burns and the emergency value otherwise, so a ship with no hydrogen is slow but not dead: the cracker (12) can still run, and with the ice port and a depot (15 in all) the loop hold, port, cracker, depot, hold brings hydrogen back. Satisfaction is still `min(1000, production * 1000 / demand)`. `PowerStatus.Burning` now means a reactor is really burning. The soft lock described under "Consequences" (zero satisfaction with no fuel) is gone; content with `emergency_power` 0 keeps the old blackout.

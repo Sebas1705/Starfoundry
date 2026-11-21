@@ -113,6 +113,9 @@ public sealed class SimWorld
 
         // Machines destroyed by enemies leave their cells free.
         foreach (var d in Network.TakeDestroyedMachines()) RemoveCell(d.Structure, Key(d.X, d.Y, d.Z));
+        // So do belts that fell with a destroyed module or station.
+        foreach (var d in Network.TakeDestroyedSegments())
+            for (int k = 0; k < d.LengthCells; k++) RemoveCell(d.Structure, Key(d.OriginX + d.DirX * k, d.OriginY + d.DirY * k, d.OriginZ + d.DirZ * k));
     }
 
     public void Step(int ticks)
@@ -877,6 +880,10 @@ public sealed class SimWorld
 
         // The core anchors the structure: it can only go when it is the last module.
         if (kind == ModuleKind.Core && s.Modules.Count > 1) return Reject.ModuleOccupied;
+        // The ship cannot do without its last cockpit, engine, reactor or cargo module (stations are unaffected).
+        if (s.Kind == StructureKind.Ship && Network.ShipStructure(player) == r.Structure
+            && kind is ModuleKind.Cockpit or ModuleKind.Engine or ModuleKind.Reactor or ModuleKind.Cargo
+            && s.Modules.Values.Count(k => k == kind) <= 1) return Reject.LastEssentialModule;
         if (!Network.StructureStaysConnectedWithout(r.Structure, r.Mx, r.My, r.Mz)) return Reject.ModuleOccupied;
 
         var cells = CellsFor(r.Structure, create: false);

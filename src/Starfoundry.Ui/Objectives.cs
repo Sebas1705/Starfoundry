@@ -166,7 +166,10 @@ public sealed class ObjectiveTracker
         Mark(Objective.Lab, () => AnyMachine(net, m => _content.Machines[m.Type].Role == MachineRole.Lab));
         Mark(Objective.Research, () => net.ResearchedCount > 0);
         Mark(Objective.Scan, () => net.ScanCooldown(player) > 0);
-        Mark(Objective.Defend, () => AnyMachine(net, m => _content.Machines[m.Type].Role == MachineRole.Turret && m.InputItems > 0));
+        // Structure worlds: the turret stands in a defence module and its structure has enough power to fire.
+        Mark(Objective.Defend, () => AnyMachine(net, m => _content.Machines[m.Type].Role == MachineRole.Turret && m.InputItems > 0
+            && (!net.StructureRules || (m.Structure != 0 && net.TryGetModuleKindAt(m.Structure, m.X, m.Y, m.Z, out var kind) && kind == ModuleKind.Defence
+                && net.PowerStatus(m.Structure).SatisfactionPermille >= PowerRules.TurretMinSatisfaction))));
         Mark(Objective.Expand, () =>
         {
             for (int i = 1; i < net.SystemCount; i++)

@@ -35,6 +35,8 @@ public sealed class Tips
         if (!_shown.Contains("noFuel") && net.StructureRules && ShipHasReactor(net, player) && HydrogenInHold(net, player) <= 3) return Show("noFuel", "learn.noFuel", now);
         if (!_shown.Contains("lowPower") && net.StructureRules && net.ShipStructure(player) >= 0 && HydrogenInHold(net, player) == 0
             && net.ShipPower(player).SatisfactionPermille < PowerRules.FullSatisfaction) return Show("lowPower", "learn.lowPower", now);
+        if (!_shown.Contains("defence") && net.StructureRules && net.ThreatActive && !Has(net, MachineRole.Turret)
+            && (net.GetSystemThreat(0).WarningRemaining >= 0 || net.EnemyCount > 0)) return Show("defence", "learn.defence", now);
         if (!_shown.Contains("ammo") && TurretWithoutAmmoUnderAttack(net)) return Show("ammo", "learn.ammo", now);
         if (!_shown.Contains("repair") && AnyDamaged(net)) return Show("repair", "learn.repair", now);
         if (!_shown.Contains("walls") && net.MachinesLost > 0 && !Has(net, MachineRole.Wall)) return Show("walls", "learn.walls", now);

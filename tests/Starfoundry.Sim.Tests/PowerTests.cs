@@ -17,8 +17,8 @@ public class PowerTests
     private const ulong Seed = 20261121UL;
     private const int Tps = Units.TicksPerSecond;
 
-    private static SimWorld World(bool threats = false) =>
-        SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats, stationRules: false, structures: true);
+    private static SimWorld World(bool threats = false, bool emergency = true) =>
+        SimWorld.CreateGalaxy(emergency ? C : TestContent.CoreWithoutEmergencyPower, GameMode.Sandbox, Seed, threats, stationRules: false, structures: true);
 
     /// <summary>A ship at the origin: cockpit, engine, workshop, cargo and the given number of reactors, with some hydrogen in the hold.</summary>
     internal static int Ship(SimWorld w, int reactors = 1, int hydrogen = 0)
@@ -56,19 +56,49 @@ public class PowerTests
     }
 
     [Fact]
-    public void Reactor_without_fuel_produces_nothing()
+    public void Reactor_without_fuel_yields_only_the_emergency_output()
     {
         var w = World();
         int s = Ship(w);
+        Assert.Equal(15, C.Structures!.EmergencyPower(ModuleKind.Reactor));
         w.Network.AddMachine(0, 0, 0, Smelter, -1, owner: 0, structure: s);
         w.Step(10);
         var p = w.Network.PowerStatus(s);
-        Assert.Equal(0, p.Production);
+        Assert.Equal(15, p.Production); // not burning: the emergency trickle
         Assert.False(p.Burning);
         Assert.Equal(0, p.BurnRemainingTicks);
         Assert.Equal(0, p.HydrogenInHold);
         Assert.Equal(10, p.Demand);
-        Assert.Equal(0, p.SatisfactionPermille);
+        Assert.Equal(1000, p.SatisfactionPermille);
+        w.Network.ValidateInvariants();
+
+        // With emergency power 0 in the content the old blackout is back.
+        var dark = World(emergency: false);
+        int d = Ship(dark);
+        dark.Network.AddMachine(0, 0, 0, Smelter, -1, owner: 0, structure: d);
+        dark.Step(10);
+        Assert.Equal(0, dark.Network.PowerStatus(d).Production);
+        Assert.Equal(0, dark.Network.PowerStatus(d).SatisfactionPermille);
+    }
+
+    [Fact]
+    public void Zero_fuel_ship_is_not_dead()
+    {
+        // No hydrogen, no burning reactor: the smelter line and the engines still run, slowly.
+        var w = World();
+        int s = Ship(w);
+        for (int i = 1; i < 4; i++) w.Network.AddMachine(i, 5, 0, Smelter, -1, owner: 0, structure: s); // 40 demand in all with the line below
+        Line(w.Network, s, 0, Ore, Smelter, SmeltIron);
+        w.Network.SetThrust(0, PlayerRules.ThrustScale, 0, 0);
+        w.Step(1200);
+        var p = w.Network.PowerStatus(s);
+        Assert.Equal(40, p.Demand);
+        Assert.Equal(15, p.Production);
+        Assert.Equal(375, p.SatisfactionPermille); // 15 * 1000 / 40
+        Assert.False(p.Burning);
+        Assert.True(w.Network.MachineOutputsCreated >= 4, "the smelter crawls instead of stopping");
+        long x = w.Network.GetPlayerInfo(0).X;
+        Assert.InRange(x, 1200L * PlayerRules.MoveUnitsPerTick * 3 / 8 - 2, 1200L * PlayerRules.MoveUnitsPerTick * 3 / 8 + 2); // 37.5 percent of full speed
         w.Network.ValidateInvariants();
     }
 
@@ -97,7 +127,7 @@ public class PowerTests
         Assert.Equal(0, w.Network.HoldCount(0, Hydrogen));
         Assert.Equal(output, w.Network.PowerStatus(s).Production); // the last burn is still running
         w.Step();
-        Assert.Equal(0, w.Network.PowerStatus(s).Production);
+        Assert.Equal(15, w.Network.PowerStatus(s).Production); // the emergency output, not a burning reactor
         Assert.False(w.Network.PowerStatus(s).Burning);
         w.Network.ValidateInvariants();
     }
@@ -166,7 +196,8 @@ public class PowerTests
     [Fact]
     public void Zero_power_stops_machines_and_engines()
     {
-        var w = World();
+        // A full blackout needs content without the emergency output (see Zero_fuel_ship_is_not_dead for the shipped content).
+        var w = World(emergency: false);
         int s = Ship(w); // a reactor but no hydrogen
         Line(w.Network, s, 0, Ore, Smelter, SmeltIron);
         w.Network.SetThrust(0, PlayerRules.ThrustScale, 0, 0);
@@ -183,7 +214,7 @@ public class PowerTests
         Assert.True(w.Network.GetPlayerInfo(0).X > 20_000);
 
         // An engine-only ship with a reactor and no fuel is dead too, although it has nothing to power.
-        var bare = World();
+        var bare = World(emergency: false);
         int b = Ship(bare);
         Assert.Equal(0, bare.Network.PowerStatus(b).Demand);
         bare.Network.SetThrust(0, PlayerRules.ThrustScale, 0, 0);
@@ -212,7 +243,7 @@ public class PowerTests
         // Hold -> ore port -> belt -> depot -> hold, the loop of a starter-style factory, with and without fuel.
         (long Delivered, long Spawned) Loop(int hydrogen)
         {
-            var w = World();
+            var w = World(emergency: hydrogen > 0); // the no-fuel case needs a real blackout, not the emergency trickle
             int s = Ship(w, hydrogen: hydrogen);
             w.Network.GiveItems(0, Ore, 10);
             int port = w.Network.AddMachine(0, 3, 0, C.MachineIndex("core:ore_unloader"), -1, owner: 0, structure: s);
@@ -262,7 +293,7 @@ public class PowerTests
             if (firstShort < 0 && n.ShipPower(0).SatisfactionPermille < 1000) firstShort = t;
         }
         Assert.Equal(20L * interval + 1, firstShort); // 20 hydrogen x 900 ticks = 18000 ticks = 10 minutes
-        Assert.Equal(0, n.ShipPower(0).SatisfactionPermille);
+        Assert.Equal(535, n.ShipPower(0).SatisfactionPermille); // the emergency 15 against a demand of 28
         Assert.Equal(0, n.HoldCount(0, TestContent.Core.FuelItem));
         Assert.Equal(10, 20 * interval / Tps / 60);
         w.ValidateInvariants();
@@ -374,7 +405,7 @@ public class PowerTests
         a.Step(18_500);
         loaded.Step(18_500);
         Assert.Equal(a.Checksum(), loaded.Checksum());
-        Assert.Equal(0, a.Network.ShipPower(0).SatisfactionPermille);
+        Assert.Equal(101, a.Network.ShipPower(0).SatisfactionPermille); // the emergency 15 against a demand of 148
 
         // A clone and a replay of the log agree too.
         Assert.Equal(a.Checksum(), a.Network.Clone().Checksum());
