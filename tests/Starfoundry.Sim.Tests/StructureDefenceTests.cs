@@ -679,6 +679,19 @@ public class StructureDefenceTests
         cd["cost"] = System.Text.Json.Nodes.JsonNode.Parse("""[{"item":"core:iron_plate","count":135}]""");
         // And before the engine became rebuildable from home items: it cost titanium plates.
         root["structures"]!["engine"]!["cost"] = System.Text.Json.Nodes.JsonNode.Parse("""[{"item":"core:iron_plate","count":16},{"item":"core:carbon","count":4},{"item":"core:titanium_plate","count":6}]""");
+        // And before the resource expansion: no silicon, circuit, alloy or fuel cell, no electronics research and none of the three new
+        // module kinds (their entries are optional). Items and research are part of the hold and research hashes, so they must be
+        // absent for the golden checksums to hold.
+        foreach (var kind in new[] { "shield", "sensor", "reactor_mk2" })
+            root["structures"]!.AsObject().Remove(kind);
+        void RemoveWhere(string section, params string[] ids)
+        {
+            var arr = root[section]!.AsArray();
+            foreach (var id in ids) arr.Remove(arr.First(e => e!["id"]!.GetValue<string>() == id));
+        }
+        RemoveWhere("research", "core:advanced_power", "core:sensors", "core:shielding", "core:electronics", "core:silicon_processing");
+        RemoveWhere("recipes", "core:smelt_silicon", "core:make_circuit", "core:make_alloy", "core:make_fuel_cell");
+        RemoveWhere("items", "core:silicon", "core:circuit", "core:titanium_alloy", "core:fuel_cell");
         return ContentDb.FromJson(root.ToJsonString());
     }
 

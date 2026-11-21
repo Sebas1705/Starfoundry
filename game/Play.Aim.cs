@@ -219,7 +219,7 @@ public partial class Play
     // ---- the module tool (structures) -------------------------------------------------------------------------
 
     private static readonly ModuleKind[] PlaceableKinds =
-        { ModuleKind.Cockpit, ModuleKind.Engine, ModuleKind.Reactor, ModuleKind.Cargo, ModuleKind.Workshop, ModuleKind.Defence, ModuleKind.Hull, ModuleKind.DroneBay };
+        { ModuleKind.Cockpit, ModuleKind.Engine, ModuleKind.Reactor, ModuleKind.Cargo, ModuleKind.Workshop, ModuleKind.Defence, ModuleKind.Hull, ModuleKind.DroneBay, ModuleKind.Shield, ModuleKind.Sensor, ModuleKind.ReactorMk2 };
 
     private string KindName(ModuleKind k) => L("module." + k.ToString().ToLowerInvariant());
 
