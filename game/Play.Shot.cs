@@ -42,7 +42,7 @@ public partial class Play
         _shotFound = ShotArg(args, "--shot-found");
         _shotSkipOutside = args.Contains("--shot-skip-outside");
         _wantCapture = false;
-        _shotPhase = _shotMiningTicks == 0 ? 3 : 0;
+        _shotPhase = _powerShotPath is not null || _shotMiningTicks == 0 ? 3 : 0;
     }
 
     private void ShotThrust((int X, int Y, int Z) t)
@@ -55,6 +55,7 @@ public partial class Play
     /// <summary>Called before every simulation tick of a <c>--structures-shot</c> run.</summary>
     private void StructuresShotThink()
     {
+        if (_powerShotPath is not null) { PowerShotThink(); return; }
         if (_world.PendingCommands > 0 || ShipStruct < 0) return;
         switch (_shotPhase)
         {

@@ -54,7 +54,7 @@ public sealed class SimWorld
         var galaxy = Galaxy.Generate(content, seed);
         var net = new BeltNetwork(content, mode, threats, stationRules, structures);
         foreach (var d in galaxy.Deposits)
-            net.AddDeposit(d.Item, d.Amount, d.X, d.Y, d.Z, revealed: d.System == 0);
+            net.AddDeposit(d.Item, d.Amount, d.X, d.Y, d.Z, revealed: d.System == 0, density: d.Density);
         net.SetGalaxy(galaxy);
         // The starter ship is part of the initial world, like the deposits: built before the first command, at no cost, at the
         // home anchor (the world origin), so replays and saves that call CreateGalaxy with the header flags get it too.
@@ -565,6 +565,24 @@ public sealed class SimWorld
             case FoundStation fs:
                 return FoundStationCore(player, fs);
 
+            case AssignDrones ad:
+            {
+                if (!Network.StructureRules) return Reject.NotAllowedHere;
+                var found = BuildableStructure(player, ad.Structure, out _);
+                if (found != Reject.None) return found;
+                if (ad.Deposit == -1)
+                {
+                    Network.AssignDrones(ad.Structure, -1);
+                    return Reject.None;
+                }
+                if (Network.DroneBays(ad.Structure) == 0) return Reject.NoDroneBay;
+                if (!Network.IsDeposit(ad.Deposit)) return Reject.UnknownDeposit;
+                if (!Network.IsDepositRevealed(ad.Deposit)) return Reject.NotDiscovered;
+                if (!Network.DepositInDroneRange(ad.Structure, ad.Deposit)) return Reject.OutOfRange;
+                Network.AssignDrones(ad.Structure, ad.Deposit);
+                return Reject.None;
+            }
+
             case RemoveModule rmod:
                 return RemoveModuleCore(player, rmod);
 
@@ -826,6 +844,7 @@ public sealed class SimWorld
         if (found != Reject.None) return found;
         if (!Enum.IsDefined(p.Kind)) return Reject.InvalidArgument;
         if (!StructureGrid.IsValidLocalModule(p.Mx, p.My, p.Mz)) return Reject.OutOfBounds;
+        if (p.Kind == ModuleKind.DroneBay && Campaign && !Network.HasAbility(Ability.DroneBay)) return Reject.Locked;
         if (s!.Modules.ContainsKey((p.Mx, p.My, p.Mz))) return Reject.Overlap;
         if (s.Modules.Count > 0)
         {

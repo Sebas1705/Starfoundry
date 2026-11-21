@@ -72,7 +72,8 @@ public sealed record ThreatRules(
 /// <param name="Hp">Hit points; a machine at zero is destroyed.</param>
 /// <param name="Signature">What the machine adds to its system's signature, which attracts waves.</param>
 public sealed record MachineDef(
-    int Index, string Id, MachineRole Role, ItemStack[] Cost, bool SandboxOnly, int Hp = 100, int Signature = 0, TurretDef? Turret = null, RepairerDef? Repairer = null, UnloaderDef? Unloader = null);
+    int Index, string Id, MachineRole Role, ItemStack[] Cost, bool SandboxOnly, int Hp = 100, int Signature = 0, TurretDef? Turret = null, RepairerDef? Repairer = null, UnloaderDef? Unloader = null,
+    int PowerUse = 0);
 
 /// <param name="TimeTicks">Crafting time in simulation ticks (converted once at load from seconds).</param>
 public sealed record RecipeDef(int Index, string Id, int Machine, ItemStack[] Inputs, ItemStack[] Outputs, int TimeTicks);
@@ -109,6 +110,9 @@ public enum Ability
 {
     /// <summary>Jumping along lanes between systems.</summary>
     Jump = 0,
+
+    /// <summary>Placing drone bay modules.</summary>
+    DroneBay = 1,
 }
 
 /// <param name="Requires">Research nodes that must be finished first.</param>
@@ -123,12 +127,35 @@ public sealed record ResearchDef(
 public sealed record GalaxyRules(int SystemCount, int SpacingCells, int LanesPerSystem, int SystemRadiusCells);
 
 /// <summary>How many deposits of an item an archetype creates and how rich they are (inclusive ranges).</summary>
-public sealed record DepositSpec(int Item, int CountMin, int CountMax, int AmountMin, int AmountMax);
+/// <param name="DensityMin">Optional richness range in percent (see <see cref="DepositRules"/>); both 0 means the legacy density of 100.</param>
+public sealed record DepositSpec(int Item, int CountMin, int CountMax, int AmountMin, int AmountMax, int DensityMin = 0, int DensityMax = 0)
+{
+    public bool HasDensity => DensityMax > 0;
+}
 
 /// <param name="Weight">Relative chance of being picked for a system (home is never picked).</param>
 /// <param name="DistanceMin">Deposits are placed this far from the system anchor, in cells (inclusive range).</param>
+/// <param name="DepthMin">Optional: only systems at least this many lane jumps from home can get the archetype (0 = no limit).</param>
+/// <param name="DepthMax">Optional: only systems at most this many jumps from home (0 = no limit).</param>
+/// <param name="Guaranteed">If true and no system picked the archetype, the nearest eligible system (or the farthest one in a shallow galaxy) is given it.</param>
 public sealed record ArchetypeDef(
-    int Index, string Id, int Weight, bool IsHome, int DistanceMin, int DistanceMax, DepositSpec[] Deposits);
+    int Index, string Id, int Weight, bool IsHome, int DistanceMin, int DistanceMax, DepositSpec[] Deposits,
+    int DepthMin = 0, int DepthMax = 0, bool Guaranteed = false)
+{
+    public bool HasDepthLimit => DepthMin > 0 || DepthMax > 0;
+    public bool AllowedAt(int depth) => depth >= DepthMin && (DepthMax == 0 || depth <= DepthMax);
+}
+
+/// <summary>Fixed limits of a deposit's density (percent of the base mining rate).</summary>
+public static class DepositRules
+{
+    public const int DefaultDensity = 100;
+    public const int MinDensity = 25;
+    public const int MaxDensity = 200;
+
+    /// <summary>Ticks a time of <paramref name="baseTicks"/> takes at a density: base * 100 / density, never below 1.</summary>
+    public static int Scale(int baseTicks, int density) => Math.Max(1, (int)((long)baseTicks * 100 / density));
+}
 
 /// <summary>
 /// Immutable game content loaded from data files: items, machine types, recipes, belt costs and research.
@@ -186,6 +213,9 @@ public sealed class ContentDb
 
     /// <summary>The ship the campaign starts in (built at world creation when structure rules are on), or null if the content has none.</summary>
     public StructureTemplate? StarterShip { get; }
+
+    /// <summary>Index of the reactor fuel item (<see cref="PowerRules.FuelItemId"/>), or -1 when the content has none.</summary>
+    public int FuelItem { get; }
     public IReadOnlyList<EnemyDef> Enemies { get; }
     public IReadOnlyList<WaveSpec> Waves { get; }
     public ulong Hash { get; }
@@ -210,6 +240,7 @@ public sealed class ContentDb
         Archetypes = archetypes;
         JumpCost = jumpCost;
         foreach (var i in items) _items.Add(i.Id, i.Index);
+        FuelItem = _items.TryGetValue(PowerRules.FuelItemId, out int fuel) ? fuel : -1;
         foreach (var m in machines) _machines.Add(m.Id, m.Index);
         foreach (var r in recipes) _recipes.Add(r.Id, r.Index);
         foreach (var r in research) _research.Add(r.Id, r.Index);
@@ -273,7 +304,7 @@ public sealed class ContentDb
             var machineIds = new Dictionary<string, int>();
             foreach (var e in Array(root, "machines"))
             {
-                RequireObject(e, "machine", "id", "role", "cost", "sandbox_only", "hp", "signature", "turret", "repairer", "unloader");
+                RequireObject(e, "machine", "id", "role", "cost", "sandbox_only", "hp", "signature", "turret", "repairer", "unloader", "power_use");
                 string id = Id(e, "machine");
                 if (!machineIds.TryAdd(id, machines.Count)) throw new InvalidDataException($"Duplicate machine '{id}'.");
                 if (!allIds.Add(id)) throw new InvalidDataException($"Id '{id}' is used twice across machines, recipes, belts and research.");
@@ -340,7 +371,8 @@ public sealed class ContentDb
                     unloaderDef = new UnloaderDef(carriedIndex, Int(un, "interval_ticks", id, 1, 600), Int(un, "reserve", id, 0, 60));
                 }
                 else if (role == MachineRole.Unloader) throw new InvalidDataException($"Unloader '{id}' needs unloader data.");
-                machines.Add(new MachineDef(machines.Count, id, role, cost, sandboxOnly, hp, signature, turretDef, repairerDef, unloaderDef));
+                int powerUse = e.TryGetProperty("power_use", out _) ? Int(e, "power_use", id, 0, 1000) : 0;
+                machines.Add(new MachineDef(machines.Count, id, role, cost, sandboxOnly, hp, signature, turretDef, repairerDef, unloaderDef, powerUse));
             }
 
             var recipes = new List<RecipeDef>();
@@ -443,9 +475,12 @@ public sealed class ContentDb
                     {
                         foreach (var a in Array(e, "abilities"))
                         {
-                            var ability = a.ValueKind == JsonValueKind.String && a.GetString() == "jump"
-                                ? Ability.Jump
-                                : throw new InvalidDataException($"Research '{id}' lists an unknown ability.");
+                            var ability = (a.ValueKind == JsonValueKind.String ? a.GetString() : null) switch
+                            {
+                                "jump" => Ability.Jump,
+                                "drone_bay" => Ability.DroneBay,
+                                _ => throw new InvalidDataException($"Research '{id}' lists an unknown ability."),
+                            };
                             if (ua.Contains(ability)) throw new InvalidDataException($"Research '{id}' lists an ability twice.");
                             ua.Add(ability);
                         }
@@ -514,7 +549,7 @@ public sealed class ContentDb
                 var archetypeIds = new HashSet<string>();
                 foreach (var e in Array(root, "archetypes"))
                 {
-                    RequireObject(e, "archetype", "id", "weight", "home", "distance_cells", "deposits");
+                    RequireObject(e, "archetype", "id", "weight", "home", "distance_cells", "deposits", "depth", "guaranteed");
                     string id = Id(e, "archetype");
                     if (!archetypeIds.Add(id)) throw new InvalidDataException($"Duplicate archetype '{id}'.");
                     if (!allIds.Add(id)) throw new InvalidDataException($"Id '{id}' is used twice across machines, recipes, belts, research and archetypes.");
@@ -528,18 +563,30 @@ public sealed class ContentDb
                     int weight = Int(e, "weight", id, home ? 0 : 1, 1000);
                     var (dmin, dmax) = Range(e, "distance_cells", id, 1, 400);
 
+                    int depthMin = 0, depthMax = 0;
+                    if (e.TryGetProperty("depth", out _)) (depthMin, depthMax) = Range(e, "depth", id, 0, 32);
+                    bool guaranteed = false;
+                    if (e.TryGetProperty("guaranteed", out var gv))
+                    {
+                        if (gv.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) throw new InvalidDataException($"Archetype '{id}' guaranteed must be true or false.");
+                        guaranteed = gv.GetBoolean();
+                    }
+                    if (home && (depthMax > 0 || guaranteed)) throw new InvalidDataException($"The home archetype '{id}' cannot have a depth or be guaranteed.");
+
                     var specs = new List<DepositSpec>();
                     foreach (var s in Array(e, "deposits"))
                     {
-                        RequireObject(s, "deposit spec", "item", "count", "amount");
+                        RequireObject(s, "deposit spec", "item", "count", "amount", "density");
                         string item = Str(s, "item", $"deposits of '{id}'");
                         if (!itemIds.TryGetValue(item, out int itemIndex)) throw new InvalidDataException($"Archetype '{id}' uses unknown item '{item}'.");
                         var (cmin, cmax) = Range(s, "count", id, 0, 16);
                         var (amin, amax) = Range(s, "amount", id, 1, 1_000_000);
-                        specs.Add(new DepositSpec(itemIndex, cmin, cmax, amin, amax));
+                        int denMin = 0, denMax = 0;
+                        if (s.TryGetProperty("density", out _)) (denMin, denMax) = Range(s, "density", id, DepositRules.MinDensity, DepositRules.MaxDensity);
+                        specs.Add(new DepositSpec(itemIndex, cmin, cmax, amin, amax, denMin, denMax));
                     }
                     if (specs.Count == 0 || specs.Count > 8) throw new InvalidDataException($"Archetype '{id}' needs 1 to 8 deposit specs.");
-                    archetypes.Add(new ArchetypeDef(archetypes.Count, id, weight, home, dmin, dmax, specs.ToArray()));
+                    archetypes.Add(new ArchetypeDef(archetypes.Count, id, weight, home, dmin, dmax, specs.ToArray(), depthMin, depthMax, guaranteed));
                 }
             }
 
@@ -550,6 +597,7 @@ public sealed class ContentDb
             {
                 if (archetypes.Count(a => a.IsHome) != 1) throw new InvalidDataException("A galaxy needs exactly one home archetype.");
                 if (!archetypes.Any(a => !a.IsHome && a.Weight > 0)) throw new InvalidDataException("A galaxy needs at least one non-home archetype with a weight.");
+                if (!archetypes.Any(a => !a.IsHome && a.Weight > 0 && !a.HasDepthLimit)) throw new InvalidDataException("A galaxy needs a non-home archetype with a weight and no depth limit.");
                 foreach (var a in archetypes)
                     if (a.DistanceMax > galaxy.SystemRadiusCells) throw new InvalidDataException($"Archetype '{a.Id}' places deposits outside the system radius.");
             }
@@ -598,7 +646,7 @@ public sealed class ContentDb
                 if (tpl.TryGetProperty("starter_ship", out var ss))
                 {
                     if (structures is null) throw new InvalidDataException("'structure_templates' needs a 'structures' section.");
-                    starterShip = LoadTemplate(ss, "structure_templates.starter_ship", structures, machines, recipes, beltIds);
+                    starterShip = LoadTemplate(ss, "structure_templates.starter_ship", structures, machines, recipes, beltIds, itemIds);
                 }
             }
 
@@ -647,14 +695,26 @@ public sealed class ContentDb
 
     private static StructureContent LoadStructures(JsonElement st, Dictionary<string, int> itemIds)
     {
-        var names = Enum.GetValues<ModuleKind>().Select(k => k.ToString().ToLowerInvariant()).ToArray();
+        var names = Enum.GetValues<ModuleKind>().Select(ModuleKindIds.Id).ToArray();
         RequireObject(st, "structures", names);
         var kinds = new ModuleKindDef[names.Length];
         for (int i = 0; i < names.Length; i++)
         {
             if (!st.TryGetProperty(names[i], out var k)) throw new InvalidDataException($"'structures' needs an entry for '{names[i]}'.");
             string owner = "structures." + names[i];
-            RequireObject(k, owner, "cost", "hp", "allows", "hold_capacity", "thrust_speed_percent");
+            RequireObject(k, owner, "cost", "hp", "allows", "hold_capacity", "thrust_speed_percent", "power_output", "burn_interval_ticks",
+                "drone_range_cells", "drone_interval_ticks", "power_use");
+            bool isReactor = (ModuleKind)i == ModuleKind.Reactor;
+            bool isBay = (ModuleKind)i == ModuleKind.DroneBay;
+            if (!isBay && (k.TryGetProperty("drone_range_cells", out _) || k.TryGetProperty("drone_interval_ticks", out _) || k.TryGetProperty("power_use", out _)))
+                throw new InvalidDataException($"'drone_range_cells', 'drone_interval_ticks' and 'power_use' only belong to the drone bay, not {owner}.");
+            int droneRange = isBay ? (k.TryGetProperty("drone_range_cells", out _) ? Int(k, "drone_range_cells", owner, 1, 10_000) : 60) : 0;
+            int droneInterval = isBay ? (k.TryGetProperty("drone_interval_ticks", out _) ? Int(k, "drone_interval_ticks", owner, 1, 1_000_000) : 90) : 0;
+            int bayPower = isBay ? (k.TryGetProperty("power_use", out _) ? Int(k, "power_use", owner, 0, 100_000) : 20) : 0;
+            if (!isReactor && (k.TryGetProperty("power_output", out _) || k.TryGetProperty("burn_interval_ticks", out _)))
+                throw new InvalidDataException($"'power_output' and 'burn_interval_ticks' only belong to the reactor, not {owner}.");
+            int powerOutput = isReactor ? (k.TryGetProperty("power_output", out _) ? Int(k, "power_output", owner, 0, 100_000) : 100) : 0;
+            int burnInterval = isReactor ? (k.TryGetProperty("burn_interval_ticks", out _) ? Int(k, "burn_interval_ticks", owner, 1, 1_000_000) : 900) : 0;
             var roles = new List<MachineRole>();
             bool belts = false;
             if (!k.TryGetProperty("allows", out var al) || al.ValueKind != JsonValueKind.Array)
@@ -686,7 +746,7 @@ public sealed class ContentDb
             kinds[i] = new ModuleKindDef((ModuleKind)i,
                 Stacks(k, "cost", owner, itemIds, allowEmpty: false, max: MaxCostStack),
                 Int(k, "hp", owner, 1, 100_000), roles.ToArray(), belts,
-                Int(k, "hold_capacity", owner, 0, 100_000), Int(k, "thrust_speed_percent", owner, 0, 10_000));
+                Int(k, "hold_capacity", owner, 0, 100_000), Int(k, "thrust_speed_percent", owner, 0, 10_000), powerOutput, burnInterval, droneRange, droneInterval, bayPower);
         }
         return new StructureContent(kinds);
     }
@@ -709,10 +769,10 @@ public sealed class ContentDb
     /// <summary>Loads and validates a pre-built structure: modules face-connected, machines and belts inside modules that allow them,
     /// no two things in one cell, belts wired to machines they touch.</summary>
     private static StructureTemplate LoadTemplate(JsonElement t, string owner, StructureContent kinds, List<MachineDef> machineDefs,
-        List<RecipeDef> recipeDefs, Dictionary<string, BeltTier> beltIds)
+        List<RecipeDef> recipeDefs, Dictionary<string, BeltTier> beltIds, Dictionary<string, int> itemIds)
     {
-        RequireObject(t, owner, "modules", "machines", "belts");
-        var kindNames = Enum.GetValues<ModuleKind>().ToDictionary(k => k.ToString().ToLowerInvariant());
+        RequireObject(t, owner, "modules", "machines", "belts", "hold");
+        var kindNames = Enum.GetValues<ModuleKind>().ToDictionary(ModuleKindIds.Id);
         var modules = new List<TemplateModule>();
         var moduleKinds = new Dictionary<(int, int, int), ModuleKind>();
         foreach (var e in Array(t, "modules"))
@@ -818,7 +878,10 @@ public sealed class ContentDb
                 throw new InvalidDataException($"{owner}: '{machines[to].Name}' cannot take items from a belt.");
             belts.Add(new TemplateBelt(at[0], at[1], at[2], dir, length, tier, from, to));
         }
-        return new StructureTemplate(modules.ToArray(), machines.ToArray(), belts.ToArray());
+        var hold = t.TryGetProperty("hold", out _) ? Stacks(t, "hold", owner, itemIds, allowEmpty: true, max: MaxCostStack) : System.Array.Empty<ItemStack>();
+        long capacity = moduleKinds.Values.Sum(k => (long)kinds.HoldCapacity(k)), held = hold.Sum(s => (long)s.Count);
+        if (held > capacity) throw new InvalidDataException($"The starting hold of {owner} ({held} items) is larger than its cargo capacity ({capacity}).");
+        return new StructureTemplate(modules.ToArray(), machines.ToArray(), belts.ToArray(), hold);
     }
 
     private static int Int(JsonElement e, string name, string owner, int min, int max)
@@ -920,6 +983,7 @@ public sealed class ContentDb
             if (m.Repairer is { } rp) { Mix(rp.RangeCells); Mix(rp.Heal); Mix(rp.IntervalTicks); Mix(rp.Item); Mix(rp.ItemCap); }
             if (m.Unloader is { } un) { Mix(un.Item); Mix(un.IntervalTicks); Mix(un.Reserve); }
             else Mix(-1);
+            if (m.PowerUse != 0) Mix(m.PowerUse); // mixed only when set so content without power hashes as before
         }
         Mix(Recipes.Count);
         foreach (var r in Recipes)
@@ -955,7 +1019,12 @@ public sealed class ContentDb
         {
             MixStr(a.Id); Mix(a.Weight); Mix(a.IsHome ? 1 : 0); Mix(a.DistanceMin); Mix(a.DistanceMax);
             Mix(a.Deposits.Length);
-            foreach (var d in a.Deposits) { Mix(d.Item); Mix(d.CountMin); Mix(d.CountMax); Mix(d.AmountMin); Mix(d.AmountMax); }
+            foreach (var d in a.Deposits)
+            {
+                Mix(d.Item); Mix(d.CountMin); Mix(d.CountMax); Mix(d.AmountMin); Mix(d.AmountMax);
+                if (d.HasDensity) { Mix(d.DensityMin); Mix(d.DensityMax); } // absent for legacy content, which hashes as before
+            }
+            if (a.HasDepthLimit || a.Guaranteed) { Mix(a.DepthMin); Mix(a.DepthMax); Mix(a.Guaranteed ? 1 : 0); }
         }
         MixStacks(JumpCost);
         if (Modules is { } mo) { MixStacks(mo.CoreCost); MixStacks(mo.HullCost); Mix(mo.GrowthPercent); }
@@ -967,6 +1036,8 @@ public sealed class ContentDb
                 Mix((int)k.Kind); MixStacks(k.Cost); Mix(k.Hp);
                 Mix(k.AllowedRoles.Length); foreach (var r in k.AllowedRoles) Mix((int)r);
                 Mix(k.AllowsBelts ? 1 : 0); Mix(k.HoldCapacity); Mix(k.ThrustSpeedPercent);
+                if (k.PowerOutput != 0 || k.BurnIntervalTicks != 0) { Mix(k.PowerOutput); Mix(k.BurnIntervalTicks); }
+                if (k.DroneIntervalTicks != 0) { Mix(k.DroneRangeCells); Mix(k.DroneIntervalTicks); Mix(k.PowerUse); }
             }
         }
         else Mix(-1);
@@ -978,6 +1049,7 @@ public sealed class ContentDb
             foreach (var m in ship.Machines) { MixStr(m.Name); Mix(m.X); Mix(m.Y); Mix(m.Z); Mix(m.Type); Mix(m.Recipe); }
             Mix(ship.Belts.Length);
             foreach (var b in ship.Belts) { Mix(b.X); Mix(b.Y); Mix(b.Z); Mix((int)b.Dir); Mix(b.Length); Mix((int)b.Tier); Mix(b.From); Mix(b.To); }
+            if (ship.Hold.Length > 0) MixStacks(ship.Hold);
         }
         else Mix(-1);
         if (Threat is { } th)

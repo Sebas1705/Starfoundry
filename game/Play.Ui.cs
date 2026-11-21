@@ -75,6 +75,13 @@ public partial class Play
 
     private static string L(string key, params object[] args) => Loc.T(key, args);
 
+    /// <summary>Vein richness as a word plus percent, e.g. "Rich vein (150 %)".</summary>
+    private string DensityText(int deposit)
+    {
+        int d = Net.DepositDensity(deposit);
+        return L(d < 60 ? "density.poor" : d <= 120 ? "density.normal" : "density.rich", d);
+    }
+
     private string ItemName(int item) => Loc.Name("item", _content.Items[item].Id);
 
     private string MachineName(int type) => Loc.Name("machine", _content.Machines[type].Id);
@@ -142,7 +149,10 @@ public partial class Play
 
         // Status: the essentials (hull, alert, current step); H opens the full block.
         _statusLabel = MakeText(14);
-        _statusPanel = MakePanel(_statusLabel);
+        var statusBox = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        statusBox.AddChild(_statusLabel);
+        BuildPowerBox(statusBox);
+        _statusPanel = MakePanel(statusBox);
         _statusPanel.MouseFilter = Control.MouseFilterEnum.Ignore;
 
         // Flight readout at the top centre: heading strip and speed.
@@ -185,8 +195,8 @@ public partial class Play
         infoRow.AddChild(_holdItems);
         infoRow.AddChild(_toolLabel);
         strip.AddChild(infoRow);
-        _buildBar = new HBoxContainer();
-        _buildBar.AddThemeConstantOverride("separation", 4);
+        _buildBar = new VBoxContainer();
+        _buildBar.AddThemeConstantOverride("separation", 3);
         FillBuildBar();
         strip.AddChild(_buildBar);
         _toolbar = MakePanel(strip);
@@ -293,10 +303,14 @@ public partial class Play
         _targetRecipe.CustomMinimumSize = new Vector2(250, 0);
         _targetHp = new ProgressBar { MinValue = 0, MaxValue = 1, ShowPercentage = false, CustomMinimumSize = new Vector2(250, 8), MouseFilter = Control.MouseFilterEnum.Ignore };
         _targetHpLabel = MakeText(12);
+        _targetPower = MakeText(12);
+        _targetPower.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _targetPower.CustomMinimumSize = new Vector2(250, 0);
         target.AddChild(_targetTitle);
         target.AddChild(_targetRole);
         target.AddChild(_targetStatus);
         target.AddChild(_targetRecipe);
+        target.AddChild(_targetPower);
         target.AddChild(_targetHp);
         target.AddChild(_targetHpLabel);
         _targetPanel = MakePanel(target);
@@ -373,21 +387,35 @@ public partial class Play
         _wantCapture = true;
     }
 
-    private HBoxContainer _buildBar = null!;
+    private VBoxContainer _buildBar = null!;
 
-    /// <summary>One button per palette entry: the keys cover the first thirteen (1-9, 0, Q, B, U), the module entry (key N) always gets one.</summary>
+    /// <summary>Entries reached by the number keys (1-9, 0, Q, B, U); the next ones take F2 to F5, the module (N) and station (I) entries have their own key.</summary>
+    private const int DirectKeys = 13;
+
+    /// <summary>
+    /// One button per palette entry, in two rows so the strip stays inside 1280 pixels with the whole palette (belts, every machine, the
+    /// module and the station tool): the first half in the top row, the rest below.
+    /// </summary>
     private void FillBuildBar()
     {
-        foreach (var old in _buildButtons) old.QueueFree();
+        foreach (var old in _buildBar.GetChildren()) old.QueueFree();
         _buildButtons.Clear();
-        for (int i = 0; i < _palette.Count && (i < 13 || _palette[i].IsModule || _palette[i].IsStation); i++)
+        int perRow = (_palette.Count + 1) / 2;
+        HBoxContainer? row = null;
+        for (int i = 0; i < _palette.Count; i++)
         {
+            if (i % perRow == 0)
+            {
+                row = new HBoxContainer();
+                row.AddThemeConstantOverride("separation", 4);
+                _buildBar.AddChild(row);
+            }
             int index = i;
             var b = MakeButton("", () => SelectBuild(index), toggle: true);
             b.AddThemeFontSizeOverride("font_size", 12);
             b.CustomMinimumSize = new Vector2(0, 26);
             _buildButtons.Add(b);
-            _buildBar.AddChild(b);
+            row!.AddChild(b);
         }
     }
 
@@ -494,7 +522,7 @@ public partial class Play
         if (Net.IsDeposit(_selectedDeposit) && Net.IsDepositRevealed(_selectedDeposit) && Net.DepositRemaining(_selectedDeposit) > 0)
         {
             var dp = Net.DepositPosition(_selectedDeposit);
-            Add(ItemName(Net.DepositItem(_selectedDeposit)), new Color(1f, 0.8f, 0.35f), new Vector3(dp.X, dp.Y, dp.Z), 6f);
+            Add($"{ItemName(Net.DepositItem(_selectedDeposit))} - {DensityText(_selectedDeposit)}", new Color(1f, 0.8f, 0.35f), new Vector3(dp.X, dp.Y, dp.Z), 6f);
         }
 
         int system = Net.CurrentSystem(Player);
@@ -567,6 +595,8 @@ public partial class Play
     {
         var sb = new StringBuilder();
         var p = Net.GetPlayerInfo(Player);
+        _satCache.Clear(); // read again each frame by the machine models
+        UpdatePowerHud();
 
         if (!_detailsOpen)
         {
@@ -583,7 +613,7 @@ public partial class Play
         {
             int d = Net.MiningDeposit(Player);
             bool inRange = Net.InMineRange(Player, d);
-            depLine = inRange ? L("hud.mining", ItemName(Net.DepositItem(d)), Net.DepositRemaining(d))
+            depLine = inRange ? L("hud.mining", ItemName(Net.DepositItem(d)), Net.DepositRemaining(d), DensityText(d))
                               : L("hud.miningOut", ItemName(Net.DepositItem(d)));
             if (inRange && p.Hull >= 0 && Net.HoldTotal(Player) >= Net.HoldCapacity(Player)) depLine = L("hud.miningFull");
         }
@@ -591,7 +621,7 @@ public partial class Play
         {
             var pos = Net.DepositPosition(dep);
             float dist = (new Vector3(pos.X, pos.Y, pos.Z) - ShipPosition(0f)).Length();
-            depLine = L("hud.depositSelected", ItemName(Net.DepositItem(dep)), Net.DepositRemaining(dep), dist.ToString("F0", Loc.Culture));
+            depLine = L("hud.depositSelected", ItemName(Net.DepositItem(dep)), Net.DepositRemaining(dep), dist.ToString("F0", Loc.Culture), DensityText(dep));
         }
         else depLine = L("hud.noDeposit");
         sb.Append(depLine).Append('\n');
@@ -950,7 +980,7 @@ public partial class Play
     }
 
     /// <summary>The key that picks build item i: 1 to 9, then 0, then Q.</summary>
-    private string KeyLabel(int i) => _palette[i].IsModule ? "N" : _palette[i].IsStation ? "I" : i < 9 ? (i + 1).ToString() : i == 9 ? "0" : i == 10 ? "Q" : i == 11 ? "B" : "U";
+    private string KeyLabel(int i) => _palette[i].IsModule ? "N" : _palette[i].IsStation ? "I" : i < 9 ? (i + 1).ToString() : i == 9 ? "0" : i == 10 ? "Q" : i == 11 ? "B" : i == 12 ? "U" : i < DirectKeys + 4 ? $"F{i - DirectKeys + 2}" : "";
 
     private string ItemName(BuildItem item) =>
         item.IsStation ? L("ui.foundStation") : item.IsModule ? ModuleName() : item.IsBelt ? L("ui.belt", (int)item.Tier + 1) : MachineName(item.Machine);
@@ -1163,6 +1193,14 @@ public partial class Play
             var r = _content.Recipes[m.Recipe];
             _targetRecipe.Text = $"{Loc.Name("recipe", r.Id)}: {(r.Inputs.Length == 0 ? "-" : Stacks(r.Inputs))} > {Stacks(r.Outputs)}";
         }
+        // The power of the structure the machine stands in (the ship's own power is also in the status panel).
+        _targetPower.Visible = _structuresOn && m.Structure != 0;
+        if (_targetPower.Visible)
+        {
+            var pst = Net.PowerStatus(m.Structure);
+            _targetPower.Text = StructurePowerLine(m.Structure, L(Net.GetStructure(m.Structure).Kind == StructureKind.Ship ? "structure.ship" : "structure.station"));
+            _targetPower.AddThemeColorOverride("font_color", BandColor(PowerFormat.Band(pst.SatisfactionPermille)));
+        }
         _targetHp.MaxValue = Math.Max(1, max);
         _targetHp.Value = m.Hp;
         var band = HudFormat.Band(m.Hp, max);
@@ -1183,7 +1221,8 @@ public partial class Play
         _statusLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         // The essentials are short and narrow; the full block (H) is wide but never runs under the steps panel.
         _statusLabel.CustomMinimumSize = new Vector2(_detailsOpen ? Math.Clamp(size.X - objMin.X - 60, 260, 760) : Math.Min(300f, Math.Max(180f, size.X * 0.22f)), 0);
-        _statusPanel.Visible = _statusLabel.Text.Length > 0;
+        _statusLabel.Visible = _statusLabel.Text.Length > 0;
+        _statusPanel.Visible = _statusLabel.Visible || _powerBox.Visible;
         _statusPanel.ResetSize();
         _statusPanel.Position = new Vector2(12, 10);
 
@@ -1424,12 +1463,13 @@ public partial class Play
 
     private void OnKey(InputEventKey k)
     {
-        int digit = (int)(k.Keycode - Key.Key1);
+        int digit = k.Keycode is >= Key.Key1 and <= Key.Key9 ? (int)(k.Keycode - Key.Key1) : -1;
         if (k.Keycode == Key.Key0) digit = 9;
         if (k.Keycode == Key.Q) digit = 10;
         if (k.Keycode == Key.B) digit = 11;
         if (k.Keycode == Key.U) digit = 12; // the thirteenth entry, the ore port
-        if (digit >= 0 && digit < Math.Min(13, _palette.Count) && !_palette[digit].IsModule && !_palette[digit].IsStation) { SelectBuild(digit); return; }
+        if (k.Keycode is >= Key.F2 and <= Key.F5) digit = DirectKeys + (int)(k.Keycode - Key.F2); // the entries past the direct keys
+        if (digit >= 0 && digit < _palette.Count && !_palette[digit].IsModule && !_palette[digit].IsStation) { SelectBuild(digit); return; }
         if (k.Keycode == Key.N)
         {
             if (_structuresOn) { CycleModuleKind(); return; } // first press: the module tool; next ones: the kind
@@ -1667,11 +1707,11 @@ public partial class Play
         {
             if (!Net.IsDepositRevealed(d) || Net.DepositRemaining(d) <= 0) continue;
             var pos = Net.DepositPosition(d);
-            float scale = Mathf.Max(0.15f, 0.35f + 0.65f * Net.DepositRemaining(d) / Net.DepositInitial(d));
+            float scale = DepositView.RockScale(Net.DepositInitial(d));
             if (RayHitsSphere(origin, dir, new Vector3(pos.X, pos.Y, pos.Z), 1.5f * scale, out float t) && t < best)
             {
                 best = t;
-                _hover = new Hover(HoverKind.Deposit, d, L("tip.deposit", ItemName(Net.DepositItem(d)), Net.DepositRemaining(d), Net.DepositInitial(d)));
+                _hover = new Hover(HoverKind.Deposit, d, L("tip.deposit", ItemName(Net.DepositItem(d)), Net.DepositRemaining(d), Net.DepositInitial(d), DensityText(d)));
             }
         }
 
@@ -1699,6 +1739,7 @@ public partial class Play
     private string MachineStatus(MachineInfo m)
     {
         var def = _content.Machines[m.Type];
+        if (NeedsPower(m.Type) && SatisfactionOf(m.Structure) == 0) return L("status.noPower");
         switch (def.Role)
         {
             case MachineRole.Drill:
@@ -1759,6 +1800,8 @@ public partial class Play
         var sb = new StringBuilder();
         sb.Append(MachineStatus(m)).Append('\n');
         sb.Append(L("tip.hp", m.Hp, Net.MaxHp(m.Type))).Append('\n');
+        if (NeedsPower(m.Type) && SatisfactionOf(m.Structure) is > 0 and < PowerRules.FullSatisfaction)
+            sb.Append(L("insp.power", PowerFormat.Percent(SatisfactionOf(m.Structure)))).Append('\n');
         if (m.Recipe >= 0)
         {
             var r = _content.Recipes[m.Recipe];

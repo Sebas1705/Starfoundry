@@ -75,6 +75,7 @@ public partial class Gallery : Node3D
             case "ship-demo": _focusPoint = new Vector3(4f, 2f, 20f); defDist = 40f; break;
             case "station-demo": _focusPoint = new Vector3(12f, 3f, 8f); defDist = 40f; break;
             case "ships": _focusPoint = new Vector3(-3.1f, 0.15f, -4.6f); defDist = 6f; break;
+            case "deposits": _focusPoint = new Vector3(14.4f, 0.6f, 19f); defDist = 66f; break;
             case "units": _focusPoint = new Vector3(2.6f, 0.3f, -6.3f); defDist = 11f; break;
             default: _focusPoint = new Vector3(1.2f, 0.2f, -3f); defDist = 18f; break;
         }
@@ -83,7 +84,29 @@ public partial class Gallery : Node3D
 
         BuildScene();
         if (focus is "modules" or "ship-demo" or "station-demo") BuildModuleGallery(focus, (int)F("--variant", 0));
+        else if (focus == "deposits") BuildDepositGallery();
         else BuildModels();
+    }
+
+    /// <summary>--focus=deposits: one row per item, columns for density 25, 100, 200 and a 100-density deposit at 30% left.</summary>
+    private void BuildDepositGallery()
+    {
+        string[] items = { "core:iron_ore", "core:carbon", "core:ice", "core:titanium_ore", "core:nickel_ore", "core:quartz" };
+        (int Density, float Left)[] cols = { (25, 1f), (100, 1f), (200, 1f), (100, 0.3f), (100, 0f) };
+        for (int r = 0; r < items.Length; r++)
+        {
+            for (int c = 0; c < cols.Length; c++)
+            {
+                int initial = 800;
+                var v = new DepositView(items[r], cols[c].Density, initial, 3 + r * 5 + c);
+                v.Refresh((int)(initial * cols[c].Left));
+                v.Position = new Vector3(c * 7.2f, 0.6f, r * 7.2f);
+                AddChild(v);
+                if (r == 0)
+                    Label(cols[c].Left == 0f ? "depleted" : cols[c].Left < 1f ? "30% left" : $"density {cols[c].Density}", v.Position + new Vector3(0, -1.6f, -3.6f));
+            }
+            Label(items[r]["core:".Length..], new Vector3(-4.6f, 0.6f, r * 7.2f));
+        }
     }
 
     /// <summary>--focus=modules: every module kind as a ship (front row) and as a station (back row); ship-demo and station-demo: small assembled structures.</summary>

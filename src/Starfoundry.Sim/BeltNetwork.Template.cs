@@ -24,6 +24,8 @@ public sealed partial class BeltNetwork
             if (b.From >= 0) ConnectFromMachine(machines[b.From], seg);
             if (b.To >= 0) ConnectToMachine(seg, machines[b.To]);
         }
+        if (owner >= 0)
+            foreach (var h in template.Hold) GiveItems(owner, h.Item, h.Count);
         return id;
     }
 }

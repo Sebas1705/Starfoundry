@@ -15,6 +15,33 @@
     },
     {
       "id": "core:ammo"
+    },
+    {
+      "id": "core:ice"
+    },
+    {
+      "id": "core:titanium_ore"
+    },
+    {
+      "id": "core:titanium_ingot"
+    },
+    {
+      "id": "core:nickel_ore"
+    },
+    {
+      "id": "core:nickel_ingot"
+    },
+    {
+      "id": "core:quartz"
+    },
+    {
+      "id": "core:titanium_plate"
+    },
+    {
+      "id": "core:nickel_plate"
+    },
+    {
+      "id": "core:hydrogen"
     }
   ],
   "machines": [
@@ -45,7 +72,8 @@
         }
       ],
       "hp": 100,
-      "signature": 3
+      "signature": 3,
+      "power_use": 10
     },
     {
       "id": "core:assembler",
@@ -56,7 +84,8 @@
         }
       ],
       "hp": 100,
-      "signature": 3
+      "signature": 3,
+      "power_use": 15
     },
     {
       "id": "core:research_lab",
@@ -72,7 +101,8 @@
         }
       ],
       "hp": 120,
-      "signature": 4
+      "signature": 4,
+      "power_use": 20
     },
     {
       "id": "core:depot",
@@ -84,7 +114,8 @@
         }
       ],
       "hp": 80,
-      "signature": 1
+      "signature": 1,
+      "power_use": 1
     },
     {
       "id": "core:turret",
@@ -101,6 +132,7 @@
       ],
       "hp": 120,
       "signature": 0,
+      "power_use": 5,
       "turret": {
         "range_cells": 18,
         "damage": 12,
@@ -140,6 +172,7 @@
       ],
       "hp": 120,
       "signature": 1,
+      "power_use": 10,
       "repairer": {
         "range_cells": 14,
         "heal": 20,
@@ -159,6 +192,7 @@
       ],
       "hp": 80,
       "signature": 1,
+      "power_use": 2,
       "unloader": {
         "item": "core:iron_ingot",
         "interval_ticks": 30,
@@ -180,8 +214,79 @@
       ],
       "hp": 80,
       "signature": 1,
+      "power_use": 2,
       "unloader": {
         "item": "core:iron_ore",
+        "interval_ticks": 30,
+        "reserve": 0
+      }
+    },
+    {
+      "id": "core:titanium_ore_unloader",
+      "role": "unloader",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 12
+        }
+      ],
+      "hp": 80,
+      "signature": 1,
+      "power_use": 2,
+      "unloader": {
+        "item": "core:titanium_ore",
+        "interval_ticks": 30,
+        "reserve": 0
+      }
+    },
+    {
+      "id": "core:nickel_ore_unloader",
+      "role": "unloader",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 12
+        }
+      ],
+      "hp": 80,
+      "signature": 1,
+      "power_use": 2,
+      "unloader": {
+        "item": "core:nickel_ore",
+        "interval_ticks": 30,
+        "reserve": 0
+      }
+    },
+    {
+      "id": "core:hydrogen_cracker",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 20
+        },
+        {
+          "item": "core:iron_ingot",
+          "count": 10
+        }
+      ],
+      "hp": 100,
+      "signature": 2,
+      "power_use": 12
+    },
+    {
+      "id": "core:ice_unloader",
+      "role": "unloader",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 12
+        }
+      ],
+      "hp": 80,
+      "signature": 1,
+      "power_use": 2,
+      "unloader": {
+        "item": "core:ice",
         "interval_ticks": 30,
         "reserve": 0
       }
@@ -303,6 +408,139 @@
         }
       ],
       "time_s": 2
+    },
+    {
+      "id": "core:mine_ice",
+      "machine": "core:extractor",
+      "inputs": [],
+      "outputs": [
+        {
+          "item": "core:ice",
+          "count": 1
+        }
+      ],
+      "time_s": 1
+    },
+    {
+      "id": "core:mine_titanium",
+      "machine": "core:extractor",
+      "inputs": [],
+      "outputs": [
+        {
+          "item": "core:titanium_ore",
+          "count": 1
+        }
+      ],
+      "time_s": 1
+    },
+    {
+      "id": "core:mine_nickel",
+      "machine": "core:extractor",
+      "inputs": [],
+      "outputs": [
+        {
+          "item": "core:nickel_ore",
+          "count": 1
+        }
+      ],
+      "time_s": 1
+    },
+    {
+      "id": "core:mine_quartz",
+      "machine": "core:extractor",
+      "inputs": [],
+      "outputs": [
+        {
+          "item": "core:quartz",
+          "count": 1
+        }
+      ],
+      "time_s": 1
+    },
+    {
+      "id": "core:smelt_titanium",
+      "machine": "core:smelter",
+      "inputs": [
+        {
+          "item": "core:titanium_ore",
+          "count": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "core:titanium_ingot",
+          "count": 1
+        }
+      ],
+      "time_s": 4
+    },
+    {
+      "id": "core:smelt_nickel",
+      "machine": "core:smelter",
+      "inputs": [
+        {
+          "item": "core:nickel_ore",
+          "count": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "core:nickel_ingot",
+          "count": 1
+        }
+      ],
+      "time_s": 3
+    },
+    {
+      "id": "core:titanium_plate",
+      "machine": "core:assembler",
+      "inputs": [
+        {
+          "item": "core:titanium_ingot",
+          "count": 2
+        }
+      ],
+      "outputs": [
+        {
+          "item": "core:titanium_plate",
+          "count": 1
+        }
+      ],
+      "time_s": 3
+    },
+    {
+      "id": "core:nickel_plate",
+      "machine": "core:assembler",
+      "inputs": [
+        {
+          "item": "core:nickel_ingot",
+          "count": 2
+        }
+      ],
+      "outputs": [
+        {
+          "item": "core:nickel_plate",
+          "count": 1
+        }
+      ],
+      "time_s": 3
+    },
+    {
+      "id": "core:crack_ice",
+      "machine": "core:hydrogen_cracker",
+      "inputs": [
+        {
+          "item": "core:ice",
+          "count": 2
+        }
+      ],
+      "outputs": [
+        {
+          "item": "core:hydrogen",
+          "count": 1
+        }
+      ],
+      "time_s": 4
     }
   ],
   "belts": [
@@ -590,6 +828,100 @@
         "max_levels": 6,
         "cost_growth_percent": 35
       }
+    },
+    {
+      "id": "core:titanium_smelting",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 150
+        },
+        {
+          "item": "core:titanium_ore",
+          "count": 40
+        }
+      ],
+      "requires": [
+        "core:logistics"
+      ],
+      "unlocks": [
+        "core:smelt_titanium",
+        "core:titanium_ore_unloader"
+      ]
+    },
+    {
+      "id": "core:nickel_smelting",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 150
+        },
+        {
+          "item": "core:nickel_ore",
+          "count": 40
+        }
+      ],
+      "requires": [
+        "core:logistics"
+      ],
+      "unlocks": [
+        "core:smelt_nickel",
+        "core:nickel_ore_unloader"
+      ]
+    },
+    {
+      "id": "core:advanced_plating",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 150
+        },
+        {
+          "item": "core:titanium_ingot",
+          "count": 40
+        },
+        {
+          "item": "core:nickel_ingot",
+          "count": 40
+        },
+        {
+          "item": "core:quartz",
+          "count": 30
+        }
+      ],
+      "requires": [
+        "core:titanium_smelting",
+        "core:nickel_smelting"
+      ],
+      "unlocks": [
+        "core:titanium_plate",
+        "core:nickel_plate"
+      ]
+    },
+    {
+      "id": "core:drone_automation",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 150
+        },
+        {
+          "item": "core:titanium_plate",
+          "count": 20
+        },
+        {
+          "item": "core:quartz",
+          "count": 20
+        }
+      ],
+      "requires": [
+        "core:logistics",
+        "core:advanced_plating"
+      ],
+      "unlocks": [],
+      "abilities": [
+        "drone_bay"
+      ]
     }
   ],
   "galaxy": {
@@ -629,12 +961,31 @@
             1500,
             1500
           ]
+        },
+        {
+          "item": "core:ice",
+          "count": [
+            1,
+            1
+          ],
+          "amount": [
+            600,
+            800
+          ],
+          "density": [
+            40,
+            70
+          ]
         }
       ]
     },
     {
       "id": "core:dense_belt",
-      "weight": 3,
+      "weight": 2,
+      "depth": [
+        0,
+        2
+      ],
       "distance_cells": [
         12,
         45
@@ -667,6 +1018,10 @@
     {
       "id": "core:sparse_belt",
       "weight": 2,
+      "depth": [
+        3,
+        32
+      ],
       "distance_cells": [
         20,
         60
@@ -727,6 +1082,170 @@
           ]
         }
       ]
+    },
+    {
+      "id": "core:nickel_field",
+      "weight": 5,
+      "distance_cells": [
+        10,
+        40
+      ],
+      "depth": [
+        1,
+        2
+      ],
+      "guaranteed": true,
+      "deposits": [
+        {
+          "item": "core:nickel_ore",
+          "count": [
+            2,
+            3
+          ],
+          "amount": [
+            500,
+            1100
+          ],
+          "density": [
+            60,
+            140
+          ]
+        },
+        {
+          "item": "core:iron_ore",
+          "count": [
+            1,
+            1
+          ],
+          "amount": [
+            400,
+            800
+          ]
+        }
+      ]
+    },
+    {
+      "id": "core:ice_field",
+      "weight": 5,
+      "distance_cells": [
+        10,
+        40
+      ],
+      "depth": [
+        1,
+        2
+      ],
+      "guaranteed": true,
+      "deposits": [
+        {
+          "item": "core:ice",
+          "count": [
+            2,
+            3
+          ],
+          "amount": [
+            500,
+            1200
+          ],
+          "density": [
+            80,
+            160
+          ]
+        },
+        {
+          "item": "core:carbon",
+          "count": [
+            1,
+            1
+          ],
+          "amount": [
+            300,
+            600
+          ]
+        }
+      ]
+    },
+    {
+      "id": "core:titanium_vein",
+      "weight": 5,
+      "distance_cells": [
+        12,
+        50
+      ],
+      "depth": [
+        3,
+        32
+      ],
+      "guaranteed": true,
+      "deposits": [
+        {
+          "item": "core:titanium_ore",
+          "count": [
+            2,
+            3
+          ],
+          "amount": [
+            400,
+            1000
+          ],
+          "density": [
+            50,
+            150
+          ]
+        },
+        {
+          "item": "core:iron_ore",
+          "count": [
+            1,
+            1
+          ],
+          "amount": [
+            400,
+            800
+          ]
+        }
+      ]
+    },
+    {
+      "id": "core:quartz_geode",
+      "weight": 5,
+      "distance_cells": [
+        12,
+        50
+      ],
+      "depth": [
+        3,
+        32
+      ],
+      "guaranteed": true,
+      "deposits": [
+        {
+          "item": "core:quartz",
+          "count": [
+            2,
+            3
+          ],
+          "amount": [
+            300,
+            900
+          ],
+          "density": [
+            40,
+            120
+          ]
+        },
+        {
+          "item": "core:carbon",
+          "count": [
+            1,
+            1
+          ],
+          "amount": [
+            300,
+            600
+          ]
+        }
+      ]
     }
   ],
   "jump_cost": [
@@ -766,18 +1285,20 @@
       "thrust_speed_percent": 0
     },
     "engine": {
-      "cost": [{ "item": "core:iron_plate", "count": 16 }, { "item": "core:carbon", "count": 4 }],
+      "cost": [{ "item": "core:iron_plate", "count": 16 }, { "item": "core:carbon", "count": 4 }, { "item": "core:titanium_plate", "count": 6 }],
       "hp": 200,
       "allows": [],
       "hold_capacity": 0,
       "thrust_speed_percent": 100
     },
     "reactor": {
-      "cost": [{ "item": "core:iron_plate", "count": 16 }, { "item": "core:carbon", "count": 8 }],
+      "cost": [{ "item": "core:iron_plate", "count": 16 }, { "item": "core:carbon", "count": 8 }, { "item": "core:nickel_plate", "count": 6 }],
       "hp": 150,
       "allows": [],
       "hold_capacity": 0,
-      "thrust_speed_percent": 0
+      "thrust_speed_percent": 0,
+      "power_output": 100,
+      "burn_interval_ticks": 900
     },
     "cargo": {
       "cost": [{ "item": "core:iron_ingot", "count": 20 }],
@@ -794,7 +1315,7 @@
       "thrust_speed_percent": 0
     },
     "defence": {
-      "cost": [{ "item": "core:iron_plate", "count": 12 }, { "item": "core:iron_ingot", "count": 16 }],
+      "cost": [{ "item": "core:iron_plate", "count": 12 }, { "item": "core:iron_ingot", "count": 16 }, { "item": "core:titanium_plate", "count": 4 }],
       "hp": 250,
       "allows": ["turret", "wall"],
       "hold_capacity": 0,
@@ -806,6 +1327,16 @@
       "allows": ["belt"],
       "hold_capacity": 0,
       "thrust_speed_percent": 0
+    },
+    "drone_bay": {
+      "cost": [{ "item": "core:iron_plate", "count": 12 }, { "item": "core:titanium_plate", "count": 8 }, { "item": "core:nickel_plate", "count": 8 }],
+      "hp": 150,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0,
+      "drone_range_cells": 60,
+      "drone_interval_ticks": 90,
+      "power_use": 20
     }
   },
   "structure_templates": {
@@ -817,6 +1348,7 @@
         { "at": [0, 0, 3], "kind": "reactor" },
         { "at": [0, 0, 4], "kind": "engine" }
       ],
+      "hold": [{ "item": "core:hydrogen", "count": 20 }],
       "machines": [
         { "id": "ore_port", "machine": "core:ore_unloader", "at": [0, 1, 9] },
         { "id": "smelter", "machine": "core:smelter", "at": [3, 1, 9], "recipe": "core:smelt_iron" },

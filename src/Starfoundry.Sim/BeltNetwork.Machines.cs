@@ -170,7 +170,7 @@ public sealed partial class BeltNetwork
 
     private void StepMachine(Machine m)
     {
-        if (m.Recipe >= 0)
+        if (m.Recipe >= 0 && m.Powered) // an unpowered tick is not a working tick: crafting neither advances nor starts
         {
             var r = Content!.Recipes[m.Recipe];
 
@@ -184,7 +184,7 @@ public sealed partial class BeltNetwork
                 m.Crafting = false;
             }
 
-            if (!m.Crafting && CanStart(m, r) && TakeFromDepositIfDrill(m, r))
+            if (!m.Crafting && CanStart(m, r) && TakeFromDepositIfDrill(m, r, out int time))
             {
                 foreach (var i in r.Inputs)
                 {
@@ -192,7 +192,7 @@ public sealed partial class BeltNetwork
                     MachineInputsConsumed += i.Count;
                 }
                 m.Crafting = true;
-                m.Remaining = r.TimeTicks;
+                m.Remaining = time;
             }
         }
 
@@ -210,8 +210,9 @@ public sealed partial class BeltNetwork
     }
 
     /// <summary>A drill needs a linked deposit that still holds enough of the recipe's output item; the ore is taken as the craft starts.</summary>
-    private bool TakeFromDepositIfDrill(Machine m, RecipeDef r)
+    private bool TakeFromDepositIfDrill(Machine m, RecipeDef r, out int time)
     {
+        time = r.TimeTicks;
         if (Content!.Machines[m.Type].Role != MachineRole.Drill) return true;
         if (m.Deposit < 0) return false;
         var d = _deposits[m.Deposit];
@@ -219,6 +220,7 @@ public sealed partial class BeltNetwork
         if (d.Item != o.Item || d.Remaining < o.Count) return false;
         d.Remaining -= o.Count;
         DrilledTotal += o.Count;
+        time = DepositRules.Scale(r.TimeTicks, d.Density); // a richer vein yields faster: the craft takes 100 / density of the time
         return true;
     }
 
@@ -257,6 +259,7 @@ public sealed partial class BeltNetwork
         var m = _machines[s.MachineOut]!;
         int type = s.Type[s.Head];
         var role = Content!.Machines[m.Type].Role;
+        if (!m.Powered && role is MachineRole.Lab or MachineRole.Depot) return false; // labs and depots only work on credited ticks
         if (role == MachineRole.Lab) return TryFeedLab(s, type);
         if (role == MachineRole.Depot) return TryFeedDepot(m, s, type);
         if (role == MachineRole.Turret) return TryFeedTurret(m, s, type);
@@ -294,6 +297,7 @@ public sealed partial class BeltNetwork
             if (m is null) { mix(-1); continue; }
             mix(m.Id); mix(m.X); mix(m.Y); mix(m.Z); mix(m.Type); mix(m.Recipe); mix(m.Deposit); mix(m.Owner); mix(m.Hp); mix(m.TurretCooldown);
             if (m.Structure != 0) mix(m.Structure); // mixed only when non-zero so worlds without structures hash as before
+            if (StructureRules && m.Structure != 0) mix(m.PowerCredit);
             mix(m.Crafting ? 1 : 0); mix(m.Remaining);
             foreach (int v in m.In) mix(v);
             foreach (int v in m.Out) mix(v);
@@ -323,6 +327,8 @@ public sealed partial class BeltNetwork
             if (role != MachineRole.Drill && m.Deposit != -1) Fail($"machine {id} is not a drill but has a deposit");
             if (m.Deposit != -1 && !IsDeposit(m.Deposit)) Fail($"machine {id} has an unknown deposit");
 
+            if (m.PowerCredit < 0 || m.PowerCredit >= PowerRules.FullSatisfaction || (m.PowerCredit != 0 && (m.Structure == 0 || !StructureRules)))
+                Fail($"machine {id} power credit {m.PowerCredit} out of range");
             if (m.Hp < 1 || m.Hp > MaxHp(m.Type)) Fail($"machine {id} hit points {m.Hp} out of range");
             var turret = content.Machines[m.Type].Turret;
             var repairer = content.Machines[m.Type].Repairer;
@@ -365,7 +371,7 @@ public sealed partial class BeltNetwork
                     if (m.In[i] < 0 || m.In[i] > inCap) Fail($"machine {id} input buffer {i} holds {m.In[i]} (cap {inCap})");
                     if (m.Out[i] < 0 || m.Out[i] > outCap) Fail($"machine {id} output buffer {i} holds {m.Out[i]} (cap {outCap})");
                 }
-                if (m.Crafting && (m.Remaining < 1 || m.Remaining > r.TimeTicks)) Fail($"machine {id} remaining time {m.Remaining} out of range");
+                if (m.Crafting && (m.Remaining < 1 || m.Remaining > DepositRules.Scale(r.TimeTicks, DepositRules.MinDensity))) Fail($"machine {id} remaining time {m.Remaining} out of range");
             }
             if (!m.Crafting && m.Remaining != 0) Fail($"machine {id} is idle with remaining time {m.Remaining}");
 

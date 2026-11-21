@@ -413,7 +413,10 @@ public partial class Play
         }
         if (!details) return;
         foreach (var st in Net.Structures().Where(s => s.Kind == StructureKind.Station))
+        {
             sb.Append(L("hud.structure", L("structure.station"), ModuleSummary(st))).Append('\n');
+            sb.Append("  ").Append(StructurePowerLine(st.Id, L("structure.station"))).Append('\n');
+        }
     }
 
     /// <summary>"Cockpit 1, Workshop 2": the module count per kind, in kind order.</summary>
@@ -438,6 +441,8 @@ public partial class Play
             }
         }
         if (found) add(L("mark.station"), new Color(0.45f, 0.8f, 1f), nearestAt, 10f);
+
+        IceMarker(add);
 
         // The guided step about the factory points at the ship's assembler (where the first plate appears).
         int ship = ShipStruct;

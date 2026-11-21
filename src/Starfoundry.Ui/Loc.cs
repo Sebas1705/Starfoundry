@@ -53,6 +53,14 @@ public static class Loc
         ["item.core:iron_plate"] = ("placa de hierro", "iron plate"),
         ["item.core:carbon"] = ("carbono", "carbon"),
         ["item.core:ammo"] = ("munición", "ammo"),
+        ["item.core:ice"] = ("hielo", "ice"),
+        ["item.core:titanium_ore"] = ("mineral de titanio", "titanium ore"),
+        ["item.core:titanium_ingot"] = ("lingote de titanio", "titanium ingot"),
+        ["item.core:nickel_ore"] = ("mineral de níquel", "nickel ore"),
+        ["item.core:nickel_ingot"] = ("lingote de níquel", "nickel ingot"),
+        ["item.core:quartz"] = ("cuarzo", "quartz"),
+        ["item.core:titanium_plate"] = ("placa de titanio", "titanium plate"),
+        ["item.core:nickel_plate"] = ("placa de níquel", "nickel plate"),
 
         ["machine.core:extractor"] = ("extractor", "extractor"),
         ["machine.core:drill"] = ("taladro", "drill"),
@@ -66,6 +74,8 @@ public static class Loc
         ["machine.core:unloader"] = ("puerto de carga", "cargo port"),
         ["machine.core:micro_refinery"] = ("microrrefinería", "micro-refinery"),
         ["machine.core:ore_unloader"] = ("puerto de mineral", "ore port"),
+        ["machine.core:titanium_ore_unloader"] = ("puerto de mineral de titanio", "titanium ore port"),
+        ["machine.core:nickel_ore_unloader"] = ("puerto de mineral de níquel", "nickel ore port"),
 
         ["recipe.core:mine_iron"] = ("extraer hierro", "mine iron"),
         ["recipe.core:mine_carbon"] = ("extraer carbono", "mine carbon"),
@@ -75,6 +85,14 @@ public static class Loc
         ["recipe.core:iron_plate"] = ("placa de hierro", "iron plate"),
         ["recipe.core:make_ammo"] = ("fabricar munición", "make ammo"),
         ["recipe.core:ship_smelt"] = ("fundir a bordo", "ship smelting"),
+        ["recipe.core:mine_ice"] = ("extraer hielo", "mine ice"),
+        ["recipe.core:mine_titanium"] = ("extraer titanio", "mine titanium"),
+        ["recipe.core:mine_nickel"] = ("extraer níquel", "mine nickel"),
+        ["recipe.core:mine_quartz"] = ("extraer cuarzo", "mine quartz"),
+        ["recipe.core:smelt_titanium"] = ("fundir titanio", "smelt titanium"),
+        ["recipe.core:smelt_nickel"] = ("fundir níquel", "smelt nickel"),
+        ["recipe.core:titanium_plate"] = ("placa de titanio", "titanium plate"),
+        ["recipe.core:nickel_plate"] = ("placa de níquel", "nickel plate"),
 
         ["research.core:logistics"] = ("Logística", "Logistics"),
         ["research.core:carbon_drilling"] = ("Perforación de carbono", "Carbon drilling"),
@@ -89,11 +107,20 @@ public static class Loc
         ["research.core:overclock"] = ("Sobrecarga", "Overclock"),
         ["research.core:alloy_refinement"] = ("Refinado de aleaciones", "Alloy refinement"),
         ["research.core:nanite_repair"] = ("Reparación con nanobots", "Nanite repair"),
+        ["research.core:titanium_smelting"] = ("Fundición de titanio", "Titanium smelting"),
+        ["research.core:nickel_smelting"] = ("Fundición de níquel", "Nickel smelting"),
+        ["research.core:advanced_plating"] = ("Placas avanzadas", "Advanced plating"),
+        ["research.core:drone_automation"] = ("Automatización con drones", "Drone automation"),
+        ["research.core:drone_automation.desc"] = ("Desbloquea el módulo hangar de drones: minan por ti un yacimiento cercano.", "Unlocks the drone bay module: drones mine a nearby deposit for you."),
 
         ["arch.core:home"] = ("hogar", "home"),
         ["arch.core:dense_belt"] = ("cinturón denso", "dense belt"),
         ["arch.core:sparse_belt"] = ("cinturón disperso", "sparse belt"),
         ["arch.core:carbon_rich"] = ("rico en carbono", "carbon rich"),
+        ["arch.core:nickel_field"] = ("campo de níquel", "nickel field"),
+        ["arch.core:ice_field"] = ("campo de hielo", "ice field"),
+        ["arch.core:titanium_vein"] = ("veta de titanio", "titanium vein"),
+        ["arch.core:quartz_geode"] = ("geoda de cuarzo", "quartz geode"),
 
         ["enemy.core:scout"] = ("explorador", "scout"),
         ["enemy.core:striker"] = ("destructor", "striker"),
@@ -158,8 +185,8 @@ public static class Loc
         ["tip.role.unloader"] = ("Saca de tu bodega un objeto y lo pone en una cinta: el puerto de carga lleva lingotes (sin tocar los últimos 10) y el de mineral lleva mineral (sin reserva). Así lo que mines en otro sistema puede alimentar una fábrica lejos de él.", "Takes one kind of item out of your hold and puts it on a belt: the cargo port carries ingots (leaving the last 10) and the ore port carries ore (no reserve). What you mine in another system can feed a factory far from it."),
         ["tip.role.ship"] = ("Va en la nave.", "Lives on the ship."),
         ["tip.belt"] = ("Cinta Mk{0}: {1} celdas, {2} objetos encima", "Belt Mk{0}: {1} cells, {2} items on it"),
-        ["tip.deposit"] = ("Yacimiento de {0}: quedan {1} de {2}.\nClic izquierdo para elegirlo; M para minarlo.",
-                           "{0} deposit: {1} of {2} left.\nLeft click to select it; M to mine it."),
+        ["tip.deposit"] = ("Yacimiento de {0} ({3}): quedan {1} de {2}.\nClic izquierdo para elegirlo; M para minarlo.",
+                           "{0} deposit ({3}): {1} of {2} left.\nLeft click to select it; M to mine it."),
         ["tip.enemy"] = ("Enemigo: {0}  (vida {1})", "Enemy: {0}  (HP {1})"),
 
         // ---- hints under the bar ----
@@ -180,8 +207,8 @@ public static class Loc
         // ---- status panel ----
         ["hud.hold"] = ("Bodega {0}/{1}", "Hold {0}/{1}"),
         ["hud.noDeposit"] = ("Sin yacimiento elegido: apunta a una roca y haz clic, o pulsa M.", "No deposit selected: aim at a rock and click, or press M."),
-        ["hud.depositSelected"] = ("Yacimiento elegido: {0} (quedan {1}), a {2} celdas", "Selected deposit: {0} ({1} left), {2} cells away"),
-        ["hud.mining"] = ("Minando {0} (quedan {1})", "Mining {0} ({1} left)"),
+        ["hud.depositSelected"] = ("Yacimiento elegido: {0}, {3} (quedan {1}), a {2} celdas", "Selected deposit: {0}, {3} ({1} left), {2} cells away"),
+        ["hud.mining"] = ("Minando {0}, {2} (quedan {1})", "Mining {0}, {2} ({1} left)"),
         ["hud.miningOut"] = ("Minería de {0} en pausa: la nave está lejos del yacimiento", "Mining {0} paused: the ship is too far from the deposit"),
         ["hud.miningFull"] = ("¡BODEGA LLENA! La minería y los depósitos están parados. Gasta o construye algo.",
                               "HOLD FULL! Mining and depots are paused. Spend items or build something."),
@@ -213,6 +240,9 @@ public static class Loc
         ["hud.flightSpeed"] = ("{0} celdas/s", "{0} cells/s"),
         ["hud.tool.pointer"] = ("Sin herramienta: clic inspecciona", "No tool: click inspects"),
         ["hud.tool"] = ("{0}  -  {1}", "{0}  -  {1}"),
+        ["density.poor"] = ("Veta pobre ({0} %)", "Poor vein ({0} %)"),
+        ["density.normal"] = ("Veta normal ({0} %)", "Normal vein ({0} %)"),
+        ["density.rich"] = ("Veta rica ({0} %)", "Rich vein ({0} %)"),
         ["mark.dist"] = ("{0} celdas", "{0} cells"),
         ["mark.base"] = ("Base", "Base"),
         ["hud.alert"] = ("alerta {0}%", "alert {0}%"),
@@ -383,6 +413,23 @@ public static class Loc
         ["module.defence.purpose"] = ("Torretas y muros.", "Turrets and walls."),
         ["module.hull"] = ("Casco", "Hull"),
         ["module.hull.purpose"] = ("Estructura y cintas.", "Structure and belts."),
+        ["module.droneBay"] = ("Hangar de drones", "Drone bay"),
+        ["module.droneBay.purpose"] = ("Drones que minan por ti un yacimiento cercano.", "Drones that mine a nearby deposit for you."),
+        // The game looks module texts up by the lower-cased enum name, so the same texts exist under that spelling.
+        ["module.dronebay"] = ("Hangar de drones", "Drone bay"),
+        ["module.dronebay.purpose"] = ("Drones que minan por ti un yacimiento cercano.", "Drones that mine a nearby deposit for you."),
+        ["status.droneIdle"] = ("sin yacimiento asignado: elige uno cercano y descubierto", "no deposit assigned: pick a nearby discovered one"),
+        ["status.droneWorking"] = ("minando {0} a {1} por minuto ({2} hangar/es)", "mining {0} at {1} per minute ({2} bay(s))"),
+        ["status.droneNoPower"] = ("sin energía: los drones no minan", "no power: the drones do not mine"),
+        ["status.droneHoldFull"] = ("bodega al límite: esperando sitio", "hold at its limit: waiting for room"),
+        ["status.droneEmpty"] = ("el yacimiento asignado se ha agotado", "the assigned deposit is empty"),
+        ["toast.reject.noDroneBay"] = ("Esa estructura no tiene un hangar de drones", "That structure has no drone bay"),
+        ["toast.reject.locked"] = ("Aún no está desbloqueado: investígalo (T)", "Not unlocked yet: research it (T)"),
+        ["learn.drones"] = ("Ya tienes drones: construye un hangar de drones (módulo) y asígnale un yacimiento cercano descubierto. Mina por ti mientras haya energía y sitio en la bodega; más hangares, más ritmo.",
+                            "Drones are unlocked: build a drone bay module and assign it a nearby discovered deposit. It mines for you while there is power and room in the hold; more bays, more output."),
+        ["obj.automate"] = ("Automatiza la minería", "Automate mining"),
+        ["obj.automate.hint"] = ("Investiga la automatización con drones (T), construye un hangar de drones y asígnale un yacimiento a menos de 60 celdas.",
+                                 "Research drone automation (T), build a drone bay and assign it a deposit within 60 cells."),
         ["structure.ship"] = ("Nave", "Ship"),
         ["structure.station"] = ("Estación", "Station"),
         ["hud.structure"] = ("{0}: {1}", "{0}: {1}"),
@@ -397,6 +444,17 @@ public static class Loc
         ["obj.foundStation"] = ("Funda una estación", "Found a station"),
         ["obj.foundStation.hint"] = ("Pulsa I para elegir la herramienta de estación, apunta al espacio junto a tu nave (el volumen verde = se puede) y haz clic: empieza con un módulo núcleo. Cuesta objetos de la bodega.",
                                      "Press I to pick the station tool, aim at the space beside your ship (the green volume = it can be founded) and click: it starts with a core module. It costs items from the hold."),
+        ["item.core:hydrogen"] = ("hidrógeno", "hydrogen"),
+        ["machine.core:hydrogen_cracker"] = ("craqueador de hidrógeno", "hydrogen cracker"),
+        ["machine.core:ice_unloader"] = ("puerto de hielo", "ice port"),
+        ["recipe.core:crack_ice"] = ("craquear hielo", "crack ice"),
+        ["learn.noFuel"] = ("Te queda poco hidrógeno y el reactor de tu nave lo gasta. Se hace con hielo: mina hielo en el sistema inicial, construye un craqueador de hidrógeno en el taller y llévale el hielo con un puerto de hielo; un depósito devuelve el hidrógeno a tu bodega.",
+                            "Your hydrogen is running low and your ship's reactor burns it. It is made from ice: mine ice in the home system, build a hydrogen cracker in the workshop and feed it ice with an ice port; a depot returns the hydrogen to your hold."),
+        ["learn.lowPower"] = ("Sin hidrógeno no hay energía: las máquinas van más lentas o paradas y la nave no acelera. Consigue hielo y fabrica hidrógeno.",
+                              "No hydrogen means no power: machines run slower or stop and the ship cannot accelerate. Get ice and make hydrogen."),
+        ["obj.makeFuel"] = ("Fabrica hidrógeno", "Make hydrogen"),
+        ["obj.makeFuel.hint"] = ("El reactor quema hidrógeno de tu bodega. Construye un craqueador en el taller y entrégale hielo (minado a mano en el sistema inicial, con un puerto de hielo): saca hidrógeno.",
+                                 "The reactor burns hydrogen from your hold. Build a cracker in the workshop and deliver ice to it (hand-mined in the home system, through an ice port): it makes hydrogen."),
         ["obj.addModule"] = ("Añade módulos", "Add modules"),
         ["obj.addModule.hint"] = ("Amplía tu nave o tu estación con más módulos (taller, defensa, casco) pegados a una cara: cada tipo permite construir cosas distintas.",
                                   "Grow your ship or station with more modules (workshop, defence, hull) touching a face: each kind allows different things to be built."),
@@ -412,7 +470,17 @@ public static class Loc
         ["hint.buildModuleKind"] = ("Módulo: {0} (N cambia el tipo). Apunta junto a un módulo de tu nave o estación (verde = se puede) y haz clic.   Clic derecho en un módulo vacío: retirarlo (devuelve la mitad).   Esc: dejar de construir",
                                     "Module: {0} (N changes the kind). Aim next to a module of your ship or station (green = it can be built) and click.   Right-click an empty module: remove it (refunds half).   Esc: stop building"),
         ["toast.stationFounded"] = ("¡Estación fundada! Añádele módulos con N.", "Station founded! Add modules to it with N."),
-        ["hud.flightReady"] = ("lista para volar", "ready to fly"),
+        ["hud.power"] = ("Energía {0}/{1}  ({2}%)", "Power {0}/{1}  ({2}%)"),
+        ["hud.power.fuel"] = ("Hidrógeno {0}  -  combustible {1}", "Hydrogen {0}  -  fuel {1}"),
+        ["hud.power.noFuel"] = ("Hidrógeno 0  -  sin combustible", "Hydrogen 0  -  no fuel"),
+        ["hud.power.noReactor"] = ("Sin reactor", "No reactor"),
+        ["hud.power.station"] = ("{0}: energía {1}/{2} ({3}%)  -  {4}", "{0}: power {1}/{2} ({3}%)  -  {4}"),
+        ["toast.powerLow"] = ("Combustible bajo: queda energía para {0}. Fabrica hidrógeno con hielo.", "Fuel low: power for {0} left. Make hydrogen from ice."),
+        ["toast.powerOut"] = ("¡Sin energía! Las máquinas se paran y la nave no acelera. Necesitas hidrógeno.", "Power out! Machines stop and the ship cannot accelerate. You need hydrogen."),
+        ["status.noPower"] = ("sin energía", "no power"),
+        ["insp.power"] = ("Energía: {0}%", "Power: {0}%"),
+        ["mark.ice"] = ("Hielo", "Ice"),
+        ["hud.flightReady"] =("lista para volar", "ready to fly"),
         ["hud.flightNot"] = ("no puede volar: falta cabina o motor", "cannot fly: needs a cockpit and an engine"),
         ["hud.modulesDetail"] = ("Módulos: {0}", "Modules: {0}"),
         ["hint.buildModule"] = ("Construyendo: {0}. Apunta a donde quieras el módulo (verde = se puede) y haz clic.   Clic derecho en un módulo vacío: retirarlo (devuelve la mitad).   Esc: dejar de construir",
@@ -477,7 +545,8 @@ public static class Loc
             "  W S   avanzar / retroceder hacia donde miras     A D   desplazarse a los lados     Espacio / C   subir / bajar\n" +
             "  E   sentarte / levantarte del asiento del piloto (de pie: WASD camina, Mayús corre y no se vuela)\n  M   minar (vuela primero al yacimiento)      F   refinería       K   escanear       V   armas\n  Marcadores: yacimiento elegido, enemigo más cercano y tu base; en el borde de la pantalla señalan hacia dónde mirar\n\n" +
             "Construcción\n" +
-            "  1-9, 0, Q, B, U   elegir qué construir (N: módulo de estación)       Esc   dejar de construir\n" +
+            "  1-9, 0, Q, B, U   elegir qué construir; F2-F5 las entradas siguientes (N: módulo de estación)       Esc   dejar de construir\n" +
+            "  La tira de abajo muestra todas las entradas en dos filas; el panel de estado muestra la energía de la nave (verde, ámbar, rojo), el hidrógeno y el tiempo que dura\n" +
             "  Y   cambiar receta       R   girar cintas sueltas       Z / X   cambiar de capa\n" +
             "  N   módulo de estación (el primero es el núcleo; solo se construye dentro de los módulos)\n" +
             "  Estructuras: N elige la herramienta de módulos y, pulsada otra vez, cambia su tipo (cabina, motor, reactor, bodega, taller, defensa, casco); I elige fundar una estación junto a la nave; cada tipo de módulo admite máquinas distintas\n" +
@@ -496,7 +565,8 @@ public static class Loc
             "  W S   forward / back where you look     A D   strafe     Space / C   up / down\n" +
             "  E   sit at / stand up from the pilot seat (standing: WASD walks, Shift runs, no flying)\n  M   mine (flies to the deposit first)      F   refinery       K   scan       V   weapons\n  Markers: the selected deposit, the nearest enemy and your base; at the screen edge they point where to look\n\n" +
             "Building\n" +
-            "  1-9, 0, Q, B, U   choose what to build (N: station module)       Esc   stop building\n" +
+            "  1-9, 0, Q, B, U   choose what to build; F2-F5 the entries after them (N: station module)       Esc   stop building\n" +
+            "  The bottom strip shows every entry in two rows; the status panel shows the ship's power (green, amber, red), the hydrogen and how long it lasts\n" +
             "  Y   change recipe       R   rotate single belts       Z / X   change layer\n" +
             "  N   station module (the first one is the core; you can only build inside modules)\n" +
             "  Structures: N picks the module tool and, pressed again, changes its kind (cockpit, engine, reactor, cargo, workshop, defence, hull); I picks founding a station beside the ship; each module kind allows different machines\n" +

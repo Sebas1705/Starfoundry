@@ -31,12 +31,12 @@ public class ContentTests
     public void CoreContentLoadsWithExpectedShape()
     {
         var c = TestContent.Core;
-        Assert.Equal(5, c.Items.Count);
-        Assert.Equal(12, c.Machines.Count);
-        Assert.Equal(8, c.Recipes.Count);
-        Assert.Equal(13, c.Research.Count);
+        Assert.Equal(14, c.Items.Count);
+        Assert.Equal(16, c.Machines.Count);
+        Assert.Equal(17, c.Recipes.Count);
+        Assert.Equal(17, c.Research.Count);
         Assert.Equal(new GalaxyRules(12, 800, 2, 150), c.Galaxy);
-        Assert.Equal(4, c.Archetypes.Count);
+        Assert.Equal(8, c.Archetypes.Count);
         Assert.Single(c.Archetypes, a => a.IsHome);
         Assert.Equal(new ItemStack(c.ItemIndex("core:carbon"), 5), Assert.Single(c.JumpCost));
         Assert.True(c.AbilityGated[(int)Ability.Jump]);

@@ -162,7 +162,7 @@ public sealed partial class BeltNetwork
         {
             if (m is null) continue;
             var def = Content!.Machines[m.Type].Repairer;
-            if (def is null) continue;
+            if (def is null || !m.Powered) continue;
             if (m.TurretCooldown > 0) m.TurretCooldown--;
             if (m.TurretCooldown > 0 || m.In[def.Item] <= 0) continue;
 
@@ -300,7 +300,7 @@ public sealed partial class BeltNetwork
             var turret = Content.Machines[m.Type].Turret;
             if (turret is null) continue;
             if (m.TurretCooldown > 0) m.TurretCooldown--;
-            if (m.TurretCooldown > 0 || m.In[turret.AmmoItem] <= 0) continue;
+            if (m.TurretCooldown > 0 || m.In[turret.AmmoItem] <= 0 || !TurretHasPower(m)) continue;
 
             var (cx, cy, cz) = MachineCentre(m);
             var target = NearestEnemy(cx, cy, cz, (long)turret.RangeCells * Units.CellUnits);

@@ -71,6 +71,10 @@ public static class Models
         "core:repair_bay" => BuildRepairBay(),
         "core:unloader" => BuildUnloader(),
         "core:ore_unloader" => BuildUnloader(),
+        "core:titanium_ore_unloader" => BuildUnloader(),
+        "core:nickel_ore_unloader" => BuildUnloader(),
+        "core:ice_unloader" => BuildUnloader(),
+        "core:hydrogen_cracker" => BuildCracker(),
         _ => BuildCrate(),
     };
 
@@ -144,8 +148,29 @@ public static class Models
             if (!Valid(g.Mi)) continue;
             bool engine = g.IsEngine;
             float f;
-            if (engine) f = active ? 0.85f + 0.3f * MathF.Sin(t * 24f + i) : 0.45f;
-            else f = active ? 0.8f + 0.35f * MathF.Sin(t * 3f + i * 1.3f) : 0.2f;
+            if (g.IsCore && a.Reactor != 0)
+            {
+                // The reactor core ignores the power scale: it breathes slowly while burning and shows a faint red emergency light when dark.
+                bool burning = a.Reactor == 1;
+                if (a.AppliedReactor != a.Reactor)
+                {
+                    a.AppliedReactor = a.Reactor;
+                    a.Own(g);
+                    if (g.Mat != null)
+                    {
+                        g.Mat.Emission = burning ? g.Emission : new Color(1f, 0.12f, 0.08f);
+                        g.Mat.AlbedoColor = burning ? g.Albedo : new Color(0.35f, 0.05f, 0.04f);
+                    }
+                    g.LastF = float.NaN;
+                }
+                f = burning ? 0.78f + 0.22f * MathF.Sin(t * 1.4f) : 0.10f + 0.06f * MathF.Sin(t * 0.9f);
+            }
+            else
+            {
+                if (engine) f = active ? 0.85f + 0.3f * MathF.Sin(t * 24f + i) : 0.45f;
+                else f = active ? 0.8f + 0.35f * MathF.Sin(t * 3f + i * 1.3f) : 0.2f;
+                f *= a.PowerScale;
+            }
             f *= 1f - dmg * 0.65f;
             if (dmg > 0.2f) f *= 1f - dmg * 0.4f * (0.5f + 0.5f * MathF.Sin(t * 23f + i * 1.7f)); // failing, flickering lights
             f = MathF.Max(0f, f);
@@ -157,6 +182,29 @@ public static class Models
             if (engine) g.Mi.Scale = new Vector3(active ? 1f + 0.18f * MathF.Sin(t * 30f) : 0.6f, 1f, 1f);
         }
     }
+
+    /// <summary>
+    /// Scales every light of the model (0 dark, 1 normal) except a reactor core: used for the power satisfaction of a structure and
+    /// for machines without power. Takes effect on the next <see cref="Animate"/>.
+    /// </summary>
+    public static void SetPower(Node3D model, float scale01) => GetAnim(model).PowerScale = Math.Clamp(scale01, 0f, 1f);
+
+    /// <summary>Tints the lamps and dashboards of a module amber (low power) or back to their own colour. Cheap when nothing changes.</summary>
+    public static void SetAmber(Node3D model, bool amber)
+    {
+        var a = GetAnim(model);
+        if (a.Amber == amber) return;
+        a.Amber = amber;
+        foreach (var g in a.Glows)
+        {
+            if (!g.IsLamp || !Valid(g.Mi)) continue;
+            a.Own(g);
+            if (g.Mat != null) g.Mat.Emission = amber ? new Color(1f, 0.62f, 0.16f) : g.Emission;
+        }
+    }
+
+    /// <summary>Marks a reactor model as burning (core breathes) or dark (faint red emergency light).</summary>
+    public static void SetReactor(Node3D model, bool burning) => GetAnim(model).Reactor = burning ? 1 : 2;
 
     /// <summary>Rotates the turret's child "Head" (yaw) and "Head/Barrel" (pitch) towards a world position.</summary>
     public static void Aim(Node3D turret, Vector3 worldTarget)
@@ -209,9 +257,9 @@ public static class Models
     {
         public MeshInstance3D Mi = null!;
         public StandardMaterial3D? Mat;
-        public bool IsGlow, IsEngine, Owned;
+        public bool IsGlow, IsEngine, IsCore, IsLamp, Owned;
         public float LastF = float.NaN; // the last glow factor written, so unchanged lights cost nothing
-        public Color Albedo;
+        public Color Albedo, Emission;
         public float Energy, Rough, Metal;
     }
 
@@ -223,6 +271,9 @@ public static class Models
         public Vector3 ArmBase;
         public double Last = double.NaN;
         public float Work, Damage;
+        public float PowerScale = 1f; // multiplies every glow except the reactor core (power satisfaction)
+        public int Reactor, AppliedReactor; // 0 = not a reactor, 1 = burning, 2 = dark
+        public bool Amber; // the lamps and dashboards tint amber
         public float AppliedDamage; // the damage the materials were last set to
         private readonly float[] _angles = new float[4];
 
@@ -238,6 +289,7 @@ public static class Models
             r.Mi.SetSurfaceOverrideMaterial(0, m);
             r.Mat = m;
             r.Albedo = m.AlbedoColor;
+            r.Emission = m.Emission;
             r.Energy = m.EmissionEnergyMultiplier;
             r.Rough = m.Roughness;
             r.Metal = m.Metallic;
@@ -276,10 +328,15 @@ public static class Models
             }
             if (c is MeshInstance3D mi)
             {
-                var rec = new Rec { Mi = mi, IsGlow = name.StartsWith("Glow", StringComparison.Ordinal), IsEngine = name.StartsWith("GlowEngine", StringComparison.Ordinal) };
+                var rec = new Rec
+                {
+                    Mi = mi, IsGlow = name.StartsWith("Glow", StringComparison.Ordinal), IsEngine = name.StartsWith("GlowEngine", StringComparison.Ordinal),
+                    IsCore = name == "GlowCore", IsLamp = name is "GlowLamp" or "GlowDash",
+                };
                 if (mi.Mesh?.SurfaceGetMaterial(0) is StandardMaterial3D m)
                 {
                     rec.Albedo = m.AlbedoColor;
+                    rec.Emission = m.Emission;
                     rec.Energy = m.EmissionEnergyMultiplier;
                     rec.Rough = m.Roughness;
                     rec.Metal = m.Metallic;
@@ -737,6 +794,29 @@ public static class Models
         return r;
     }
 
+    /// <summary>The hydrogen cracker: a squat reaction vessel and a tall cold tank on a plinth, with a cyan glow that breathes while it works.</summary>
+    private static Node3D BuildCracker()
+    {
+        var r = NewMachine("Cracker");
+        Add(r, "Body", "cracker.body", Body(), mb =>
+        {
+            Plinth(mb, Blue);
+            mb.C(BlueDk).Prism(new(-0.12f, Y0, 0.12f), 0.30f, 0.30f, 0.46f, 10);
+            mb.C(Panel).Prism(new(-0.12f, Y0 + 0.46f, 0.12f), 0.27f, 0.14f, 0.07f, 10);
+            mb.C(Steel).Prism(new(0.18f, Y0, -0.20f), 0.17f, 0.17f, 0.82f, 8);
+            mb.C(Hull).Prism(new(0.18f, Y0 + 0.82f, -0.20f), 0.15f, 0.06f, 0.07f, 8);
+            mb.C(Steel).Beam(new(-0.12f, Y0 + 0.30f, 0.12f), new(0.18f, Y0 + 0.60f, -0.20f), 0.045f);
+            mb.C(Blue).Block(new(0.36f, Y0 + 0.12f, 0.1f), new(0.2f, 0.12f, 0.2f), 0.85f, 0.85f);
+        });
+        Add(r, "GlowRim", "cracker.ring", Glow(new Color(0.4f, 0.9f, 1f), 2.8f), mb =>
+        {
+            mb.Prism(new(-0.12f, Y0 + 0.22f, 0.12f), 0.315f, 0.315f, 0.035f, 10);
+            mb.Prism(new(0.18f, Y0 + 0.50f, -0.20f), 0.18f, 0.18f, 0.03f, 8);
+        });
+        Add(r, "GlowLight", "cracker.light", Glow(new Color(0.45f, 1f, 0.9f), 3f), mb => mb.Block(new(0.455f, Y0 + 0.14f, 0.1f), new(0.012f, 0.05f, 0.08f)));
+        return r;
+    }
+
     private static Node3D BuildWall()
     {
         var r = NewMachine("Wall");
@@ -935,7 +1015,7 @@ public static class Models
 
     // ---- deposits ---------------------------------------------------------------------------------------
 
-    private sealed class Rng
+    internal sealed class Rng
     {
         private uint _s;
         public Rng(int seed) { unchecked { _s = (uint)seed * 2654435761u + 0x9E3779B9u; } if (_s == 0) _s = 1; }
@@ -947,7 +1027,7 @@ public static class Models
         }
     }
 
-    private static float Hash3(int x, int y, int z, int seed)
+    internal static float Hash3(int x, int y, int z, int seed)
     {
         unchecked
         {
@@ -972,7 +1052,7 @@ public static class Models
     }
 
     /// <summary>Surface point of the asteroid in direction <paramref name="d"/> (unit vector).</summary>
-    private static Vector3 RockPoint(Vector3 d, int seed)
+    internal static Vector3 RockPoint(Vector3 d, int seed)
     {
         var off = new Vector3(seed * 1.7f, seed * 0.9f, seed * 2.3f);
         float n = Noise3(d * 1.5f + off, seed) * 0.6f + Noise3(d * 3.3f + off * 2f, seed + 1) * 0.3f + Noise3(d * 7f + off, seed + 2) * 0.1f;
@@ -981,7 +1061,7 @@ public static class Models
         return new Vector3(d.X * rad, d.Y * rad * 0.86f, d.Z * rad);
     }
 
-    private static void BuildRock(Mb mb, Color tint, int seed)
+    internal static void BuildRock(Mb mb, Color tint, int seed, float tone = 1f, float tintShare = 0.13f)
     {
         // icosphere, one subdivision level above the base: 320 faces
         float t = (1f + MathF.Sqrt(5f)) / 2f;
@@ -1016,7 +1096,8 @@ public static class Models
         }
         var pos = new Vector3[verts.Count];
         for (int i = 0; i < pos.Length; i++) pos[i] = RockPoint(verts[i], seed);
-        var rock = new Color(0.09f, 0.085f, 0.10f).Lerp(tint, 0.13f);
+        var rock = new Color(0.09f, 0.085f, 0.10f).Lerp(tint, tintShare);
+        rock = new Color(rock.R * tone, rock.G * tone, rock.B * tone);
         int fi = 0;
         foreach (var (a, b, c) in faces)
         {

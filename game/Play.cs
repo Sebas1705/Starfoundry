@@ -73,7 +73,7 @@ public partial class Play : Node3D
 
     private readonly Dictionary<int, Geo> _geos = new();
     private Geo?[] _segGeo = Array.Empty<Geo?>(); // by segment id
-    private readonly List<Node3D> _depositNodes = new();
+    private readonly List<DepositView> _depositNodes = new();
     private MeshInstance3D _ghost = null!, _dragGhost = null!;
 
     // Interaction
@@ -121,7 +121,8 @@ public partial class Play : Node3D
         // A generated galaxy: the same seed always gives the same systems. Home's deposits start revealed; scan to find the rest.
         // The Remnant are on in the game and the threat demo; the production and exploration demos run without them.
         _structuresShotPath = args.FirstOrDefault(a => a.StartsWith("--structures-shot="))?["--structures-shot=".Length..];
-        _structuresShot = _structuresShotPath is not null;
+        _powerShotPath = args.FirstOrDefault(a => a.StartsWith("--power-shot="))?["--power-shot=".Length..];
+        _structuresShot = _structuresShotPath is not null || _powerShotPath is not null;
         _walkShotPath = args.FirstOrDefault(a => a.StartsWith("--walk-shot="))?["--walk-shot=".Length..];
         _walkShot = _walkShotPath is not null;
         bool threats = !(args.Contains("--demo") || _exploreDemo) && _stressMachines == 0 && !((_structuresShot || _walkShot) && !args.Contains("--threats"));
@@ -355,9 +356,9 @@ void fragment() {
         // Deposits: spheres where the simulation says they are, shrinking as they run dry.
         for (int d = 0; d < Net.DepositCount; d++)
         {
-            var color = Net.DepositItem(d) == _content.ItemIndex("core:iron_ore") ? new Color(0.65f, 0.4f, 0.3f) : new Color(0.25f, 0.25f, 0.28f);
             var (dx, dy, dz) = Net.DepositPosition(d);
-            var n = Models.Deposit(color, d);
+            var n = new DepositView(_content.Items[Net.DepositItem(d)].Id, Net.DepositDensity(d), Net.DepositInitial(d), d);
+            n.Refresh(Net.DepositRemaining(d));
             n.Position = new Vector3(dx, dy, dz);
             AddChild(n);
             _depositNodes.Add(n);
@@ -416,6 +417,7 @@ void fragment() {
     {
         if (!_structuresOn) return;
         _stationView.SyncStructures(Net);
+        UpdateStructurePower();
         int ship = ShipStruct;
         if (ship < 0 || !Net.HasPlayer(Player)) return;
         if (_stationView.StructureRoot(ship) is { } root) root.Position = ShipPosition(_demo ? 0f : alpha);
@@ -640,6 +642,14 @@ void fragment() {
                 || (def.Role == MachineRole.Drill && m.Deposit >= 0);
             if (def.Role == MachineRole.Turret) active = m.InputItems > 0; // a dark turret has no ammo
             if (_stressActive) active = true; // --stress-active: every machine at work, the worst case for animation
+            // Below half power a machine looks dead: its animation stops and its lights dim with the satisfaction.
+            int sat = NeedsPower(m.Type) ? SatisfactionOf(m.Structure) : PowerRules.FullSatisfaction;
+            if (sat < PowerRules.TurretMinSatisfaction)
+            {
+                active = false;
+                Models.SetPower(model, 0.08f + 0.1f * sat / PowerRules.TurretMinSatisfaction);
+            }
+            else Models.SetPower(model, 1f);
             Models.Animate(model, _animTime, active);
             float max = Net.MaxHp(m.Type);
             Models.SetDamage(model, max <= 0 ? 0f : 1f - Math.Clamp(m.Hp / max, 0f, 1f));
@@ -666,8 +676,7 @@ void fragment() {
     {
         for (int d = 0; d < _depositNodes.Count; d++)
         {
-            float f = Net.DepositInitial(d) == 0 ? 0 : (float)Net.DepositRemaining(d) / Net.DepositInitial(d);
-            _depositNodes[d].Scale = Vector3.One * Mathf.Max(0.15f, 0.35f + 0.65f * f);
+            _depositNodes[d].Refresh(Net.DepositRemaining(d)); // chunks shrink in 5% steps; the rock keeps its size
             _depositNodes[d].Visible = Net.IsDepositRevealed(d) && Net.DepositRemaining(d) > 0; // hidden until scanned
         }
     }
@@ -1026,6 +1035,7 @@ void fragment() {
         if (!_structuresOn) _stationView.Sync(Net, Player, _cursorY);
         if (_structureDemo) StructureDemoTick();
         if (_structuresShot) StructuresShotFrame();
+        if (_powerShotPath is not null) PowerShotFrame();
         UpdateMap();
 
         UpdateHover();
