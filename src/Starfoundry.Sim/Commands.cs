@@ -223,6 +223,9 @@ public enum Reject
 
     /// <summary>The command names a structure that does not exist.</summary>
     NoSuchStructure,
+
+    /// <summary>With structure rules on, the ship structure needs a cockpit and an engine module before it can fly.</summary>
+    NoCockpitOrEngine,
 }
 
 /// <summary>Outcome of one submitted command.</summary>

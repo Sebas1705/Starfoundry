@@ -13,8 +13,174 @@ public sealed partial class BeltNetwork
         if (!Enum.IsDefined(kind)) throw new ArgumentOutOfRangeException(nameof(kind));
         int id = _nextStructureId++;
         _structures.Add(id, new Structure(id, kind, owner, ox, oy, oz));
+        if (kind == StructureKind.Ship && owner >= 0)
+        {
+            var p = GetOrCreatePlayer(owner);
+            if (p.ShipStructure < 0)
+            {
+                p.ShipStructure = id;
+                if (StructureRules) SyncPlayerToStructure(p, _structures[id]);
+            }
+        }
         StructureVersion++;
         return id;
+    }
+
+    /// <summary>The ship structure a player flies, or -1 when there is none.</summary>
+    public int ShipStructure(int player) => _players.TryGetValue(player, out var p) ? p.ShipStructure : -1;
+
+    /// <summary>The structure that carries the player's ship while structure rules are on, or -1 (legacy flight).</summary>
+    private int FlightStructure(Player p) => StructureRules && p.ShipStructure >= 0 ? p.ShipStructure : -1;
+
+    private static long ClampToWorld(long v) => Math.Clamp(v, -PlayerRules.WorldLimitUnits, PlayerRules.WorldLimitUnits);
+
+    /// <summary>Makes the player position mirror the structure origin (pilot position = origin + the cockpit offset).</summary>
+    private static void SyncPlayerToStructure(Player p, Structure s)
+    {
+        p.X = (int)ClampToWorld(s.OriginX + StructureFlight.CockpitOffsetX);
+        p.Y = (int)ClampToWorld(s.OriginY + StructureFlight.CockpitOffsetY);
+        p.Z = (int)ClampToWorld(s.OriginZ + StructureFlight.CockpitOffsetZ);
+        s.OriginX = p.X - StructureFlight.CockpitOffsetX;
+        s.OriginY = p.Y - StructureFlight.CockpitOffsetY;
+        s.OriginZ = p.Z - StructureFlight.CockpitOffsetZ;
+    }
+
+    /// <summary>Teleports the ship (jump, rebuild): the ship structure goes with it so both stay in sync.</summary>
+    private void SetShipPosition(Player p, int x, int y, int z)
+    {
+        p.X = x; p.Y = y; p.Z = z;
+        if (FlightStructure(p) >= 0)
+        {
+            var s = _structures[p.ShipStructure];
+            s.OriginX = x - StructureFlight.CockpitOffsetX;
+            s.OriginY = y - StructureFlight.CockpitOffsetY;
+            s.OriginZ = z - StructureFlight.CockpitOffsetZ;
+        }
+    }
+
+    private int ModuleCount(Structure s, ModuleKind kind)
+    {
+        int n = 0;
+        foreach (var k in s.ModuleMap.Values) if (k == kind) n++;
+        return n;
+    }
+
+    /// <summary>Summed engine speed of a structure in percent of the base speed, clamped to <see cref="StructureFlight.MaxSpeedPercent"/>.</summary>
+    private int EnginePercent(Structure s)
+    {
+        var kinds = Content?.Structures;
+        if (kinds is null) return 0;
+        long total = 0;
+        foreach (var k in s.ModuleMap.Values) if (k == ModuleKind.Engine) total += kinds.EngineSpeedPercent(k);
+        return (int)Math.Min(total, StructureFlight.MaxSpeedPercent);
+    }
+
+    /// <summary>Ship speed along one axis in units per tick for the player's ship structure: the base speed times the engines' percent
+    /// (0 without a ship structure or engines). Integer division truncates; flight keeps the remainder so nothing is lost.</summary>
+    public int ShipSpeedUnitsPerTick(int player)
+    {
+        if (!_players.TryGetValue(player, out var p) || p.ShipStructure < 0) return 0;
+        return PlayerRules.MoveUnitsPerTick * EnginePercent(_structures[p.ShipStructure]) / StructureFlight.PercentScale;
+    }
+
+    /// <summary>True if the ship may move: always in legacy worlds and for players without a ship structure; otherwise the ship
+    /// structure needs at least one cockpit and one engine module.</summary>
+    public bool CanFly(int player)
+    {
+        if (!_players.TryGetValue(player, out var p)) return true;
+        int fs = FlightStructure(p);
+        return fs < 0 || CanFlyStructure(_structures[fs]);
+    }
+
+    private bool CanFlyStructure(Structure s) => ModuleCount(s, ModuleKind.Cockpit) > 0 && ModuleCount(s, ModuleKind.Engine) > 0;
+
+    /// <summary>Items the player's hold can carry: the sum of the cargo modules of the ship structure when structure rules are on
+    /// and the player has one, otherwise <see cref="PlayerRules.HoldCapacity"/>.</summary>
+    public int HoldCapacity(int player) =>
+        _players.TryGetValue(player, out var p) ? HoldCapacityOf(p) : PlayerRules.HoldCapacity;
+
+    private int HoldCapacityOf(Player p)
+    {
+        int fs = FlightStructure(p);
+        var kinds = Content?.Structures;
+        if (fs < 0 || kinds is null) return PlayerRules.HoldCapacity;
+        int total = 0;
+        foreach (var k in _structures[fs].ModuleMap.Values) total += kinds.HoldCapacity(k);
+        return total;
+    }
+
+    private void MoveShipStructure(Player p, int structure)
+    {
+        var s = _structures[structure];
+        if (!CanFlyStructure(s))
+        {
+            // The last engine or cockpit is gone: the ship stops where it is.
+            p.MoveX = p.MoveY = p.MoveZ = 0;
+            p.ClearThrust();
+            return;
+        }
+
+        int percent = EnginePercent(s);
+        static int Advance(long numerator, ref int rem, int denominator)
+        {
+            long acc = numerator + rem;
+            rem = (int)(acc % denominator);
+            return (int)(acc / denominator);
+        }
+
+        int nx, ny, nz;
+        if (p.HasThrust)
+        {
+            int den = PlayerRules.ThrustScale * StructureFlight.PercentScale;
+            long k = (long)PlayerRules.MoveUnitsPerTick * percent;
+            nx = p.X + Advance(p.ThrustX * k, ref p.ThrustRemX, den);
+            ny = p.Y + Advance(p.ThrustY * k, ref p.ThrustRemY, den);
+            nz = p.Z + Advance(p.ThrustZ * k, ref p.ThrustRemZ, den);
+        }
+        else
+        {
+            int axes = Math.Abs(p.MoveX) + Math.Abs(p.MoveY) + Math.Abs(p.MoveZ);
+            int speed = axes switch
+            {
+                1 => PlayerRules.MoveUnitsPerTick,
+                2 => PlayerRules.MoveUnitsPerTickDiagonal2,
+                _ => PlayerRules.MoveUnitsPerTickDiagonal3,
+            };
+            long k = (long)speed * percent;
+            nx = p.X + Advance(p.MoveX * k, ref p.ThrustRemX, StructureFlight.PercentScale);
+            ny = p.Y + Advance(p.MoveY * k, ref p.ThrustRemY, StructureFlight.PercentScale);
+            nz = p.Z + Advance(p.MoveZ * k, ref p.ThrustRemZ, StructureFlight.PercentScale);
+        }
+
+        nx = (int)ClampToWorld(nx); ny = (int)ClampToWorld(ny); nz = (int)ClampToWorld(nz);
+        s.OriginX += nx - p.X; s.OriginY += ny - p.Y; s.OriginZ += nz - p.Z;
+        p.X = nx; p.Y = ny; p.Z = nz;
+    }
+
+    /// <summary>True if the drill's cell centre is within <see cref="ExplorationRules.DrillRangeCells"/> of the deposit centre (world positions, so
+    /// a machine of a moving structure counts where it is now).</summary>
+    public bool DrillInRange(int machine, int deposit)
+    {
+        var m = GetMachine(machine);
+        var d = GetDeposit(deposit);
+        var (wx, wy, wz) = WorldCentre(m.Structure, m.X, m.Y, m.Z);
+        long cu = Units.CellUnits;
+        long dx = wx - (d.X * cu + cu / 2), dy = wy - (d.Y * cu + cu / 2), dz = wz - (d.Z * cu + cu / 2);
+        long r = (long)ExplorationRules.DrillRangeCells * cu;
+        return dx * dx + dy * dy + dz * dz <= r * r;
+    }
+
+    /// <summary>Drops the deposit link of every linked drill that stands in a structure and is now beyond drill range.
+    /// Machines of structure 0 never move, so they are skipped. Holds no state: running it every tick is the same as checking
+    /// only the structures that moved.</summary>
+    private void RecheckDrillLinks()
+    {
+        if (_structures.Count == 0) return;
+        foreach (var m in _machines)
+        {
+            if (m is null || m.Structure == 0 || m.Deposit < 0) continue;
+            if (!DrillInRange(m.Id, m.Deposit)) { m.Deposit = -1; StructureVersion++; }
+        }
     }
 
     /// <summary>The structures in id order (structure 0 is not listed).</summary>
@@ -31,6 +197,8 @@ public sealed partial class BeltNetwork
     {
         var s = GetStructure(id);
         s.OriginX = ox; s.OriginY = oy; s.OriginZ = oz;
+        foreach (var p in _players.Values)
+            if (p.ShipStructure == id && FlightStructure(p) >= 0) SyncPlayerToStructure(p, s); // the pilot goes with the ship
         StructureVersion++;
     }
 
@@ -132,6 +300,15 @@ public sealed partial class BeltNetwork
             if (!Enum.IsDefined(s.Kind)) Fail($"structure {id} has an unknown kind");
             foreach (var (m, kind) in s.ModuleMap)
                 if (!Enum.IsDefined(kind)) Fail($"structure {id} module {m} has an unknown kind");
+        }
+        foreach (var p in _players.Values)
+        {
+            if (p.ShipStructure < 0) continue;
+            if (!_structures.TryGetValue(p.ShipStructure, out var ship) || ship.Kind != StructureKind.Ship || ship.Owner != p.Id)
+                Fail($"player {p.Id} has an invalid ship structure {p.ShipStructure}");
+            else if (StructureRules && (p.X != ship.OriginX + StructureFlight.CockpitOffsetX || p.Y != ship.OriginY + StructureFlight.CockpitOffsetY
+                || p.Z != ship.OriginZ + StructureFlight.CockpitOffsetZ))
+                Fail($"player {p.Id} is not at the cockpit of ship structure {p.ShipStructure}");
         }
         foreach (var m in _machines)
         {

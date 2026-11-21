@@ -116,9 +116,14 @@ public sealed partial class BeltNetwork
             _enemies.Count(e => e.System == system));
     }
 
-    private int SystemOfMachine(Machine m) =>
-        Galaxy!.SystemAt(m.X * (long)Units.CellUnits + Units.CellUnits / 2, m.Y * (long)Units.CellUnits + Units.CellUnits / 2,
-            m.Z * (long)Units.CellUnits + Units.CellUnits / 2);
+    /// <summary>World position (units) of the centre of a machine's cell; structure machines follow their structure.</summary>
+    private (long X, long Y, long Z) MachineCentre(Machine m) => WorldCentre(m.Structure, m.X, m.Y, m.Z);
+
+    private int SystemOfMachine(Machine m)
+    {
+        var (x, y, z) = MachineCentre(m);
+        return Galaxy!.SystemAt(x, y, z);
+    }
 
     /// <summary>Content-driven setup for tests and demos: forces a wave in a system after the usual warning, without waiting for the alert.</summary>
     public void ScheduleWave(int system)
@@ -168,7 +173,17 @@ public sealed partial class BeltNetwork
                 if (t is null) continue;
                 int max = MaxHp(t.Type);
                 if (t.Hp >= max) continue;
-                long dx = (long)(t.X - m.X) * Units.CellUnits, dy = (long)(t.Y - m.Y) * Units.CellUnits, dz = (long)(t.Z - m.Z) * Units.CellUnits;
+                long dx, dy, dz;
+                if (t.Structure == m.Structure)
+                {
+                    // Same structure (or both in the legacy world): local differences, no origin involved.
+                    dx = (long)(t.X - m.X) * Units.CellUnits; dy = (long)(t.Y - m.Y) * Units.CellUnits; dz = (long)(t.Z - m.Z) * Units.CellUnits;
+                }
+                else
+                {
+                    var a = MachineCentre(t); var b = MachineCentre(m);
+                    dx = a.X - b.X; dy = a.Y - b.Y; dz = a.Z - b.Z;
+                }
                 if (dx * dx + dy * dy + dz * dz > range * range) continue;
                 // Lowest share of hit points first; the lowest id wins ties.
                 if (best is null || (long)t.Hp * MaxHp(best.Type) < (long)best.Hp * max) best = t;
@@ -252,9 +267,9 @@ public sealed partial class BeltNetwork
                 Machine? machine = ship is null ? NearestWall(e) ?? PickTargetMachine(e.System) : null;
                 if (ship is null && machine is null) continue;
 
-                long tx = ship?.X ?? machine!.X * (long)Units.CellUnits + Units.CellUnits / 2;
-                long ty = ship?.Y ?? machine!.Y * (long)Units.CellUnits + Units.CellUnits / 2;
-                long tz = ship?.Z ?? machine!.Z * (long)Units.CellUnits + Units.CellUnits / 2;
+                long tx, ty, tz;
+                if (ship is not null) { tx = ship.X; ty = ship.Y; tz = ship.Z; }
+                else (tx, ty, tz) = MachineCentre(machine!);
                 long rx = tx - e.X, ry = ty - e.Y, rz = tz - e.Z;
                 long dist2 = rx * rx + ry * ry + rz * rz;
                 long range = (long)def.RangeCells * Units.CellUnits;
@@ -287,8 +302,7 @@ public sealed partial class BeltNetwork
             if (m.TurretCooldown > 0) m.TurretCooldown--;
             if (m.TurretCooldown > 0 || m.In[turret.AmmoItem] <= 0) continue;
 
-            long cx = m.X * (long)Units.CellUnits + Units.CellUnits / 2, cy = m.Y * (long)Units.CellUnits + Units.CellUnits / 2,
-                cz = m.Z * (long)Units.CellUnits + Units.CellUnits / 2;
+            var (cx, cy, cz) = MachineCentre(m);
             var target = NearestEnemy(cx, cy, cz, (long)turret.RangeCells * Units.CellUnits);
             if (target is null) continue;
 
@@ -343,8 +357,8 @@ public sealed partial class BeltNetwork
         foreach (var m in _machines)
         {
             if (m is null || Content!.Machines[m.Type].Role != MachineRole.Wall || SystemOfMachine(m) != e.System) continue;
-            long dx = m.X * (long)Units.CellUnits + Units.CellUnits / 2 - e.X, dy = m.Y * (long)Units.CellUnits + Units.CellUnits / 2 - e.Y,
-                dz = m.Z * (long)Units.CellUnits + Units.CellUnits / 2 - e.Z;
+            var (cx, cy, cz) = MachineCentre(m);
+            long dx = cx - e.X, dy = cy - e.Y, dz = cz - e.Z;
             long d = dx * dx + dy * dy + dz * dz;
             if (d < bestD) { bestD = d; best = m; }
         }
@@ -401,9 +415,7 @@ public sealed partial class BeltNetwork
         var anchor = Galaxy.Systems[s < 0 ? 0 : s];
         p.Hull = 0;
         p.RespawnRemaining = rules.RespawnTicks;
-        p.X = anchor.X * Units.CellUnits;
-        p.Y = anchor.Y * Units.CellUnits;
-        p.Z = anchor.Z * Units.CellUnits;
+        SetShipPosition(p, anchor.X * Units.CellUnits, anchor.Y * Units.CellUnits, anchor.Z * Units.CellUnits);
         p.MiningDeposit = -1;
         p.MineProgress = 0;
         p.JumpTarget = -1;

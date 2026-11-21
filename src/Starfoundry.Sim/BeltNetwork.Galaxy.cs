@@ -117,9 +117,7 @@ public sealed partial class BeltNetwork
     private void CompleteJump(Player p)
     {
         var s = Galaxy!.Systems[p.JumpTarget];
-        p.X = s.X * Units.CellUnits;
-        p.Y = s.Y * Units.CellUnits;
-        p.Z = s.Z * Units.CellUnits;
+        SetShipPosition(p, s.X * Units.CellUnits, s.Y * Units.CellUnits, s.Z * Units.CellUnits);
         p.MiningDeposit = -1;
         p.MineProgress = 0;
         MarkVisited(p.JumpTarget);

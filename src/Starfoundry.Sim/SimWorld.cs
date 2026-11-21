@@ -256,6 +256,11 @@ public sealed class SimWorld
     public bool InBuildRange(int player, int x, int y, int z) =>
         Network.CellInRange(player, x, y, z, PlayerRules.BuildRangeCells);
 
+    /// <summary>Build-range check for a cell of any structure: structure 0 measures the world cell from the ship; inside a structure a
+    /// ship of the player is always in range and a station must have the cell near the ship (the world position of the cell).</summary>
+    public bool InBuildRange(int player, int structure, int x, int y, int z) =>
+        structure == 0 ? InBuildRange(player, x, y, z) : StructureCellInRange(player, Network.GetStructure(structure), x, y, z);
+
     private ItemStack[] BeltCost(BeltTier tier) =>
         Network.Content?.Belts[(int)tier]?.CostPerCell ?? System.Array.Empty<ItemStack>();
 
@@ -271,7 +276,7 @@ public sealed class SimWorld
                 int id = Resolve(r.Segment, created);
                 if (!Network.IsAlive(id)) return Reject.UnknownSegment;
                 var info = Network.GetSegmentInfo(id);
-                if (Campaign && !InBuildRange(player, info.OriginX, info.OriginY, info.OriginZ)) return Reject.OutOfRange;
+                if (Campaign && !InBuildRange(player, info.Structure, info.OriginX, info.OriginY, info.OriginZ)) return Reject.OutOfRange;
                 Release(info);
                 Network.RemoveSegment(id);
                 if (Campaign) Network.Refund(player, BeltCost(info.Tier), info.LengthCells);
@@ -354,7 +359,7 @@ public sealed class SimWorld
                 int id = Resolve(rm.Machine, machines);
                 if (!Network.IsMachineAlive(id)) return Reject.UnknownMachine;
                 var m = Network.GetMachineInfo(id);
-                if (Campaign && !InBuildRange(player, m.X, m.Y, m.Z)) return Reject.OutOfRange;
+                if (Campaign && !InBuildRange(player, m.Structure, m.X, m.Y, m.Z)) return Reject.OutOfRange;
                 RemoveCell(m.Structure, Key(m.X, m.Y, m.Z));
                 Network.RemoveMachine(id);
                 if (Campaign) Network.Refund(player, Network.Content!.Machines[m.Type].Cost);
@@ -417,11 +422,13 @@ public sealed class SimWorld
 
             case SetMovement mv:
                 if (mv.Dx is < -1 or > 1 || mv.Dy is < -1 or > 1 || mv.Dz is < -1 or > 1) return Reject.InvalidArgument;
+                if ((mv.Dx | mv.Dy | mv.Dz) != 0 && !Network.CanFly(player)) return Reject.NoCockpitOrEngine; // stopping is always allowed
                 Network.SetMovement(player, mv.Dx, mv.Dy, mv.Dz);
                 return Reject.None;
 
             case SetThrust th:
                 if (!PlayerRules.ThrustInRange(th.Dx, th.Dy, th.Dz)) return Reject.InvalidArgument;
+                if ((th.Dx | th.Dy | th.Dz) != 0 && !Network.CanFly(player)) return Reject.NoCockpitOrEngine;
                 Network.SetThrust(player, th.Dx, th.Dy, th.Dz);
                 return Reject.None;
 
@@ -463,11 +470,7 @@ public sealed class SimWorld
                 if (Network.Content!.Machines[Network.GetMachineInfo(id).Type].Role != MachineRole.Drill) return Reject.WrongRole;
                 if (!Network.IsDeposit(ld.Deposit)) return Reject.UnknownDeposit;
                 if (!Network.IsDepositRevealed(ld.Deposit)) return Reject.NotDiscovered;
-                var mi = Network.GetMachineInfo(id);
-                var dp = Network.DepositPosition(ld.Deposit);
-                long ddx = dp.X - (long)mi.X, ddy = dp.Y - (long)mi.Y, ddz = dp.Z - (long)mi.Z;
-                if (ddx * ddx + ddy * ddy + ddz * ddz > (long)ExplorationRules.DrillRangeCells * ExplorationRules.DrillRangeCells)
-                    return Reject.OutOfRange;
+                if (!Network.DrillInRange(id, ld.Deposit)) return Reject.OutOfRange; // world positions: a ship's drill counts where it is now
                 Network.LinkDeposit(id, ld.Deposit);
                 return Reject.None;
             }
@@ -523,7 +526,7 @@ public sealed class SimWorld
                 if (m.Hp >= Network.MaxHp(m.Type)) return Reject.NotDamaged;
                 if (Campaign)
                 {
-                    if (!InBuildRange(player, m.X, m.Y, m.Z)) return Reject.OutOfRange;
+                    if (!InBuildRange(player, m.Structure, m.X, m.Y, m.Z)) return Reject.OutOfRange;
                     var cost = Network.RepairCost(mach);
                     if (!Network.CanPay(player, cost)) return Reject.NotEnoughItems;
                     Network.Pay(player, cost);
