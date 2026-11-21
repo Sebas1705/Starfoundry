@@ -211,7 +211,7 @@ public class MaterialsTests
     [InlineData(1UL)]
     [InlineData(99UL)]
     [InlineData(20261120UL)]
-    public void HomeHasIronCarbonAndALittleThinIce(ulong seed)
+    public void HomeHasIronCarbonAndThinButDeepIce(ulong seed)
     {
         var g = Galaxy.Generate(C, seed);
         var ds = g.DepositsOf(0).Select(i => g.Deposits[i]).ToList();
@@ -219,7 +219,7 @@ public class MaterialsTests
         Assert.Equal((C.ItemIndex("core:iron_ore"), 4000), (ds[0].Item, ds[0].Amount));
         Assert.Equal((C.ItemIndex("core:carbon"), 1500), (ds[1].Item, ds[1].Amount));
         Assert.Equal(C.ItemIndex("core:ice"), ds[2].Item);
-        Assert.InRange(ds[2].Amount, 600, 800);
+        Assert.InRange(ds[2].Amount, 1500, 2000);
         Assert.InRange(ds[2].Density, 40, 70);
         Assert.Equal(100, ds[0].Density);
         Assert.Equal(100, ds[1].Density);

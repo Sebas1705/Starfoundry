@@ -694,6 +694,9 @@ public class StructureDefenceTests
         RemoveWhere("items", "core:silicon", "core:circuit", "core:titanium_alloy", "core:fuel_cell");
         // And before the second balance pass: the small container held 60.
         root["structures"]!["cargo"]!["hold_capacity"] = 60;
+        // And the home ice deposit held 600 to 800.
+        var home = root["archetypes"]!.AsArray().First(a => a!["id"]!.GetValue<string>() == "core:home")!["deposits"]!.AsArray();
+        home.First(d => d!["item"]!.GetValue<string>() == "core:ice")!["amount"] = System.Text.Json.Nodes.JsonNode.Parse("[600,800]");
         return ContentDb.FromJson(root.ToJsonString());
     }
 
