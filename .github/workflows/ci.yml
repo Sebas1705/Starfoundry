@@ -13,8 +13,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-test:
+  # Chooses where the build runs: this PC (self-hosted runner, see Sebas1705/ci-runner) when its heartbeat
+  # variable is under 3 minutes old, otherwise a GitHub-hosted runner. Pull requests never use the PC.
+  pick-runner:
+    name: Pick the runner
     runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      runner: ${{ steps.pick.outputs.runner }}
+    steps:
+      - id: pick
+        env:
+          HEARTBEAT: ${{ vars.PC_RUNNER_HEARTBEAT }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          runner='"ubuntu-latest"'
+          if { [ "$EVENT" = push ] || [ "$EVENT" = workflow_dispatch ]; } && [ -n "${HEARTBEAT:-}" ]; then
+            age=$(( $(date +%s) - HEARTBEAT ))
+            if [ "$age" -ge 0 ] && [ "$age" -lt 180 ]; then runner='["self-hosted","pc"]'; fi
+          fi
+          echo "Runner: $runner"
+          echo "runner=$runner" >> "$GITHUB_OUTPUT"
+
+  build-and-test:
+    needs: pick-runner
+    runs-on: ${{ fromJSON(needs.pick-runner.outputs.runner) }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
