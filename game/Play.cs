@@ -41,7 +41,7 @@ public partial class Play : Node3D
     private float _overviewDistance = DefaultDistance;
     private Vector3 _overviewTarget = new(7f, 0f, 2f);
     private MeshInstance3D _grid = null!;
-    private bool Overview => _demo || _stressMachines > 0;
+    private bool Overview => _demo || _stressMachines > 0 || _structureDemo;
     private const float CockpitFov = 80f;
     private const uint ShipLayer = 1u << 1; // render layer 2: the ship model, hidden from the cockpit camera
     private static readonly Vector3 CockpitOffset = new(0f, 1.8f, 0f); // eye height above the ship: near cells stay small enough to aim at
@@ -106,7 +106,7 @@ public partial class Play : Node3D
         bool threats = !(args.Contains("--demo") || _exploreDemo) && _stressMachines == 0;
         _stationDemo = args.Contains("--station-demo");
         // --station-demo: a sandbox world with the station rules on and a scripted station, for screenshots of the build rules.
-        _gameMode = _exploreDemo || _threatDemo || _stressMachines > 0 || (_stationDemo && !args.Contains("--station-campaign")) ? GameMode.Sandbox : GameMode.Campaign;
+        _gameMode = _exploreDemo || _threatDemo || _stressMachines > 0 || (_stationDemo && !args.Contains("--station-campaign")) || args.Contains("--structure-demo") ? GameMode.Sandbox : GameMode.Campaign;
         _threatsOn = threats;
         // The campaign builds only inside station modules; the scripted demos and the stress test keep the free build, and
         // --station-rules=false starts a campaign with the old rules for comparison.
@@ -114,6 +114,7 @@ public partial class Play : Node3D
             || (_gameMode == GameMode.Campaign && !_demo && _stressMachines == 0 && !args.Contains("--station-rules=false"));
         _world = SimWorld.CreateGalaxy(_content, _gameMode, GalaxySeed, threats, _stationRules);
         _world.Network.EnsurePlayer(Player); // the ship starts at the origin, inside Home
+        if (args.Contains("--structure-demo")) BuildStructureDemo(args);
         // For screenshots: finish every research that carries a bonus, so the upgrade line of the status panel shows.
         if (args.Contains("--grant-upgrades"))
             foreach (var node in _content.Research.Where(r => r.Bonuses.Length > 0)) _world.Network.GrantResearch(node.Index);
@@ -388,7 +389,7 @@ void fragment() {
         if (Overview)
         {
             // After a jump the camera snaps to the ship instead of flying hundreds of cells.
-            var focus = pos;
+            var focus = _structureDemo ? _demoFocus : pos;
             // With a deposit chosen close by, look between the ship and the deposit so what you build around it stays on screen.
             if (Net.IsDeposit(_selectedDeposit) && Net.IsDepositRevealed(_selectedDeposit))
             {
@@ -416,7 +417,7 @@ void fragment() {
     {
         if (Overview)
         {
-            const float yaw = 0.2f, pitch = 1.15f; // fixed look from above, for the scripted modes only
+            float yaw = _structureDemo ? _demoYaw : 0.2f, pitch = _structureDemo ? _demoPitch : 1.15f; // fixed look, for the scripted modes only
             var offset = new Vector3(MathF.Sin(yaw) * MathF.Cos(pitch), MathF.Sin(pitch), MathF.Cos(yaw) * MathF.Cos(pitch)) * _overviewDistance;
             _camera.LookAtFromPosition(_overviewTarget + offset, _overviewTarget);
             return;
@@ -934,6 +935,7 @@ void fragment() {
         UpdateDeposits();
         UpdateShip(alpha, (float)delta);
         _stationView.Sync(Net, Player, _cursorY);
+        if (_structureDemo) StructureDemoTick();
         UpdateMap();
 
         UpdateHover();
