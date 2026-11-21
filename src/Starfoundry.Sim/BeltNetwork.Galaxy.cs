@@ -111,6 +111,7 @@ public sealed partial class BeltNetwork
         if (!_known[target]) throw new InvalidOperationException("The system is not known yet.");
         p.JumpTarget = target;
         p.JumpRemaining = ExplorationRules.JumpChargeTicks;
+        p.ClearThrust();
     }
 
     private void CompleteJump(Player p)

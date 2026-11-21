@@ -35,8 +35,16 @@ public partial class Play : Node3D
 
     // Rendering
     private Camera3D _camera = null!;
-    private float _yaw = 0.2f, _distance = DefaultDistance;
-    private Vector3 _target = new(7f, 0f, 2f);
+    // First person: the camera sits in the cockpit and looks along yaw/pitch (radians). Yaw 0 looks along -Z; the start faces +X.
+    private float _yaw = -MathF.PI / 2f, _pitch = -0.3f;
+    // Only the scripted modes (--demo, --stress) use an overview camera that follows the base from above; normal play never does.
+    private float _overviewDistance = DefaultDistance;
+    private Vector3 _overviewTarget = new(7f, 0f, 2f);
+    private MeshInstance3D _grid = null!;
+    private bool Overview => _demo || _stressMachines > 0;
+    private const float CockpitFov = 80f;
+    private const uint ShipLayer = 1u << 1; // render layer 2: the ship model, hidden from the cockpit camera
+    private static readonly Vector3 CockpitOffset = new(0f, 0.2f, 0f);
     private MultiMeshInstance3D? _slabNode, _itemNode;
     private MultiMesh _items = null!;
     private Node3D? _machineRoot;
@@ -60,7 +68,7 @@ public partial class Play : Node3D
     private (int X, int Y, int Z)? _dragStart;
     private int _selectedDeposit;
     private readonly Dictionary<int, int> _recipeChoice = new();
-    private readonly List<(double Until, string Text)> _toasts = new();
+    private readonly ToastQueue _toasts = new();
     private int _speed = 1;
     private bool _paused;
 
@@ -130,28 +138,30 @@ public partial class Play : Node3D
 
     private void BuildScene()
     {
-        AddChild(new WorldEnvironment
-        {
-            Environment = new Godot.Environment
-            {
-                BackgroundMode = Godot.Environment.BGMode.Color,
-                BackgroundColor = new Color(0.03f, 0.04f, 0.08f),
-                AmbientLightSource = Godot.Environment.AmbientSource.Color,
-                AmbientLightColor = new Color(0.55f, 0.6f, 0.75f),
-                AmbientLightEnergy = 0.75f,
-            },
-        });
-        var sun = new DirectionalLight3D { LightEnergy = 1.1f };
-        AddChild(sun);
-        sun.RotationDegrees = new Vector3(-55, -30, 0);
+        Ambience.Build(this, Ambience.SystemSeed(GalaxySeed, Net.CurrentSystem(Player))); // sky, sun light and dust
 
-        _camera = new Camera3D { Far = 500f };
+        _camera = new Camera3D { Far = 500f, Fov = Overview ? 75f : CockpitFov, CullMask = Overview ? 0xFFFFFu : 0xFFFFFu & ~ShipLayer };
         AddChild(_camera);
-        PlaceCamera();
+        PlaceCamera(ShipPosition(0f));
 
-        // A faint floor grid so the build layer is readable.
-        var grid = new MeshInstance3D { Mesh = new PlaneMesh { Size = new Vector2(80, 80) }, Position = new Vector3(20, -0.02f, 10) };
-        grid.MaterialOverride = new StandardMaterial3D { AlbedoColor = new Color(0.07f, 0.08f, 0.12f), Roughness = 1f };
+        // A faint floor so the build layer is readable; it follows the ship so the ground never ends under the cockpit.
+        var grid = _grid = new MeshInstance3D { Mesh = new PlaneMesh { Size = new Vector2(400, 400) }, Position = new Vector3(20, -0.02f, 10) };
+        // Unlit dark floor with faint cell lines (world-space, so the lines stay put while the plane follows the ship) fading into the distance.
+        var floorShader = new Shader
+        {
+            Code = @"shader_type spatial;
+render_mode unshaded;
+varying vec3 wpos;
+void vertex() { wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+void fragment() {
+    vec2 g = abs(fract(wpos.xz - 0.5) - 0.5) / fwidth(wpos.xz);
+    float line = 1.0 - min(min(g.x, g.y), 1.0);
+    float fade = 1.0 - smoothstep(25.0, 70.0, distance(wpos.xz, CAMERA_POSITION_WORLD.xz));
+    vec3 col = mix(vec3(0.035, 0.04, 0.06), vec3(0.18, 0.24, 0.36), line * fade * 0.8);
+    ALBEDO = col;
+}",
+        };
+        grid.MaterialOverride = new ShaderMaterial { Shader = floorShader };
         AddChild(grid);
 
         var ghostMat = new StandardMaterial3D
@@ -178,6 +188,7 @@ public partial class Play : Node3D
 
         // The ship, with discs showing where it can build (big) and mine (small).
         _ship = Models.Ship();
+        if (!Overview) SetLayers(_ship, ShipLayer);
         AddChild(_ship);
         _buildRange = RangeDisc(PlayerRules.BuildRangeCells, new Color(0.4f, 0.7f, 1f, 0.07f));
         _mineRange = RangeDisc(PlayerRules.MineRangeCells, new Color(1f, 0.6f, 0.2f, 0.12f));
@@ -187,14 +198,14 @@ public partial class Play : Node3D
     {
         var disc = new MeshInstance3D
         {
-            Mesh = new CylinderMesh { TopRadius = radius, BottomRadius = radius, Height = 0.02f, RadialSegments = 64 },
+            // A thin ring on the ground: a filled translucent disc washed out the whole floor seen from the cockpit.
+            Mesh = new TorusMesh { InnerRadius = radius - 0.12f, OuterRadius = radius, Rings = 96, RingSegments = 6 },
             MaterialOverride = new StandardMaterial3D
             {
-                AlbedoColor = color,
-                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                AlbedoColor = new Color(color.R, color.G, color.B, 1f),
                 ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-                CullMode = BaseMaterial3D.CullModeEnum.Disabled,
             },
+            Scale = new Vector3(1f, 0.2f, 1f),
         };
         AddChild(disc);
         return disc;
@@ -205,9 +216,20 @@ public partial class Play : Node3D
     {
         if (!Net.HasPlayer(Player)) return Vector3.Zero;
         var p = Net.GetPlayerInfo(Player);
+        if ((p.ThrustX | p.ThrustY | p.ThrustZ) != 0)
+        {
+            float step = PlayerRules.MoveUnitsPerTick * alpha / 1024f;
+            return new Vector3(p.X + p.ThrustX * step, p.Y + p.ThrustY * step, p.Z + p.ThrustZ * step) / CellUnits;
+        }
         int axes = Math.Abs(p.MoveX) + Math.Abs(p.MoveY) + Math.Abs(p.MoveZ);
         float speed = axes switch { 0 => 0, 1 => PlayerRules.MoveUnitsPerTick, 2 => PlayerRules.MoveUnitsPerTickDiagonal2, _ => PlayerRules.MoveUnitsPerTickDiagonal3 };
         return new Vector3(p.X + p.MoveX * speed * alpha, p.Y + p.MoveY * speed * alpha, p.Z + p.MoveZ * speed * alpha) / CellUnits;
+    }
+
+    private static void SetLayers(Node node, uint layers)
+    {
+        if (node is VisualInstance3D v) v.Layers = layers;
+        foreach (var c in node.GetChildren()) SetLayers(c, layers);
     }
 
     private void UpdateShip(float alpha, float dt)
@@ -217,41 +239,65 @@ public partial class Play : Node3D
         if (Net.HasPlayer(Player))
         {
             var pi = Net.GetPlayerInfo(Player);
-            if (pi.MoveX != 0 || pi.MoveZ != 0)
-                _shipYaw = Mathf.LerpAngle(_shipYaw, MathF.Atan2(-pi.MoveZ, pi.MoveX), 1f - MathF.Exp(-10f * dt));
-            bool thrusting = pi.MoveX != 0 || pi.MoveY != 0 || pi.MoveZ != 0;
+            int hx = pi.MoveX + pi.ThrustX, hz = pi.MoveZ + pi.ThrustZ; // only one of the two intents is ever non-zero
+            if (hx != 0 || hz != 0)
+                _shipYaw = Mathf.LerpAngle(_shipYaw, MathF.Atan2(-hz, hx), 1f - MathF.Exp(-10f * dt));
+            bool thrusting = (pi.MoveX | pi.MoveY | pi.MoveZ | pi.ThrustX | pi.ThrustY | pi.ThrustZ) != 0;
             Models.Animate(_ship, _animTime, thrusting);
             Models.SetDamage(_ship, 0f);
         }
         _ship.Rotation = new Vector3(0, _shipYaw, 0);
         _ship.Position = pos;
         _ship.Visible = !(Net.HasPlayer(Player) && Net.GetPlayerInfo(Player).RespawnRemaining > 0); // hidden while being rebuilt
-        _buildRange.Position = pos;
-        _mineRange.Position = pos;
-        // After a jump the camera snaps to the ship instead of flying hundreds of cells.
-        var focus = pos;
-        // With a deposit chosen close by, look between the ship and the deposit so what you build around it stays on screen.
-        if (Net.IsDeposit(_selectedDeposit) && Net.IsDepositRevealed(_selectedDeposit))
+        Ambience.Retint(Ambience.SystemSeed(GalaxySeed, Net.CurrentSystem(Player))); // no-op unless the system changed
+        // The range discs lie on the build plane (a disc at the ship's own height would be edge-on to the cockpit camera).
+        float floorY = _cursorY + 0.02f;
+        float dy = Math.Abs(pos.Y - (_cursorY + 0.5f));
+        foreach (var (disc, radius) in new[] { (_buildRange, (float)PlayerRules.BuildRangeCells), (_mineRange, (float)PlayerRules.MineRangeCells) })
         {
-            var dp = Net.DepositPosition(_selectedDeposit);
-            var dep = new Vector3(dp.X, dp.Y, dp.Z);
-            if ((dep - pos).LengthSquared() < 40f * 40f) focus = pos.Lerp(dep, 0.5f);
+            float r = MathF.Sqrt(MathF.Max(0.01f, radius * radius - dy * dy)) / radius;
+            disc.Position = new Vector3(pos.X, Overview ? pos.Y : floorY, pos.Z);
+            disc.Scale = new Vector3(r, 0.2f, r);
         }
-        _target = (_target - focus).LengthSquared() > 100f * 100f ? focus : _target.Lerp(focus, 1f - MathF.Exp(-6f * dt));
-        PlaceCamera();
+        _grid.Position = new Vector3(pos.X, -0.02f, pos.Z);
+        if (Overview)
+        {
+            // After a jump the camera snaps to the ship instead of flying hundreds of cells.
+            var focus = pos;
+            // With a deposit chosen close by, look between the ship and the deposit so what you build around it stays on screen.
+            if (Net.IsDeposit(_selectedDeposit) && Net.IsDepositRevealed(_selectedDeposit))
+            {
+                var dp = Net.DepositPosition(_selectedDeposit);
+                var dep = new Vector3(dp.X, dp.Y, dp.Z);
+                if ((dep - pos).LengthSquared() < 40f * 40f) focus = pos.Lerp(dep, 0.5f);
+            }
+            _overviewTarget = (_overviewTarget - focus).LengthSquared() > 100f * 100f ? focus : _overviewTarget.Lerp(focus, 1f - MathF.Exp(-6f * dt));
+        }
+        PlaceCamera(pos);
         UpdateShipControl();
     }
 
     private Node3D _ship = null!;
     private MeshInstance3D _buildRange = null!, _mineRange = null!;
     private float _shipYaw;
-    private (int X, int Y, int Z) _lastIntent;
 
-    private void PlaceCamera()
+    /// <summary>Unit view direction from the cockpit yaw and pitch (Godot convention: yaw 0 looks along -Z).</summary>
+    private Vector3 CockpitForward() =>
+        new(-MathF.Sin(_yaw) * MathF.Cos(_pitch), MathF.Sin(_pitch), -MathF.Cos(_yaw) * MathF.Cos(_pitch));
+
+    private Vector3 CockpitRight() => new(MathF.Cos(_yaw), 0f, -MathF.Sin(_yaw));
+
+    private void PlaceCamera(Vector3 shipPos)
     {
-        float pitch = _pitch; // radians above the horizon
-        var offset = new Vector3(MathF.Sin(_yaw) * MathF.Cos(pitch), MathF.Sin(pitch), MathF.Cos(_yaw) * MathF.Cos(pitch)) * _distance;
-        _camera.LookAtFromPosition(_target + offset, _target);
+        if (Overview)
+        {
+            const float yaw = 0.2f, pitch = 1.15f; // fixed look from above, for the scripted modes only
+            var offset = new Vector3(MathF.Sin(yaw) * MathF.Cos(pitch), MathF.Sin(pitch), MathF.Cos(yaw) * MathF.Cos(pitch)) * _overviewDistance;
+            _camera.LookAtFromPosition(_overviewTarget + offset, _overviewTarget);
+            return;
+        }
+        _camera.Position = shipPos + CockpitOffset;
+        _camera.Rotation = new Vector3(_pitch, _yaw, 0f);
     }
 
     private static string Nice(string id) => id[(id.IndexOf(':') + 1)..].Replace('_', ' ');
@@ -411,7 +457,7 @@ public partial class Play : Node3D
     private void CycleDeposit(int step)
     {
         var list = RevealedDeposits().OrderBy(d => d).ToList();
-        if (list.Count == 0) { Toast(L("toast.noDeposits")); return; }
+        if (list.Count == 0) { ToastLogistics(L("toast.noDeposits")); return; }
         int i = list.IndexOf(_selectedDeposit);
         _selectedDeposit = list[((i < 0 ? 0 : i + step) % list.Count + list.Count) % list.Count];
     }
@@ -466,7 +512,13 @@ public partial class Play : Node3D
 
     private void Send(Command c) => _world.Submit(Player, c);
 
-    private void Toast(string text, double seconds = 6.0) => _toasts.Add((Time.GetTicksMsec() / 1000.0 + seconds, text));
+    private void Toast(string text, double seconds = 6.0, ToastCategory category = ToastCategory.Info) => _toasts.Add(text, category, Time.GetTicksMsec() / 1000.0, seconds);
+
+    private void ToastThreat(string text, double seconds = 6.0) => Toast(text, seconds, ToastCategory.Threat);
+
+    private void ToastLogistics(string text, double seconds = 6.0) => Toast(text, seconds, ToastCategory.Logistics);
+
+    private void ToastProduction(string text, double seconds = 6.0) => Toast(text, seconds, ToastCategory.Production);
 
     private static string Why(Reject r) => r switch
     {
@@ -496,14 +548,14 @@ public partial class Play : Node3D
                 if (r.Reject == Reject.OutOfRange) _outOfRangeSeen = true;
                 if (r.Command is PlaceSegment or PlaceMachine or RemoveSegment or RemoveMachine or StartMining or SetResearch or SetShipRecipe
                     or Scan or Jump)
-                    Toast(Why(r.Reject));
+                    ToastLogistics(Why(r.Reject));
                 continue;
             }
             if (r.Command is Scan)
             {
                 _scansDone++;
                 _depositsRevealed += r.RevealedDeposits.Count;
-                Toast(r.RevealedDeposits.Count == 0 ? L("toast.scanNone") : L("toast.scanFound", r.RevealedDeposits.Count));
+                ToastProduction(r.RevealedDeposits.Count == 0 ? L("toast.scanNone") : L("toast.scanFound", r.RevealedDeposits.Count));
                 if (r.RevealedDeposits.Count > 0) _selectedDeposit = RevealedDeposits().FirstOrDefault();
             }
             else if (r.Command is Jump j)
@@ -586,7 +638,7 @@ public partial class Play : Node3D
                 if (best < 0 || Net.DepositRemaining(d) > Net.DepositRemaining(best)) best = d;
             }
             if (best >= 0) Send(new LinkDeposit(machine, best));
-            else Toast(L("toast.noDepositForDrill"));
+            else ToastLogistics(L("toast.noDepositForDrill"));
         }
 
         bool fed = false;
@@ -626,7 +678,7 @@ public partial class Play : Node3D
         if (options.Count < 2) { Toast(L("toast.oneRecipe")); return; }
         int cur = ChosenRecipe(item.Machine);
         _recipeChoice[item.Machine] = options[(options.IndexOf(cur) + 1) % options.Count];
-        Toast(L("toast.recipe", Loc.Name("recipe", _content.Recipes[_recipeChoice[item.Machine]].Id)));
+        ToastProduction(L("toast.recipe", Loc.Name("recipe", _content.Recipes[_recipeChoice[item.Machine]].Id)));
     }
 
     private void PlaceSelectedAt((int X, int Y, int Z) cell, (int X, int Y, int Z)? dragStart)
@@ -659,15 +711,25 @@ public partial class Play : Node3D
 
     // ---- input ---------------------------------------------------------------------------------
 
-    private (int X, int Y, int Z)? CellUnderMouse()
+    /// <summary>The crosshair ray starts at the camera and runs through the screen centre.</summary>
+    private Vector3 AimOrigin() => _camera.GlobalPosition;
+
+    private Vector3 AimDirection() => -_camera.GlobalTransform.Basis.Z;
+
+    /// <summary>Cells farther than this from the camera are not aimed at at all (the build range is 24; the margin lets the ghost show red beyond it).</summary>
+    private const float AimMaxCells = PlayerRules.BuildRangeCells + 16;
+
+    /// <summary>
+    /// The cell whose floor (the plane of the current layer, Y = <c>_cursorY</c>) the crosshair ray meets, or null when the
+    /// ray points away from the plane or the hit is too far to be a candidate.
+    /// </summary>
+    private (int X, int Y, int Z)? CellUnderAim()
     {
-        var mouse = GetViewport().GetMousePosition();
-        var origin = _camera.ProjectRayOrigin(mouse);
-        var dir = _camera.ProjectRayNormal(mouse);
+        var origin = AimOrigin();
+        var dir = AimDirection();
         if (MathF.Abs(dir.Y) < 1e-4f) return null;
-        float planeY = _cursorY + 0.5f;
-        float t = (planeY - origin.Y) / dir.Y;
-        if (t < 0) return null;
+        float t = (_cursorY - origin.Y) / dir.Y;
+        if (t <= 0 || t > AimMaxCells) return null;
         var hit = origin + dir * t;
         return ((int)MathF.Floor(hit.X), _cursorY, (int)MathF.Floor(hit.Z));
     }
@@ -683,7 +745,7 @@ public partial class Play : Node3D
     private void CycleResearch()
     {
         var options = Enumerable.Range(0, _content.Research.Count).Where(Net.CanResearch).ToList();
-        if (options.Count == 0) { Send(new SetResearch(-1)); Toast(L("toast.nothingToResearch")); return; }
+        if (options.Count == 0) { Send(new SetResearch(-1)); ToastProduction(L("toast.nothingToResearch")); return; }
         int cur = Net.CurrentResearch;
         int next = cur < 0 ? options[0] : options[(options.IndexOf(cur) + 1) % options.Count];
         Send(new SetResearch(next));
@@ -931,13 +993,13 @@ public partial class Play : Node3D
         if (home.WarningRemaining >= 0 && !_warned)
         {
             _warned = true;
-            Toast(L("toast.waveWarning", (home.WarningRemaining / (float)Units.TicksPerSecond).ToString("F0", Loc.Culture)));
+            ToastThreat(L("toast.waveWarning", (home.WarningRemaining / (float)Units.TicksPerSecond).ToString("F0", Loc.Culture)));
         }
         else if (home.WarningRemaining < 0) _warned = false;
 
-        if (Net.WavesSpawned > _lastWaves) { _lastWaves = Net.WavesSpawned; Toast(L("toast.waveArrived", Net.WavesSpawned, Net.EnemyCount)); }
-        if (Net.MachinesLost > _lastLost) { Toast(L("toast.machineLost", Net.MachinesLost)); _lastLost = Net.MachinesLost; }
-        if (Net.ShipsLost > _lastShipsLost) { Toast(L("toast.shipLost")); _lastShipsLost = Net.ShipsLost; }
+        if (Net.WavesSpawned > _lastWaves) { _lastWaves = Net.WavesSpawned; ToastThreat(L("toast.waveArrived", Net.WavesSpawned, Net.EnemyCount)); }
+        if (Net.MachinesLost > _lastLost) { ToastThreat(L("toast.machineLost", Net.MachinesLost)); _lastLost = Net.MachinesLost; }
+        if (Net.ShipsLost > _lastShipsLost) { ToastThreat(L("toast.shipLost")); _lastShipsLost = Net.ShipsLost; }
     }
 
     private void ToggleWeapons()
@@ -973,7 +1035,7 @@ public partial class Play : Node3D
             }
             // The ship stays out of it so the turrets' work shows (the ship weapon is covered by tests).
             Send(new SetWeapons(false));
-            _distance = 34f;
+            _overviewDistance = 34f;
             _botStartedAt = Math.Max(1, _world.Tick);
             _botStep = 1;
             return;

@@ -392,6 +392,11 @@ public sealed class SimWorld
                 Network.SetMovement(player, mv.Dx, mv.Dy, mv.Dz);
                 return Reject.None;
 
+            case SetThrust th:
+                if (!PlayerRules.ThrustInRange(th.Dx, th.Dy, th.Dz)) return Reject.InvalidArgument;
+                Network.SetThrust(player, th.Dx, th.Dy, th.Dz);
+                return Reject.None;
+
             case StopMining:
                 if (Network.Content is null) return Reject.NoContent;
                 Network.StopMining(player);

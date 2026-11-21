@@ -33,6 +33,17 @@ public static class PlayerRules
     public const int MoveUnitsPerTickDiagonal2 = 34;
     public const int MoveUnitsPerTickDiagonal3 = 28;
 
+    /// <summary>Largest thrust component, and the scale of a thrust vector: a unit vector is sent times this.</summary>
+    public const int ThrustScale = 1024;
+
+    /// <summary>True if every component is in [-ThrustScale, ThrustScale] and the squared length is at most ThrustScale squared.</summary>
+    public static bool ThrustInRange(int dx, int dy, int dz)
+    {
+        if (dx is < -ThrustScale or > ThrustScale || dy is < -ThrustScale or > ThrustScale || dz is < -ThrustScale or > ThrustScale) return false;
+        long sq = (long)dx * dx + (long)dy * dy + (long)dz * dz;
+        return sq <= (long)ThrustScale * ThrustScale;
+    }
+
     /// <summary>Hand mining works within this many cells of the deposit centre.</summary>
     public const int MineRangeCells = 6;
 
@@ -47,7 +58,8 @@ public static class PlayerRules
 public readonly record struct PlayerInfo(
     int Id, int HoldTotal, int MiningDeposit, int ShipRecipe, bool ShipCrafting, int ShipRemaining,
     int X = 0, int Y = 0, int Z = 0, int MoveX = 0, int MoveY = 0, int MoveZ = 0,
-    int ScanCooldown = 0, int JumpTarget = -1, int JumpRemaining = 0, int Hull = 0, bool Armed = false, int RespawnRemaining = 0);
+    int ScanCooldown = 0, int JumpTarget = -1, int JumpRemaining = 0, int Hull = 0, bool Armed = false, int RespawnRemaining = 0,
+    int ThrustX = 0, int ThrustY = 0, int ThrustZ = 0);
 
 internal sealed class Player
 {
@@ -66,6 +78,19 @@ internal sealed class Player
     /// <summary>Position in units and the movement intent per axis (-1, 0 or 1).</summary>
     public int X, Y, Z;
     public int MoveX, MoveY, MoveZ;
+
+    /// <summary>Thrust vector (scaled by <see cref="PlayerRules.ThrustScale"/>) and the signed sub-unit remainder per axis,
+    /// in 1/ThrustScale of a unit, so slow or diagonal flight loses nothing. Never set together with the axis intent.</summary>
+    public int ThrustX, ThrustY, ThrustZ;
+    public int ThrustRemX, ThrustRemY, ThrustRemZ;
+
+    public bool HasThrust => (ThrustX | ThrustY | ThrustZ) != 0;
+
+    public void ClearThrust()
+    {
+        ThrustX = ThrustY = ThrustZ = 0;
+        ThrustRemX = ThrustRemY = ThrustRemZ = 0;
+    }
 
     /// <summary>Ticks until the scanner can fire again.</summary>
     public int ScanCooldown;
@@ -97,6 +122,7 @@ internal sealed class Player
             HoldTotal = HoldTotal, MiningDeposit = MiningDeposit, MineProgress = MineProgress,
             ShipRecipe = ShipRecipe, ShipCrafting = ShipCrafting, ShipRemaining = ShipRemaining, ShipReserved = ShipReserved,
             X = X, Y = Y, Z = Z, MoveX = MoveX, MoveY = MoveY, MoveZ = MoveZ,
+            ThrustX = ThrustX, ThrustY = ThrustY, ThrustZ = ThrustZ, ThrustRemX = ThrustRemX, ThrustRemY = ThrustRemY, ThrustRemZ = ThrustRemZ,
             ScanCooldown = ScanCooldown, JumpTarget = JumpTarget, JumpRemaining = JumpRemaining,
             Hull = Hull, Armed = Armed, WeaponCooldown = WeaponCooldown, RespawnRemaining = RespawnRemaining,
         };
@@ -271,7 +297,7 @@ public sealed partial class BeltNetwork
     {
         var p = GetPlayer(id);
         return new PlayerInfo(p.Id, p.HoldTotal, p.MiningDeposit, p.ShipRecipe, p.ShipCrafting, p.ShipRemaining,
-            p.X, p.Y, p.Z, p.MoveX, p.MoveY, p.MoveZ, p.ScanCooldown, p.JumpTarget, p.JumpRemaining, p.Hull, p.Armed, p.RespawnRemaining);
+            p.X, p.Y, p.Z, p.MoveX, p.MoveY, p.MoveZ, p.ScanCooldown, p.JumpTarget, p.JumpRemaining, p.Hull, p.Armed, p.RespawnRemaining, p.ThrustX, p.ThrustY, p.ThrustZ);
     }
 
     /// <summary>Switches the ship's weapon on or off. It fires at the nearest enemy in range while on.</summary>
@@ -289,6 +315,21 @@ public sealed partial class BeltNetwork
         if (dx is < -1 or > 1 || dy is < -1 or > 1 || dz is < -1 or > 1) throw new ArgumentOutOfRangeException(nameof(dx));
         var p = GetOrCreatePlayer(player);
         p.MoveX = dx; p.MoveY = dy; p.MoveZ = dz;
+        p.ClearThrust();
+    }
+
+    /// <summary>
+    /// Sets the ship's thrust: an integer direction vector, each component in [-1024, 1024] with a squared length of at
+    /// most 1024 squared. The ship moves along it every tick at <c>thrust * MoveUnitsPerTick / 1024</c> per axis, with
+    /// sub-unit remainders carried. Replaces the axis intent; (0, 0, 0) stops the ship.
+    /// </summary>
+    public void SetThrust(int player, int dx, int dy, int dz)
+    {
+        if (!PlayerRules.ThrustInRange(dx, dy, dz)) throw new ArgumentOutOfRangeException(nameof(dx));
+        var p = GetOrCreatePlayer(player);
+        p.MoveX = p.MoveY = p.MoveZ = 0;
+        p.ClearThrust();
+        p.ThrustX = dx; p.ThrustY = dy; p.ThrustZ = dz;
     }
 
     /// <summary>True if the centre of the cell is within <paramref name="rangeCells"/> of the player's ship.</summary>
@@ -465,7 +506,7 @@ public sealed partial class BeltNetwork
             {
                 if (--p.JumpRemaining == 0) CompleteJump(p);
             }
-            else if (p.RespawnRemaining == 0 && (p.MoveX | p.MoveY | p.MoveZ) != 0)
+            else if (p.RespawnRemaining == 0 && ((p.MoveX | p.MoveY | p.MoveZ) != 0 || p.HasThrust))
             {
                 MoveShip(p);
                 DiscoverAt(p);
@@ -494,6 +535,22 @@ public sealed partial class BeltNetwork
 
     private static void MoveShip(Player p)
     {
+        const int limit = PlayerRules.WorldLimitUnits;
+        if (p.HasThrust)
+        {
+            // Truncation toward zero on the accumulated value with a signed remainder: both signs behave alike.
+            static int Advance(int thrust, ref int rem)
+            {
+                int acc = thrust * PlayerRules.MoveUnitsPerTick + rem;
+                rem = acc % PlayerRules.ThrustScale;
+                return acc / PlayerRules.ThrustScale;
+            }
+            p.X = Math.Clamp(p.X + Advance(p.ThrustX, ref p.ThrustRemX), -limit, limit);
+            p.Y = Math.Clamp(p.Y + Advance(p.ThrustY, ref p.ThrustRemY), -limit, limit);
+            p.Z = Math.Clamp(p.Z + Advance(p.ThrustZ, ref p.ThrustRemZ), -limit, limit);
+            return;
+        }
+
         int axes = Math.Abs(p.MoveX) + Math.Abs(p.MoveY) + Math.Abs(p.MoveZ);
         int speed = axes switch
         {
@@ -501,7 +558,6 @@ public sealed partial class BeltNetwork
             2 => PlayerRules.MoveUnitsPerTickDiagonal2,
             _ => PlayerRules.MoveUnitsPerTickDiagonal3,
         };
-        const int limit = PlayerRules.WorldLimitUnits;
         p.X = Math.Clamp(p.X + p.MoveX * speed, -limit, limit);
         p.Y = Math.Clamp(p.Y + p.MoveY * speed, -limit, limit);
         p.Z = Math.Clamp(p.Z + p.MoveZ * speed, -limit, limit);
@@ -672,6 +728,7 @@ public sealed partial class BeltNetwork
             mix(p.ScanCooldown); mix(p.JumpTarget); mix(p.JumpRemaining);
             mix(p.Hull); mix(p.Armed ? 1 : 0); mix(p.WeaponCooldown); mix(p.RespawnRemaining);
             mix(p.X); mix(p.Y); mix(p.Z); mix(p.MoveX); mix(p.MoveY); mix(p.MoveZ);
+            mix(p.ThrustX); mix(p.ThrustY); mix(p.ThrustZ); mix(p.ThrustRemX); mix(p.ThrustRemY); mix(p.ThrustRemZ);
             mix(p.Id); mix(p.HoldTotal); mix(p.MiningDeposit); mix(p.MineProgress);
             mix(p.ShipRecipe); mix(p.ShipCrafting ? 1 : 0); mix(p.ShipRemaining); mix(p.ShipReserved);
             foreach (int h in p.Hold) mix(h);
@@ -703,6 +760,11 @@ public sealed partial class BeltNetwork
             if (Math.Abs(p.X) > PlayerRules.WorldLimitUnits || Math.Abs(p.Y) > PlayerRules.WorldLimitUnits || Math.Abs(p.Z) > PlayerRules.WorldLimitUnits)
                 Fail($"player {p.Id} is outside the world");
             if (p.MoveX is < -1 or > 1 || p.MoveY is < -1 or > 1 || p.MoveZ is < -1 or > 1) Fail($"player {p.Id} has an invalid movement intent");
+            if (!PlayerRules.ThrustInRange(p.ThrustX, p.ThrustY, p.ThrustZ)) Fail($"player {p.Id} has an invalid thrust");
+            if (Math.Abs(p.ThrustRemX) >= PlayerRules.ThrustScale || Math.Abs(p.ThrustRemY) >= PlayerRules.ThrustScale || Math.Abs(p.ThrustRemZ) >= PlayerRules.ThrustScale)
+                Fail($"player {p.Id} has a thrust remainder out of range");
+            if (p.HasThrust && (p.MoveX | p.MoveY | p.MoveZ) != 0) Fail($"player {p.Id} has both an axis intent and a thrust");
+            if (!p.HasThrust && (p.ThrustRemX | p.ThrustRemY | p.ThrustRemZ) != 0) Fail($"player {p.Id} has a thrust remainder without thrust");
 
             if (p.MiningDeposit != -1 && !IsDeposit(p.MiningDeposit)) Fail($"player {p.Id} mines an unknown deposit");
             if (p.MineProgress < 0 || p.MineProgress >= PlayerRules.MineTicksPerItem) Fail($"player {p.Id} mine progress out of range");

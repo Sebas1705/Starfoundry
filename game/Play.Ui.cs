@@ -27,25 +27,45 @@ public partial class Play
     private int _selMachine = -1;
     private Vector3? _waypoint;
     private bool _pendingMine;
-    // Closer and steeper than the first version: machines were tiny and the deposit hid what stood behind it.
-    private const float DefaultPitch = 1.15f, DefaultDistance = 10f;
-    private float _pitch = DefaultPitch;
+    private const float DefaultDistance = 10f; // overview camera of the scripted modes
+    private const float MouseSensitivity = 0.0025f; // radians per pixel
+    private const float MaxPitch = 85f * MathF.PI / 180f;
+    private bool _wantCapture = true; // the player's wish; the cursor is also released while a panel is open or the window is unfocused
+    private bool _mouseLook; // true while the cursor is captured and the mouse turns the ship's view
+    private (int X, int Y, int Z) _lastThrust;
+    private double _lastThrustAt;
     private bool _helpOpen;
     private bool _objectivesOpen = true;
     private bool _holdWasFull;
     private double _holdFullAgain;
-    private bool _rmbDown, _rmbDragged, _mmbDown;
-    private Vector2 _rmbStart;
+    private bool _detailsOpen; // H: the full status block instead of the essentials
     private ObjectiveTracker _objectives = null!;
+
+    // Colours of the notification categories and of the target panel.
+    private static readonly Color ToastInfo = new(0.95f, 0.97f, 1f);
+    private static readonly Color ToastProductionColor = new(0.55f, 0.92f, 0.65f);
+    private static readonly Color ToastLogisticsColor = new(1f, 0.82f, 0.4f);
+    private static readonly Color ToastThreatColor = new(1f, 0.45f, 0.4f);
+    private static readonly Color GoodColor = new(0.45f, 0.85f, 0.5f);
+    private static readonly Color WornColor = new(0.95f, 0.75f, 0.3f);
+    private static readonly Color BadColor = new(0.92f, 0.3f, 0.25f);
 
     // ---- nodes -------------------------------------------------------------------------------------
 
     private CanvasLayer _layer = null!;
     private Control _uiRoot = null!;
     private PanelContainer _statusPanel = null!, _toolbar = null!, _actions = null!, _objectivesPanel = null!, _inspector = null!, _helpPanel = null!;
-    private Label _statusLabel = null!, _holdItems = null!, _modeHint = null!, _toastText = null!, _objectivesText = null!, _tooltipLabel = null!;
+    private Label _statusLabel = null!, _holdItems = null!, _modeHint = null!, _objectivesText = null!, _tooltipLabel = null!;
     private Label _inspectorTitle = null!, _inspectorBody = null!, _helpText = null!;
-    private ProgressBar _holdBar = null!;
+    private Label _toolLabel = null!, _flightHeading = null!, _flightSpeed = null!;
+    private Label _targetTitle = null!, _targetRole = null!, _targetStatus = null!, _targetRecipe = null!, _targetHpLabel = null!;
+    private ProgressBar _holdBar = null!, _targetHp = null!;
+    private PanelContainer _flightPanel = null!, _targetPanel = null!;
+    private VBoxContainer _toastBox = null!;
+    private readonly Label[] _toastLabels = new Label[ToastQueue.MaxVisible];
+    private MarkerLayer _markers = null!;
+    private Button _btnDetails = null!;
+    private Crosshair _crosshair = null!;
     private readonly List<Button> _buildButtons = new();
     private Button _btnMine = null!, _btnRefine = null!, _btnScan = null!, _btnMap = null!, _btnWeapons = null!, _btnResearch = null!;
     private Button _btnRepair = null!;
@@ -119,18 +139,21 @@ public partial class Play
         _objectives = new ObjectiveTracker(_content);
         Loc.Lang = Loc.FromLocale(OS.GetLocale());
 
-        // Status: hold bar and the lines that matter right now.
-        var status = new VBoxContainer();
-        var holdRow = new HBoxContainer();
-        _holdBar = new ProgressBar { MinValue = 0, MaxValue = PlayerRules.HoldCapacity, ShowPercentage = false, CustomMinimumSize = new Vector2(170, 18), MouseFilter = Control.MouseFilterEnum.Ignore };
-        _holdItems = MakeText(14);
-        holdRow.AddChild(_holdBar);
-        holdRow.AddChild(_holdItems);
-        status.AddChild(holdRow);
+        // Status: the essentials (hull, alert, current step); H opens the full block.
         _statusLabel = MakeText(14);
-        status.AddChild(_statusLabel);
-        _statusPanel = MakePanel(status);
+        _statusPanel = MakePanel(_statusLabel);
         _statusPanel.MouseFilter = Control.MouseFilterEnum.Ignore;
+
+        // Flight readout at the top centre: heading strip and speed.
+        var flight = new VBoxContainer();
+        _flightHeading = MakeText(15, new Color(0.85f, 0.93f, 1f));
+        _flightHeading.HorizontalAlignment = HorizontalAlignment.Center;
+        _flightSpeed = MakeText(13, new Color(0.7f, 0.8f, 0.95f));
+        _flightSpeed.HorizontalAlignment = HorizontalAlignment.Center;
+        flight.AddChild(_flightHeading);
+        flight.AddChild(_flightSpeed);
+        _flightPanel = MakePanel(flight);
+        _flightPanel.MouseFilter = Control.MouseFilterEnum.Ignore;
 
         // Action buttons.
         var actions = new VBoxContainer();
@@ -144,28 +167,56 @@ public partial class Play
         foreach (var b in new[] { _btnMine, _btnRefine, _btnScan, _btnMap, _btnWeapons, _btnRepair, _btnResearch }) actions.AddChild(b);
         _actions = MakePanel(actions);
 
-        // The build bar.
+        // The bottom strip: the hold on the left, the selected tool and its cost on the right, and below them the compact
+        // build palette (keys 1-9, 0, Q, B). It hugs the bottom edge so the view stays free.
+        var strip = new VBoxContainer();
+        strip.AddThemeConstantOverride("separation", 4);
+        var infoRow = new HBoxContainer();
+        infoRow.AddThemeConstantOverride("separation", 10);
+        _holdBar = new ProgressBar { MinValue = 0, MaxValue = PlayerRules.HoldCapacity, ShowPercentage = false, CustomMinimumSize = new Vector2(120, 14), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter, MouseFilter = Control.MouseFilterEnum.Ignore };
+        _holdItems = MakeText(13);
+        _holdItems.ClipText = true;
+        _holdItems.CustomMinimumSize = new Vector2(430, 0);
+        _toolLabel = MakeText(14);
+        _toolLabel.HorizontalAlignment = HorizontalAlignment.Right;
+        _toolLabel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        infoRow.AddChild(_holdBar);
+        infoRow.AddChild(_holdItems);
+        infoRow.AddChild(_toolLabel);
+        strip.AddChild(infoRow);
         var bar = new HBoxContainer();
+        bar.AddThemeConstantOverride("separation", 4);
         for (int i = 0; i < _palette.Count && i < 12; i++)
         {
             int index = i;
-            var b = MakeButton("", () => SelectBuild(index), toggle: true, minWidth: 104);
-            b.CustomMinimumSize = new Vector2(104, 62);
+            var b = MakeButton("", () => SelectBuild(index), toggle: true);
+            b.AddThemeFontSizeOverride("font_size", 12);
+            b.CustomMinimumSize = new Vector2(0, 26);
             _buildButtons.Add(b);
             bar.AddChild(b);
         }
-        _toolbar = MakePanel(bar);
+        strip.AddChild(bar);
+        _toolbar = MakePanel(strip);
 
         _modeHint = MakeText(14, new Color(0.85f, 0.92f, 1f));
         _modeHint.AddThemeColorOverride("font_outline_color", Colors.Black);
         _modeHint.AddThemeConstantOverride("outline_size", 5);
         _uiRoot.AddChild(_modeHint);
 
-        _toastText = MakeText(18);
-        _toastText.HorizontalAlignment = HorizontalAlignment.Center;
-        _toastText.AddThemeColorOverride("font_outline_color", Colors.Black);
-        _toastText.AddThemeConstantOverride("outline_size", 5);
-        _uiRoot.AddChild(_toastText);
+        // At most three notifications, each coloured by its category.
+        _toastBox = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        for (int i = 0; i < _toastLabels.Length; i++)
+        {
+            var l = MakeText(16);
+            l.HorizontalAlignment = HorizontalAlignment.Center;
+            l.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            l.AddThemeColorOverride("font_outline_color", Colors.Black);
+            l.AddThemeConstantOverride("outline_size", 5);
+            l.Visible = false;
+            _toastLabels[i] = l;
+            _toastBox.AddChild(l);
+        }
+        _uiRoot.AddChild(_toastBox);
 
         // Guided steps.
         _objectivesText = MakeText(14);
@@ -174,7 +225,9 @@ public partial class Play
         _btnObjectives = MakeButton("", () => _objectivesOpen = !_objectivesOpen);
         _btnHelp = MakeButton("", () => _helpOpen = !_helpOpen);
         _btnLang = MakeButton("", ToggleLanguage);
+        _btnDetails = MakeButton("", () => _detailsOpen = !_detailsOpen);
         objButtons.AddChild(_btnObjectives);
+        objButtons.AddChild(_btnDetails);
         objButtons.AddChild(_btnHelp);
         objButtons.AddChild(_btnLang);
         obj.AddChild(objButtons);
@@ -217,17 +270,53 @@ public partial class Play
         _helpPanel = MakePanel(_helpText);
         _helpPanel.Visible = false;
 
-        // World tooltip that follows the mouse.
+        _crosshair = new Crosshair { Visible = false };
+        _uiRoot.AddChild(_crosshair);
+
+        // World tooltip, anchored just below and right of the crosshair.
         _tooltipLabel = MakeText(13);
         _tooltipLabel.AddThemeColorOverride("font_outline_color", Colors.Black);
         _tooltipLabel.AddThemeConstantOverride("outline_size", 5);
         _uiRoot.AddChild(_tooltipLabel);
+
+        // Contextual panel for the machine under the crosshair: name, role, status, recipe and a hit-point bar.
+        var target = new VBoxContainer();
+        _targetTitle = MakeText(15, new Color(1f, 0.9f, 0.5f));
+        _targetRole = MakeText(12, new Color(0.7f, 0.76f, 0.88f));
+        _targetRole.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _targetRole.CustomMinimumSize = new Vector2(250, 0);
+        _targetStatus = MakeText(13);
+        _targetStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _targetStatus.CustomMinimumSize = new Vector2(250, 0);
+        _targetRecipe = MakeText(12, new Color(0.8f, 0.88f, 1f));
+        _targetRecipe.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _targetRecipe.CustomMinimumSize = new Vector2(250, 0);
+        _targetHp = new ProgressBar { MinValue = 0, MaxValue = 1, ShowPercentage = false, CustomMinimumSize = new Vector2(250, 8), MouseFilter = Control.MouseFilterEnum.Ignore };
+        _targetHpLabel = MakeText(12);
+        target.AddChild(_targetTitle);
+        target.AddChild(_targetRole);
+        target.AddChild(_targetStatus);
+        target.AddChild(_targetRecipe);
+        target.AddChild(_targetHp);
+        target.AddChild(_targetHpLabel);
+        _targetPanel = MakePanel(target);
+        _targetPanel.MouseFilter = Control.MouseFilterEnum.Ignore;
+        _targetPanel.Visible = false;
+
+        var userArgs = OS.GetCmdlineUserArgs();
+        _hudShotPath = userArgs.FirstOrDefault(a => a.StartsWith("--hud-shot="))?["--hud-shot=".Length..];
+        _detailsOpen = userArgs.Contains("--hud-details");
+
+        // Directional markers go last so they are never hidden under a panel.
+        _markers = new MarkerLayer { Visible = false };
+        _uiRoot.AddChild(_markers);
     }
 
     // ---- per-frame refresh --------------------------------------------------------------------------
 
     private void UpdateUi(float dt)
     {
+        UpdateCapture();
         _objectives.Update(Net, Player);
         UpdatePlayLog();
         AutosaveTick();
@@ -254,10 +343,91 @@ public partial class Play
         UpdateButtons();
         UpdateObjectivesPanel();
         UpdateInspector();
+        UpdateTarget();
+        UpdateFlight();
         UpdateHelp();
         UpdateToasts();
         UpdateModeHint();
         LayoutUi(size);
+        UpdateMarkers(size);
+        HudShotTick();
+    }
+
+    private string? _hudShotPath;
+    private int _hudShotFrame;
+
+    /// <summary><c>--hud-shot=path</c> (with <c>--hud-details</c> for the full status): saves the HUD of the played game after a second and quits. For layout checks.</summary>
+    private void HudShotTick()
+    {
+        if (_hudShotPath is null || ++_hudShotFrame != 90) return;
+        GetViewport().GetTexture().GetImage().SavePng(_hudShotPath);
+        GetTree().Quit();
+    }
+
+    private static Vec3 V(Vector3 v) => new(v.X, v.Y, v.Z);
+
+    /// <summary>The heading strip and the speed in cells per second, from the view direction and the ship's movement.</summary>
+    private void UpdateFlight()
+    {
+        bool show = !_demo && !Overview && Net.HasPlayer(Player);
+        _flightPanel.Visible = show;
+        if (!show) return;
+        var fwd = CockpitForward();
+        _flightHeading.Text = Compass.Strip(Compass.HeadingDegrees(fwd.X, fwd.Z));
+        float speed = (ShipPosition(1f) - ShipPosition(0f)).Length() * Units.TicksPerSecond;
+        _flightSpeed.Text = L("hud.flightSpeed", speed.ToString("F1", Loc.Culture));
+    }
+
+    private readonly List<Vec3> _baseTmp = new();
+
+    /// <summary>Markers for the selected deposit, the nearest enemy and the base (the nearest cluster of machines, else the anchor).</summary>
+    private void UpdateMarkers(Vector2 size)
+    {
+        _markers.Visible = !_demo && !Overview && Net.HasPlayer(Player);
+        if (!_markers.Visible) return;
+
+        var basis = _camera.GlobalTransform.Basis;
+        var cam = new CameraBasis(V(-basis.Z), V(basis.X), V(basis.Y), Mathf.DegToRad(_camera.Fov));
+        var eye = _camera.GlobalPosition;
+        float left = _actions.Position.X + _actions.Size.X + 14f;
+        float bottom = Math.Max(24f, size.Y - _toolbar.Position.Y + 10f);
+        var items = new List<MarkerLayer.Item>();
+
+        void Add(string label, Color color, Vector3 target, float hideBelow = 4f)
+        {
+            var p = Markers.Place(V(target - eye), cam, size.X, size.Y, left, 58f, 24f, bottom, hideBelow);
+            if (p.Visible) items.Add(new MarkerLayer.Item($"{label}  {L("mark.dist", p.Distance.ToString("F0", Loc.Culture))}", color, p));
+        }
+
+        if (Net.IsDeposit(_selectedDeposit) && Net.IsDepositRevealed(_selectedDeposit) && Net.DepositRemaining(_selectedDeposit) > 0)
+        {
+            var dp = Net.DepositPosition(_selectedDeposit);
+            Add(ItemName(Net.DepositItem(_selectedDeposit)), new Color(1f, 0.8f, 0.35f), new Vector3(dp.X, dp.Y, dp.Z), 6f);
+        }
+
+        int system = Net.CurrentSystem(Player);
+        EnemyInfo? nearest = null;
+        float best = float.MaxValue;
+        foreach (var en in Net.Enemies())
+        {
+            if (system >= 0 && en.System != system) continue;
+            float d = (new Vector3(en.X, en.Y, en.Z) / CellUnits - eye).LengthSquared();
+            if (d < best) { best = d; nearest = en; }
+        }
+        if (nearest is { } e) Add(Loc.Name("enemy", _content.Enemies[e.Type].Id), new Color(1f, 0.35f, 0.3f), new Vector3(e.X, e.Y, e.Z) / CellUnits, 3f);
+
+        _baseTmp.Clear();
+        foreach (int id in _machineIds)
+        {
+            if (!Net.IsMachineAlive(id)) continue;
+            var m = Net.GetMachineInfo(id);
+            _baseTmp.Add(new Vec3(m.X + 0.5f, m.Y + 0.5f, m.Z + 0.5f));
+        }
+        var baseAt = Markers.NearestCluster(_baseTmp, V(ShipPosition(0f)), 14f);
+        if (baseAt is null && Net.Galaxy is { } galaxy && system >= 0) baseAt = new Vec3(galaxy.Systems[system].X, galaxy.Systems[system].Y, galaxy.Systems[system].Z);
+        if (baseAt is { } b) Add(L("mark.base"), new Color(0.45f, 0.8f, 1f), new Vector3(b.X, b.Y, b.Z), 10f);
+
+        _markers.Set(items);
     }
 
     private void UpdateHold()
@@ -265,7 +435,7 @@ public partial class Play
         int total = Net.HoldTotal(Player), cap = PlayerRules.HoldCapacity;
         _holdBar.Value = total;
         bool full = total >= cap;
-        _holdBar.AddThemeStyleboxOverride("fill", Box(full ? new Color(0.9f, 0.25f, 0.2f) : new Color(0.3f, 0.7f, 0.4f), null, 3, 0f));
+        _holdBar.AddThemeStyleboxOverride("fill", Box(full ? BadColor : HudFormat.Band(cap - total, cap) == HealthBand.Critical ? WornColor : GoodColor, null, 3, 0f));
         _holdBar.AddThemeStyleboxOverride("background", Box(new Color(0.12f, 0.14f, 0.2f), null, 3, 0f));
 
         var items = new StringBuilder();
@@ -273,7 +443,7 @@ public partial class Play
         foreach (var item in _content.Items)
         {
             int n = Net.HoldCount(Player, item.Index);
-            if (n > 0) items.Append($"   {ItemName(item.Index)} {n}");
+            if (n > 0) items.Append($"  {ItemName(item.Index)} {n}");
         }
         _holdItems.Text = items.ToString();
         _holdItems.AddThemeColorOverride("font_color", full ? new Color(1f, 0.55f, 0.45f) : Colors.White);
@@ -282,7 +452,7 @@ public partial class Play
         double now = Time.GetTicksMsec() / 1000.0;
         if (full && (!_holdWasFull || now >= _holdFullAgain))
         {
-            Toast(L("toast.holdFull"), 8.0);
+            ToastLogistics(L("toast.holdFull"), 8.0);
             _holdFullAgain = now + 25.0;
         }
         _holdWasFull = full;
@@ -292,6 +462,13 @@ public partial class Play
     {
         var sb = new StringBuilder();
         var p = Net.GetPlayerInfo(Player);
+
+        if (!_detailsOpen)
+        {
+            UpdateEssentials(sb, p);
+            return;
+        }
+        _statusLabel.AddThemeColorOverride("font_color", Colors.White);
 
         int dep = _selectedDeposit;
         string depLine;
@@ -341,6 +518,34 @@ public partial class Play
         if (_demo) sb.Append(L("hud.speed", _demoSpeed));
         else if (_speed != 1 || _paused) sb.Append(_paused ? L("hud.paused") : L("hud.speed", _speed));
         _statusLabel.Text = sb.ToString().TrimEnd('\n');
+    }
+
+    /// <summary>
+    /// The default status: hull and alert (when there are threats), the step in progress while the steps panel is folded,
+    /// and the pause or speed. The hold has its own bar at the bottom. H shows the full block.
+    /// </summary>
+    private void UpdateEssentials(StringBuilder sb, PlayerInfo p)
+    {
+        var colour = Colors.White;
+        if (Net.ThreatActive)
+        {
+            int sys = Math.Max(0, Net.CurrentSystem(Player));
+            var th = Net.GetSystemThreat(sys);
+            string ship = p.RespawnRemaining > 0 ? L("hud.rebuilding", (p.RespawnRemaining / (float)Units.TicksPerSecond).ToString("F0", Loc.Culture))
+                : L("hud.ess.hull", p.Hull, Net.ShipMaxHull);
+            string state = th.WarningRemaining >= 0 ? L("hud.waveIncoming", th.Wave + 1, (th.WarningRemaining / (float)Units.TicksPerSecond).ToString("F0", Loc.Culture))
+                : th.Enemies > 0 ? L("hud.enemies", th.Enemies)
+                : L("hud.alert", 100 * th.Alert / Math.Max(1, th.AlertMax));
+            sb.Append(ship).Append("   |   ").Append(state).Append('\n');
+            if (th.WarningRemaining >= 0 || th.Enemies > 0 || p.RespawnRemaining > 0) colour = ToastThreatColor;
+            else if (HudFormat.Band(p.Hull, Net.ShipMaxHull) != HealthBand.Good) colour = WornColor;
+        }
+        if (!_objectivesOpen && _objectives.Current is { } cur)
+            sb.Append(L("hud.ess.step", L(_objectives.States.First(s => s.Objective == cur).TitleKey))).Append('\n');
+        if (_demo) sb.Append(L("hud.speed", _demoSpeed));
+        else if (_speed != 1 || _paused) sb.Append(_paused ? L("hud.paused") : L("hud.speed", _speed));
+        _statusLabel.Text = sb.ToString().TrimEnd('\n');
+        _statusLabel.AddThemeColorOverride("font_color", colour);
     }
 
     private void ThreatHud(StringBuilder sb, int currentSystem)
@@ -451,7 +656,7 @@ public partial class Play
                 _world.Submit(Player, new SetSink(id));
             }
         _world.Step();
-        _distance = _stressClose ? 22f : 40 + side * 1.6f; // --stress-close: the view a player really has, a small part of a big base
+        _overviewDistance = _stressClose ? 22f : 40 + side * 1.6f; // --stress-close: the view a player really has, a small part of a big base
         DisplayServer.WindowSetVsyncMode(DisplayServer.VSyncMode.Disabled); // measure what the work costs, not the refresh rate
         GD.Print($"STRESS built machines={_world.Network.MachineCount} segments={_world.Network.SegmentCount}");
     }
@@ -583,7 +788,7 @@ public partial class Play
             if (!OreRunway.IsLow(pct)) continue;
             string name = Loc.Name("item", item.Id);
             sb.Append(L("hud.oreLow", name, pct)).Append('\n');
-            if (_lowOreWarned.Add((system, item.Index))) Toast(L("toast.oreLow", name, pct));
+            if (_lowOreWarned.Add((system, item.Index))) ToastLogistics(L("toast.oreLow", name, pct));
         }
     }
 
@@ -614,7 +819,7 @@ public partial class Play
     private void RepairAll()
     {
         var targets = DamagedInRange();
-        if (targets.Count == 0) { Toast(L("toast.nothingToRepair")); return; }
+        if (targets.Count == 0) { ToastLogistics(L("toast.nothingToRepair")); return; }
         foreach (int id in targets) Send(new Repair(id));
     }
 
@@ -631,14 +836,14 @@ public partial class Play
             var cost = item.IsBelt ? _content.Belts[(int)item.Tier]?.CostPerCell ?? Array.Empty<ItemStack>() : _content.Machines[item.Machine].Cost;
             bool affordable = Net.CanPay(Player, cost);
             string name = item.IsBelt ? L("ui.belt", (int)item.Tier + 1) : MachineName(item.Machine);
-            string costText = cost.Length == 0 ? L("ui.free") : string.Join(" ", cost.Select(s => $"{s.Count} {ItemName(s.Item)}"));
             var b = _buildButtons[i];
-            b.Text = $"{KeyLabel(i)}  {name}\n{(locked ? L("ui.locked") : costText + (item.IsBelt ? L("ui.perCell") : ""))}";
+            b.Text = $"{KeyLabel(i)} {name}";
             b.Disabled = locked;
             b.SetPressedNoSignal(_tool == ToolMode.Build && _selected == i);
             b.Modulate = !locked && !affordable ? new Color(1f, 0.75f, 0.7f) : Colors.White;
             b.TooltipText = BuildTooltip(item, cost, locked, affordable);
         }
+        UpdateToolLabel();
 
         // Actions.
         var player = Net.GetPlayerInfo(Player);
@@ -683,8 +888,38 @@ public partial class Play
         _btnJump.TooltipText = L("tip.jump");
 
         _btnObjectives.Text = _objectivesOpen ? L("btn.hideSteps") : L("btn.showSteps");
+        _btnDetails.Text = _detailsOpen ? L("btn.detailsHide") : L("btn.details");
         _btnHelp.Text = L("btn.help");
         _btnLang.Text = Loc.Lang == Language.Es ? "ES | en" : "es | EN";
+    }
+
+    /// <summary>The selected tool and what it costs, green when the hold can pay, red when it cannot, grey when locked.</summary>
+    private void UpdateToolLabel()
+    {
+        if (_tool != ToolMode.Build)
+        {
+            _toolLabel.Text = L("hud.tool.pointer");
+            _toolLabel.AddThemeColorOverride("font_color", new Color(0.75f, 0.82f, 0.95f));
+            return;
+        }
+        var item = _palette[_selected];
+        bool locked = item.IsBelt ? Net.IsBeltLocked(item.Tier) : Net.IsMachineLocked(item.Machine);
+        var cost = item.IsBelt ? _content.Belts[(int)item.Tier]?.CostPerCell ?? Array.Empty<ItemStack>() : _content.Machines[item.Machine].Cost;
+        var state = HudFormat.Tool(locked, cost.Length > 0, Net.CanPay(Player, cost));
+        string name = item.IsBelt ? L("ui.belt", (int)item.Tier + 1) : MachineName(item.Machine);
+        string costText = state switch
+        {
+            ToolState.Locked => L("ui.locked"),
+            ToolState.Free => L("ui.free"),
+            _ => Stacks(cost) + (item.IsBelt ? L("ui.perCell") : ""),
+        };
+        _toolLabel.Text = L("hud.tool", name, costText);
+        _toolLabel.AddThemeColorOverride("font_color", state switch
+        {
+            ToolState.Short => BadColor,
+            ToolState.Locked => new Color(0.6f, 0.62f, 0.68f),
+            _ => GoodColor,
+        });
     }
 
     private string BuildTooltip(BuildItem item, ItemStack[] cost, bool locked, bool affordable)
@@ -749,8 +984,53 @@ public partial class Play
     private void UpdateToasts()
     {
         double now = Time.GetTicksMsec() / 1000.0;
-        _toasts.RemoveAll(t => t.Until < now);
-        _toastText.Text = string.Join("\n", _toasts.TakeLast(5).Select(t => t.Text));
+        var visible = _toasts.Visible(now);
+        for (int i = 0; i < _toastLabels.Length; i++)
+        {
+            var label = _toastLabels[i];
+            label.Visible = i < visible.Count;
+            if (i >= visible.Count) continue;
+            var t = visible[i];
+            label.Text = (t.Category == ToastCategory.Threat ? "! " : "") + t.Display;
+            label.AddThemeColorOverride("font_color", t.Category switch
+            {
+                ToastCategory.Production => ToastProductionColor,
+                ToastCategory.Logistics => ToastLogisticsColor,
+                ToastCategory.Threat => ToastThreatColor,
+                _ => ToastInfo,
+            });
+        }
+    }
+
+    /// <summary>The panel for the machine under the crosshair (pointer tool only; a pinned machine shows in the inspector instead).</summary>
+    private void UpdateTarget()
+    {
+        bool show = !_demo && _mouseLook && _tool == ToolMode.Pointer && _hover.Kind == HoverKind.Machine
+            && _hover.Id != _selMachine && Net.IsMachineAlive(_hover.Id);
+        _targetPanel.Visible = show;
+        if (!show) return;
+
+        var m = Net.GetMachineInfo(_hover.Id);
+        var def = _content.Machines[m.Type];
+        int max = Net.MaxHp(m.Type);
+        _targetTitle.Text = MachineName(m.Type);
+        _targetRole.Text = L("tip.role." + def.Role.ToString().ToLowerInvariant());
+        _targetStatus.Text = MachineStatus(m);
+        _targetStatus.AddThemeColorOverride("font_color", m.Crafting ? GoodColor : Colors.White);
+        _targetRecipe.Visible = m.Recipe >= 0;
+        if (m.Recipe >= 0)
+        {
+            var r = _content.Recipes[m.Recipe];
+            _targetRecipe.Text = $"{Loc.Name("recipe", r.Id)}: {(r.Inputs.Length == 0 ? "-" : Stacks(r.Inputs))} > {Stacks(r.Outputs)}";
+        }
+        _targetHp.MaxValue = Math.Max(1, max);
+        _targetHp.Value = m.Hp;
+        var band = HudFormat.Band(m.Hp, max);
+        var bandColor = band == HealthBand.Good ? GoodColor : band == HealthBand.Worn ? WornColor : BadColor;
+        _targetHp.AddThemeStyleboxOverride("fill", Box(bandColor, null, 3, 0f));
+        _targetHp.AddThemeStyleboxOverride("background", Box(new Color(0.12f, 0.14f, 0.2f), null, 3, 0f));
+        _targetHpLabel.Text = L("tip.hp", m.Hp, max);
+        _targetHpLabel.AddThemeColorOverride("font_color", bandColor);
     }
 
     private void LayoutUi(Vector2 size)
@@ -761,21 +1041,29 @@ public partial class Play
         _objectivesPanel.ResetSize();
         var objMin = _objectivesPanel.GetCombinedMinimumSize();
         _statusLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _statusLabel.CustomMinimumSize = new Vector2(Math.Clamp(size.X - objMin.X - 60, 260, 760), 0);
+        // The essentials are short and narrow; the full block (H) is wide but never runs under the steps panel.
+        _statusLabel.CustomMinimumSize = new Vector2(_detailsOpen ? Math.Clamp(size.X - objMin.X - 60, 260, 760) : Math.Min(300f, Math.Max(180f, size.X * 0.22f)), 0);
+        _statusPanel.Visible = _statusLabel.Text.Length > 0;
         _statusPanel.ResetSize();
         _statusPanel.Position = new Vector2(12, 10);
 
-        _actions.Position = new Vector2(12, _statusPanel.Position.Y + _statusPanel.Size.Y + 10);
+        _actions.Position = new Vector2(12, _statusPanel.Visible ? _statusPanel.Position.Y + _statusPanel.Size.Y + 10 : 10);
 
-        // The build bar shrinks to fit narrow windows instead of running off the screen.
+        // The bottom strip shrinks to fit narrow windows instead of running off the screen, and hugs the bottom edge.
+        _toolbar.ResetSize();
         var barSize = _toolbar.GetCombinedMinimumSize();
         float barScale = Math.Min(1f, (size.X - 24f) / Math.Max(1f, barSize.X));
         _toolbar.Scale = new Vector2(barScale, barScale);
-        _toolbar.Position = new Vector2((size.X - barSize.X * barScale) / 2f, size.Y - barSize.Y * barScale - 10);
+        _toolbar.Position = new Vector2((size.X - barSize.X * barScale) / 2f, size.Y - barSize.Y * barScale - 6);
         barSize = new Vector2(barSize.X * barScale, barSize.Y * barScale);
 
-        _modeHint.Position = new Vector2(Math.Max(12, (size.X - _modeHint.Size.X) / 2f), _toolbar.Position.Y - 26);
-        _toastText.Position = new Vector2(Math.Max(12, (size.X - _toastText.Size.X) / 2f), _toolbar.Position.Y - 12 - _toastText.Size.Y - 28);
+        _modeHint.Position = new Vector2(Math.Max(12, (size.X - _modeHint.Size.X) / 2f), _toolbar.Position.Y - 24);
+
+        // Notifications: up to three lines in a column above the hint, wrapped to a readable width.
+        float toastWidth = Math.Clamp(size.X * 0.6f, 300f, 760f);
+        foreach (var l in _toastLabels) l.CustomMinimumSize = new Vector2(toastWidth, 0);
+        _toastBox.ResetSize();
+        _toastBox.Position = new Vector2((size.X - toastWidth) / 2f, _modeHint.Position.Y - 8 - _toastBox.Size.Y);
 
         var objSize = _objectivesPanel.GetCombinedMinimumSize();
         _objectivesPanel.Position = new Vector2(size.X - objSize.X - 12, 10);
@@ -790,15 +1078,34 @@ public partial class Play
         _mapList.Visible = _map.Visible;
 
         var inspSize = _inspector.GetCombinedMinimumSize();
-        _inspector.Position = new Vector2(size.X - inspSize.X - 12, size.Y - inspSize.Y - barSize.Y - 24);
+        _inspector.Position = new Vector2(size.X - inspSize.X - 12, size.Y - inspSize.Y - barSize.Y - 14);
+
+        // The flight readout sits at the top centre, dropping below the status or steps panel when they would meet it.
+        _flightPanel.ResetSize();
+        var fs = _flightPanel.GetCombinedMinimumSize();
+        var fp = new Vector2((size.X - fs.X) / 2f, 8f);
+        foreach (var other in new[] { _statusPanel, _objectivesPanel })
+        {
+            if (!other.Visible) continue;
+            var o = new Rect2(other.Position, other.Size);
+            if (new Rect2(fp, fs).Intersects(o)) fp.Y = Math.Max(fp.Y, o.End.Y + 6f);
+        }
+        _flightPanel.Position = fp;
 
         var helpSize = _helpPanel.GetCombinedMinimumSize();
         _helpPanel.Position = new Vector2((size.X - helpSize.X) / 2f, (size.Y - helpSize.Y) / 2f - 40);
 
-        // The tooltip follows the mouse and stays on screen.
-        var mouse = GetViewport().GetMousePosition();
-        _tooltipLabel.Visible = _tooltipLabel.Text.Length > 0 && !_demo;
-        _tooltipLabel.Position = new Vector2(Math.Min(mouse.X + 16, size.X - _tooltipLabel.Size.X - 8), Math.Min(mouse.Y + 18, size.Y - _tooltipLabel.Size.Y - 8));
+        // The crosshair sits at the screen centre and the tooltip beside it, kept on screen.
+        _crosshair.Visible = _mouseLook && !_demo;
+        _crosshair.Position = (size - _crosshair.Size) / 2f;
+        var centre = size / 2f;
+        _tooltipLabel.Visible = _tooltipLabel.Text.Length > 0 && !_demo && _mouseLook;
+        _tooltipLabel.Position = new Vector2(Math.Clamp(centre.X + 24, 8, Math.Max(8, size.X - _tooltipLabel.Size.X - 8)), Math.Clamp(centre.Y + 24, 8, Math.Max(8, size.Y - _tooltipLabel.Size.Y - 8)));
+
+        _targetPanel.ResetSize();
+        var ts = _targetPanel.GetCombinedMinimumSize();
+        _targetPanel.Position = new Vector2(Math.Clamp(centre.X + 28, 8, Math.Max(8, size.X - ts.X - 8)), Math.Clamp(centre.Y + 28, 8, Math.Max(8, size.Y - ts.Y - barSize.Y - 14)));
+        _markers.Size = size;
     }
 
     // ---- selecting tools ------------------------------------------------------------------------------
@@ -819,17 +1126,9 @@ public partial class Play
         Toast(L("toast.language"));
     }
 
-    private void RecenterCamera()
-    {
-        _yaw = 0.2f;
-        _pitch = DefaultPitch;
-        _distance = DefaultDistance;
-        _target = ShipPosition(0f);
-    }
-
     // ---- mouse and keyboard ------------------------------------------------------------------------------
 
-    private bool OverUi() => GetViewport().GuiGetHoveredControl() is { } c && c != _uiRoot;
+    private bool OverUi() => !_mouseLook && GetViewport().GuiGetHoveredControl() is { } c && c != _uiRoot;
 
     public override void _UnhandledInput(InputEvent e)
     {
@@ -851,48 +1150,52 @@ public partial class Play
 
     private void OnMouseButton(InputEventMouseButton mb)
     {
+        if (!mb.Pressed && mb.ButtonIndex != MouseButton.Left) return;
+        // A click while the cursor is free (and no panel is open) takes the mouse back instead of acting in the world.
+        if (!_mouseLook)
+        {
+            if (mb.Pressed && mb.ButtonIndex == MouseButton.Left && !PanelOpen()) _wantCapture = true;
+            _dragStart = null;
+            return;
+        }
         switch (mb.ButtonIndex)
         {
-            case MouseButton.WheelUp when mb.Pressed: _distance = Mathf.Max(4f, _distance * 0.8f); break;
-            case MouseButton.WheelDown when mb.Pressed: _distance = Mathf.Min(90f, _distance * 1.25f); break;
-            case MouseButton.Middle: _mmbDown = mb.Pressed; break;
             case MouseButton.Right:
-                if (mb.Pressed) { _rmbDown = true; _rmbDragged = false; _rmbStart = mb.Position; }
-                else
-                {
-                    // A click demolishes what is under the mouse; a drag was only turning the camera.
-                    if (_rmbDown && !_rmbDragged && CellUnderMouse() is { } cell) RemoveAt(cell);
-                    _rmbDown = false;
-                }
+                // Right click demolishes what the crosshair is on.
+                if (_hover.Kind == HoverKind.Machine) RemoveAt(CellOfMachine(_hover.Id));
+                else if (CellUnderAim() is { } cell) RemoveAt(cell);
                 break;
             case MouseButton.Left:
-                if (mb.Pressed) _dragStart = _tool == ToolMode.Build ? CellUnderMouse() : null;
+                if (mb.Pressed) _dragStart = _tool == ToolMode.Build ? CellUnderAim() : null;
                 else OnLeftRelease();
                 break;
         }
     }
 
+    private (int X, int Y, int Z) CellOfMachine(int id)
+    {
+        var m = Net.GetMachineInfo(id);
+        return (m.X, m.Y, m.Z);
+    }
+
     private void OnMouseMotion(InputEventMouseMotion mm)
     {
-        if (_rmbDown && (mm.Position - _rmbStart).Length() > 6f) _rmbDragged = true;
-        if (_mmbDown || (_rmbDown && _rmbDragged))
-        {
-            _yaw -= mm.Relative.X * 0.005f;
-            _pitch = Mathf.Clamp(_pitch + mm.Relative.Y * 0.005f, 0.35f, 1.5f);
-        }
+        if (!_mouseLook) return;
+        _yaw -= mm.Relative.X * MouseSensitivity;
+        _pitch = Mathf.Clamp(_pitch - mm.Relative.Y * MouseSensitivity, -MaxPitch, MaxPitch);
     }
 
     private void OnLeftRelease()
     {
         if (_tool == ToolMode.Build)
         {
-            if (_dragStart is { } start && CellUnderMouse() is { } end)
+            if (_dragStart is { } start && CellUnderAim() is { } end)
                 PlaceSelectedAt(end, _palette[_selected].IsBelt ? start : null);
             _dragStart = null;
             return;
         }
 
-        // Pointer: inspect machines, pick deposits, fly to the ground.
+        // Pointer: inspect machines and pick deposits.
         switch (_hover.Kind)
         {
             case HoverKind.Machine:
@@ -901,20 +1204,41 @@ public partial class Play
             case HoverKind.Deposit:
                 _selectedDeposit = _hover.Id;
                 _selMachine = -1;
-                Toast(L("toast.depositSelected", ItemName(Net.DepositItem(_hover.Id))));
-                break;
-            case HoverKind.Ground:
-                _selMachine = -1;
-                if (CellUnderMouse() is { } c)
-                {
-                    var ship = ShipPosition(0f);
-                    _waypoint = new Vector3(c.X + 0.5f, ship.Y, c.Z + 0.5f);
-                    _pendingMine = false;
-                }
+                ToastProduction(L("toast.depositSelected", ItemName(Net.DepositItem(_hover.Id))));
                 break;
             default:
                 _selMachine = -1;
                 break;
+        }
+    }
+
+    // ---- cursor capture ------------------------------------------------------------------------------------
+
+    /// <summary>Panels that need the pointer: the help overlay and the star map.</summary>
+    private bool PanelOpen() => _helpOpen || (_mapOpen && Net.Galaxy is not null);
+
+    /// <summary>Releases or captures the mouse so it matches what the player wants and what is on screen.</summary>
+    private void UpdateCapture()
+    {
+        bool interactive = !_demo && _stressMachines == 0 && !_saveTest;
+        bool focused = DisplayServer.WindowIsFocused();
+        if (!focused) _wantCapture = false; // clicking in the window takes it back
+        bool want = interactive && _wantCapture && focused && !PanelOpen();
+        if (want == _mouseLook) return;
+        SetMouseCapture(want);
+    }
+
+    private void SetMouseCapture(bool on)
+    {
+        _mouseLook = on;
+        Input.MouseMode = on ? Input.MouseModeEnum.Captured : Input.MouseModeEnum.Visible;
+        if (!on)
+        {
+            // Letting go of the mouse stops the ship and any autopilot run: no thrust is left running unattended.
+            _waypoint = null;
+            _pendingMine = false;
+            _dragStart = null;
+            SendThrust((0, 0, 0), force: true);
         }
     }
 
@@ -933,15 +1257,20 @@ public partial class Play
                 else if (_selMachine >= 0) _selMachine = -1;
                 else if (_tool == ToolMode.Build) _tool = ToolMode.Pointer;
                 else if (_mapOpen) _mapOpen = false;
-                else _waypoint = null;
+                else { _waypoint = null; _pendingMine = false; _wantCapture = false; } // last: let go of the mouse
                 break;
             case Key.F1: _helpOpen = !_helpOpen; break;
+            case Key.F11:
+                DisplayServer.WindowSetMode(DisplayServer.WindowGetMode() == DisplayServer.WindowMode.Fullscreen
+                    ? DisplayServer.WindowMode.Maximized : DisplayServer.WindowMode.Fullscreen);
+                break;
             case Key.F6: SaveGameToDisk("quicksave", silent: false); break;
             case Key.F9: LoadGameFromDisk(); break;
             case Key.L: ToggleLanguage(); break;
             case Key.O: _objectivesOpen = !_objectivesOpen; break;
-            case Key.Home: RecenterCamera(); break;
-            case Key.Tab: CycleRecipe(); break;
+            case Key.H: _detailsOpen = !_detailsOpen; break;
+            case Key.Tab: _wantCapture = !_wantCapture; break; // free the cursor to use the buttons, or take it back
+            case Key.Y: CycleRecipe(); break;
             case Key.R: _dir = _dir switch { Dir.PosX => Dir.PosZ, Dir.PosZ => Dir.NegX, Dir.NegX => Dir.NegZ, _ => Dir.PosX }; Toast(L("toast.beltFacing", _dir.ToString())); break;
             case Key.Z: _cursorY--; break;
             case Key.X: _cursorY++; break;
@@ -965,47 +1294,74 @@ public partial class Play
 
     // ---- ship control ------------------------------------------------------------------------------------
 
-    /// <summary>Keys fly the ship relative to the camera (snapped to the nearest world axis); a click flies to a point.</summary>
+    /// <summary>
+    /// Turns a direction into the integer thrust of <see cref="SetThrust"/>: normalised so it is never longer than 1, scaled by 1024,
+    /// and guaranteed to satisfy <see cref="PlayerRules.ThrustInRange"/> whatever the float rounding does.
+    /// </summary>
+    private static (int X, int Y, int Z) ToThrust(Vector3 v)
+    {
+        if (v.LengthSquared() > 1f) v = v.Normalized();
+        var t = ((int)MathF.Round(v.X * 1024f), (int)MathF.Round(v.Y * 1024f), (int)MathF.Round(v.Z * 1024f));
+        if (!PlayerRules.ThrustInRange(t.Item1, t.Item2, t.Item3)) t = ((int)(v.X * 1024f), (int)(v.Y * 1024f), (int)(v.Z * 1024f)); // truncate: never longer
+        while (!PlayerRules.ThrustInRange(t.Item1, t.Item2, t.Item3)) t = (t.Item1 * 15 / 16, t.Item2 * 15 / 16, t.Item3 * 15 / 16);
+        return t;
+    }
+
+    private void SendThrust((int X, int Y, int Z) thrust, bool force = false)
+    {
+        if (!force && thrust == _lastThrust) return;
+        double now = Time.GetTicksMsec() / 1000.0;
+        // The simulation takes one command per tick at most (30 a second): keep a changing direction from flooding the queue; a stop is never held back.
+        if (!force && thrust != (0, 0, 0) && now - _lastThrustAt < 1.0 / 30.0) return;
+        _lastThrust = thrust;
+        _lastThrustAt = now;
+        Send(new SetThrust(thrust.X, thrust.Y, thrust.Z));
+    }
+
+    /// <summary>
+    /// W/S fly along the view, A/D strafe along the camera's right, Space/C go up and down; the sum is normalised and sent as thrust
+    /// whenever the integer vector changes. M's autopilot steers toward its waypoint the same way.
+    /// </summary>
     private void UpdateShipControl()
     {
         if (_demo) return;
 
-        int forward = (Input.IsKeyPressed(Key.W) ? 1 : 0) - (Input.IsKeyPressed(Key.S) ? 1 : 0);
-        int right = (Input.IsKeyPressed(Key.D) ? 1 : 0) - (Input.IsKeyPressed(Key.A) ? 1 : 0);
-        int up = (Input.IsKeyPressed(Key.Space) ? 1 : 0) - (Input.IsKeyPressed(Key.C) ? 1 : 0);
+        // A jump or respawn clears the thrust in the simulation: send held keys again once the ship can move.
+        if (Net.HasPlayer(Player) && _world.PendingCommands == 0)
+        {
+            var pi = Net.GetPlayerInfo(Player);
+            if (pi.JumpRemaining == 0 && pi.RespawnRemaining == 0 && (pi.ThrustX, pi.ThrustY, pi.ThrustZ) != _lastThrust) _lastThrust = (int.MinValue, 0, 0);
+        }
 
-        (int X, int Y, int Z) intent;
-        if (forward != 0 || right != 0 || up != 0)
+        var thrust = (0, 0, 0);
+        if (_mouseLook)
         {
-            _waypoint = null;
-            _pendingMine = false;
-            float snapped = MathF.Round(_yaw / (MathF.PI / 2f)) * (MathF.PI / 2f);
-            int fx = (int)MathF.Round(-MathF.Sin(snapped)), fz = (int)MathF.Round(-MathF.Cos(snapped));
-            int rx = (int)MathF.Round(MathF.Cos(snapped)), rz = (int)MathF.Round(-MathF.Sin(snapped));
-            intent = (Math.Clamp(fx * forward + rx * right, -1, 1), up, Math.Clamp(fz * forward + rz * right, -1, 1));
+            int forward = (Input.IsKeyPressed(Key.W) ? 1 : 0) - (Input.IsKeyPressed(Key.S) ? 1 : 0);
+            int right = (Input.IsKeyPressed(Key.D) ? 1 : 0) - (Input.IsKeyPressed(Key.A) ? 1 : 0);
+            int up = (Input.IsKeyPressed(Key.Space) ? 1 : 0) - (Input.IsKeyPressed(Key.C) ? 1 : 0);
+            if (forward != 0 || right != 0 || up != 0)
+            {
+                _waypoint = null; // flying by hand takes over from the autopilot
+                _pendingMine = false;
+                thrust = ToThrust(CockpitForward() * forward + CockpitRight() * right + Vector3.Up * up);
+            }
         }
-        else if (_waypoint is { } wp)
+        if (thrust == (0, 0, 0) && _waypoint is { } wp)
         {
-            var p = ShipPosition(0f);
-            static int Axis(float diff) => MathF.Abs(diff) > 0.45f ? Math.Sign(diff) : 0;
-            intent = (Axis(wp.X - p.X), Axis(wp.Y - p.Y), Axis(wp.Z - p.Z));
-            if (intent == (0, 0, 0)) _waypoint = null; // arrived
+            var to = wp - ShipPosition(0f);
+            if (to.Length() < 0.25f) _waypoint = null; // arrived
+            else thrust = ToThrust(to.Normalized());
         }
-        else intent = (0, 0, 0);
 
         if (_pendingMine && Net.IsDeposit(_selectedDeposit) && Net.InMineRange(Player, _selectedDeposit))
         {
             _pendingMine = false;
             _waypoint = null;
-            intent = (0, 0, 0);
+            thrust = (0, 0, 0);
             Send(new StartMining(_selectedDeposit));
         }
 
-        if (intent != _lastIntent)
-        {
-            _lastIntent = intent;
-            Send(new SetMovement(intent.X, intent.Y, intent.Z));
-        }
+        SendThrust(thrust, force: thrust == (0, 0, 0) && _lastThrust != (0, 0, 0));
     }
 
     /// <summary>The M button: fly to the selected deposit if needed, then mine it.</summary>
@@ -1015,13 +1371,13 @@ public partial class Play
         {
             _pendingMine = false;
             Send(new StopMining());
-            Toast(L("toast.miningStopped"), 4.0);
+            ToastProduction(L("toast.miningStopped"), 4.0);
             return;
         }
         if (!Net.IsDeposit(_selectedDeposit) || !Net.IsDepositRevealed(_selectedDeposit))
         {
             var nearest = RevealedDeposits().FirstOrDefault(-1);
-            if (nearest < 0) { Toast(L("toast.noDeposits")); return; }
+            if (nearest < 0) { ToastLogistics(L("toast.noDeposits")); return; }
             _selectedDeposit = nearest;
         }
 
@@ -1035,7 +1391,7 @@ public partial class Play
         dir = dir.LengthSquared() < 0.01f ? Vector3.Right : dir.Normalized();
         _waypoint = dep + dir * (PlayerRules.MineRangeCells - 2);
         _pendingMine = true;
-        Toast(L("toast.flyingToMine", ItemName(Net.DepositItem(_selectedDeposit))));
+        ToastProduction(L("toast.flyingToMine", ItemName(Net.DepositItem(_selectedDeposit))));
     }
 
     // ---- hover and inspection ----------------------------------------------------------------------------
@@ -1049,18 +1405,50 @@ public partial class Play
         return d2 <= radius * radius;
     }
 
+    /// <summary>Ray against the axis-aligned box of one grid cell whose minimum corner is <paramref name="min"/>.</summary>
+    private static bool RayHitsBox(Vector3 origin, Vector3 dir, Vector3 min, out float t)
+    {
+        float t0 = 0f, t1 = float.MaxValue;
+        t = 0f;
+        for (int a = 0; a < 3; a++)
+        {
+            float o = origin[a], d = dir[a], lo = min[a], hi = min[a] + 1f;
+            if (MathF.Abs(d) < 1e-6f) { if (o < lo || o > hi) return false; continue; }
+            float ta = (lo - o) / d, tb = (hi - o) / d;
+            if (ta > tb) (ta, tb) = (tb, ta);
+            t0 = MathF.Max(t0, ta);
+            t1 = MathF.Min(t1, tb);
+            if (t0 > t1) return false;
+        }
+        t = t0;
+        return true;
+    }
+
+    private (int X, int Y, int Z)? _aimCell;
+
     private void UpdateHover()
     {
         _tooltipLabel.Text = "";
         _hover = new Hover(HoverKind.None, -1, "");
-        if (_demo || OverUi()) return;
+        _aimCell = null;
+        if (_demo || !_mouseLook) return; // only the crosshair aims; a free cursor is for the buttons
 
-        var mouse = GetViewport().GetMousePosition();
-        var origin = _camera.ProjectRayOrigin(mouse);
-        var dir = _camera.ProjectRayNormal(mouse);
+        var origin = AimOrigin();
+        var dir = AimDirection();
 
-        // Enemies first (small and dangerous), then deposits.
+        // Machines first: the ray against each machine's cell box (the sphere tests below suit the small, round things).
         float best = float.MaxValue;
+        foreach (int id in _machineIds)
+        {
+            if (!Net.IsMachineAlive(id)) continue;
+            var m = Net.GetMachineInfo(id);
+            if (RayHitsBox(origin, dir, new Vector3(m.X, m.Y, m.Z), out float tb) && tb < best)
+            {
+                best = tb;
+                _hover = new Hover(HoverKind.Machine, id, MachineSummary(id));
+            }
+        }
+        // Then enemies (small and dangerous) and deposits, whichever is nearer along the ray.
         foreach (var en in Net.Enemies())
         {
             var c = new Vector3(en.X, en.Y, en.Z) / CellUnits;
@@ -1082,10 +1470,14 @@ public partial class Play
             }
         }
 
-        if (_hover.Kind == HoverKind.None && CellUnderMouse() is { } cell)
+        if (CellUnderAim() is { } cell)
         {
             _cursor = cell;
-            var (kind, id) = _world.EntityAt(cell.X, cell.Y, cell.Z);
+            _aimCell = cell;
+        }
+        if (_hover.Kind == HoverKind.None && _aimCell is { } aimed)
+        {
+            var (kind, id) = _world.EntityAt(aimed.X, aimed.Y, aimed.Z);
             if (kind == SimWorld.EntityKind.Machine) _hover = new Hover(HoverKind.Machine, id, MachineSummary(id));
             else if (kind == SimWorld.EntityKind.Segment)
             {
@@ -1096,7 +1488,7 @@ public partial class Play
         }
 
         if (_tool == ToolMode.Build) return; // the ghost explains placement instead
-        _tooltipLabel.Text = _hover.Text;
+        _tooltipLabel.Text = _hover.Kind == HoverKind.Machine ? "" : _hover.Text; // a machine gets the target panel instead
     }
 
     private string MachineStatus(MachineInfo m)
@@ -1210,7 +1602,7 @@ public partial class Play
             if (best < 0 || Net.DepositRemaining(d) > Net.DepositRemaining(best)) best = d;
         }
         if (best >= 0) Send(new LinkDeposit(machine, best));
-        else Toast(L("toast.noDepositForDrill"));
+        else ToastLogistics(L("toast.noDepositForDrill"));
     }
 
     // ---- build ghost ----------------------------------------------------------------------------------------
@@ -1230,13 +1622,15 @@ public partial class Play
 
     private void UpdateGhost()
     {
-        bool build = _tool == ToolMode.Build && !_demo && _hover.Kind != HoverKind.None && !OverUi();
+        bool build = _tool == ToolMode.Build && !_demo && _mouseLook && _aimCell is not null;
         _ghost.Visible = build;
+        _crosshair.Tint = Crosshair.Normal;
         if (!build) { _dragGhost.Visible = false; return; }
 
-        var c = _cursor;
+        var c = _aimCell!.Value;
         _ghost.Position = CellCenter(c.X, c.Y, c.Z);
         string? problem = PlacementProblem(c);
+        _crosshair.Tint = problem is null ? Crosshair.Normal : Crosshair.Invalid;
         ((StandardMaterial3D)_ghost.MaterialOverride).AlbedoColor = problem is null ? new Color(0.4f, 1f, 0.5f, 0.4f) : new Color(1f, 0.3f, 0.25f, 0.4f);
         if (problem is not null) _tooltipLabel.Text = problem;
         else if (_dragStart is null && _palette[_selected].IsBelt)
