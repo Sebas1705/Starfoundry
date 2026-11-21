@@ -180,7 +180,7 @@ public class BalanceTests
         Assert.InRange(Done("Jump drive"), 30 * 60, 45 * 60);          // two researches' worth of plates after Logistics
         Assert.InRange(Done("Remote lines") - Done("Arrived"), 60, 5 * 60);
         Assert.True(Done("Home again") > Done("Remote lines"));
-        Assert.InRange(Done("Home again"), 35 * 60, 50 * 60);
+        Assert.InRange(Done("Home again"), 33 * 60, 50 * 60);         // carbon processing costs 60 plates now (was 135): about 2 minutes sooner
         Assert.True(r.HomeIronLeft["Expansion: Remote lines"] >= 0.4 * 4000, "only " + r.HomeIronLeft["Expansion: Remote lines"] + " of the home ore left");
         Assert.True(r.Milestones.ContainsKey("Expand"), "the guided step is ticked off by the first jump");
     }

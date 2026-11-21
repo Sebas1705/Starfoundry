@@ -95,7 +95,7 @@ public static class Loc
         ["recipe.core:nickel_plate"] = ("placa de níquel", "nickel plate"),
 
         ["research.core:logistics"] = ("Logística", "Logistics"),
-        ["research.core:carbon_drilling"] = ("Perforación de carbono", "Carbon drilling"),
+        ["research.core:carbon_drilling"] = ("Procesado de carbono", "Carbon processing"),
         ["research.core:advanced_logistics"] = ("Logística avanzada", "Advanced logistics"),
         ["research.core:jump_drive"] = ("Motor de salto", "Jump drive"),
         ["research.core:turret_calibration"] = ("Calibración de torretas", "Turret calibration"),
@@ -670,7 +670,7 @@ public static class Loc
         ["bonus.ship_hull"] = ("casco de la nave", "ship hull"),
         ["bonus.ship_damage"] = ("arma de la nave", "ship weapon"),
         ["research.core:logistics.desc"] = ("Cintas más rápidas: desbloquea la cinta Mk2. Es la base de casi todo lo demás.", "Faster belts: unlocks belt Mk2. The base of almost everything else."),
-        ["research.core:carbon_drilling.desc"] = ("Requisito de la logística avanzada y del motor de salto. Desbloquea el taladro de carbono; en los mundos de estructuras el carbono ya se mina a mano sin investigar nada.", "A requirement for advanced logistics and the jump drive. Unlocks the carbon drill; in structure worlds carbon is already hand-mined without any research."),
+        ["research.core:carbon_drilling.desc"] = ("Aprovecha el carbono en carcasas más resistentes: las máquinas tienen un 20 % más de vida. Requisito de la logística avanzada y del motor de salto. En los mundos antiguos también desbloquea el taladro de carbono; en los de estructuras el carbono se mina a mano sin investigar nada.", "Puts carbon into tougher casings: machines have 20 % more hit points. A requirement for advanced logistics and the jump drive. In legacy worlds it also unlocks the carbon drill; in structure worlds carbon is hand-mined without any research."),
         ["research.core:advanced_logistics.desc"] = ("Las cintas más rápidas: desbloquea la cinta Mk3.", "The fastest belts: unlocks belt Mk3."),
         ["research.core:jump_drive.desc"] = ("Permite saltar por las rutas del mapa estelar a otros sistemas (G abre el mapa, J salta). Cada salto cuesta 5 de carbono de la bodega.", "Lets the ship jump along the star map lanes to other systems (G opens the map, J jumps). Every jump costs 5 carbon from the hold."),
         ["research.core:turret_calibration.desc"] = ("Las torretas hacen más daño por disparo.", "Turrets do more damage per shot."),

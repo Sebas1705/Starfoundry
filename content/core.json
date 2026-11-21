@@ -630,12 +630,18 @@
       "cost": [
         {
           "item": "core:iron_plate",
-          "count": 135
+          "count": 60
         }
       ],
       "requires": [],
       "unlocks": [
         "core:drill_carbon"
+      ],
+      "bonuses": [
+        {
+          "kind": "machine_hp",
+          "percent": 20
+        }
       ]
     },
     {

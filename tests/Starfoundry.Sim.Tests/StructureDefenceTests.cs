@@ -670,6 +670,10 @@ public class StructureDefenceTests
             var deposits = root["archetypes"]!.AsArray().First(a => a!["id"]!.GetValue<string>() == id)!["deposits"]!.AsArray();
             deposits.Remove(deposits.First(d => d!["item"]!.GetValue<string>() == "core:carbon"));
         }
+        // And before carbon drilling became carbon processing: 135 plates and no bonus.
+        var cd = root["research"]!.AsArray().First(r => r!["id"]!.GetValue<string>() == "core:carbon_drilling")!.AsObject();
+        cd.Remove("bonuses");
+        cd["cost"] = System.Text.Json.Nodes.JsonNode.Parse("""[{"item":"core:iron_plate","count":135}]""");
         return ContentDb.FromJson(root.ToJsonString());
     }
 
