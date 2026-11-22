@@ -27,6 +27,9 @@ public sealed class Tips
     /// <param name="net">The world.</param>
     /// <param name="player">The player the hints are for.</param>
     /// <param name="mapOpen">True while the star map is open (a hint about the jump cost applies then).</param>
+    /// <summary>The docking tip shows when a free port of one of your stations is this close (cells).</summary>
+    private const int DockTipCells = 45;
+
     public Tip? Next(BeltNetwork net, int player, bool mapOpen = false)
     {
         double now = net.Tick / (double)Units.TicksPerSecond;
@@ -57,6 +60,8 @@ public sealed class Tips
         // Structure worlds: ports are free and the starter ship already has an iron ore port, so the tip is about any other ore piling up in the hold.
         if (!_shown.Contains("portOre") && net.StructureRules && OreWithoutPort(net, player) is var ore and >= 0)
             return Show("portOre", "learn.portOre", now, Loc.Name("item", _content.Items[ore].Id), HoldCountOf(net, player, ore));
+        // Last: a free port of your station is close, and you have not been told you can dock.
+        if (!_shown.Contains("dock") && net.StructureRules && net.TryFindDockCandidate(player, DockTipCells, out _)) return Show("dock", "learn.dock", now);
         if (!_shown.Contains("port") && !net.StructureRules && net.IsResearched(_content.ResearchIndex("core:jump_drive")) && !Has(net, MachineRole.Unloader)
             && HomeIronLow(net, player)) return Show("port", "learn.port", now);
         return null;

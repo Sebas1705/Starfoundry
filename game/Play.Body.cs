@@ -58,7 +58,8 @@ public partial class Play
         if (!CanWalk) { _bodyVolumes = Array.Empty<BodyBox>(); return; }
         if (_bodyVolumesVersion == Net.StructureVersion) return;
         _bodyVolumesVersion = Net.StructureVersion;
-        _bodyVolumes = BodyMotion.Volumes(Net.GetStructure(ShipStruct).Modules.Keys, StationGrid.ModuleX, StationGrid.ModuleY, StationGrid.ModuleZ);
+        // Docked: the station's modules join the walkable volumes (in the ship's local cells), so the body walks through the airlock.
+        _bodyVolumes = DockedBodyVolumes(out _stationBodyVolumes);
     }
 
     /// <summary>E: sit down when standing within reach of the seat; stand up when seated.</summary>

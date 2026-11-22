@@ -236,7 +236,7 @@ public static class KeyHints
             if (s.DockAssisting) yield return Row("dock", "U", "dockCancel", "U", KeyRowState.Active);
             else if (s.DockReady) yield return Row("dock", "U", "dock", "U");
             else yield return Row("dock", "U", "dockAssist", "U");
-            yield return new KeyRow("dockGuide", Array.Empty<string>(), "key.dockGuide", KeyRowState.Info, null, null, new object[] { s.DockDistanceCells, s.DockSpeedPercent });
+            yield return new KeyRow("dockGuide", Array.Empty<string>(), "key.dockGuide", s.DockSpeedPercent > 100 && s.DockDistanceCells <= Starfoundry.Sim.DockRules.RangeCells + 8 ? KeyRowState.Alert : KeyRowState.Info, null, null, new object[] { s.DockDistanceCells, s.DockSpeedPercent });
         }
         else if (s.Dock == DockHint.Docked)
         {

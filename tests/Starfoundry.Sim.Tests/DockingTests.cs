@@ -52,9 +52,9 @@ public class DockingTests
         Assert.Equal(4, stationPorts.Count);
         Assert.All(stationPorts, p => Assert.True(p.Free));
 
-        // The starter ship's only port module is the cockpit, whose +Z face touches the workshop.
+        // The starter ship's only port module is the cockpit, which docks on its two flanks (its nose and its back are no ports).
         var shipPorts = w.Network.DockPorts(ship).Select(p => p.Face).ToList();
-        Assert.Equal(new[] { Dir.PosX, Dir.NegX, Dir.NegZ }, shipPorts);
+        Assert.Equal(new[] { Dir.PosX, Dir.NegX }, shipPorts);
 
         // Building against a face closes its port.
         Ok(w, new PlaceModuleIn(station, 0, 0, 1, ModuleKind.Workshop));
@@ -296,7 +296,7 @@ public class DockingTests
     {
         var w = Dockable(out int ship, out int station);
         Ok(w, new PlaceModuleIn(ship, 1, 0, 0, ModuleKind.Dock)); // beside the cockpit, on its +X side
-        Assert.Equal(new[] { Dir.PosX, Dir.PosZ, Dir.NegZ }, w.Network.DockPorts(ship).Where(p => p.Mx == 1).Select(p => p.Face).ToArray());
+        Assert.Equal(new[] { Dir.PosX, Dir.PosZ, Dir.NegZ }, w.Network.DockPorts(ship).Where(p => p.Mx == 1).Select(p => p.Face).ToArray()); // a dock module opens on every free horizontal face
         // Docking with the dock module: the cockpit's -X face is now the nearest free -X port, but the dock module is on the far side.
         Ok(w, DockWest(station));
         Assert.True(w.Network.TryGetDock(0, out var d));
@@ -633,8 +633,29 @@ public class DockingTests
     }
 
     [Fact]
+    public void The_dock_tip_shows_once_when_a_free_port_is_close()
+    {
+        var far = Dockable(out _, out _, gapCells: 80);
+        far.Step(Tps);
+        Assert.Null(new Starfoundry.Ui.Tips(C).Next(far.Network, 0));
+
+        var w = Dockable(out _, out _, gapCells: 30);
+        w.Step(Tps);
+        var tips = new Starfoundry.Ui.Tips(C);
+        Assert.Equal("learn.dock", tips.Next(w.Network, 0)?.Key);
+        Assert.Null(tips.Next(w.Network, 0)); // once
+    }
+
+    [Fact]
     public void Dock_strings_exist_in_both_languages()
     {
+        foreach (var key in new[] { "learn.dock", "hud.flightDocked", "mark.dockPort", "why.stationFixed", "toast.docked", "toast.undocked", "toast.undockAboard",
+                     "toast.noPortNear", "toast.approachStarted", "toast.approachCancelled", "toast.enterStation", "toast.backAboard", "toast.stockNow" })
+        {
+            Assert.True(Starfoundry.Ui.Loc.Has(key), key);
+            var (es, en) = Starfoundry.Ui.Loc.All.First(p => p.Key == key).Value;
+            Assert.NotEqual(es, en);
+        }
         foreach (var key in new[] { "key.dock", "key.dockAssist", "key.dockCancel", "key.dockGuide", "key.undock", "key.unload", "key.load", "key.stock" })
         {
             Assert.True(Starfoundry.Ui.Loc.Has(key), key);

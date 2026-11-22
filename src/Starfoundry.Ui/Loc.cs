@@ -227,6 +227,8 @@ public static class Loc
         ["hud.oreLow"] = ("Queda poco {0} en este sistema ({1}%): escanea (K) y salta (G, J) a otro sistema.", "Little {0} left in this system ({1}%): scan (K) and jump (G, J) to another system."),
         ["learn.ammo"] = ("Tus torretas no tienen munición. Hace falta una línea que la fabrique (ensamblador con la receta de munición) y una cinta hasta cada torreta.", "Your turrets have no ammo. They need a line that makes it (an assembler on the ammo recipe) and a belt to each turret."),
         ["learn.repair"] = ("Hay máquinas dañadas. Pulsa Retroceso para repararlas (cuesta la mitad de lo que costaron) o construye un taller de reparación (menú B, Defensa) con una cinta de lingotes.", "Some machines are damaged. Press Backspace to repair them (half their build cost) or build a repair bay (B menu, Defence) fed ingots by belt."),
+        ["learn.dock"] = ("Una estación tuya tiene un puerto libre cerca. Acércate despacio y pulsa U para atracar (o U de lejos: el piloto automático te lleva). Atracada, la nave se carga y descarga en la estación, repostas hidrógeno de su almacén y cruzas la esclusa a pie.", "A station of yours has a free port close by. Approach slowly and press U to dock (or U from afar: the autopilot flies you in). Docked, the ship loads and unloads at the station, refuels hydrogen from its stock and you can walk through the airlock."),
+        ["hud.flightDocked"] = ("atracada en una estación (U desatraca)", "docked at a station (U undocks)"),
         ["learn.walls"] = ("Los enemigos atacan primero el muro más cercano. Pon muros (menú B, Defensa) delante de la base, al alcance de las torretas, y repáralos con Retroceso durante la oleada.", "Enemies attack the nearest wall first. Put walls (B menu, Defence) in front of the base, within reach of the turrets, and repair them with Backspace during the wave."),
         ["learn.research"] = ("El laboratorio está parado. Pulsa T para elegir qué investigar y asegúrate de que le llegan placas por cinta.", "The lab is idle. Press T to choose what to research and make sure plates reach it by belt."),
         ["learn.upgrades"] = ("Hay mejoras de defensa por investigar (T): daño y cadencia de torretas, vida de las máquinas y reparación.", "There are defence upgrades to research (T): turret damage and fire rate, machine hit points and repair."),
@@ -1044,7 +1046,18 @@ public static class Loc
         ["key.dock"] = ("Atracar", "Dock"),
         ["key.dockAssist"] = ("Acercarse y atracar", "Approach and dock"),
         ["key.dockCancel"] = ("Cancelar el acercamiento", "Cancel the approach"),
-        ["key.dockGuide"] = ("Puerto a {0} celdas, velocidad {1}%", "Port {0} cells away, speed {1}%"),
+        ["key.dockGuide"] = ("Puerto a {0} celdas, velocidad {1}% del límite", "Port {0} cells away, speed {1}% of the limit"),
+        ["mark.dockPort"] = ("Puerto de atraque", "Docking port"),
+        ["why.stationFixed"] = ("Una estación es fija: no lleva cabina ni motores.", "A station is fixed: it has no cockpit or engines."),
+        ["toast.docked"] = ("Atracado. Pasa a la estación por la esclusa; U desatraca, coma descarga y punto carga.", "Docked. Walk into the station through the airlock; U undocks, comma unloads and period loads."),
+        ["toast.undocked"] = ("Desatracado: los motores vuelven a responder.", "Undocked: the engines respond again."),
+        ["toast.undockAboard"] = ("Vuelve a la nave para desatracar.", "Get back aboard the ship to undock."),
+        ["toast.noPortNear"] = ("No hay un puerto libre de tus estaciones a menos de {0} celdas.", "No free port of your stations within {0} cells."),
+        ["toast.approachStarted"] = ("Acercamiento asistido: el piloto automático te lleva al puerto y atraca. U lo cancela; volar a mano también.", "Assisted approach: the autopilot flies you to the port and docks. U cancels it, and so does flying by hand."),
+        ["toast.approachCancelled"] = ("Acercamiento cancelado.", "Approach cancelled."),
+        ["toast.enterStation"] = ("Esclusa cruzada: estás dentro de la estación.", "Airlock crossed: you are inside the station."),
+        ["toast.backAboard"] = ("De vuelta a bordo de la nave.", "Back aboard the ship."),
+        ["toast.stockNow"] = ("Almacén de la estación: {0}/{1}", "Station stock: {0}/{1}"),
         ["key.undock"] = ("Desatracar", "Undock"),
         ["key.unload"] = ("Descargar a la estación", "Unload to the station"),
         ["key.load"] = ("Cargar de la estación", "Load from the station"),
@@ -1093,6 +1106,7 @@ public static class Loc
             "  N   módulo de estación (con estaciones antiguas: el primero es el núcleo; solo se construye dentro de los módulos)\n" +
             "  Estructuras: N elige la herramienta de módulos y, pulsada otra vez, cambia su tipo (cabina, motor, reactor, bodega, taller, defensa, casco, hangar de drones tras investigarlo); I elige fundar una estación junto a la nave; cada tipo de módulo admite máquinas distintas\n" +
             "  F7   asignar los drones de tu nave o estación al yacimiento elegido ([ ] o clic); de nuevo con el mismo yacimiento, quitarlos\n" +
+            "  Atracar: la nave se mueve y la estación es fija. Cerca de un puerto libre de tus estaciones (el núcleo, un muelle o la cabina de la nave los tienen) la pantalla muestra la marca del puerto y U (acercarse y atracar: el piloto automático te lleva y atraca solo; si ya estás a menos de 12 celdas y despacio, atraca al momento). Atracada, la nave queda fija en el puerto, no vuela ni salta, y puedes cruzar la esclusa a pie; U desatraca (desde la nave), coma descarga la bodega al almacén de la estación (menos el combustible), punto carga el almacén (el combustible primero). Atracada gasta el hidrógeno del almacén, se repara más rápido y la cubren los escudos y las defensas de la estación\n" +
             "  Ctrl+Supr   tirar al espacio la mayor pila de mineral sobrante de la bodega (carbono, cuarzo, titanio, níquel; hielo si hay 20 de hidrógeno); no toca el hierro, el hidrógeno ni el carbono del salto\n" +
             "  Clic en una máquina sin herramienta: ver su estado y cambiar su receta (Tab para usar sus botones).\n  Retroceso   reparar todas las máquinas dañadas a tu alcance (cuesta la mitad de su coste, en proporción al daño)\n\n" +
             "Otros\n" +
@@ -1119,6 +1133,7 @@ public static class Loc
             "  N   station module (older station rules: the first one is the core; you can only build inside modules)\n" +
             "  Structures: N picks the module tool and, pressed again, changes its kind (cockpit, engine, reactor, cargo, workshop, defence, hull, drone bay once researched); I picks founding a station beside the ship; each module kind allows different machines\n" +
             "  F7   assign your ship's or station's drones to the selected deposit ([ ] or click); again on the same deposit, unassign them\n" +
+            "  Docking: the ship moves and the station is fixed. Near a free port of your stations (a core, a dock module or the ship's cockpit have them) the screen shows the port marker and U (approach and dock: the autopilot flies you in and docks by itself; if you are already within 12 cells and slow it docks at once). Docked, the ship is locked to the port, cannot fly or jump, and you can walk through the airlock; U undocks (from aboard the ship), comma unloads the hold into the station stock (except fuel), period loads from the stock (fuel first). While docked it burns the stock's hydrogen, repairs faster and is covered by the station's shields and defences\n" +
             "  Ctrl+Delete   dump the largest stack of spare ore from the hold into space (carbon, quartz, titanium, nickel; ice while you hold 20 hydrogen); it never touches iron, hydrogen or the jump carbon\n" +
             "  With no tool, click a machine: see its status and change its recipe (Tab to use its buttons).\n  Backspace   repair every damaged machine within reach (half the build cost, in proportion to the damage)\n\n" +
             "Other\n" +

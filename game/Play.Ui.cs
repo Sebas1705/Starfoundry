@@ -1618,6 +1618,9 @@ public partial class Play
             case Key.X: _cursorY++; break;
             case Key.M: ToggleMining(); break;
             case Key.E: ToggleSeat(); break;
+            case Key.U: DockKey(); break;
+            case Key.Comma: UnloadKey(); break;
+            case Key.Period: LoadKey(); break;
             case Key.Backspace: RepairAll(); break;
             case Key.Bracketleft: CycleDeposit(-1); break;
             case Key.Bracketright: CycleDeposit(1); break;
@@ -1684,6 +1687,7 @@ public partial class Play
             return;
         }
 
+        if (IsDockedNow) { _dockAssist = false; _waypoint = null; return; } // a docked ship is locked to its port
         var thrust = (0, 0, 0);
         if (_mouseLook)
         {
@@ -1693,9 +1697,11 @@ public partial class Play
             if (forward != 0 || right != 0 || up != 0)
             {
                 _waypoint = null; // flying by hand takes over from the autopilot
+                _dockAssist = false;
                 thrust = ToThrust(CockpitForward() * forward + CockpitRight() * right + Vector3.Up * up);
             }
         }
+        if (thrust == (0, 0, 0) && _dockAssist) thrust = DockAssistThrust();
         if (thrust == (0, 0, 0) && _waypoint is { } wp)
         {
             var to = wp - ShipPosition(0f);

@@ -55,7 +55,7 @@ public sealed partial class BeltNetwork
 {
     // ---- ports ---------------------------------------------------------------------------------------
 
-    /// <summary>True if modules of this kind in a structure of this kind expose docking ports: the core of a station, the cockpit of a ship and the dock module of both.</summary>
+    /// <summary>True if modules of this kind in a structure of this kind expose docking ports: the core of a station, the cockpit of a ship (on its two flanks) and the dock module of both.</summary>
     public static bool HasPorts(StructureKind structureKind, ModuleKind kind) =>
         kind == ModuleKind.Dock || (kind == ModuleKind.Core && structureKind == StructureKind.Station) || (kind == ModuleKind.Cockpit && structureKind == StructureKind.Ship);
 
@@ -76,6 +76,7 @@ public sealed partial class BeltNetwork
             if (!HasPorts(s.Kind, kind)) continue;
             foreach (var face in DockRules.PortFaces)
             {
+                if (kind == ModuleKind.Cockpit && face is Dir.PosZ or Dir.NegZ) continue; // a cockpit docks sideways: its nose and the engine side are not ports
                 var (dx, dz) = FaceStep(face);
                 if (s.ModuleMap.ContainsKey((key.Mx + dx, key.My, key.Mz + dz))) continue; // a module is built against it: there is no outside
                 int docked = DockedShipAt(s, key, face);
@@ -113,6 +114,16 @@ public sealed partial class BeltNetwork
     {
         state = default;
         if (!_players.TryGetValue(player, out var p) || p.ShipStructure < 0 || !_structures.TryGetValue(p.ShipStructure, out var s) || s.DockedTo < 0) return false;
+        state = new DockState(s.DockedTo, s.DockShipModule.Mx, s.DockShipModule.My, s.DockShipModule.Mz, s.DockShipFace,
+            s.DockStationModule.Mx, s.DockStationModule.My, s.DockStationModule.Mz, s.DockStationFace);
+        return true;
+    }
+
+    /// <summary>The docking state of a ship structure, or false when it is free (or not a ship).</summary>
+    public bool TryGetStructureDock(int ship, out DockState state)
+    {
+        state = default;
+        if (!_structures.TryGetValue(ship, out var s) || s.DockedTo < 0) return false;
         state = new DockState(s.DockedTo, s.DockShipModule.Mx, s.DockShipModule.My, s.DockShipModule.Mz, s.DockShipFace,
             s.DockStationModule.Mx, s.DockStationModule.My, s.DockStationModule.Mz, s.DockStationFace);
         return true;
@@ -312,7 +323,7 @@ public sealed partial class BeltNetwork
     }
 
     /// <summary>True when a module added to a structure at these module coordinates would intersect a structure docked to it (or the station it is docked at).</summary>
-    internal bool ModuleOverlapsDocked(int structure, int mx, int my, int mz)
+    public bool ModuleOverlapsDocked(int structure, int mx, int my, int mz)
     {
         if (!_structures.TryGetValue(structure, out var s)) return false;
         long cu = Units.CellUnits;

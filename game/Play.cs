@@ -142,7 +142,9 @@ public partial class Play : Node3D
         _structuresShot = _structuresShotPath is not null || _powerShotPath is not null || _droneShotPath is not null || _defenceShotPath is not null || _endShotPath is not null || args.Any(a => a.StartsWith("--obstacle-shot="));
         _walkShotPath = args.FirstOrDefault(a => a.StartsWith("--walk-shot="))?["--walk-shot=".Length..];
         _walkShot = _walkShotPath is not null;
-        bool threats = !(args.Contains("--demo") || _exploreDemo) && _stressMachines == 0 && !((_structuresShot || _walkShot) && !args.Contains("--threats") && _defenceShotPath is null && _endShotPath is null);
+        _dockShotPath = args.FirstOrDefault(a => a.StartsWith("--dock-shot="))?["--dock-shot=".Length..];
+        _dockShot = _dockShotPath is not null;
+        bool threats = !(args.Contains("--demo") || _exploreDemo) && _stressMachines == 0 && !((_structuresShot || _walkShot || _dockShot) && !args.Contains("--threats") && _defenceShotPath is null && _endShotPath is null);
         _stationDemo = args.Contains("--station-demo");
         // --station-demo: a sandbox world with the station rules on and a scripted station, for screenshots of the build rules.
         _gameMode = _exploreDemo || _threatDemo || _stressMachines > 0 || (_stationDemo && !args.Contains("--station-campaign")) || args.Contains("--structure-demo")
@@ -437,7 +439,10 @@ void fragment() {
     }
 
     /// <summary>Ship position in world coordinates, extrapolated by <paramref name="alpha"/> ticks of movement.</summary>
-    private Vector3 ShipPosition(float alpha)
+    private Vector3 ShipPosition(float alpha) => ShipBasePosition(alpha) + _dockSlideOffset;
+
+    /// <summary>The simulated ship position, without the view's settling slide of a ship that just docked.</summary>
+    private Vector3 ShipBasePosition(float alpha)
     {
         if (!Net.HasPlayer(Player)) return Vector3.Zero;
         var p = Net.GetPlayerInfo(Player);
@@ -868,6 +873,7 @@ void fragment() {
         foreach (var r in _world.LastResults)
         {
             AudioResult(r);
+            if (r.Command is DockAt or Undock or TransferItems) { DockResult(r); continue; }
             if (!r.Ok)
             {
                 if (r.Reject == Reject.OutOfRange) _outOfRangeSeen = true;
@@ -900,6 +906,7 @@ void fragment() {
             else if (r.Command is DumpItems di) ToastProduction(L("toast.dumped", ItemName(di.Item), di.Count));
             else if (r.Command is PlaceMachine pm && r.CreatedMachines.Count == 1) AutoLinkMachine(r.CreatedMachines[0], pm.Recipe);
         }
+        FlushTransferToast();
     }
 
     private static bool Touches((int X, int Y, int Z) a, (int X, int Y, int Z) b) =>
@@ -1123,6 +1130,7 @@ void fragment() {
     public override void _Process(double delta)
     {
         float alpha = (float)Engine.GetPhysicsInterpolationFraction();
+        UpdateDock((float)delta); // the docking guidance and the settling slide: before anything reads the ship position
         UpdateStructureRoots(alpha); // first: the machine and item nodes are children of these roots
         DrawItems(alpha);
         _animTime += delta;
@@ -1135,6 +1143,7 @@ void fragment() {
         UpdateShip(alpha, (float)delta);
         UpdateObstacles((float)delta);
         if (_walkShot) WalkShotFrame();
+        if (_dockShot) DockShotFrame();
         if (!_structuresOn) _stationView.Sync(Net, Player, _cursorY);
         if (_structureDemo) StructureDemoTick();
         if (_structuresShot) StructuresShotFrame();
