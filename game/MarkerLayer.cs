@@ -43,6 +43,15 @@ public partial class MarkerLayer : Control
                 DrawPolygon(Diamond(at, 8f), new[] { shadow });
                 DrawPolygon(Diamond(at, 6f), new[] { item.Color });
                 textPos = new Vector2(at.X - w / 2f, at.Y + 24f);
+                // The crosshair and the aim card beside it own the middle of the screen: a label that would land on them goes above
+                // its diamond, and when that is still in the way it is left out (the diamond stays).
+                var keepClear = new Rect2(Size.X / 2f - 60f, Size.Y / 2f - 34f, 540f, 190f);
+                bool Hits(Vector2 pos) => new Rect2(pos.X - 2f, pos.Y - FontSize, w + 4f, FontSize + 6f).Intersects(keepClear);
+                if (Hits(textPos))
+                {
+                    textPos = new Vector2(at.X - w / 2f, at.Y - 16f);
+                    if (Hits(textPos)) textPos = new Vector2(-10000f, -10000f);
+                }
             }
             else
             {
@@ -53,6 +62,7 @@ public partial class MarkerLayer : Control
                 DrawPolygon(new[] { at + d * 10f, at - d * 5f + n * 6.5f, at - d * 5f - n * 6.5f }, new[] { item.Color });
                 textPos = new Vector2(at.X - d.X * (w / 2f + 18f) - w / 2f, at.Y - d.Y * 20f + 5f);
             }
+            if (textPos.X < -5000f) continue; // label left out
             textPos.X = Math.Clamp(textPos.X, 4f, Math.Max(4f, Size.X - w - 4f));
             textPos.Y = Math.Clamp(textPos.Y, FontSize + 2f, Math.Max(FontSize + 2f, Size.Y - 6f));
             DrawStringOutline(font, textPos, item.Text, HorizontalAlignment.Left, -1, FontSize, 4, shadow);
