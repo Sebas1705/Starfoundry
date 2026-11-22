@@ -11,9 +11,9 @@ config_version=5
 [application]
 
 config/name="Starfoundry"
-run/main_scene="res://MainMenu.tscn"
 config/use_custom_user_dir=true
 config/custom_user_dir_name="Godot/app_userdata/Starfoundry Belt Prototype"
+run/main_scene="res://MainMenu.tscn"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 
 [display]
