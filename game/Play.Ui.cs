@@ -1094,7 +1094,7 @@ public partial class Play
         _btnJump.Visible = _mapOpen && Net.Galaxy is not null;
         bool canPayJump = Net.CanAffordJump(Player);
         var jumpCost = Net.JumpCost();
-        _btnJump.Text = jumpCost.Count == 0 || _gameMode != GameMode.Campaign
+        _btnJump.Text = jumpCost.Length == 0 || _gameMode != GameMode.Campaign
             ? L("btn.jump")
             : L("map.jumpCost", Stacks(jumpCost.ToArray()));
         _btnJump.Disabled = _selectedSystem < 0 || Net.JumpRemaining(Player) > 0;

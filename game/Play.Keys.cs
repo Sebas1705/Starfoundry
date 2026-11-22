@@ -112,7 +112,7 @@ public partial class Play
             JumpUnlocked = Net.HasAbility(Ability.Jump),
             JumpAffordable = Net.CanAffordJump(Player),
             SystemChosen = _selectedSystem >= 0,
-            JumpCost = jumpCost.Count == 0 || _gameMode != GameMode.Campaign ? "" : Stacks(jumpCost.ToArray()),
+            JumpCost = jumpCost.Length == 0 || _gameMode != GameMode.Campaign ? "" : Stacks(jumpCost),
         };
     }
 
