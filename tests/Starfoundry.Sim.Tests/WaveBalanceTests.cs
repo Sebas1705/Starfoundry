@@ -97,10 +97,10 @@ public class WaveBalanceTests
     {
         var plainCannon = Variant(r => r["threat"]!.AsObject().Remove("structure_ship_damage_percent"));
         foreach (bool cannon in new[] { false, true })
-            for (int n = 0; n <= 4; n++)
+            for (int n = 0; n <= 8; n++)
                 foreach (var research in new[] { Array.Empty<string>(), new[] { "core:turret_calibration" } })
                 {
-                    var row = Row(Fight(n, cannon, 8, 1, null, research));
+                    var row = Row(Fight(n, cannon, 10, 1, null, research));
                     _out.WriteLine($"cannon {(cannon ? "on " : "off")} {n} turrets {(research.Length == 0 ? "no research " : "calibrated   ")}: {row} [{_lastModules}]");
                 }
         foreach (int n in new[] { 0, 1, 2 })
@@ -108,11 +108,36 @@ public class WaveBalanceTests
     }
 
     [Fact]
-    public void Two_turrets_and_the_ship_cannon_hold_waves_0_to_6()
+    public void Three_turrets_and_the_ship_cannon_hold_waves_0_to_6()
     {
-        var r = Fight(2, cannon: true, last: 6);
+        var r = Fight(3, cannon: true, last: 6);
         Assert.Equal(7, r.Count);
         Assert.All(r, x => Assert.True(x.Held, $"wave {x.Wave} got through ({x.ModulesLost} modules lost)"));
+    }
+
+    [Fact]
+    public void Six_turrets_and_the_ship_cannon_hold_waves_0_to_10_and_five_do_not()
+    {
+        // The Normal goal is ten waves: since the bulwark and the larger waves, a battery of five is not enough for wave 9 on the
+        // compact layout, six is (docs/prototypes/defence.md).
+        var six = Fight(6, cannon: true, last: 10);
+        Assert.Equal(11, six.Count);
+        Assert.All(six, x => Assert.True(x.Held, $"wave {x.Wave} got through ({x.ModulesLost} modules lost)"));
+        Assert.Equal(9, FirstFall(Fight(5, cannon: true, last: 10)));
+    }
+
+    [Fact]
+    public void The_bulwark_appears_from_wave_4_and_waves_3_to_10_are_about_30_percent_larger()
+    {
+        int bulwark = C.Enemies.First(e => e.Id == "core:bulwark").Index;
+        Assert.Equal(600, C.Enemies[bulwark].Hp);
+        int Size(ContentDb c, int wave, Func<WaveSpec, bool> pick) => c.Waves.Where(pick).Sum(s => wave < s.FromWave ? 0 : s.Base + s.PerWave * (wave - s.FromWave));
+        Assert.Equal(0, Size(C, 3, s => s.Enemy == bulwark));
+        for (int wave = 4; wave <= 10; wave++) Assert.True(Size(C, wave, s => s.Enemy == bulwark) >= 1, $"wave {wave}");
+        var classic = TestContent.CoreClassicWaves;
+        for (int wave = 3; wave <= 10; wave++)
+            Assert.InRange(Size(C, wave, _ => true) * 100 / Size(classic, wave, _ => true), 125, 140);
+        for (int wave = 0; wave < 3; wave++) Assert.Equal(Size(classic, wave, _ => true), Size(C, wave, _ => true));
     }
 
     [Fact]

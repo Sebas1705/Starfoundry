@@ -1682,6 +1682,14 @@
       "damage": 30,
       "range_cells": 5,
       "interval_ticks": 40
+    },
+    {
+      "id": "core:bulwark",
+      "hp": 600,
+      "speed": 8,
+      "damage": 14,
+      "range_cells": 5,
+      "interval_ticks": 30
     }
   ],
   "waves": [
@@ -1712,6 +1720,36 @@
       "base": 1,
       "per_wave": 0,
       "from_wave": 11
+    },
+    {
+      "enemy": "core:scout",
+      "base": 2,
+      "per_wave": 0,
+      "from_wave": 3
+    },
+    {
+      "enemy": "core:striker",
+      "base": 1,
+      "per_wave": 0,
+      "from_wave": 3
+    },
+    {
+      "enemy": "core:striker",
+      "base": 1,
+      "per_wave": 1,
+      "from_wave": 7
+    },
+    {
+      "enemy": "core:bulwark",
+      "base": 1,
+      "per_wave": 0,
+      "from_wave": 4
+    },
+    {
+      "enemy": "core:bulwark",
+      "base": 1,
+      "per_wave": 0,
+      "from_wave": 8
     }
   ]
 }

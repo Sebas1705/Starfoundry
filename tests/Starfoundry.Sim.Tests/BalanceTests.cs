@@ -10,7 +10,7 @@ namespace Starfoundry.Sim.Tests;
 public class BalanceTests
 {
     private static BalanceReport Play(double delay, int observeMinutes = 0, ulong seed = 20261120UL) =>
-        new BalanceBot(TestContent.Core, seed) { ActionDelaySeconds = delay, ObserveAfterSeconds = observeMinutes * 60 }.Run(75 * 60);
+        new BalanceBot(TestContent.CoreClassicWaves, seed) { ActionDelaySeconds = delay, ObserveAfterSeconds = observeMinutes * 60 }.Run(75 * 60);
 
     private static double Done(BalanceReport r, string name) => r.Milestones[name];
 
@@ -66,7 +66,7 @@ public class BalanceTests
 
     /// <summary>The wave during which a base with this many fed turrets (each with its own ammo line) first loses a machine.</summary>
     private static int FirstLossWave(int turrets, ulong seed, int walls = 0, RepairMode repairs = RepairMode.Never, int bays = 0, int upgrades = 0) =>
-        new BalanceBot(TestContent.Core, seed)
+        new BalanceBot(TestContent.CoreClassicWaves, seed)
         {
             ActionDelaySeconds = 15, Turrets = turrets, Walls = walls, Repairs = repairs, Bays = bays, Upgrades = upgrades,
             StopAtFirstLoss = true, ObserveAfterSeconds = 6 * 60 * 60,
@@ -115,7 +115,7 @@ public class BalanceTests
 
     /// <summary>Walls and machines lost over the first stretch of waves, with the walls rebuilt whenever one falls.</summary>
     private static BalanceReport WallUpkeep(int bays, ulong seed) =>
-        new BalanceBot(TestContent.Core, seed)
+        new BalanceBot(TestContent.CoreClassicWaves, seed)
         {
             ActionDelaySeconds = 15, Turrets = 1, Walls = 4, Bays = bays, Repairs = RepairMode.Never,
             ObserveAfterSeconds = 100 * 60,
@@ -154,7 +154,7 @@ public class BalanceTests
     [Fact]
     public void TheUpgradesArriveOneAfterAnotherAndNeverBeforeTheirPredecessors()
     {
-        var r = new BalanceBot(TestContent.Core, 20261120UL) { ActionDelaySeconds = 15, Turrets = 1, Upgrades = 4, ObserveAfterSeconds = 90 * 60 }.Run(120 * 60);
+        var r = new BalanceBot(TestContent.CoreClassicWaves, 20261120UL) { ActionDelaySeconds = 15, Turrets = 1, Upgrades = 4, ObserveAfterSeconds = 90 * 60 }.Run(120 * 60);
         double Done(string id) => r.Milestones["Researched " + id];
         double logistics = Done("core:logistics"), calibration = Done("core:turret_calibration"), plating = Done("core:reinforced_plating"),
             loader = Done("core:rapid_loader"), repair = Done("core:field_repair");
@@ -164,7 +164,7 @@ public class BalanceTests
     }
 
     private static BalanceReport Expansion(ulong seed) =>
-        new BalanceBot(TestContent.Core, seed)
+        new BalanceBot(TestContent.CoreClassicWaves, seed)
         {
             ActionDelaySeconds = 15, Turrets = 1, Walls = 4, Bays = 2, ExtraPlateLine = true, Expand = true,
             ObserveAfterSeconds = 40 * 60,
@@ -189,7 +189,7 @@ public class BalanceTests
     public void CargoPortsKeepTheTurretsSuppliedAfterTheHomeOreIsGone()
     {
         BalanceReport Long(bool ports) =>
-            new BalanceBot(TestContent.Core, 20261120UL)
+            new BalanceBot(TestContent.CoreClassicWaves, 20261120UL)
             {
                 ActionDelaySeconds = 15, Turrets = 3, Walls = 4, Bays = 2, ExtraPlateLine = true, Upgrades = 4,
                 Expand = ports, ExpandAtPercent = 40, TakeDownCarbonLine = ports, UseUnloader = ports,

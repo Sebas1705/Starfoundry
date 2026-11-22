@@ -12,6 +12,28 @@ internal static class TestContent
     public static readonly ScenarioCatalog Scenarios =
         ScenarioCatalog.FromDirectory(Core, Path.Combine(AppContext.BaseDirectory, "content", "scenarios"));
 
+    /// <summary>
+    /// The core content with the wave table as it was before the Normal-mode hardening (no bulwark, waves 3 to 10 about 30 percent
+    /// smaller): the legacy balance-bot tests measure the pacing of the old campaign against it.
+    /// </summary>
+    public static readonly ContentDb CoreClassicWaves = ContentDb.FromJson(ClassicWavesJson(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", "core.json"))));
+
+    /// <summary>Removes the bulwark and the wave entries added after the first five (the original table).</summary>
+    public static string ClassicWavesJson(string json)
+    {
+        var root = System.Text.Json.Nodes.JsonNode.Parse(json)!.AsObject();
+        ClassicWaves(root);
+        return root.ToJsonString();
+    }
+
+    public static void ClassicWaves(System.Text.Json.Nodes.JsonObject root)
+    {
+        var waves = root["waves"]!.AsArray();
+        while (waves.Count > 5) waves.RemoveAt(waves.Count - 1);
+        var enemies = root["enemies"]!.AsArray();
+        enemies.Remove(enemies.First(e => e!["id"]!.GetValue<string>() == "core:bulwark"));
+    }
+
     /// <summary>The core content without the starter ship: structure worlds that build their own ships by hand start empty.</summary>
     public static readonly ContentDb CoreWithoutStarterShip = ContentDb.FromJson(RemoveStarterShip());
 
