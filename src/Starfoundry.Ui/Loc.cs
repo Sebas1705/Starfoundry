@@ -285,7 +285,7 @@ public static class Loc
         ["status.labNone"] = ("sin investigación elegida: pulsa T", "no research chosen: press T"),
         ["status.labWorking"] = ("investigando {0}", "researching {0}"),
         ["status.depotOk"] = ("entrega a tu bodega", "delivering to your hold"),
-        ["status.depotCap"] = ("tienes {1} de {0}, lo máximo que entrega un depósito: gasta algunos para seguir", "you hold {1} {0}, the most a depot delivers: spend some to continue"),
+        ["status.depotCap"] = ("tienes {1} unidades de {0}, lo máximo que entrega un depósito: gasta algunos para seguir", "you hold {1} {0}, the most a depot delivers: spend some to continue"),
         ["status.depotFull"] = ("bodega llena: esperando sitio", "hold full: waiting for room"),
         ["status.repairerReady"] = ("listo: repara las máquinas a menos de {0} celdas (lingotes {1}/{2})", "ready: repairs machines within {0} cells (ingots {1}/{2})"),
         ["status.repairerEmpty"] = ("sin lingotes: llévale lingotes por cinta", "out of ingots: bring it ingots by belt"),
@@ -414,7 +414,7 @@ public static class Loc
                            "All steps done. Explore, expand and keep the base defended."),
         ["obj.allDone.structures"] = ("Todos los pasos hechos. Siguiente: explora otros sistemas (G), consigue titanio y cuarzo, construye drones y defiéndete.",
                                       "All steps done. Next: scout other systems (G), get titanium and quartz, build drones, defend."),
-        ["learn.portOre"] = ("Llevas {1} de {0} en la bodega y ningún puerto lo saca a una cinta. Construye un puerto de ese mineral (menú B, Logística; los puertos son gratis) para que alimente tu fábrica o tu laboratorio.",
+        ["learn.portOre"] = ("Llevas {1} unidades de {0} en la bodega y ningún puerto lo saca a una cinta. Construye un puerto de ese mineral (menú B, Logística; los puertos son gratis) para que alimente tu fábrica o tu laboratorio.",
                              "You hold {1} {0} and no port puts it on a belt. Build a port for that ore (B menu, Logistics; ports are free) so it can feed your factory or lab."),
         ["learn.noReactor"] = ("Tu estación no tiene energía: añade un módulo Reactor (N) y mantén hidrógeno en la bodega.",
                                "Your station has no power: add a Reactor module (N) and keep hydrogen in the hold."),
@@ -505,7 +505,7 @@ public static class Loc
         ["mark.droneTarget"] = ("Drones: pulsa F7", "Drones: press F7"),
         ["mark.drones"] = ("Drones aquí", "Drones here"),
         ["toast.dronesAssigned"] = ("Los drones minarán {0} ({1}/min).", "The drones will mine {0} ({1}/min)."),
-        ["toast.dumped"] = ("Tiras {1} de {0} al espacio.", "You dump {1} {0} into space."),
+        ["toast.dumped"] = ("Tiras {1} unidades de {0} al espacio.", "You dump {1} {0} into space."),
         ["toast.dumpNothing"] = ("No hay nada que tirar: solo se tiran carbono, cuarzo, mineral de titanio o níquel y hielo sobrante (el carbono del salto y el hidrógeno se quedan).", "Nothing to dump: only spare carbon, quartz, titanium or nickel ore and ice go (the jump carbon and the hydrogen stay)."),
         ["toast.dronesUnassigned"] = ("Drones sin yacimiento asignado.", "Drones unassigned."),
         ["toast.dronesNoDeposit"] = ("Elige antes un yacimiento descubierto ([ ] o clic).", "Pick a discovered deposit first ([ ] or click)."),
@@ -1056,7 +1056,7 @@ public static class Loc
         ["key.dockGuide"] = ("Puerto a {0} celdas, velocidad {1}% del límite", "Port {0} cells away, speed {1}% of the limit"),
         ["mark.dockPort"] = ("Puerto de atraque", "Docking port"),
         ["why.stationFixed"] = ("Una estación es fija: no lleva cabina ni motores.", "A station is fixed: it has no cockpit or engines."),
-        ["toast.docked"] = ("Atracado. Pasa a la estación por la esclusa; U desatraca, coma descarga y punto carga.", "Docked. Walk into the station through the airlock; U undocks, comma unloads and period loads."),
+        ["toast.docked"] = ("Atracado. Pasa a la estación por la esclusa; U desatraca, la tecla , descarga y la tecla . carga.", "Docked. Walk into the station through the airlock; U undocks, comma unloads and period loads."),
         ["toast.undocked"] = ("Desatracado: los motores vuelven a responder.", "Undocked: the engines respond again."),
         ["toast.undockAboard"] = ("Vuelve a la nave para desatracar.", "Get back aboard the ship to undock."),
         ["toast.noPortNear"] = ("No hay un puerto libre de tus estaciones a menos de {0} celdas.", "No free port of your stations within {0} cells."),
@@ -1113,7 +1113,7 @@ public static class Loc
             "  N   módulo de estación (con estaciones antiguas: el primero es el núcleo; solo se construye dentro de los módulos)\n" +
             "  Estructuras: N elige la herramienta de módulos y, pulsada otra vez, cambia su tipo (cabina, motor, reactor, bodega, taller, defensa, casco, hangar de drones tras investigarlo); I elige fundar una estación junto a la nave; cada tipo de módulo admite máquinas distintas\n" +
             "  F7   asignar los drones de tu nave o estación al yacimiento elegido ([ ] o clic); de nuevo con el mismo yacimiento, quitarlos\n" +
-            "  Atracar: la nave se mueve y la estación es fija. Cerca de un puerto libre de tus estaciones (el núcleo, un muelle o la cabina de la nave los tienen) la pantalla muestra la marca del puerto y U (acercarse y atracar: el piloto automático te lleva y atraca solo; si ya estás a menos de 12 celdas y despacio, atraca al momento). Atracada, la nave queda fija en el puerto, no vuela ni salta, y puedes cruzar la esclusa a pie; U desatraca (desde la nave), coma descarga la bodega al almacén de la estación (menos el combustible), punto carga el almacén (el combustible primero). Atracada gasta el hidrógeno del almacén, se repara más rápido y la cubren los escudos y las defensas de la estación\n" +
+            "  Atracar: la nave se mueve y la estación es fija. Cerca de un puerto libre de tus estaciones (el núcleo, un muelle o la cabina de la nave los tienen) la pantalla muestra la marca del puerto y U (acercarse y atracar: el piloto automático te lleva y atraca solo; si ya estás a menos de 12 celdas y despacio, atraca al momento). Atracada, la nave queda fija en el puerto, no vuela ni salta, y puedes cruzar la esclusa a pie; U desatraca (desde la nave), la tecla , descarga la bodega al almacén de la estación (menos el combustible), la tecla . carga el almacén (el combustible primero). Atracada gasta el hidrógeno del almacén, se repara más rápido y la cubren los escudos y las defensas de la estación\n" +
             "  Ctrl+Supr   tirar al espacio la mayor pila de mineral sobrante de la bodega (carbono, cuarzo, titanio, níquel; hielo si hay 20 de hidrógeno); no toca el hierro, el hidrógeno ni el carbono del salto\n" +
             "  Clic en una máquina sin herramienta: ver su estado y cambiar su receta (Tab para usar sus botones).\n  Retroceso   reparar todas las máquinas dañadas a tu alcance (cuesta la mitad de su coste, en proporción al daño)\n\n" +
             "Otros\n" +

@@ -514,6 +514,7 @@ public partial class Play
         // Markers stay above the bottom strip and the notification lines.
         float textTop = _toolbar.Position.Y;
         if (_toastLabels[0].Visible) textTop = Math.Min(textTop, _toastBox.Position.Y);
+        if (_modeHint.Text.Length > 0) textTop = Math.Min(textTop, _modeHint.Position.Y);
         float bottom = Math.Max(24f, size.Y - textTop + 10f);
         var items = new List<MarkerLayer.Item>();
 

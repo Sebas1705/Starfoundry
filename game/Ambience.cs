@@ -185,7 +185,7 @@ void sky() {
 
     private static WorldEnvironment? _env;
     private static ShaderMaterial? _skyMaterial;
-    private static DirectionalLight3D? _sun;
+    private static DirectionalLight3D? _sun, _fill;
     private static GpuParticles3D? _dust;
     private static Godot.Environment? _environment;
     private static GpuParticles3D? _streaks;
@@ -209,7 +209,7 @@ void sky() {
             BackgroundMode = Godot.Environment.BGMode.Sky,
             Sky = new Sky { SkyMaterial = _skyMaterial, RadianceSize = Sky.RadianceSizeEnum.Size128 },
             AmbientLightSource = Godot.Environment.AmbientSource.Sky,
-            AmbientLightEnergy = 1.1f,
+            AmbientLightEnergy = 1.35f,
             ReflectedLightSource = Godot.Environment.ReflectionSource.Sky,
             TonemapMode = Godot.Environment.ToneMapper.Aces,
             TonemapExposure = 1.05f,
@@ -237,6 +237,9 @@ void sky() {
 
         _sun = new DirectionalLight3D { LightEnergy = 1.1f, ShadowEnabled = false };
         root.AddChild(_sun);
+        // A faint cool fill from the opposite side: the faces turned away from the star read as dim metal, not as black cut-outs.
+        _fill = new DirectionalLight3D { LightEnergy = 0.3f, ShadowEnabled = false, LightSpecular = 0.2f };
+        root.AddChild(_fill);
 
         _dust = BuildDust();
         root.AddChild(_dust);
@@ -353,6 +356,11 @@ void sky() {
         var up = Mathf.Abs(sunDir.Y) > 0.95f ? Vector3.Right : Vector3.Up;
         _sun.Basis = Basis.LookingAt(-sunDir, up);
         _sun.LightColor = sunColor.Lerp(Colors.White, 0.4f);
+        if (_fill is not null)
+        {
+            _fill.Basis = Basis.LookingAt(sunDir * new Vector3(0.9f, -0.7f, 0.9f) + new Vector3(0f, 0.15f, 0f), up);
+            _fill.LightColor = new Color(0.62f, 0.72f, 1f);
+        }
     }
 
     private const float StreakStartSpeed = 4f, StreakFullSpeed = 22f;
