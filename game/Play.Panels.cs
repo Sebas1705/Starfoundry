@@ -129,6 +129,14 @@ public partial class Play
         if (BuildOpen) _buildMenu!.Refresh(size);
     }
 
+    /// <summary>The right-hand column of the screen the research panel and the build menu dock to: about 40 percent of the width, from the top down to the key panel.</summary>
+    private Rect2 DockRect(Vector2 size)
+    {
+        float width = Math.Clamp(size.X * 0.4f, 440f, 860f);
+        float bottom = _keyPanel is { Visible: true } ? _keyRect.Position.Y - 8f : size.Y - 8f;
+        return new Rect2(size.X - width - 10f, 10f, width, Math.Max(200f, bottom - 10f));
+    }
+
     // ---- research ---------------------------------------------------------------------------------------------------
 
     private void ToggleResearchPanel()

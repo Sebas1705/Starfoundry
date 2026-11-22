@@ -26,7 +26,7 @@ public partial class ResearchPanel : Control
     private PanelContainer _panel = null!;
     private VBoxContainer _list = null!;
     private ScrollContainer _listScroll = null!;
-    private Label _title = null!, _stateLine = null!, _desc = null!, _current = null!, _howText = null!, _keys = null!;
+    private Label _title = null!, _stateLine = null!, _desc = null!, _current = null!, _howText = null!;
     private ProgressBar _bar = null!;
     private RichTextLabel _body = null!;
     private Button _start = null!;
@@ -51,70 +51,85 @@ public partial class ResearchPanel : Control
 
     public override void _Ready()
     {
+        // Docked at the right: the root only hosts the panel and lets every click outside it through to the game.
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        var dim = new ColorRect { Color = new Color(0f, 0f, 0.02f, 0.55f), MouseFilter = MouseFilterEnum.Ignore };
-        AddChild(dim);
-        dim.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        var centre = new CenterContainer { MouseFilter = MouseFilterEnum.Ignore };
-        AddChild(centre);
-        centre.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-
-        _panel = new PanelContainer();
-        _panel.AddThemeStyleboxOverride("panel", UiKit.Box(new Color(0.05f, 0.07f, 0.11f, 0.95f), new Color(0.35f, 0.45f, 0.65f, 0.85f), 8, 16f));
-        centre.AddChild(_panel);
+        MouseFilter = MouseFilterEnum.Ignore;
+        _panel = new PanelContainer { MouseFilter = MouseFilterEnum.Stop };
+        _panel.AddThemeStyleboxOverride("panel", UiKit.Box(new Color(0.05f, 0.07f, 0.11f, 0.95f), new Color(0.35f, 0.45f, 0.65f, 0.85f), 8, 12f));
+        AddChild(_panel);
         var root = new VBoxContainer();
-        root.AddThemeConstantOverride("separation", 8);
+        root.AddThemeConstantOverride("separation", 6);
         _panel.AddChild(root);
 
         var head = new HBoxContainer();
-        _title = UiKit.Text(24, Colors.White);
+        _title = UiKit.Text(22, Colors.White);
         _title.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         head.AddChild(_title);
-        _current = UiKit.Text(14, Gold);
-        _current.SizeFlagsVertical = SizeFlags.ShrinkCenter;
-        head.AddChild(_current);
         var close = UiKit.Button("", () => CloseRequested?.Invoke(), 13);
         close.FocusMode = FocusModeEnum.None;
         close.Name = "CloseButton";
         head.AddChild(close);
         root.AddChild(head);
+        _current = UiKit.Text(13, Gold);
+        _current.ClipText = true;
+        root.AddChild(_current);
 
-        var split = new HBoxContainer();
-        split.AddThemeConstantOverride("separation", 14);
-        root.AddChild(split);
-
+        // The list of nodes on top, the selected node's details below it (a docked panel is tall and narrow).
         _listScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true };
         _list = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _list.AddThemeConstantOverride("separation", 3);
         _listScroll.AddChild(_list);
-        split.AddChild(_listScroll);
+        root.AddChild(_listScroll);
+        root.AddChild(new HSeparator());
 
-        var detail = new VBoxContainer { CustomMinimumSize = new Vector2(540, 0) };
+        var detailScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, SizeFlagsVertical = SizeFlags.ExpandFill };
+        var detail = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         detail.AddThemeConstantOverride("separation", 6);
+        detailScroll.AddChild(detail);
         _stateLine = UiKit.Text(14, Muted);
+        _stateLine.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _desc = UiKit.Text(14);
         _desc.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _desc.CustomMinimumSize = new Vector2(540, 0);
         _bar = new ProgressBar { MinValue = 0, MaxValue = 1, ShowPercentage = false, CustomMinimumSize = new Vector2(0, 12), MouseFilter = MouseFilterEnum.Ignore };
         _bar.AddThemeStyleboxOverride("background", UiKit.Box(new Color(0.12f, 0.14f, 0.2f), null, 3, 0f));
         _bar.AddThemeStyleboxOverride("fill", UiKit.Box(new Color(0.35f, 0.7f, 1f), null, 3, 0f));
-        _body = new RichTextLabel { BbcodeEnabled = true, FitContent = true, ScrollActive = false, MouseFilter = MouseFilterEnum.Ignore, CustomMinimumSize = new Vector2(540, 0) };
+        _body = new RichTextLabel { BbcodeEnabled = true, FitContent = true, ScrollActive = false, MouseFilter = MouseFilterEnum.Ignore };
         _body.AddThemeFontSizeOverride("normal_font_size", 14);
         _body.AddThemeFontSizeOverride("bold_font_size", 14);
-        _start = UiKit.Button("", () => StartSelected(), 16, 300);
-        _start.FocusMode = FocusModeEnum.None;
-        _start.Name = "StartButton";
-        _start.CustomMinimumSize = new Vector2(300, 38);
-        foreach (var c in new Control[] { _stateLine, _desc, _bar, _body, _start }) detail.AddChild(c);
-        split.AddChild(detail);
-
         _howText = UiKit.Text(12, Muted);
         _howText.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _howText.CustomMinimumSize = new Vector2(940, 0);
-        root.AddChild(new HSeparator());
-        root.AddChild(_howText);
-        _keys = UiKit.Text(12, new Color(0.5f, 0.56f, 0.68f));
-        root.AddChild(_keys);
+        foreach (var c in new Control[] { _stateLine, _desc, _bar, _body, _howText }) detail.AddChild(c);
+        root.AddChild(detailScroll);
+
+        _start = UiKit.Button("", () => StartSelected(), 16);
+        _start.FocusMode = FocusModeEnum.None;
+        _start.Name = "StartButton";
+        _start.CustomMinimumSize = new Vector2(0, 38);
+        root.AddChild(_start);
+        ApplyDock();
+    }
+
+    /// <summary>The rectangle the panel fills: a right-hand column set by the game from the viewport and the key panel below it.</summary>
+    public Rect2 Dock
+    {
+        get => _dock;
+        set
+        {
+            if (_dock == value) return;
+            _dock = value;
+            ApplyDock();
+        }
+    }
+
+    private Rect2 _dock = new(0, 0, 480, 600);
+
+    private void ApplyDock()
+    {
+        if (_panel is null) return;
+        _panel.CustomMinimumSize = _dock.Size;
+        _panel.Position = _dock.Position;
+        _panel.Size = _dock.Size;
+        _listScroll.CustomMinimumSize = new Vector2(0, Math.Clamp(_dock.Size.Y * 0.36f, 120f, 340f));
     }
 
     /// <summary>Shows the panel with the most useful entry selected and focused.</summary>
@@ -146,12 +161,9 @@ public partial class ResearchPanel : Control
     {
         if (!Visible) return;
         _shown = _entries();
-        _panel.CustomMinimumSize = new Vector2(Math.Min(viewport.X - 40f, 1100f), Math.Min(viewport.Y - 40f, 640f));
-        _listScroll.CustomMinimumSize = new Vector2(Math.Clamp(viewport.X * 0.3f, 300f, 420f), Math.Min(viewport.Y - 200f, 470f));
         _title.Text = Loc.T("research.title");
         ((Button)_panel.FindChild("CloseButton", true, false)!).Text = Loc.T("research.close");
         _howText.Text = Loc.T("research.how");
-        _keys.Text = Loc.T("research.keys");
 
         string signature = string.Join(",", _shown.Select(e => $"{e.Index}:{(int)e.State}")) + Loc.Lang;
         if (signature != _signature)

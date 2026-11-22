@@ -195,7 +195,7 @@ void fragment() {
     {
         _modulePanel.ResetSize();
         var ms = _modulePanel.GetCombinedMinimumSize();
-        _modulePanel.Position = new Vector2(Math.Clamp(centre.X + 28, 8, Math.Max(8, size.X - ms.X - 8)), Math.Clamp(centre.Y - 28 - ms.Y, 8, Math.Max(8, size.Y - ms.Y - 8)));
+        _modulePanel.Position = AvoidKeyPanel(new Vector2(Math.Clamp(centre.X + 28, 8, Math.Max(8, size.X - ms.X - 8)), Math.Clamp(centre.Y - 28 - ms.Y, 8, Math.Max(8, size.Y - ms.Y - 8))), ms);
         _waveBanner.ResetSize();
         _waveBanner.Position = new Vector2((size.X - _waveBanner.Size.X) / 2f, _flightPanel.Position.Y + _flightPanel.Size.Y + 6f);
     }

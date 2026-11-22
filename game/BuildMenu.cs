@@ -10,9 +10,10 @@ namespace Starfoundry.Game;
 public sealed record BuildEntryView(string Name, string Key, string Role, string Cost, string Power, string Description, string Status, bool Locked, bool Affordable, bool Selected);
 
 /// <summary>
-/// The build menu (B): a tab per category with a grid of entries, each showing its name, quick key, cost, power use, a one-line
-/// description and whether it is locked or unaffordable. Arrows move between entries, Enter or a click chooses the tool, PgUp and PgDn
-/// change tab, B and Esc close it (the game handles those two). A locked entry can still be pressed: the game then says what unlocks it.
+/// The build menu (B), docked at the right of the screen: a tab per category with a list of entries, each showing its name, quick key, cost,
+/// power use, a one-line description and whether it is locked or unaffordable. The left and the centre of the view stay visible. Arrows move
+/// between entries, Enter or a click chooses the tool, PgUp and PgDn change tab, B and Esc close it (the game handles those two; the key panel
+/// below the menu lists them). A locked entry can still be pressed: the game then says what unlocks it.
 /// </summary>
 public partial class BuildMenu : Control
 {
@@ -25,11 +26,12 @@ public partial class BuildMenu : Control
     private PanelContainer _panel = null!;
     private HBoxContainer _tabs = null!;
     private GridContainer _grid = null!;
-    private Label _title = null!, _keys = null!, _empty = null!;
+    private Label _title = null!, _empty = null!;
     private readonly Dictionary<BuildCategory, Button> _tabButtons = new();
     private readonly List<(BuildEntry Entry, Button Button, Label Name, Label Cost, Label Power, Label Detail, Label Status)> _cells = new();
     private BuildCategory _tab = BuildCategory.Logistics;
     private string _signature = "";
+    private Rect2 _dock = new(0, 0, 480, 600);
 
     /// <summary>The player chose an entry (Enter or click).</summary>
     public event Action<BuildEntry>? Chosen;
@@ -38,32 +40,40 @@ public partial class BuildMenu : Control
 
     public BuildCategory Tab => _tab;
 
+    /// <summary>The rectangle the menu fills: a right-hand column set by the game from the viewport and the key panel below it.</summary>
+    public Rect2 Dock
+    {
+        get => _dock;
+        set
+        {
+            if (_dock == value) return;
+            _dock = value;
+            ApplyDock();
+            _signature = ""; // the number of columns may change
+        }
+    }
+
     public BuildMenu(Func<IReadOnlyList<BuildEntry>> entries, Func<BuildEntry, BuildEntryView> view)
     {
         _entries = entries;
         _view = view;
         Visible = false;
-        MouseFilter = MouseFilterEnum.Stop;
+        MouseFilter = MouseFilterEnum.Ignore;
     }
 
     public override void _Ready()
     {
+        // The root only hosts the docked panel: every click outside the panel goes through to the game.
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        var dim = new ColorRect { Color = new Color(0f, 0f, 0.02f, 0.55f), MouseFilter = MouseFilterEnum.Ignore };
-        AddChild(dim);
-        dim.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        var centre = new CenterContainer { MouseFilter = MouseFilterEnum.Ignore };
-        AddChild(centre);
-        centre.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        _panel = new PanelContainer();
-        _panel.AddThemeStyleboxOverride("panel", UiKit.Box(new Color(0.05f, 0.07f, 0.11f, 0.95f), new Color(0.35f, 0.45f, 0.65f, 0.85f), 8, 16f));
-        centre.AddChild(_panel);
+        _panel = new PanelContainer { MouseFilter = MouseFilterEnum.Stop };
+        _panel.AddThemeStyleboxOverride("panel", UiKit.Box(new Color(0.05f, 0.07f, 0.11f, 0.95f), new Color(0.35f, 0.45f, 0.65f, 0.85f), 8, 12f));
+        AddChild(_panel);
         var root = new VBoxContainer();
         root.AddThemeConstantOverride("separation", 8);
         _panel.AddChild(root);
 
         var head = new HBoxContainer();
-        _title = UiKit.Text(24, Colors.White);
+        _title = UiKit.Text(22, Colors.White);
         _title.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         head.AddChild(_title);
         var close = UiKit.Button("X", () => CloseRequested?.Invoke(), 13);
@@ -72,20 +82,26 @@ public partial class BuildMenu : Control
         root.AddChild(head);
 
         _tabs = new HBoxContainer();
-        _tabs.AddThemeConstantOverride("separation", 6);
+        _tabs.AddThemeConstantOverride("separation", 4);
         root.AddChild(_tabs);
 
-        _grid = new GridContainer { Columns = 2 };
+        _grid = new GridContainer { Columns = 1 };
         _grid.AddThemeConstantOverride("h_separation", 8);
         _grid.AddThemeConstantOverride("v_separation", 6);
-        var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true, Name = "EntryScroll" };
+        var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true, Name = "EntryScroll", SizeFlagsVertical = SizeFlags.ExpandFill };
         scroll.AddChild(_grid);
         root.AddChild(scroll);
         _empty = UiKit.Text(14, Muted);
         root.AddChild(_empty);
-        root.AddChild(new HSeparator());
-        _keys = UiKit.Text(12, new Color(0.5f, 0.56f, 0.68f));
-        root.AddChild(_keys);
+        ApplyDock();
+    }
+
+    private void ApplyDock()
+    {
+        if (_panel is null) return;
+        _panel.CustomMinimumSize = _dock.Size;
+        _panel.Position = _dock.Position;
+        _panel.Size = _dock.Size;
     }
 
     /// <summary>Shows the menu on a tab (the current one by default) with the first entry focused.</summary>
@@ -123,7 +139,8 @@ public partial class BuildMenu : Control
         SetTab(tabs[((i + step) % tabs.Count + tabs.Count) % tabs.Count]);
     }
 
-    private static int Columns(Vector2 viewport) => viewport.X >= 1000f ? 3 : 2;
+    /// <summary>One column in the usual docked width, two when the dock is wide (a big window).</summary>
+    private int Columns() => _dock.Size.X >= 720f ? 2 : 1;
 
     private static string Capitalise(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
 
@@ -136,34 +153,33 @@ public partial class BuildMenu : Control
         var all = _entries();
         var categories = BuildCatalog.Categories.Where(c => all.Any(e => e.Category == c)).ToList();
         if (categories.Count > 0 && !categories.Contains(_tab)) _tab = categories[0];
-        int cols = Columns(viewport);
+        int cols = Columns();
         _grid.Columns = cols;
-        _panel.CustomMinimumSize = new Vector2(Math.Min(viewport.X - 40f, cols == 3 ? 1120f : 960f), 0f);
         _title.Text = Loc.T("build.title");
-        _keys.Text = Loc.T("build.keys");
 
         string signature = cols + "|" + string.Join(",", categories) + "|" + _tab + "|" + string.Join(",", all.Where(e => e.Category == _tab).Select(e => e.Id)) + Loc.Lang;
         if (signature != _signature)
         {
             _signature = signature;
-            Rebuild(categories, all, viewport);
+            Rebuild(categories, all);
         }
         foreach (var kv in _tabButtons) { kv.Value.Text = Loc.T(TabKey(kv.Key)); kv.Value.SetPressedNoSignal(kv.Key == _tab); }
         foreach (var cell in _cells) Update(cell);
         _empty.Text = _cells.Count == 0 ? Loc.T("build.empty") : "";
-        var scroll = (ScrollContainer)_panel.FindChild("EntryScroll", true, false)!;
-        scroll.CustomMinimumSize = new Vector2(0, Math.Min(viewport.Y - 230f, Math.Max(1, (_cells.Count + cols - 1) / cols) * 146f));
+        _empty.Visible = _cells.Count == 0;
     }
 
-    private void Rebuild(List<BuildCategory> categories, IReadOnlyList<BuildEntry> all, Vector2 viewport)
+    private void Rebuild(List<BuildCategory> categories, IReadOnlyList<BuildEntry> all)
     {
         foreach (var child in _tabs.GetChildren()) { _tabs.RemoveChild(child); child.QueueFree(); }
         _tabButtons.Clear();
         foreach (var c in categories)
         {
             var category = c;
-            var b = UiKit.Button(Loc.T(TabKey(c)), () => SetTab(category), 15, 150);
+            var b = UiKit.Button(Loc.T(TabKey(c)), () => SetTab(category), 14);
             b.ToggleMode = true;
+            b.ClipText = true;
+            b.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             b.FocusMode = FocusModeEnum.None; // PgUp and PgDn (or a click) change tab; the arrows stay on the entries
             _tabButtons[c] = b;
             _tabs.AddChild(b);
@@ -171,12 +187,12 @@ public partial class BuildMenu : Control
 
         foreach (var child in _grid.GetChildren()) { _grid.RemoveChild(child); child.QueueFree(); }
         _cells.Clear();
-        int cols = Columns(viewport);
-        float width = Math.Clamp((Math.Min(viewport.X - 40f, cols == 3 ? 1120f : 960f) - 32f - 8f * (cols - 1)) / cols, 220f, 470f);
+        int cols = Columns();
+        float width = Math.Clamp((_dock.Size.X - 24f - 12f - 8f * (cols - 1)) / cols, 200f, 470f); // panel margins, scroll bar and gaps
         foreach (var entry in all.Where(e => e.Category == _tab))
         {
             var b = UiKit.Button("", () => { }, 13);
-            b.CustomMinimumSize = new Vector2(width, 140);
+            b.CustomMinimumSize = new Vector2(width, 132);
             b.Alignment = HorizontalAlignment.Left;
             var e = entry;
             b.Pressed += () => Chosen?.Invoke(e);
