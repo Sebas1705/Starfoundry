@@ -80,6 +80,7 @@ public partial class Gallery : Node3D
             case "ship-demo": _focusPoint = new Vector3(4f, 2f, 20f); defDist = 40f; break;
             case "station-demo": _focusPoint = new Vector3(12f, 3f, 8f); defDist = 40f; break;
             case "ships": _focusPoint = new Vector3(-3.1f, 0.15f, -4.6f); defDist = 6f; break;
+            case "materials": _focusPoint = new Vector3(15f, 1f, 2f); defDist = 40f; break;
             case "deposits": _focusPoint = new Vector3(14.4f, 0.6f, 19f); defDist = 66f; break;
             case "units": _focusPoint = new Vector3(2.6f, 0.3f, -6.3f); defDist = 11f; break;
             default: _focusPoint = new Vector3(1.2f, 0.2f, -3f); defDist = 18f; break;
@@ -90,11 +91,66 @@ public partial class Gallery : Node3D
         BuildScene();
         if (focus is "modules" or "ship-demo" or "station-demo") BuildModuleGallery(focus, (int)F("--variant", 0));
         else if (focus == "deposits") BuildDepositGallery();
+        else if (focus == "materials") BuildMaterialGallery();
         else if (focus == "belts") BuildBeltGallery();
         else BuildModels();
     }
 
-    /// <summary>--focus=belts: three tiers of belt tiles with every item on them, a vertical run and the three end caps.</summary>
+    /// <summary>
+    /// --focus=materials: every material of the library on a sphere (back row) and a box (front row), with the tint the game gives it,
+    /// in world size so the texel density can be judged: plating at module scale and machine scale, structural and burnt metal, glass,
+    /// lights, rock, rust, ore, ice, crystal, belt and item metal.
+    /// </summary>
+    private void BuildMaterialGallery()
+    {
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var ore = BeltModels.ItemMaterial(BeltModels.Shape.Ore);
+        (string Name, StandardMaterial3D Mat, float Size, Color Tint)[] list =
+        {
+            ("hull (module)", Materials.Hull(), 4f, new Color(0.62f, 0.66f, 0.74f)),
+            ("hull blue", Materials.Hull(), 4f, new Color(0.24f, 0.48f, 0.94f)),
+            ("machine", Materials.Machine(), 1.2f, new Color(0.72f, 0.76f, 0.83f)),
+            ("machine orange", Materials.Machine(), 1.2f, new Color(0.97f, 0.42f, 0.07f)),
+            ("structural", Materials.Structural(), 2f, new Color(0.46f, 0.50f, 0.58f)),
+            ("burnt", Materials.Burnt(), 1.5f, new Color(0.7f, 0.7f, 0.72f)),
+            ("glass", Materials.Glass(), 2f, Colors.White),
+            ("light", Materials.Light(new Color(1f, 0.92f, 0.65f), 1.6f), 1.2f, Colors.White),
+            ("vent", Materials.Light(new Color(1f, 0.45f, 0.12f), 1.8f, true), 1.2f, Colors.White),
+            ("rock", Materials.Rock(1f, 3f), 3f, new Color(0.40f, 0.37f, 0.36f)),
+            ("rust", Materials.Rust(), 3f, new Color(0.40f, 0.36f, 0.34f)),
+            ("ore (iron)", Materials.Ore(0.75f, 0.2f), 1.2f, new Color(0.55f, 0.27f, 0.13f)),
+            ("ore (titanium)", Materials.Ore(0.45f, 0.7f), 1.2f, new Color(0.86f, 0.89f, 0.94f)),
+            ("ice", Materials.Ice(), 1.4f, new Color(0.70f, 0.88f, 1.00f)),
+            ("crystal", Materials.Crystal(0.06f, 0.05f), 1.2f, new Color(0.86f, 0.80f, 1.00f)),
+            ("item metal", Materials.ItemMetal(), 1f, new Color(0.68f, 0.80f, 1f)),
+            ("item ore", ore, 1f, new Color(0.82f, 0.46f, 0.30f)),
+        };
+        float x = 0f;
+        foreach (var (name, mat, size, tint) in list)
+        {
+            float cx = x + size / 2f;
+            var sph = new Models.Mb();
+            sph.C(tint).Sphere(Vector3.Zero, Vector3.One * size / 2f, 12, 24);
+            AddChild(new MeshInstance3D { Mesh = sph.ToMesh(mat), Position = new Vector3(cx, size / 2f - 0.46f, -size / 2f - 0.5f) });
+            var box = new Models.Mb();
+            box.C(tint).Block(Vector3.Zero, new Vector3(size, size * 0.7f, size));
+            AddChild(new MeshInstance3D { Mesh = box.ToMesh(mat), Position = new Vector3(cx, size * 0.35f - 0.46f, size / 2f + 0.5f) });
+            Label(name, new Vector3(cx, -0.3f, size + 1.6f));
+            x += size + 0.7f;
+        }
+        // a belt run with items on it, and the same plating on a unit-sized machine, for the scale comparison
+        for (int i = 0; i < 8; i++)
+        {
+            var mm = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true, Mesh = BeltModels.Tile(i % 3), InstanceCount = 1 };
+            mm.SetInstanceTransform(0, new Transform3D(Basis.Identity, new Vector3(x + i, -0.46f, 0)));
+            mm.SetInstanceColor(0, new Color(0.20f, 0.55f, 0.60f));
+            AddChild(new MultiMeshInstance3D { Multimesh = mm });
+        }
+        Label("belt", new Vector3(x + 4f, -0.3f, 1.4f));
+        GD.Print($"materials: every texture set built and cached in {clock.ElapsedMilliseconds} ms");
+    }
+
+    /// <summary>--focus=belts: three tiers    /// <summary>--focus=belts: three tiers of belt tiles with every item on them, a vertical run and the three end caps.</summary>
     private void BuildBeltGallery()
     {
         Color[] tiers = { new(0.35f, 0.40f, 0.50f), new(0.20f, 0.55f, 0.60f), new(0.85f, 0.50f, 0.20f) };
@@ -104,26 +160,33 @@ public partial class Gallery : Node3D
             "core:nickel_ingot", "core:silicon", "core:iron_plate", "core:titanium_plate", "core:nickel_plate", "core:titanium_alloy", "core:circuit",
             "core:fuel_cell", "core:ammo", "core:hydrogen", "core:biomass", "core:science_engineering", "core:science_biology", "core:science_physics",
         };
-        StandardMaterial3D Tint(Color c) => new() { VertexColorUseAsAlbedo = true, AlbedoColor = c, Roughness = 0.5f, Metallic = 0.12f };
+        // one-instance MultiMeshes, like the game: the instance colour tints, the library materials supply the texture
+        void Put(Mesh mesh, Color c, Vector3 pos, float scale = 1f)
+        {
+            var mm = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true, Mesh = mesh, InstanceCount = 1 };
+            mm.SetInstanceTransform(0, new Transform3D(Basis.Identity.Scaled(Vector3.One * scale), pos));
+            mm.SetInstanceColor(0, c);
+            AddChild(new MultiMeshInstance3D { Multimesh = mm });
+        }
         for (int t = 0; t < 3; t++)
         {
             for (int i = 0; i < 12; i++)
-                AddChild(new MeshInstance3D { Mesh = BeltModels.Tile(t), MaterialOverride = Tint(tiers[t]), Position = new Vector3(i, -0.46f, t * 1.3f) });
+                Put(BeltModels.Tile(t), tiers[t], new Vector3(i, -0.46f, t * 1.3f));
             for (int i = 0; i < 11; i++)
             {
                 var (shape, tint) = BeltModels.StyleOf(ids[(t * 7 + i) % ids.Length]);
-                AddChild(new MeshInstance3D { Mesh = BeltModels.Item(shape), MaterialOverride = Tint(tint), Position = new Vector3(i + 0.5f, -0.46f + 0.172f, t * 1.3f), Scale = Vector3.One * 0.27f });
+                Put(BeltModels.Item(shape), tint, new Vector3(i + 0.5f, -0.46f + 0.172f, t * 1.3f), 0.27f);
             }
         }
         // the whole catalogue in a row along the back, at a larger scale so the silhouettes can be judged
         for (int i = 0; i < ids.Length; i++)
         {
             var (shape, tint) = BeltModels.StyleOf(ids[i]);
-            AddChild(new MeshInstance3D { Mesh = BeltModels.Item(shape), MaterialOverride = Tint(tint), Position = new Vector3(i * 0.62f - 1f, -0.46f, -1.6f), Scale = Vector3.One * 0.5f });
+            Put(BeltModels.Item(shape), tint, new Vector3(i * 0.62f - 1f, -0.46f, -1.6f), 0.5f);
         }
         Color[] caps = { new(1f, 0.78f, 0.2f), new(0.95f, 0.3f, 0.25f), new(0.35f, 0.95f, 0.55f) };
         for (int i = 0; i < 3; i++)
-            AddChild(new MeshInstance3D { Mesh = BeltModels.Hub(), MaterialOverride = Tint(caps[i]), Position = new Vector3(11 + 0f, -0.46f, i * 1.3f) });
+            Put(BeltModels.Hub(), caps[i], new Vector3(11f, -0.46f, i * 1.3f));
         Label("belts Mk1 / Mk2 / Mk3, splitter / sink / source caps", new Vector3(5f, -0.3f, 4.4f));
     }
 

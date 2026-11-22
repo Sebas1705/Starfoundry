@@ -23,7 +23,7 @@ public static partial class ModuleModels
     {
         Lighting(c);
         // every plain-material piece (lockers, tanks, decals, pods, louvres...) is one mesh per module shape; the lit pieces stay separate
-        Models.Add(c.R, "Detail", $"{c.K}.detail", Models.Body(), mb =>
+        Models.Add(c.R, "Detail", $"{c.K}.detail", Models.HullMat(), mb =>
         {
             PropsBody(c, mb);
             DecalsBody(c, mb);

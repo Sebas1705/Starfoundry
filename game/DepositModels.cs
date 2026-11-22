@@ -72,7 +72,7 @@ public sealed partial class DepositView : Node3D
         {
             var mb = new Models.Mb();
             Models.BuildRock(mb, look.Rock, _seed, dry ? 0.45f : 1f, dry ? 0.05f : 0.28f);
-            Meshes[rockKey] = rock = mb.ToMesh(Models.Body());
+            Meshes[rockKey] = rock = mb.ToMesh(Materials.Rock(1f, 2.4f));
         }
         _rock.Mesh = rock;
         if (dry) { _chunks.Mesh = null; return; }
@@ -92,16 +92,18 @@ public sealed partial class DepositView : Node3D
         string key = $"{item}.{bucket}";
         if (ChunkMats.TryGetValue(key, out var m)) return m;
         float energy = look.GlowScale * (bucket == 0 ? 0.25f : bucket == 1 ? 0.6f : 1.3f);
-        m = new StandardMaterial3D
+        // the library material of the stuff the chunk is made of (shared textures), copied so this item and bucket own the glow
+        var src = look.Shape switch
         {
-            VertexColorUseAsAlbedo = true,
-            AlbedoColor = Colors.White,
-            Metallic = look.Metal,
-            Roughness = look.Rough,
-            EmissionEnabled = true,
-            Emission = look.Glow,
-            EmissionEnergyMultiplier = energy,
+            Shape.Crystal => Materials.Ice(),
+            Shape.Gem => Materials.Crystal(look.Rough, look.Metal),
+            _ => Materials.Ore(look.Rough, look.Metal),
         };
+        m = (StandardMaterial3D)src.Duplicate();
+        if (look.Shape == Shape.Crystal) m.Roughness = Math.Max(0.3f, look.Rough * 4f);
+        m.EmissionEnabled = true;
+        m.Emission = look.Glow;
+        m.EmissionEnergyMultiplier = energy;
         if (look.Alpha < 1f)
         {
             m.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
