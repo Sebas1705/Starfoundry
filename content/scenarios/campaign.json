@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "id": "campaign",
+  "order": 100,
+  "name_es": "Campaña",
+  "name_en": "Campaign",
+  "description_es": "La partida estándar: elige la dificultad y la semilla; sobrevive las oleadas con una estación y un salto.",
+  "description_en": "The standard game: pick the difficulty and the seed; survive the waves with a station and a jump.",
+  "briefing_es": "Funda una estación, salta a otro sistema y resiste las oleadas del Remanente. La dificultad decide cuántas.",
+  "briefing_en": "Found a station, jump to another system and survive the Remnant waves. The difficulty decides how many.",
+  "player_rules": true,
+  "goals": {
+    "primary": [
+      { "id": "hold_the_line", "type": "survive_waves",
+        "text_es": "Sobrevive a las oleadas", "text_en": "Survive the waves" },
+      { "id": "found_station", "type": "found_stations", "count": 1,
+        "text_es": "Funda una estación", "text_en": "Found a station" },
+      { "id": "jump", "type": "visit_systems", "count": 2,
+        "text_es": "Salta a otro sistema", "text_en": "Jump to another system" }
+    ],
+    "secondary": []
+  },
+  "story": [
+    { "trigger": "win",
+      "text_es": "Objetivo cumplido. Puedes seguir jugando.",
+      "text_en": "Goal reached. You may keep playing." }
+  ]
+}

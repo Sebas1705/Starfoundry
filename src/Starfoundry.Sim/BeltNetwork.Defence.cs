@@ -180,6 +180,7 @@ public sealed partial class BeltNetwork
         if (kind == ModuleKind.Core && s.Kind == StructureKind.Station)
         {
             ModulesLost += s.ModuleMap.Count;
+            foreach (var lostKind in s.ModuleMap.Values) CountModuleLost(lostKind);
             StationsLost++;
             _moduleHits.Add(new ModuleHitEvent(s.Id, key.Mx, key.My, key.Mz, kind, damage, 0, true, true, false));
             DestroyStation(s);
@@ -187,6 +188,7 @@ public sealed partial class BeltNetwork
         }
 
         ModulesLost++;
+        CountModuleLost(kind);
         DestroyContents(s.Id, key);
         RemoveStructureModuleUnchecked(s.Id, key.Mx, key.My, key.Mz);
 

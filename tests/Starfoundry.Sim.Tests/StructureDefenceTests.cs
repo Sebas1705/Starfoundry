@@ -653,6 +653,8 @@ public class StructureDefenceTests
     {
         // The core content as it was before structure defence: no new keys, the old defence module hit points.
         var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", "core.json")))!.AsObject();
+        // And before scenario start structures existed: the starter ship is the only template.
+        foreach (var tid in new[] { "cold_ship", "siege_ship", "siege_station", "blank_station" }) root["structure_templates"]!.AsObject().Remove(tid);
         root["threat"]!.AsObject().Remove("module_regen_seconds");
         root["threat"]!.AsObject().Remove("first_wave_grace_seconds");
         root["structures"]!["defence"]!.AsObject().Remove("defence_bonus_percent");

@@ -51,6 +51,32 @@ public sealed class SimWorld
     public static SimWorld CreateGalaxy(ContentDb content, GameMode mode, ulong seed, bool threats = false, bool stationRules = false,
         bool structures = false, WorldRules? rules = null)
     {
+        return Build(content, mode, seed, threats, stationRules, structures, rules, scenario: null);
+    }
+
+    /// <summary>
+    /// Creates the world of a scenario ([ADR 0025](docs/adr/0025-scenarios-and-goals.md)): a structure galaxy with the scenario's rules, its
+    /// start structures built from templates (the ship at the home origin, others at their offsets in cells) and its starting items. Always
+    /// a structure world with threats allowed (the rules switch them off). The seed is <paramref name="seedOverride"/> when non-zero, else the
+    /// scenario's; a scenario with neither cannot be created (the game picks a random seed). <paramref name="rules"/> replaces the scenario's
+    /// effective rules: the sandbox lets the player choose them, and a replay passes the rules of the log header.
+    /// </summary>
+    public static SimWorld CreateScenario(ContentDb content, ScenarioDef scenario, ulong seedOverride = 0, WorldRules? rules = null)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        ArgumentNullException.ThrowIfNull(scenario);
+        ulong seed = seedOverride != 0 ? seedOverride : scenario.Seed;
+        if (seed == 0) throw new ArgumentException($"Scenario '{scenario.Id}' has no fixed seed: pass a seed.", nameof(seedOverride));
+        return Build(content, scenario.SandboxMode ? GameMode.Sandbox : GameMode.Campaign, seed, threats: true, stationRules: false, structures: true,
+            rules ?? scenario.Rules, scenario);
+    }
+
+    /// <summary>Same as <see cref="CreateScenario(ContentDb, ScenarioDef, ulong, WorldRules?)"/>, looking the scenario up in a catalog.</summary>
+    public static SimWorld CreateScenario(ContentDb content, ScenarioCatalog catalog, string scenarioId, ulong seedOverride = 0, WorldRules? rules = null) =>
+        CreateScenario(content, catalog.Get(scenarioId), seedOverride, rules);
+
+    private static SimWorld Build(ContentDb content, GameMode mode, ulong seed, bool threats, bool stationRules, bool structures, WorldRules? rules, ScenarioDef? scenario)
+    {
         rules ??= WorldRules.Default;
         if (rules.Validate(content) is { } problem) throw new ArgumentException("Invalid world rules: " + problem, nameof(rules));
         var galaxy = Galaxy.Generate(content, seed);
@@ -58,9 +84,16 @@ public sealed class SimWorld
         foreach (var d in galaxy.Deposits)
             net.AddDeposit(d.Item, Math.Max(1, WorldRules.Scale(d.Amount, rules.DepositRichnessPercent)), d.X, d.Y, d.Z, revealed: d.System == 0, density: d.Density);
         net.SetGalaxy(galaxy);
+        if (scenario is not null)
+        {
+            net.EnsurePlayer(0);
+            long cu = Units.CellUnits;
+            foreach (var s in scenario.Structures)
+                net.BuildStructureFromTemplate(content.Templates[s.Template], s.Kind, 0, s.OffsetCells[0] * cu, s.OffsetCells[1] * cu, s.OffsetCells[2] * cu);
+        }
         // The starter ship is part of the initial world, like the deposits: built before the first command, at no cost, at the
         // home anchor (the world origin), so replays and saves that call CreateGalaxy with the header flags get it too.
-        if (structures && content.StarterShip is { } ship)
+        else if (structures && content.StarterShip is { } ship)
         {
             net.EnsurePlayer(0);
             net.BuildStructureFromTemplate(ship, StructureKind.Ship, 0, 0, 0, 0);
@@ -68,6 +101,14 @@ public sealed class SimWorld
         if (rules.StartingItems.Count > 0) net.GiveStartingItems(0, rules.StartingItems);
         return new SimWorld(net);
     }
+
+    /// <summary>
+    /// Rebuilds a scenario game by replaying a command log: creates the scenario world with the seed and rules of the log header, then
+    /// replays (as <see cref="Replay"/> does from a fresh world).
+    /// </summary>
+    public static SimWorld ReplayScenario(IReadOnlyList<LoggedCommand> log, long ticks, ContentDb content, ScenarioCatalog catalog, string scenarioId, ulong seed,
+        WorldRules? rules = null) =>
+        Replay(log, ticks, initial: CreateScenario(content, catalog, scenarioId, seed, rules));
 
     private readonly List<int> _revealed = new();
 
@@ -880,6 +921,7 @@ public sealed class SimWorld
             Network.PayBuild(player, cost);
         }
         Network.AddStructureModuleUnchecked(p.Structure, p.Mx, p.My, p.Mz, p.Kind);
+        Network.CountModuleBuilt(p.Kind);
         return Reject.None;
     }
 
@@ -950,6 +992,7 @@ public sealed class SimWorld
         }
         int id = Network.CreateStructure(player, StructureKind.Station, ox, oy, oz);
         Network.AddStructureModuleUnchecked(id, 0, 0, 0, ModuleKind.Core);
+        Network.CountStationFounded();
         return Reject.None;
     }
 

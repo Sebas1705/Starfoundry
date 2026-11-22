@@ -107,6 +107,8 @@ public sealed partial class BeltNetwork
                     {
                         d.Remaining--;
                         MinedByDrones++;
+                        CountProduced(d.Item, 1);
+                        CountMined(d.Item, 1);
                         AddToHold(owner, d.Item, 1);
                         acc -= need;
                     }

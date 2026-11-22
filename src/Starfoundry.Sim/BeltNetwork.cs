@@ -55,6 +55,7 @@ public sealed partial class BeltNetwork
         ThreatsEnabled = threats;
         StationRules = stationRules;
         InitResearch();
+        InitCounters();
     }
 
     public long Tick { get; private set; }
@@ -322,6 +323,7 @@ public sealed partial class BeltNetwork
         CopyEconomyFrom(other);
         CopyStationFrom(other);
         CopyStructuresFrom(other);
+        CopyCountersFrom(other);
         Tick = other.Tick;
         Spawned = other.Spawned;
         Consumed = other.Consumed;
@@ -341,6 +343,7 @@ public sealed partial class BeltNetwork
 
         ValidateStation();
         ValidateStructures();
+        ValidateCounters();
 
         int alive = 0;
         for (int id = 0; id < _segs.Count; id++)
