@@ -651,6 +651,8 @@ public static class Loc
         ["settings.ambienceVolume"] = ("Volumen de música y ambiente: {0}%", "Music and ambience volume: {0}%"),
         ["settings.uiVolume"] = ("Volumen de interfaz: {0}%", "Interface volume: {0}%"),
         ["settings.invertY"] = ("Invertir el ratón en vertical", "Invert mouse vertically"),
+        ["settings.lowTextures"] = ("Texturas de baja calidad (al reiniciar)", "Low-quality textures (on restart)"),
+        ["settings.tip.lowTextures"] = ("Genera las texturas a la mitad de tamaño: menos memoria y arranque más rápido en equipos modestos. Se aplica al reiniciar el juego.", "Generates the textures at half size: less memory and a faster start on modest machines. Applies when the game is restarted."),
         ["settings.fullscreen"] = ("Pantalla completa", "Fullscreen"),
         ["settings.reset"] = ("Valores por defecto", "Reset to defaults"),
         ["settings.tip.language"] = ("Cambia el idioma de todo el juego (también L en la partida).", "Changes the language of the whole game (also L in game)."),

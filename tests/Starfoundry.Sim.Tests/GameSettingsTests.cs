@@ -46,7 +46,7 @@ public class GameSettingsTests
     [Fact]
     public void SerialisationRoundTrips()
     {
-        var s = new GameSettings { Language = Language.En, MouseSensitivity = 1.75f, Fov = 92.5f, MasterVolume = 0.35f, InvertMouseY = true, Fullscreen = true };
+        var s = new GameSettings { Language = Language.En, MouseSensitivity = 1.75f, Fov = 92.5f, MasterVolume = 0.35f, InvertMouseY = true, Fullscreen = true, LowTextures = true };
         Assert.Equal(s, GameSettings.Parse(s.Serialize()));
         var d = GameSettings.Defaults();
         Assert.Equal(d, GameSettings.Parse(d.Serialize()));
@@ -101,6 +101,8 @@ public class GameSettingsTests
         var parsed = GameSettings.Parse("fov=abc\ninvert_mouse_y=true\nlanguage=klingon\nfullscreen=true");
         Assert.True(parsed.InvertMouseY);
         Assert.True(parsed.Fullscreen);
+        Assert.True(GameSettings.Parse("low_textures=true").LowTextures);
+        Assert.False(GameSettings.Defaults().LowTextures);
         Assert.Equal(80f, parsed.Fov);
     }
 
