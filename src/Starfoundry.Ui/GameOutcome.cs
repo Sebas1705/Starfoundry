@@ -10,7 +10,7 @@ public sealed record GoalSettings(int WavesToWin = GoalSettings.DefaultWaves)
     /// <summary>Jumps to complete in structure worlds: the player must reach a second system, which takes the jump drive research.</summary>
     public const int JumpsToWin = 1;
 
-    /// <summary>The goal from the player's settings (the wave count is clamped to its valid range).</summary>
+    /// <summary>Legacy: the goal from an old settings file (the wave count is clamped). Games use <see cref="From(WorldRules)"/> instead.</summary>
     public static GoalSettings From(GameSettings settings) => new(Math.Clamp(settings.GoalWaves, MinWaves, MaxWaves));
 
     /// <summary>The goal a world's rules ask for (<see cref="WorldRules.GoalWaves"/>).</summary>

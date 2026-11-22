@@ -56,6 +56,7 @@ public partial class Play
     private PanelContainer _statusPanel = null!, _toolbar = null!, _actions = null!, _objectivesPanel = null!, _inspector = null!, _helpPanel = null!;
     private Label _statusLabel = null!, _holdItems = null!, _modeHint = null!, _objectivesText = null!, _tooltipLabel = null!;
     private Label _inspectorTitle = null!, _inspectorBody = null!, _helpText = null!;
+    private ScrollContainer _helpScroll = null!;
     private Label _toolLabel = null!, _flightHeading = null!, _flightSpeed = null!;
     private Label _targetTitle = null!, _targetRole = null!, _targetStatus = null!, _targetRecipe = null!, _targetHpLabel = null!;
     private ProgressBar _holdBar = null!, _targetHp = null!;
@@ -65,7 +66,6 @@ public partial class Play
     private MarkerLayer _markers = null!;
     private Button _btnDetails = null!;
     private Crosshair _crosshair = null!;
-    private readonly List<Button> _buildButtons = new();
     private Button _btnMine = null!, _btnRefine = null!, _btnScan = null!, _btnMap = null!, _btnWeapons = null!, _btnResearch = null!;
     private Button _btnRepair = null!;
     private Label _seatPrompt = null!;
@@ -178,28 +178,23 @@ public partial class Play
         foreach (var b in new[] { _btnMine, _btnRefine, _btnScan, _btnMap, _btnWeapons, _btnRepair, _btnResearch }) actions.AddChild(b);
         _actions = MakePanel(actions);
 
-        // The bottom strip: the hold on the left, the selected tool and its cost on the right, and below them the compact
-        // build palette (keys 1-9, 0, Q, B). It hugs the bottom edge so the view stays free.
-        var strip = new VBoxContainer();
-        strip.AddThemeConstantOverride("separation", 4);
+        // The bottom strip is one compact line at the bottom left: the hold and the tool in hand with its cost. Nothing menu-like lives
+        // here; the build menu, the shortcuts and the quick keys are in the key panel at the bottom right (see BuildKeyPanel).
         var infoRow = new HBoxContainer();
         infoRow.AddThemeConstantOverride("separation", 10);
-        _holdBar = new ProgressBar { MinValue = 0, MaxValue = Net.HoldCapacity(Player), ShowPercentage = false, CustomMinimumSize = new Vector2(120, 14), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter, MouseFilter = Control.MouseFilterEnum.Ignore };
+        _holdBar = new ProgressBar { MinValue = 0, MaxValue = Net.HoldCapacity(Player), ShowPercentage = false, CustomMinimumSize = new Vector2(110, 14), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter, MouseFilter = Control.MouseFilterEnum.Ignore };
         _holdItems = MakeText(13);
         _holdItems.ClipText = true;
-        _holdItems.CustomMinimumSize = new Vector2(660, 0); // wide enough for ore, ingots and plates
+        _holdItems.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+        _holdItems.CustomMinimumSize = new Vector2(HoldItemsWidth, 0); // wide enough for ore, ingots and plates
         _toolLabel = MakeText(14);
-        _toolLabel.HorizontalAlignment = HorizontalAlignment.Right;
-        _toolLabel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        _toolLabel.HorizontalAlignment = HorizontalAlignment.Left;
         infoRow.AddChild(_holdBar);
         infoRow.AddChild(_holdItems);
         infoRow.AddChild(_toolLabel);
-        strip.AddChild(infoRow);
-        _buildBar = new VBoxContainer();
-        _buildBar.AddThemeConstantOverride("separation", 3);
-        FillBuildBar();
-        strip.AddChild(_buildBar);
-        _toolbar = MakePanel(strip);
+        _toolbar = MakePanel(infoRow);
+        _toolbar.MouseFilter = Control.MouseFilterEnum.Ignore;
+        BuildKeyPanel();
 
         _modeHint = MakeText(14, new Color(0.85f, 0.92f, 1f));
         _modeHint.AddThemeColorOverride("font_outline_color", Colors.Black);
@@ -274,8 +269,12 @@ public partial class Play
         _inspector.Visible = false;
 
         // Help overlay.
-        _helpText = MakeText(15);
-        _helpPanel = MakePanel(_helpText);
+        _helpText = MakeText(14);
+        _helpText.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _helpScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        _helpScroll.AddChild(_helpText);
+        _helpPanel = MakePanel(_helpScroll);
+        _helpPanel.AddThemeStyleboxOverride("panel", Box(new Color(0.04f, 0.06f, 0.1f, 0.97f), PanelEdge, 8, 10f)); // opaque: the HUD must not show through the text
         _helpPanel.Visible = false;
 
         _crosshair = new Crosshair { Visible = false };
@@ -394,45 +393,11 @@ public partial class Play
         _wantCapture = true;
     }
 
-    private VBoxContainer _buildBar = null!;
-
     /// <summary>Palette entries reached by the number keys: 1-9, 0 and Q. The module (N) and station (I) tools have their own key; everything else is in the build menu (B).</summary>
     private const int DirectKeys = 11;
 
-    /// <summary>Buttons of the quick bar: the keyed entries plus the module tool (twelve at most), then a button that opens the build menu.</summary>
-    private const int QuickBarSize = 12;
-
-    private readonly List<int> _quickIndices = new();
-    private Button _btnBuildMenu = null!;
-
-    /// <summary>
-    /// The compact quick bar: one row with the first twelve favourites (the keyed entries and the module tool) and a button for the
-    /// build menu. Every other entry is reached through the menu (B); the selected tool and its cost are in the line above the bar.
-    /// </summary>
-    private void FillBuildBar()
-    {
-        foreach (var old in _buildBar.GetChildren()) old.QueueFree();
-        _buildButtons.Clear();
-        _quickIndices.Clear();
-        for (int i = 0; i < _palette.Count && _quickIndices.Count < QuickBarSize; i++)
-            if (i < DirectKeys || _palette[i].IsModule) _quickIndices.Add(i);
-        var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 4);
-        _buildBar.AddChild(row);
-        foreach (int index in _quickIndices)
-        {
-            int i = index;
-            var b = MakeButton("", () => SelectBuild(i), toggle: true);
-            b.AddThemeFontSizeOverride("font_size", 12);
-            b.CustomMinimumSize = new Vector2(0, 26);
-            _buildButtons.Add(b);
-            row.AddChild(b);
-        }
-        _btnBuildMenu = MakeButton("", ToggleBuildMenu, toggle: true);
-        _btnBuildMenu.AddThemeFontSizeOverride("font_size", 12);
-        _btnBuildMenu.CustomMinimumSize = new Vector2(0, 26);
-        row.AddChild(_btnBuildMenu);
-    }
+    /// <summary>Width of the hold readout in the bottom strip (ore, ingots and plates fit; longer lists are clipped).</summary>
+    private const float HoldItemsWidth = 520f;
 
     /// <summary>Rebuilds the palette after the rules changed (a loaded save with the other station-rules setting).</summary>
     private void RebuildPalette()
@@ -441,7 +406,6 @@ public partial class Play
         BuildPalette();
         _selected = 0;
         _tool = ToolMode.Pointer;
-        FillBuildBar();
         _catalog = BuildCatalog.Entries(_content, _structuresOn, _stationRules);
     }
 
@@ -534,6 +498,9 @@ public partial class Play
             // A marker behind the steps panel is unreadable (and hides its text): slide it just below the panel.
             var steps = new Rect2(_objectivesPanel.Position - new Vector2(240f, 0f), _objectivesPanel.Size + new Vector2(240f + 14f, 8f));
             if (_objectivesPanel.Visible && steps.HasPoint(new Vector2(p.X, p.Y))) p = p with { Y = steps.End.Y + 22f };
+            // The same for the key panel in the bottom right corner: the marker slides just above it.
+            var keys = _keyRect.Grow(16f);
+            if (_keyPanel.Visible && keys.HasPoint(new Vector2(p.X, p.Y))) p = p with { Y = keys.Position.Y - 6f };
             if (p.Visible) items.Add(new MarkerLayer.Item($"{label}  {L("mark.dist", p.Distance.ToString("F0", Loc.Culture))}", color, p));
         }
 
@@ -1082,25 +1049,6 @@ public partial class Play
 
     private void UpdateButtons()
     {
-        // Build bar.
-        for (int q = 0; q < _buildButtons.Count && q < _quickIndices.Count; q++)
-        {
-            int i = _quickIndices[q];
-            var item = _palette[i];
-            bool locked = ItemLocked(item);
-            var cost = ItemCost(item);
-            bool affordable = Net.CanPay(Player, cost);
-            string name = ItemName(item);
-            var b = _buildButtons[q];
-            b.Text = $"{KeyLabel(i)} {name}";
-            b.Disabled = locked;
-            b.SetPressedNoSignal(_tool == ToolMode.Build && _selected == i);
-            b.Modulate = !locked && !affordable ? new Color(1f, 0.75f, 0.7f) : Colors.White;
-            b.TooltipText = BuildTooltip(item, cost, locked, affordable) + "\n" + L("build.barTip");
-        }
-        _btnBuildMenu.Text = L("build.bar");
-        _btnBuildMenu.SetPressedNoSignal(BuildOpen);
-        _btnBuildMenu.TooltipText = L("build.barTip");
         UpdateToolLabel();
 
         // Actions.
@@ -1132,6 +1080,7 @@ public partial class Play
         _btnWeapons.TooltipText = L("tip.weapons");
 
         var damagedNow = DamagedInRange();
+        _damagedCount = damagedNow.Count;
         _btnRepair.Visible = Net.ThreatActive;
         _btnRepair.Text = L("btn.repair", damagedNow.Count);
         _btnRepair.Disabled = damagedNow.Count == 0;
@@ -1221,7 +1170,7 @@ public partial class Play
 
     private void UpdateObjectivesPanel()
     {
-        _objectivesPanel.Visible = true;
+        _objectivesPanel.Visible = !(ResearchOpen || BuildOpen); // a docked panel takes its place at the right
         UpdateGoalLine();
         _btnObjectives.Visible = GuidedSteps;
         if (!GuidedSteps) { _objectivesText.Visible = false; return; }
@@ -1331,40 +1280,50 @@ public partial class Play
 
         _actions.Position = new Vector2(12, _statusPanel.Visible ? _statusPanel.Position.Y + _statusPanel.Size.Y + 10 : 10);
 
-        // The bottom strip shrinks to fit narrow windows instead of running off the screen, and hugs the bottom edge.
+        // The key panel (bottom right) is laid out first: everything else ends where it begins.
+        UpdateKeyPanel(size);
+        float keyLeft = _keyRect.Position.X, keyTop = _keyRect.Position.Y;
+        float freeRight = Math.Max(320f, keyLeft - 12f); // the bottom-left area, clear of the key panel
+        var dock = DockRect(size);
+        if (_researchPanel is not null) _researchPanel.Dock = dock;
+        if (_buildMenu is not null) _buildMenu.Dock = dock;
+
+        // The bottom strip (hold and tool in hand) is one line at the bottom left; it shrinks to fit narrow windows.
         _toolbar.ResetSize();
         var barSize = _toolbar.GetCombinedMinimumSize();
-        float barScale = Math.Min(1f, (size.X - 24f) / Math.Max(1f, barSize.X));
+        float barScale = Math.Min(1f, (freeRight - 12f) / Math.Max(1f, barSize.X));
         _toolbar.Scale = new Vector2(barScale, barScale);
-        _toolbar.Position = new Vector2((size.X - barSize.X * barScale) / 2f, size.Y - barSize.Y * barScale - 6);
+        _toolbar.Position = new Vector2(12f, size.Y - barSize.Y * barScale - 8f);
         barSize = new Vector2(barSize.X * barScale, barSize.Y * barScale);
 
-        // The bottom hint wraps to the window (up to a readable 1100 px) and grows upwards, so no tail of it is ever clipped.
-        float hintWidth = Math.Clamp(size.X - 24f, 280f, 1100f);
-        if (_mapOpen && Net.Galaxy is not null) hintWidth = Math.Min(hintWidth, Math.Max(280f, size.X - 348f)); // clear of the Jump button at the right
+        // The hint wraps to the room left of the key panel (up to a readable 1100 px) and grows upwards, so no tail of it is ever clipped.
+        float hintWidth = Math.Clamp(freeRight - 12f, 280f, 1100f);
         _modeHint.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _modeHint.HorizontalAlignment = HorizontalAlignment.Center;
         _modeHint.CustomMinimumSize = new Vector2(hintWidth, 0);
         _modeHint.ResetSize();
-        _modeHint.Position = new Vector2((size.X - hintWidth) / 2f, _toolbar.Position.Y - 6 - _modeHint.Size.Y);
+        _modeHint.Position = new Vector2(12f + (freeRight - 12f - hintWidth) / 2f, _toolbar.Position.Y - 6 - _modeHint.Size.Y);
 
-        // Notifications: up to three lines in a column above the hint, wrapped to a readable width.
+        // Notifications: up to three lines in a column above the hint, wrapped to a readable width and centred on the view.
         float toastWidth = Math.Clamp(size.X * 0.6f, 300f, 760f);
+        float toastCentre = size.X / 2f;
+        if (ResearchOpen || BuildOpen) { toastCentre = (dock.Position.X - 12f) / 2f; toastWidth = Math.Min(toastWidth, dock.Position.X - 36f); } // the free left side of the view
+        else toastWidth = Math.Min(toastWidth, Math.Max(300f, 2f * (keyLeft - 12f - size.X / 2f))); // not under the key panel
         // With the star map open the column narrows so it does not run under the map and its list on the right.
         if (_mapOpen && Net.Galaxy is not null) toastWidth = Math.Min(toastWidth, Math.Max(300f, size.X - 784f));
         foreach (var l in _toastLabels) l.CustomMinimumSize = new Vector2(toastWidth, 0);
         _toastBox.ResetSize();
-        _toastBox.Position = new Vector2((size.X - toastWidth) / 2f, _modeHint.Position.Y - 8 - _toastBox.Size.Y);
+        _toastBox.Position = new Vector2(toastCentre - toastWidth / 2f, _modeHint.Position.Y - 8 - _toastBox.Size.Y);
 
         var objSize = _objectivesPanel.GetCombinedMinimumSize();
         _objectivesPanel.Position = new Vector2(size.X - objSize.X - 12, 10);
         float y = _objectivesPanel.Position.Y + objSize.Y + 10;
         if (_mapOpen && Net.Galaxy is not null)
         {
-            // The map shrinks (down to 160 px) so that the map, the system list and the Jump button all end above the bottom strip.
+            // The map shrinks (down to 160 px) so that the map, the system list and the Jump button all end above the key panel.
             var listSize = _mapList.GetCombinedMinimumSize();
             var jumpSize = _btnJump.GetCombinedMinimumSize();
-            float side = Math.Clamp(_toolbar.Position.Y - 4f - y - listSize.Y - jumpSize.Y - 12f, 160f, 320f);
+            float side = Math.Clamp(keyTop - 4f - y - listSize.Y - jumpSize.Y - 12f, 160f, 320f);
             _map.CustomMinimumSize = new Vector2(side, side);
             _map.Size = _map.CustomMinimumSize;
             _map.Position = new Vector2(size.X - side - 12, y);
@@ -1375,7 +1334,7 @@ public partial class Play
         _mapList.Visible = _map.Visible;
 
         var inspSize = _inspector.GetCombinedMinimumSize();
-        _inspector.Position = new Vector2(size.X - inspSize.X - 12, size.Y - inspSize.Y - barSize.Y - 14);
+        _inspector.Position = new Vector2(size.X - inspSize.X - 12, keyTop - inspSize.Y - 8f);
 
         // The flight readout sits at the top centre, dropping below the status or steps panel when they would meet it.
         _flightPanel.ResetSize();
@@ -1389,24 +1348,31 @@ public partial class Play
         }
         _flightPanel.Position = fp;
 
-        var helpSize = _helpPanel.GetCombinedMinimumSize();
-        _helpPanel.Position = new Vector2((size.X - helpSize.X) / 2f, (size.Y - helpSize.Y) / 2f - 40);
+        // The help overlay fills the view left of the key panel (it scrolls when the text is taller than the window).
+        float helpWidth = Math.Clamp(keyLeft - 36f, 320f, 1000f);
+        float helpHeight = Math.Max(200f, size.Y - 24f);
+        _helpText.CustomMinimumSize = new Vector2(helpWidth - 36f, 0f);
+        _helpScroll.CustomMinimumSize = new Vector2(helpWidth - 20f, helpHeight - 20f);
+        _helpPanel.CustomMinimumSize = new Vector2(helpWidth, helpHeight);
+        _helpPanel.Size = new Vector2(helpWidth, helpHeight);
+        _helpPanel.Position = new Vector2(12f + (keyLeft - 24f - helpWidth) / 2f, 12f);
 
         // The crosshair sits at the screen centre and the tooltip beside it, kept on screen.
         _crosshair.Visible = AimActive && !_demo;
         _crosshair.Position = (size - _crosshair.Size) / 2f;
         var centre = size / 2f;
-        _tooltipLabel.Visible = _tooltipLabel.Text.Length > 0 && !_demo && AimActive;
-        _tooltipLabel.Position = new Vector2(Math.Clamp(centre.X + 24, 8, Math.Max(8, size.X - _tooltipLabel.Size.X - 8)), Math.Clamp(centre.Y + 24, 8, Math.Max(8, size.Y - _tooltipLabel.Size.Y - 8)));
+        _tooltipLabel.Visible = _tooltipLabel.Text.Length > 0 && !_demo && AimActive && !_helpOpen;
+        _tooltipLabel.ResetSize();
+        _tooltipLabel.Position = AvoidKeyPanel(new Vector2(Math.Clamp(centre.X + 24, 8, Math.Max(8, size.X - _tooltipLabel.Size.X - 8)), Math.Clamp(centre.Y + 24, 8, Math.Max(8, size.Y - _tooltipLabel.Size.Y - 8))), _tooltipLabel.Size);
 
         _seatPrompt.Text = SeatPromptText();
-        _seatPrompt.Visible = _seatPrompt.Text.Length > 0 && AimActive;
+        _seatPrompt.Visible = _seatPrompt.Text.Length > 0 && AimActive && !_helpOpen;
         _seatPrompt.ResetSize();
         _seatPrompt.Position = new Vector2(centre.X - _seatPrompt.Size.X / 2f, centre.Y - 46f);
 
         _targetPanel.ResetSize();
         var ts =_targetPanel.GetCombinedMinimumSize();
-        _targetPanel.Position = new Vector2(Math.Clamp(centre.X + 28, 8, Math.Max(8, size.X - ts.X - 8)), Math.Clamp(centre.Y + 28, 8, Math.Max(8, size.Y - ts.Y - barSize.Y - 14)));
+        _targetPanel.Position = AvoidKeyPanel(new Vector2(Math.Clamp(centre.X + 28, 8, Math.Max(8, size.X - ts.X - 8)), Math.Clamp(centre.Y + 28, 8, Math.Max(8, size.Y - ts.Y - barSize.Y - 14))), ts);
         _markers.Size = size;
         LayoutDefenceUi(size, centre);
     }
@@ -1626,7 +1592,7 @@ public partial class Play
             case Key.O: _objectivesOpen = !_objectivesOpen; break;
             case Key.H: _detailsOpen = !_detailsOpen; break;
             case Key.Tab: _wantCapture = !_wantCapture; break; // free the cursor to use the buttons, or take it back
-            case Key.Y: CycleRecipe(); break;
+            case Key.Y: CycleRecipeKey(); break;
             case Key.R: _dir = _dir switch { Dir.PosX => Dir.PosZ, Dir.PosZ => Dir.NegX, Dir.NegX => Dir.NegZ, _ => Dir.PosX }; Toast(L("toast.beltFacing", _dir.ToString())); break;
             case Key.Z: _cursorY--; break;
             case Key.X: _cursorY++; break;
@@ -1945,17 +1911,27 @@ public partial class Play
     private List<int> RecipesFor(int machineType) =>
         _content.Recipes.Where(r => r.Machine == machineType && !Net.IsRecipeLocked(r.Index)).Select(r => r.Index).ToList();
 
-    private void ChangeSelectedRecipe(int step)
+    private void ChangeSelectedRecipe(int step) => ChangeRecipeOf(_selMachine, step);
+
+    /// <summary>Y: with no tool, the recipe of the machine under the crosshair (or the pinned one); with a tool in hand, the recipe the tool will place.</summary>
+    private void CycleRecipeKey()
     {
-        if (_selMachine < 0 || !Net.IsMachineAlive(_selMachine)) return;
-        var m = Net.GetMachineInfo(_selMachine);
+        int machine = _tool == ToolMode.Pointer ? (_hover.Kind == HoverKind.Machine ? _hover.Id : _selMachine) : -1;
+        if (machine >= 0 && Net.IsMachineAlive(machine)) ChangeRecipeOf(machine, 1);
+        else CycleRecipe();
+    }
+
+    private void ChangeRecipeOf(int machine, int step)
+    {
+        if (machine < 0 || !Net.IsMachineAlive(machine)) return;
+        var m = Net.GetMachineInfo(machine);
         var options = RecipesFor(m.Type);
-        if (options.Count < 2) return;
+        if (options.Count < 2) { Toast(L("toast.oneRecipe")); return; }
         int i = options.IndexOf(m.Recipe);
         int next = options[((i < 0 ? 0 : i + step) % options.Count + options.Count) % options.Count];
-        Send(new SetRecipe(_selMachine, next));
+        Send(new SetRecipe(machine, next));
         // A drill follows its recipe to a deposit of the new ore, when one is within reach.
-        if (_content.Machines[m.Type].Role == MachineRole.Drill) RelinkDrill(_selMachine, next);
+        if (_content.Machines[m.Type].Role == MachineRole.Drill) RelinkDrill(machine, next);
     }
 
     private void RelinkDrill(int machine, int recipe)
@@ -2023,10 +1999,12 @@ public partial class Play
         _crosshair.Tint = problem is null ? Crosshair.Normal : Crosshair.Invalid;
         ((StandardMaterial3D)_ghost.MaterialOverride).AlbedoColor = problem is null ? new Color(0.4f, 1f, 0.5f, 0.4f) : new Color(1f, 0.3f, 0.25f, 0.4f);
         if (problem is not null) _tooltipLabel.Text = problem;
-        else if (_dragStart is null && _palette[_selected].IsBelt)
+        else if (_dragStart is null)
         {
-            var cost = _content.Belts[(int)_palette[_selected].Tier]?.CostPerCell ?? Array.Empty<ItemStack>();
-            _tooltipLabel.Text = L("tip.cost", Stacks(cost) + L("ui.perCell"));
+            // What the tool is and costs, next to the crosshair (the quick bar's old tooltip lives here now).
+            var item = _palette[_selected];
+            var cost = ItemCost(item);
+            _tooltipLabel.Text = BuildTooltip(item, cost, ItemLocked(item), Net.CanPay(Player, cost));
         }
         UpdateDragGhost();
     }

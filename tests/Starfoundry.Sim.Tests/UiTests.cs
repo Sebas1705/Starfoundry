@@ -73,6 +73,15 @@ public class UiTests
     }
 
     [Fact]
+    public void TheRetiredGoalSliderHasNoTextLeft()
+    {
+        Assert.False(Loc.Has("settings.goalWaves"));
+        Assert.False(Loc.Has("settings.tip.goalWaves"));
+        Assert.False(Loc.Has("build.bar"));
+        Assert.False(Loc.Has("build.barTip"));
+    }
+
+    [Fact]
     public void UnknownKeysAreVisibleAndNamesFallBack()
     {
         Assert.Equal("⟦nope⟧", Loc.T("nope"));

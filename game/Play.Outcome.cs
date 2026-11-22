@@ -31,12 +31,12 @@ public partial class Play
         root.AddChild(_endScreen);
     }
 
-    /// <summary>Per frame: refreshes the goal from the settings and looks for a win or a loss.</summary>
+    /// <summary>Per frame: refreshes the goal from the world rules and looks for a win or a loss.</summary>
     private void UpdateOutcome()
     {
         if (_demo || _endScreen is null) return;
         if (_progress is not null) { UpdateScenarioOutcome(); return; }
-        _goal = _endShotGoal ?? GoalSettings.From(SettingsStore.Current);
+        _goal = _endShotGoal ?? GoalSettings.From(Net.Rules); // the difficulty preset or scenario decides the goal
         if (_outcomeShown || _gameMode != GameMode.Campaign || !Net.ThreatActive || _defenceShotPath is not null || !Net.HasPlayer(Player)) return;
         var r = GameOutcome.Evaluate(Net, Player, _goal);
         if (r.Kind == OutcomeKind.Playing) return;

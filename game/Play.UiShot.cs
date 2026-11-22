@@ -10,8 +10,8 @@ namespace Starfoundry.Game;
 /// <c>--ui-shot=path</c>: the structures campaign with a few research states made up for the picture (Logistics and Carbon drilling done,
 /// Advanced logistics being researched with plates delivered by a belt, the rest available or locked) and then four images:
 /// <c>path.research.png</c> (the research panel), <c>path.research.locked.png</c> (a locked node selected), <c>path.build.png</c> (the build
-/// menu on the Production tab, plus <c>path.build.logistics.png</c>, <c>path.build.structure.png</c> and <c>path.build.defence.png</c>) and
-/// <c>path.bar.png</c> (the quick bar with a tool in hand). <c>--ui-lang=es</c> renders them in Spanish. Seed fixed, nothing is saved.
+/// menu docked at the right, on the Production tab, plus <c>path.build.logistics.png</c>, <c>path.build.structure.png</c> and <c>path.build.defence.png</c>) and
+/// <c>path.bar.png</c> (the bottom strip and the key panel with a tool in hand); the panels dock at the right with the key panel under them. <c>--ui-lang=es</c> renders them in Spanish. Seed fixed, nothing is saved.
 /// </summary>
 public partial class Play
 {
