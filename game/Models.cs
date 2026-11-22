@@ -27,7 +27,7 @@ namespace Starfoundry.Game;
 ///              GlowEye/GlowSpin (scout), GlowCore (striker), GlowCrystals (deposit).
 /// The turret has children "Head" (yaw) and "Head/Barrel" (pitch), used by <see cref="Aim"/>.
 /// </summary>
-public static class Models
+public static partial class Models
 {
     // ---- palette -----------------------------------------------------------------------------
 
@@ -58,7 +58,14 @@ public static class Models
     // ---- public API ---------------------------------------------------------------------------
 
     /// <summary>A machine model for a content id (core:extractor, core:drill, ...). Unknown ids give a generic crate.</summary>
-    public static Node3D Machine(string machineId) => machineId switch
+    public static Node3D Machine(string machineId)
+    {
+        var m = MachineBody(machineId);
+        if (machineId is not ("core:wall" or "core:depot")) AddStatusLamp(m); // walls draw no power and the depot has its own corner beacons
+        return m;
+    }
+
+    private static Node3D MachineBody(string machineId) => machineId switch
     {
         "core:extractor" => BuildExtractor(),
         "core:drill" => BuildDrill(),
@@ -69,15 +76,18 @@ public static class Models
         "core:turret" => BuildTurret(),
         "core:wall" => BuildWall(),
         "core:repair_bay" => BuildRepairBay(),
-        "core:unloader" => BuildUnloader(),
-        "core:ore_unloader" => BuildUnloader(),
-        "core:titanium_ore_unloader" => BuildUnloader(),
-        "core:nickel_ore_unloader" => BuildUnloader(),
-        "core:ice_unloader" => BuildUnloader(),
-        "core:quartz_unloader" => BuildUnloader(),
-        "core:carbon_unloader" => BuildUnloader(),
-        "core:hydrogen_cracker" or "core:greenhouse" => BuildCracker(), // science machines reuse a model until they get their own
-        "core:engineering_bench" or "core:physics_lab" => BuildAssembler(),
+        "core:unloader" => BuildUnloader(UnloaderKind.Ingot),
+        "core:ore_unloader" => BuildUnloader(UnloaderKind.IronOre),
+        "core:titanium_ore_unloader" => BuildUnloader(UnloaderKind.TitaniumOre),
+        "core:nickel_ore_unloader" => BuildUnloader(UnloaderKind.NickelOre),
+        "core:ice_unloader" => BuildUnloader(UnloaderKind.Ice),
+        "core:quartz_unloader" => BuildUnloader(UnloaderKind.Quartz),
+        "core:carbon_unloader" => BuildUnloader(UnloaderKind.Carbon),
+        "core:hydrogen_cracker" => BuildCracker(),
+        "core:greenhouse" => BuildGreenhouse(),
+        "core:engineering_bench" => BuildBench(),
+        "core:physics_lab" => BuildPhysicsLab(),
+        "core:micro_refinery" => BuildMicroRefinery(),
         _ => BuildCrate(),
     };
 
@@ -144,14 +154,40 @@ public static class Models
             a.Arm!.Position = a.ArmBase + new Vector3(0, MathF.Max(0f, MathF.Sin(k * 2f)) * -0.04f, MathF.Sin(k) * 0.27f);
         }
 
+        if (Valid(a.Fan)) a.Fan!.Rotation = new Vector3(0, a.Spin(4, active ? 11f : 0.6f, dt), 0);
+        foreach (var p in a.Pistons)
+            if (Valid(p.Node)) p.Node.Position = p.Base + new Vector3(0, -MathF.Max(0f, MathF.Sin(a.Work * 4.2f + p.Phase)) * 0.075f, 0);
+
         float dmg = a.Damage;
+        int state = a.PowerScale < 0.3f ? 2 : (active ? 0 : 1); // status lamp: 0 working, 1 idle, 2 unpowered
         for (int i = 0; i < a.Glows.Count; i++)
         {
             var g = a.Glows[i];
             if (!Valid(g.Mi)) continue;
             bool engine = g.IsEngine;
             float f;
-            if (g.IsCore && a.Reactor != 0)
+            if (g.IsStatus)
+            {
+                if (g.State != state)
+                {
+                    g.State = state;
+                    a.Own(g);
+                    var col = state == 0 ? new Color(0.3f, 1f, 0.4f) : state == 1 ? new Color(1f, 0.72f, 0.15f) : new Color(1f, 0.14f, 0.1f);
+                    if (g.Mat != null) { g.Mat.Emission = col; g.Mat.AlbedoColor = col * 0.45f; }
+                    g.LastF = float.NaN;
+                }
+                f = state == 0 ? 0.95f + 0.1f * MathF.Sin(t * 4f) : state == 1 ? 0.55f : 0.25f + 0.25f * (MathF.Sin(t * 5f) > 0.6f ? 1f : 0f);
+            }
+            else if (g.IsBlink) f = BlinkFactor(t, i) * (a.PowerScale < 0.3f ? 0.2f : 1f);
+            else if (g.IsStrip) f = a.PowerScale; // ceiling and wall strips: steady, they only follow the power
+            else if (g.IsTrail)
+            {
+                bool show = active && a.Thrust > 0.08f;
+                if (g.Mi.Visible != show) g.Mi.Visible = show;
+                f = 0.7f + 0.3f * MathF.Sin(t * 19f + i);
+                g.Mi.Scale = new Vector3(MathF.Max(0.01f, a.Thrust) * (1f + 0.2f * MathF.Sin(t * 11f + i)), 1f + 0.25f * a.Thrust, 1f + 0.25f * a.Thrust);
+            }
+            else if (g.IsCore && a.Reactor != 0)
             {
                 // The reactor core ignores the power scale: it breathes slowly while burning and shows a faint red emergency light when dark.
                 bool burning = a.Reactor == 1;
@@ -182,9 +218,41 @@ public static class Models
             a.Own(g);
             if (g.Mat == null) continue;
             g.Mat.EmissionEnergyMultiplier = g.Energy * f;
-            if (engine) g.Mi.Scale = new Vector3(active ? 1f + 0.18f * MathF.Sin(t * 30f) : 0.6f, 1f, 1f);
+            if (engine && !g.IsTrail)
+            {
+                float len = active ? a.Thrust * (1f + 0.18f * MathF.Sin(t * 30f)) : 0.6f;
+                float wid = 0.8f + 0.2f * MathF.Min(a.Thrust, 2f);
+                g.Mi.Scale = new Vector3(len, wid, wid);
+            }
         }
     }
+
+    /// <summary>Square-wave strobe with a per-light phase: a short bright flash about once a second.</summary>
+    private static float BlinkFactor(float t, int salt)
+    {
+        float k = (t * 0.9f + salt * 0.37f) % 1f;
+        return k < 0.12f ? 1f : 0.06f;
+    }
+
+    /// <summary>Drives only the blinking beacons of a model that is otherwise static (hull, cargo, cockpit modules). Cheap: one lookup and a short list.</summary>
+    public static void AnimateBlink(Node3D model, double timeSeconds, float power01 = 1f)
+    {
+        var a = GetAnim(model);
+        float t = (float)timeSeconds;
+        for (int i = 0; i < a.Blinks.Count; i++)
+        {
+            var g = a.Blinks[i];
+            if (!Valid(g.Mi)) continue;
+            float f = BlinkFactor(t, i) * (power01 < 0.3f ? 0.2f : 1f);
+            if (!float.IsNaN(g.LastF) && MathF.Abs(g.LastF - f) < 0.01f) continue;
+            g.LastF = f;
+            a.Own(g);
+            if (g.Mat != null) g.Mat.EmissionEnergyMultiplier = g.Energy * f;
+        }
+    }
+
+    /// <summary>Thrust level of an engine module: scales its flame length and width and shows a trail above a small level. 1 = a single engine at cruise.</summary>
+    public static void SetThrust(Node3D model, float level) => GetAnim(model).Thrust = Math.Clamp(level, 0f, 3f);
 
     /// <summary>
     /// Scales every light of the model (0 dark, 1 normal) except a reactor core: used for the power satisfaction of a structure and
@@ -198,6 +266,8 @@ public static class Models
         var a = GetAnim(model);
         if (a.Amber == amber) return;
         a.Amber = amber;
+        foreach (var (light, col, energy) in a.Lights)
+            if (Valid(light)) { light.LightColor = amber ? new Color(1f, 0.62f, 0.16f) : col; light.LightEnergy = amber ? energy * 0.7f : energy; }
         foreach (var g in a.Glows)
         {
             if (!g.IsLamp || !Valid(g.Mi)) continue;
@@ -260,7 +330,8 @@ public static class Models
     {
         public MeshInstance3D Mi = null!;
         public StandardMaterial3D? Mat;
-        public bool IsGlow, IsEngine, IsCore, IsLamp, Owned;
+        public bool IsGlow, IsEngine, IsCore, IsLamp, IsStatus, IsBlink, IsStrip, IsTrail, Owned;
+        public int State = -1; // status lamp: the state its material was last set to
         public float LastF = float.NaN; // the last glow factor written, so unchanged lights cost nothing
         public Color Albedo, Emission;
         public float Energy, Rough, Metal;
@@ -270,7 +341,11 @@ public static class Models
     {
         public readonly List<Rec> All = new();
         public readonly List<Rec> Glows = new();
-        public Node3D? Bit, Ring, Dish, Spinner, Rocker, Arm;
+        public Node3D? Bit, Ring, Dish, Spinner, Rocker, Arm, Fan;
+        public readonly List<(Node3D Node, Vector3 Base, float Phase)> Pistons = new();
+        public readonly List<Rec> Blinks = new();
+        public readonly List<(OmniLight3D Light, Color Colour, float Energy)> Lights = new();
+        public float Thrust = 1f;
         public Vector3 ArmBase;
         public double Last = double.NaN;
         public float Work, Damage;
@@ -278,7 +353,7 @@ public static class Models
         public int Reactor, AppliedReactor; // 0 = not a reactor, 1 = burning, 2 = dark
         public bool Amber; // the lamps and dashboards tint amber
         public float AppliedDamage; // the damage the materials were last set to
-        private readonly float[] _angles = new float[4];
+        private readonly float[] _angles = new float[6];
 
         public float Spin(int slot, float speed, float dt) => _angles[slot] += speed * dt;
 
@@ -327,14 +402,19 @@ public static class Models
                     case "Spinner": a.Spinner = n3; break;
                     case "Rocker": a.Rocker = n3; break;
                     case "Arm": a.Arm = n3; a.ArmBase = n3.Position; break;
+                    case "Fan": a.Fan = n3; break;
+                    case string s when s.StartsWith("Piston", StringComparison.Ordinal): a.Pistons.Add((n3, n3.Position, a.Pistons.Count * 1.7f)); break;
                 }
             }
+            if (c is OmniLight3D ol && name == "ModuleLight") a.Lights.Add((ol, ol.LightColor, ol.LightEnergy));
             if (c is MeshInstance3D mi)
             {
                 var rec = new Rec
                 {
                     Mi = mi, IsGlow = name.StartsWith("Glow", StringComparison.Ordinal), IsEngine = name.StartsWith("GlowEngine", StringComparison.Ordinal),
-                    IsCore = name == "GlowCore", IsLamp = name is "GlowLamp" or "GlowDash",
+                    IsCore = name == "GlowCore", IsLamp = name is "GlowLamp" or "GlowDash" or "GlowStrip",
+                    IsStatus = name == "GlowStatus", IsBlink = name.StartsWith("GlowBlink", StringComparison.Ordinal), IsStrip = name == "GlowStrip",
+                    IsTrail = name.StartsWith("GlowEngineTrail", StringComparison.Ordinal),
                 };
                 if (mi.Mesh?.SurfaceGetMaterial(0) is StandardMaterial3D m)
                 {
@@ -346,6 +426,7 @@ public static class Models
                 }
                 a.All.Add(rec);
                 if (rec.IsGlow) a.Glows.Add(rec);
+                if (rec.IsBlink) a.Blinks.Add(rec);
             }
             Collect(c, a);
         }
@@ -405,7 +486,7 @@ public static class Models
                 Metallic = 0.5f,
                 EmissionEnabled = true,
                 Emission = new Color(0.15f, 0.40f, 0.95f),
-                EmissionEnergyMultiplier = 0.7f,
+                EmissionEnergyMultiplier = 0.4f,
             };
         return m;
     }
@@ -703,6 +784,17 @@ public static class Models
         Add(r, "GlowMouth", "smelter.mouth", Glow(new Color(1f, 0.52f, 0.1f), 3.2f), mb => mb.Block(new(0.402f, Y0 + 0.15f, 0), new(0.03f, 0.20f, 0.32f)));
         Add(r, "GlowVent", "smelter.vent", Glow(new Color(1f, 0.45f, 0.08f), 2.5f), mb => mb.Block(new(0.08f, Y0 + 0.432f, 0), new(0.26f, 0.012f, 0.07f)));
         Add(r, "GlowRim", "smelter.rim", Glow(new Color(1f, 0.55f, 0.15f), 2.8f), mb => mb.Prism(new(-0.20f, Y0 + 0.785f, -0.10f), 0.072f, 0.072f, 0.012f, 8));
+        // two rams on the roof stamp the billet while it works
+        for (int i = 0; i < 2; i++)
+        {
+            var ram = Pivot(r, i == 0 ? "Piston" : "Piston2", new(0.12f, Y0 + 0.47f, i == 0 ? -0.15f : 0.15f));
+            Add(ram, "RamMesh", "smelter.ram", Body(), mb =>
+            {
+                mb.C(Steel).Prism(new(0, 0, 0), 0.03f, 0.03f, 0.11f, 6);
+                mb.C(RedDk).Block(new(0, 0.12f, 0), new(0.09f, 0.05f, 0.09f));
+                mb.C(Hull).Prism(new(0, 0.145f, 0), 0.045f, 0.03f, 0.03f, 6);
+            });
+        }
         return r;
     }
 
@@ -728,6 +820,15 @@ public static class Models
         });
         Add(r, "GlowItem", "assembler.item", Glow(new Color(0.45f, 0.95f, 1f), 2.4f), mb => mb.Block(new(-0.08f, Y0 + 0.17f, 0), new(0.11f, 0.10f, 0.11f), 0.8f, 0.8f));
         Add(r, "GlowLight", "assembler.light", Glow(new Color(0.4f, 0.95f, 1f), 3f), mb => mb.Block(new(0.382f, Y0 + 0.21f, 0.15f), new(0.012f, 0.04f, 0.05f)));
+        // a press over the right-hand work cell: drops onto it in time with the arm
+        var press = Pivot(r, "Piston", new(0.21f, Y0 + 0.47f, 0));
+        Add(press, "RamMesh", "assembler.press", Body(), mb =>
+        {
+            mb.C(Steel).Prism(new(0, 0, 0), 0.025f, 0.025f, 0.12f, 5);
+            mb.C(Panel).Block(new(0, 0.0f, 0), new(0.16f, 0.03f, 0.16f));
+            mb.C(Blue).Block(new(0, -0.03f, 0), new(0.12f, 0.03f, 0.12f));
+        });
+        Add(r, "Bridge", "assembler.bridge", Body(), mb => mb.C(Steel).Beam(new(-0.08f, Y0 + 0.68f, 0), new(0.21f, Y0 + 0.62f, 0), 0.05f));
         var arm = Pivot(r, "Arm", new(-0.08f, Y0 + 0.63f, 0));
         Add(arm, "ArmMesh", "assembler.arm", Body(), mb =>
         {
@@ -795,52 +896,6 @@ public static class Models
         return r;
     }
 
-    private static Node3D BuildUnloader()
-    {
-        var r = NewMachine("Unloader");
-        Add(r, "Body", "unloader.body", Body(), mb =>
-        {
-            Plinth(mb, Green);
-            mb.C(GreenDk).Block(new(-0.10f, Y0 + 0.14f, 0), new(0.60f, 0.28f, 0.70f), 0.94f, 0.94f);
-            mb.C(Hull).Block(new(-0.10f, Y0 + 0.29f, 0), new(0.44f, 0.04f, 0.50f));
-            // a chute pointing out of the hold towards +X, where the belt starts
-            mb.C(Steel).Block(new(0.30f, Y0 + 0.12f, 0), new(0.30f, 0.14f, 0.30f), 0.8f, 0.8f);
-            mb.C(Panel).Block(new(0.30f, Y0 + 0.20f, 0), new(0.34f, 0.025f, 0.34f));
-            foreach (float s in new[] { -1f, 1f })
-                mb.C(Steel).Prism(new(-0.30f, Y0, 0.30f * s), 0.05f, 0.04f, 0.40f, 6);
-        });
-        Add(r, "GlowLight", "unloader.light", Glow(new Color(0.4f, 1f, 0.6f), 2.4f), mb =>
-        {
-            mb.Sphere(new(-0.30f, Y0 + 0.43f, 0.30f), new(0.04f, 0.03f, 0.04f), 3, 6);
-            mb.Sphere(new(-0.30f, Y0 + 0.43f, -0.30f), new(0.04f, 0.03f, 0.04f), 3, 6);
-            mb.Block(new(0.30f, Y0 + 0.215f, 0), new(0.16f, 0.012f, 0.16f));
-        });
-        return r;
-    }
-
-    /// <summary>The hydrogen cracker: a squat reaction vessel and a tall cold tank on a plinth, with a cyan glow that breathes while it works.</summary>
-    private static Node3D BuildCracker()
-    {
-        var r = NewMachine("Cracker");
-        Add(r, "Body", "cracker.body", Body(), mb =>
-        {
-            Plinth(mb, Blue);
-            mb.C(BlueDk).Prism(new(-0.12f, Y0, 0.12f), 0.30f, 0.30f, 0.46f, 10);
-            mb.C(Panel).Prism(new(-0.12f, Y0 + 0.46f, 0.12f), 0.27f, 0.14f, 0.07f, 10);
-            mb.C(Steel).Prism(new(0.18f, Y0, -0.20f), 0.17f, 0.17f, 0.82f, 8);
-            mb.C(Hull).Prism(new(0.18f, Y0 + 0.82f, -0.20f), 0.15f, 0.06f, 0.07f, 8);
-            mb.C(Steel).Beam(new(-0.12f, Y0 + 0.30f, 0.12f), new(0.18f, Y0 + 0.60f, -0.20f), 0.045f);
-            mb.C(Blue).Block(new(0.36f, Y0 + 0.12f, 0.1f), new(0.2f, 0.12f, 0.2f), 0.85f, 0.85f);
-        });
-        Add(r, "GlowRim", "cracker.ring", Glow(new Color(0.4f, 0.9f, 1f), 2.8f), mb =>
-        {
-            mb.Prism(new(-0.12f, Y0 + 0.22f, 0.12f), 0.315f, 0.315f, 0.035f, 10);
-            mb.Prism(new(0.18f, Y0 + 0.50f, -0.20f), 0.18f, 0.18f, 0.03f, 8);
-        });
-        Add(r, "GlowLight", "cracker.light", Glow(new Color(0.45f, 1f, 0.9f), 3f), mb => mb.Block(new(0.455f, Y0 + 0.14f, 0.1f), new(0.012f, 0.05f, 0.08f)));
-        return r;
-    }
-
     private static Node3D BuildWall()
     {
         var r = NewMachine("Wall");
@@ -890,7 +945,7 @@ public static class Models
         });
         Add(r, "GlowPad", "depot.pad", Glow(new Color(0.35f, 1f, 0.55f), 2.4f), mb => mb.Torus(new(-0.12f, Y0 + 0.24f, 0), 0.22f, 0.014f, 12, 3));
         Add(r, "GlowBay", "depot.bay", Glow(new Color(0.35f, 1f, 0.55f), 2.2f), mb => mb.Block(new(0.34f, Y0 + 0.062f, 0), new(0.20f, 0.012f, 0.50f)));
-        Add(r, "GlowBeacons", "depot.beacons", Glow(new Color(0.45f, 1f, 0.6f), 3.2f), mb =>
+        Add(r, "GlowStatus", "depot.beacons", Glow(new Color(0.45f, 1f, 0.6f), 3.2f), mb =>
         {
             foreach (float sx in new[] { -1f, 1f })
                 foreach (float sz in new[] { -1f, 1f })

@@ -120,7 +120,9 @@ void fragment() {
     public void SetPower(int structureId, int satisfactionPermille, bool burning) => _power[structureId] = (satisfactionPermille, burning);
 
     /// <summary>Lights the engine flames of a structure.</summary>
-    public void SetEngines(int structureId, bool active) => _thrust[structureId] = active;
+    public void SetEngines(int structureId, bool active, float level = 1f) { _thrust[structureId] = active; _thrustLevel[structureId] = level; }
+
+    private readonly Dictionary<int, float> _thrustLevel = new();
 
     /// <summary>Position of a structure's origin corner in game cells.</summary>
     public static Vector3 OriginCells(BeltNetwork net, int id)
@@ -185,11 +187,16 @@ void fragment() {
             bool thrust = _thrust.TryGetValue(id, out bool t) && t;
             var (sat, burning) = _power.TryGetValue(id, out var pw) ? pw : (1000, true);
             bool amber = sat < PowerRules.FullSatisfaction;
+            int engines = 0;
+            foreach (var (k, _) in sr.Modules.Values) if (k == ModuleKind.Engine) engines++;
+            // a bigger flame for more engines and for more throttle; a single engine at cruise is 1
+            float thrustLevel = (_thrustLevel.TryGetValue(id, out float lv) ? lv : 1f) * (0.85f + 0.3f * MathF.Min(engines, 4));
             foreach (var (kind, node) in sr.Modules.Values)
                 switch (kind)
                 {
                     case ModuleKind.Engine:
                         Models.SetPower(node, 0.2f + 0.8f * sat / 1000f); // the flame and vents dim with the power
+                        Models.SetThrust(node, thrustLevel);
                         Models.Animate(node, _time, thrust);
                         break;
                     case ModuleKind.Shield:
@@ -210,7 +217,15 @@ void fragment() {
                     case ModuleKind.Cargo:
                     case ModuleKind.DroneBay:
                         Models.SetAmber(node, amber);
+                        Models.AnimateBlink(node, _time, sat / 1000f);
                         break;
+                    case ModuleKind.Hull:
+                    case ModuleKind.Workshop:
+                    case ModuleKind.Defence:
+                        Models.SetAmber(node, amber);
+                        Models.AnimateBlink(node, _time, sat / 1000f);
+                        break;
+
                 }
         }
         if (_coreMarker is { Visible: true } m)

@@ -11,7 +11,7 @@ namespace Starfoundry.Game;
 /// <summary>
 /// Review scene for the procedural models. Run with user args after "--":
 /// --shot=path.png (save a screenshot after --frames=N frames and quit), --export-models=dir (write .glb files and quit),
-/// --focus=machines|units|all|modules|ship-demo|station-demo, --variant=N, --at=x,y,z (look-at point), --angle=deg, --pitch=deg, --dist=units, --fov=deg. Without --angle the camera orbits slowly.
+/// --focus=machines|machines2|belts|units|all|modules|ship-demo|station-demo (machines2 = the cracker, greenhouse, bench, physics lab, refinery and ports; belts = belt tiers and every item shape), --state=work|idle|off (machine lamps), --variant=N, --at=x,y,z (look-at point), --angle=deg, --pitch=deg, --dist=units, --fov=deg. Without --angle the camera orbits slowly.
 /// </summary>
 public partial class Gallery : Node3D
 {
@@ -25,6 +25,8 @@ public partial class Gallery : Node3D
     private bool _orbit = true;
     private float _angle = 35f, _pitch = 28f, _dist = -1f, _fov = 40f;
     private Vector3 _focusPoint;
+    private int _page;
+    private string _state = "work"; // --state=work|idle|off: how the machines of the gallery behave
 
     private static readonly (string Name, Func<Node3D> Make)[] Exports =
     {
@@ -61,6 +63,7 @@ public partial class Gallery : Node3D
         }
 
         _shot = Arg("--shot");
+        _state = Arg("--state") ?? "work";
         _frames = (int)F("--frames", 20);
         if (Arg("--angle") != null) { _orbit = false; _angle = F("--angle", 35f); }
         _pitch = F("--pitch", 28f);
@@ -71,6 +74,8 @@ public partial class Gallery : Node3D
         switch (focus)
         {
             case "machines": _focusPoint = new Vector3(0, 0, 0f); defDist = 9f; break;
+            case "machines2": _focusPoint = new Vector3(0, 0, 0f); defDist = 9f; _page = 1; break;
+            case "belts": _focusPoint = new Vector3(2f, 0, 0f); defDist = 8f; break;
             case "modules": _focusPoint = new Vector3(32f, 1.5f, 8f); defDist = 75f; break;
             case "ship-demo": _focusPoint = new Vector3(4f, 2f, 20f); defDist = 40f; break;
             case "station-demo": _focusPoint = new Vector3(12f, 3f, 8f); defDist = 40f; break;
@@ -85,7 +90,41 @@ public partial class Gallery : Node3D
         BuildScene();
         if (focus is "modules" or "ship-demo" or "station-demo") BuildModuleGallery(focus, (int)F("--variant", 0));
         else if (focus == "deposits") BuildDepositGallery();
+        else if (focus == "belts") BuildBeltGallery();
         else BuildModels();
+    }
+
+    /// <summary>--focus=belts: three tiers of belt tiles with every item on them, a vertical run and the three end caps.</summary>
+    private void BuildBeltGallery()
+    {
+        Color[] tiers = { new(0.35f, 0.40f, 0.50f), new(0.20f, 0.55f, 0.60f), new(0.85f, 0.50f, 0.20f) };
+        string[] ids =
+        {
+            "core:iron_ore", "core:titanium_ore", "core:nickel_ore", "core:carbon", "core:quartz", "core:ice", "core:iron_ingot", "core:titanium_ingot",
+            "core:nickel_ingot", "core:silicon", "core:iron_plate", "core:titanium_plate", "core:nickel_plate", "core:titanium_alloy", "core:circuit",
+            "core:fuel_cell", "core:ammo", "core:hydrogen", "core:biomass", "core:science_engineering", "core:science_biology", "core:science_physics",
+        };
+        StandardMaterial3D Tint(Color c) => new() { VertexColorUseAsAlbedo = true, AlbedoColor = c, Roughness = 0.5f, Metallic = 0.12f };
+        for (int t = 0; t < 3; t++)
+        {
+            for (int i = 0; i < 12; i++)
+                AddChild(new MeshInstance3D { Mesh = BeltModels.Tile(t), MaterialOverride = Tint(tiers[t]), Position = new Vector3(i, -0.46f, t * 1.3f) });
+            for (int i = 0; i < 11; i++)
+            {
+                var (shape, tint) = BeltModels.StyleOf(ids[(t * 7 + i) % ids.Length]);
+                AddChild(new MeshInstance3D { Mesh = BeltModels.Item(shape), MaterialOverride = Tint(tint), Position = new Vector3(i + 0.5f, -0.46f + 0.172f, t * 1.3f), Scale = Vector3.One * 0.27f });
+            }
+        }
+        // the whole catalogue in a row along the back, at a larger scale so the silhouettes can be judged
+        for (int i = 0; i < ids.Length; i++)
+        {
+            var (shape, tint) = BeltModels.StyleOf(ids[i]);
+            AddChild(new MeshInstance3D { Mesh = BeltModels.Item(shape), MaterialOverride = Tint(tint), Position = new Vector3(i * 0.62f - 1f, -0.46f, -1.6f), Scale = Vector3.One * 0.5f });
+        }
+        Color[] caps = { new(1f, 0.78f, 0.2f), new(0.95f, 0.3f, 0.25f), new(0.35f, 0.95f, 0.55f) };
+        for (int i = 0; i < 3; i++)
+            AddChild(new MeshInstance3D { Mesh = BeltModels.Hub(), MaterialOverride = Tint(caps[i]), Position = new Vector3(11 + 0f, -0.46f, i * 1.3f) });
+        Label("belts Mk1 / Mk2 / Mk3, splitter / sink / source caps", new Vector3(5f, -0.3f, 4.4f));
     }
 
     /// <summary>--focus=deposits: one row per item, columns for density 25, 100, 200 and a 100-density deposit at 30% left.</summary>
@@ -197,7 +236,9 @@ public partial class Gallery : Node3D
 
     private void BuildModels()
     {
-        string[] ids = { "core:extractor", "core:drill", "core:smelter", "core:assembler", "core:research_lab", "core:depot", "core:turret", "core:wall", "core:repair_bay", "core:unloader" };
+        string[] ids = _page == 0
+            ? new[] { "core:extractor", "core:drill", "core:smelter", "core:assembler", "core:research_lab", "core:depot", "core:turret", "core:wall", "core:repair_bay", "core:unloader" }
+            : new[] { "core:hydrogen_cracker", "core:greenhouse", "core:engineering_bench", "core:physics_lab", "core:micro_refinery", "core:ore_unloader", "core:titanium_ore_unloader", "core:nickel_ore_unloader", "core:ice_unloader", "core:quartz_unloader", "core:carbon_unloader" };
         var tile = new StandardMaterial3D { AlbedoColor = new Color(0.12f, 0.14f, 0.19f), Roughness = 0.9f };
         for (int i = 0; i < ids.Length; i++)
         {
@@ -265,7 +306,11 @@ public partial class Gallery : Node3D
     {
         _time += delta;
         _frame++;
-        foreach (var m in _animated) Models.Animate(m, _time, true);
+        foreach (var m in _animated)
+        {
+            Models.SetPower(m, _state == "off" ? 0.1f : 1f);
+            Models.Animate(m, _time, _state == "work");
+        }
         var target = new Vector3(MathF.Cos((float)_time * 0.8f) * 4.5f, 1.4f + MathF.Sin((float)_time * 0.6f) * 0.8f, MathF.Sin((float)_time * 0.8f) * 3f + 1f);
         _marker.Position = target;
         foreach (var t in _turrets) Models.Aim(t, target);
