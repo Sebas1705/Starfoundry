@@ -27,7 +27,7 @@ Measured by the tests in `PowerTests.cs` and `HydrogenTests.cs` (30 ticks a seco
 - Hand-mined ice to hydrogen: the home ice deposit has density 42 percent in the test seed, so hand mining takes 35 ticks per ice. From the start of mining to the first hydrogen delivered to the hold: 283 ticks (9.4 s) with the ice port, cracker and depot built beside the starter factory.
 - Six minutes of hand mining ice with that loop made 17 hydrogen while the reactor burned 13 (24 left of the 20 at the start): the loop out-produces the reactor, so one miner keeps the starter ship alive indefinitely.
 - At half satisfaction (demand twice the production) a smelter makes half the items in the same time (18 to 20 crafts at full power against half of that, within one craft, over 1200 ticks), and a ship covers half the distance.
-- Pacing tests of the structure worlds pass unchanged: the 20 hydrogen only take 20 hold slots, hand mining stops at 45 items instead of lower.
+- Pacing tests of the structure worlds follow the hold: the 20 hydrogen take 20 hold slots, and since the second balance pass (2026-11-22) the small container holds 100, so hand mining stops at 75 items and depots at 90.
 
 ## HUD
 Built in the game (`game/Play.Power.cs`, helpers in `Starfoundry.Ui/PowerFormat.cs`):
@@ -40,4 +40,7 @@ Built in the game (`game/Play.Power.cs`, helpers in `Starfoundry.Ui/PowerFormat.
 
 ## Limits
 - Reactors are all the same size; no batteries and no per-structure tank.
-- The cracker needs an ice port from the hold: ice reaches the ship only by hand mining until drones come (roadmap part 3).
+- The cracker needs an ice port from the hold: ice reaches the ship by hand mining or by a drone bay on the ice deposit.
+
+## Fuel horizon (second balance pass, 2026-11-22)
+The home ice deposit holds 1500 to 2000 (density 40 to 70 percent), up from 600 to 800. The structure bot ([structure-bot.md](structure-bot.md)) had used up the old deposit at about minute 65 to 76 with a ship reactor pair and a station reactor, after which the base slid into emergency power. Now, with a drone bay on the ice and up to five reactors (two on the ship, three on the station once the extra laboratories are built), the deposit lasts to about minute 120, and in two hours of play the bot spends 3 to 6 minutes in all on emergency power (a first short dip at about minute 11 to 18, before the ice loop is steady, and nothing before minute 100 apart from that). Hydrogen no longer needs hand-mined trips once the ship's drone bay mines the ice (the bot still makes some while the bay is paused to keep ice from piling up).

@@ -118,7 +118,7 @@ public class StructureBotTests
     [Fact]
     public void Bot_researches_the_whole_tree_with_drones_when_left_alone()
     {
-        // No waves: the economy alone. Measured (seed 20261121): the last of the 17 nodes at about minute 89, the first drone at 30.
+        // No waves: the economy alone. Measured (seed 20261121): the last of the 17 nodes at about minute 93, the first drone at 30.
         var r = Play(continueAfterWin: true, minutes: 120, threats: false);
         _out.WriteLine(r.Format());
         foreach (var node in TestContent.Core.Research)

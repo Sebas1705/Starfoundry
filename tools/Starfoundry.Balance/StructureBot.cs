@@ -25,6 +25,11 @@ public sealed class StructureBotReport
     /// <summary>Seconds (counted once a second) in which a structure with a reactor had no hydrogen to burn and ran on its emergency output.</summary>
     public int EmergencySeconds { get; set; }
 
+    /// <summary>Turrets standing, and modules and machines lost so far, when the win was reached (how hard the waves were on this defence).</summary>
+    public int TurretsAtWin { get; set; }
+    public long ModulesLostAtWin { get; set; }
+    public long MachinesLostAtWin { get; set; }
+
     public bool Has(string milestone) => Timeline.Any(t => t.Name == milestone);
 
     public double At(string milestone) => Timeline.First(t => t.Name == milestone).Seconds;
@@ -37,6 +42,7 @@ public sealed class StructureBotReport
         foreach (var (n, s) in Timeline) lines.Add($"| {Clock(s)} | {n} |");
         lines.Add("");
         lines.Add($"Emergency power: {EmergencySeconds} s.");
+        if (TurretsAtWin > 0) lines.Add($"At the win: {TurretsAtWin} turrets standing, {ModulesLostAtWin} modules and {MachinesLostAtWin} machines lost so far.");
         lines.Add($"Outcome: {Outcome} ({Reason}) after {Clock(Seconds)}; waves survived {WavesSurvived}; modules lost {ModulesLost}; machines lost {MachinesLost}; mined by hand {MinedByHand}, by drones {MinedByDrones}.");
         if (End.Length > 0) lines.Add("End: " + End);
         if (Stuck.Count > 0)
@@ -207,6 +213,14 @@ public sealed partial class StructureBot
         {
             _report.Outcome = OutcomeKind.Won;
             _report.Reason = outcome.Reason;
+            for (int id = 0; id < Net.MachineIdLimit; id++)
+            {
+                if (!Net.IsMachineAlive(id)) continue;
+                var role = _c.Machines[Net.GetMachineInfo(id).Type].Role;
+                if (role == MachineRole.Turret) _report.TurretsAtWin++;
+            }
+            _report.ModulesLostAtWin = Net.ModulesLost;
+            _report.MachinesLostAtWin = Net.MachinesLost;
             Milestone(VictoryMilestone);
         }
         if (outcome.Kind == OutcomeKind.Lost)

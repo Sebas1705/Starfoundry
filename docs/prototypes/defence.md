@@ -93,3 +93,6 @@ Measured by `WaveBalanceTests.Measure_the_wave_table` (seed 20261121, a compact 
 | 4 | on | holds waves 0 to 8 without losing hit points |
 
 Intent, each pinned by a test: undefended bases fall by wave 2 (`Undefended_base_falls_by_wave_2`, cannon off; cannon alone lasts to wave 5); one turret is not enough once the brutes come (`One_turret_is_not_enough_from_wave_3`, cannon off: wave 3 leaves a mark and the base falls by wave 5); two turrets and the cannon hold waves 0 to 6 (`Two_turrets_and_the_ship_cannon_hold_waves_0_to_6`). Layout matters: a spread-out ship (cockpit, workshop, defence, engine in a row) loses its far module at wave 6 even with 2 turrets and the cannon, because the turrets (range 18 cells) cannot reach an enemy that attacks the end module from 5 cells further out.
+
+## Waves checked again (second balance pass, 2026-11-22)
+The wave table was not changed. The structure bot ([structure-bot.md](structure-bot.md)) reaches the win with 8 turrets (two ammo batteries of two on the ship and on the station), two walls per structure and a repair bay each, and lost no module and no machine before wave 10 on any of five seeds: waves 0 to 10 are close to trivial for a player who builds that defence by minute 14. See the "needs decision" list in that document.
