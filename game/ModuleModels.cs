@@ -236,7 +236,7 @@ public static class ModuleModels
     });
 
     /// <summary>The opening of a doorway in a wall, and the lit sill on the floor across it.</summary>
-    private const float DoorHalf = 1.8f, DoorHeight = 2.7f;
+    private const float DoorHalf = 1.8f, DoorHeight = 2.7f, ShipDoorHeight = 3.1f;
 
     /// <summary>The cross-section of a ship hull in the XY plane, scaled about a point low in the section.</summary>
     private static Vector2[] Oct(float roofY, float scale, int mask = 0)
@@ -279,9 +279,9 @@ public static class ModuleModels
     /// The outer shell. Ship: an octagonal hull with optional tapered nose and tail, a spine and side stripe in the trim colour.
     /// Station: a slab box with docking collars on the four sides, and raised panels when <paramref name="detail"/>.
     /// </summary>
-    private static void Skin(Cx c, float roofY, bool nose = false, bool tail = false, bool detail = false, bool collars = true)
+    private static void Skin(Cx c, float roofY, bool nose = false, bool tail = false, bool detail = false, bool collars = true, bool glassRoof = false)
     {
-        string key = $"{c.K}.skin.{roofY}.{nose}.{tail}.{detail}.{collars}";
+        string key = $"{c.K}.skin.{roofY}.{nose}.{tail}.{detail}.{collars}.{glassRoof}";
         Models.Add(c.R, "Skin", key, Models.Body(), mb =>
         {
             mb.At(default);
@@ -289,6 +289,7 @@ public static class ModuleModels
             {
                 var full = Oct(roofY, 1f, c.M);
                 int skip = (c.Has(Right) ? 1 << 2 : 0) | (c.Has(Left) ? 1 << 6 : 0) | (c.Has(Up) ? 1 << 4 : 0) | (c.Has(Down) ? 1 : 0);
+                if (glassRoof) skip |= RoofEdges; // the roof is a separate glass part, see-through from inside
                 float a = nose ? 3.4f : 0.05f, b = tail ? 5.0f : D - 0.05f;
                 mb.C(White);
                 // exposed ends of the tube are closed by a bulkhead; ends that touch another module stay open
@@ -298,7 +299,7 @@ public static class ModuleModels
                 if (tail) Loft(mb, full, b, Oct(roofY, 0.8f, c.M), 6.1f, false, true, skip);
                 float zc = (a + b) / 2, len = b - a;
                 float spineTop = full[4].Y;
-                if (!c.Has(Up)) mb.C(c.Acc).Block(new(4, spineTop + 0.02f, zc), new(1.1f, 0.06f, len - 0.1f));
+                if (!c.Has(Up) && !glassRoof) mb.C(c.Acc).Block(new(4, spineTop + 0.02f, zc), new(1.1f, 0.06f, len - 0.1f));
                 mb.C(Dark).Block(new(4, 0.066f, 4), new(full[1].X - full[0].X - 0.4f, 0.03f, D - 0.4f));
                 float mid = (full[2].Y + full[3].Y) / 2;
                 // role band along each exposed flank, and a thin trim line under it
@@ -517,7 +518,7 @@ public static class ModuleModels
             {
                 mb.At(default);
                 float wall = lateral ? W - 0.14f : D - 0.14f; // the wall plane, a hair inside the module box
-                float jh = DoorHeight, w = DoorHalf;
+                float jh = c.Ship ? ShipDoorHeight : DoorHeight, w = DoorHalf; // a ship door is taller so the frame header clears the seated eye
                 Vector3 P(float along, float y, float across = 0f) => lateral ? new(wall + across, y, along) : new(along, y, wall + across);
                 Vector3 S(float len, float hh, float depth) => lateral ? new(depth, hh, len) : new(len, hh, depth);
                 mb.C(c.Ship ? Panel : Steel);
@@ -532,7 +533,7 @@ public static class ModuleModels
             Models.Add(c.R, "JointLight", $"{c.K}.jointlight.{lateral}", Models.Glow(c.Role, 1.6f), mb =>
             {
                 mb.At(default);
-                float wall = lateral ? W - 0.14f : D - 0.14f, y = 0.08f + DoorHeight - 0.03f;
+                float wall = lateral ? W - 0.14f : D - 0.14f, y = 0.08f + (c.Ship ? ShipDoorHeight : DoorHeight) - 0.03f;
                 float len = 2 * DoorHalf - 0.2f;
                 mb.Block(lateral ? new(wall, y, 4) : new(4, y, wall), lateral ? new(0.2f, 0.05f, len) : new(len, 0.05f, 0.2f));
             });
@@ -650,11 +651,24 @@ public static class ModuleModels
 
     // ---- kinds -------------------------------------------------------------------------------------------
 
+    /// <summary>The three upper edges of the hull section (both chamfers and the top): a cockpit has glass there instead of a solid roof.</summary>
+    private const int RoofEdges = (1 << 3) | (1 << 4) | (1 << 5);
+
     private static void Cockpit(Cx c)
     {
         float roof = c.Ship ? Roof : LowRoof;
         bool nose = c.Ship && !c.Has(Front);
-        Skin(c, roof, nose: nose);
+        Skin(c, roof, nose: nose, glassRoof: c.Ship && !c.Has(Up));
+        if (c.Ship && !c.Has(Up))
+            Models.Add(c.R, "RoofGlass", $"{c.K}.roofglass.{roof}.{nose}", Models.GlassMat(), mb =>
+            {
+                mb.At(default);
+                var full = Oct(roof, 1f, c.M);
+                float a = nose ? 3.4f : 0.05f, b = D - 0.05f;
+                int only = ~RoofEdges & 0xFF; // skip every edge except the roof ones
+                if (nose) Loft(mb, Oct(roof, 0.28f, c.M), 0.05f, full, a, false, false, only);
+                Loft(mb, full, a, full, b, false, false, only);
+            });
         Frame(c, roof, nose: nose);
         if (c.Ship)
             Models.Add(c.R, "Canopy", $"{c.K}.canopy", Models.GlassMat(), mb => Dome(mb, new(4, 2.9f, 2.9f), new(1.5f, 1.1f, 2.1f), 4, 10));

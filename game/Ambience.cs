@@ -355,7 +355,7 @@ void sky() {
         _sun.LightColor = sunColor.Lerp(Colors.White, 0.4f);
     }
 
-    private const float StreakStartSpeed = 6f, StreakFullSpeed = 30f;
+    private const float StreakStartSpeed = 4f, StreakFullSpeed = 22f;
 
     /// <summary>Long thin specks aligned with the travel direction, faded in with speed (the dust seen as motion lines).</summary>
     private static GpuParticles3D BuildStreaks()
