@@ -15,6 +15,7 @@ Update this file in the same change as any decision. Move resolved items into an
 - Belts: individual items vs lane buckets for performance.
 - Fluids: pressure model or simple flow.
 - Flight: fuel for basic thrust? Assisted autopilot detail.
+- Docking (ADR 0029, a proposal): ports on the core, the cockpit flanks and a dock module; range 12 cells and 12 units a tick; stock of 60 + 40 per dock + cargo. TBD: several ships per port rules, ship-to-ship docking, stations powering a docked ship's machines, depots and ports that use the station stock, a fee or an exchange with traders.
 - Inter-system travel: lanes only or open jump.
 - Finite vs regenerating asteroids.
 - Quiet play: can a player avoid waves entirely?

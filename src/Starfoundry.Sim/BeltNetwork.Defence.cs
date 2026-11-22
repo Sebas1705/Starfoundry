@@ -78,6 +78,8 @@ public sealed partial class BeltNetwork
     {
         if (!StructureRules || structure == 0 || Content?.Structures is not { } kinds || !_structures.TryGetValue(structure, out var s)) return 0;
         long total = (long)ModuleCount(s, ModuleKind.Defence) * kinds.DefenceBonusPercent(ModuleKind.Defence);
+        // A docked ship fights under the guns of its station: the station's defence modules count for it too (ADR 0029).
+        if (s.DockedTo >= 0 && _structures.TryGetValue(s.DockedTo, out var st)) total += (long)ModuleCount(st, ModuleKind.Defence) * kinds.DefenceBonusPercent(ModuleKind.Defence);
         return (int)Math.Min(total, DefenceRules.MaxBonusPercent);
     }
 
@@ -205,6 +207,7 @@ public sealed partial class BeltNetwork
     /// <summary>Removes a whole station: every machine and belt segment in it, then the structure itself.</summary>
     private void DestroyStation(Structure s)
     {
+        ReleaseDocksOf(s.Id);
         DestroyContents(s.Id, null);
         _structures.Remove(s.Id);
         StructureVersion++;
@@ -277,10 +280,13 @@ public sealed partial class BeltNetwork
     {
         if (!StructureRules || _structures.Count == 0) return;
         int every = Content?.Threat?.ModuleRegenTicks ?? ThreatRules.DefaultModuleRegenTicks;
-        if (Tick % every != 0) return;
         foreach (var s in _structures.Values)
         {
-            if (s.ModuleDamage.Count == 0 || s.Satisfaction != PowerRules.FullSatisfaction) continue;
+            // A docked ship is repaired several times as fast, under the power of its station (ADR 0029).
+            bool docked = s.DockedTo >= 0 && _structures.TryGetValue(s.DockedTo, out var host) && host.Satisfaction == PowerRules.FullSatisfaction;
+            int interval = docked ? Math.Max(1, every / DockRules.RepairSpeedup) : every;
+            if (Tick % interval != 0) continue;
+            if (s.ModuleDamage.Count == 0 || (s.Satisfaction != PowerRules.FullSatisfaction && !docked)) continue;
             foreach (var key in s.ModuleDamage.Keys.ToArray())
             {
                 int hp = s.ModuleDamage[key] + (Content?.Structures?.RegenHp(s.ModuleMap[key]) ?? 1);

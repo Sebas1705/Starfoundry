@@ -108,7 +108,7 @@ public class ResourceExpansionTests
     {
         var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", "core.json")))!.AsObject();
         root.Remove("structure_templates");
-        foreach (var kind in new[] { "shield", "sensor", "reactor_mk2" }) root["structures"]!.AsObject().Remove(kind);
+        foreach (var kind in new[] { "shield", "sensor", "reactor_mk2", "dock" }) root["structures"]!.AsObject().Remove(kind);
         var old = ContentDb.FromJson(root.ToJsonString());
         Assert.False(old.Structures!.IsDefined(ModuleKind.Shield));
         Assert.True(old.Structures.IsDefined(ModuleKind.DroneBay));

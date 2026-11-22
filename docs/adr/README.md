@@ -32,6 +32,7 @@ One decision per file, `NNNN-slug.md`. An accepted ADR is never rewritten; add a
 | [0026](0026-science-fields-and-research-expansion.md) | Three science fields, dedicated machines and 15 research nodes; harder Normal waves with the bulwark | proposed | 2026-11-22 |
 | [0027](0027-mining-laser-rules.md) | The mining laser is a simulation rule: a trigger command, a power draw served before the machines and `mining_rate` research; log version 9 | proposed | 2026-11-22 |
 | [0028](0028-world-generation-obstacles-and-collisions.md) | A wider galaxy with obstacles: seeded star types, rocks, mines, clouds, wrecks and debris, boost and collision damage; log version 10 | proposed | 2026-11-22 |
+| [0029](0029-docking-ship-and-station-are-different.md) | The ship moves and the station is fixed; the ship docks at ports (core, cockpit flanks, dock module), is locked to the port, shares an airlock and a station stock; log version 11 | proposed | 2026-11-22 |
 
 ## Template
 ```markdown

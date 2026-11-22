@@ -684,7 +684,7 @@ public class StructureDefenceTests
         // And before the resource expansion: no silicon, circuit, alloy or fuel cell, no electronics research and none of the three new
         // module kinds (their entries are optional). Items and research are part of the hold and research hashes, so they must be
         // absent for the golden checksums to hold.
-        foreach (var kind in new[] { "shield", "sensor", "reactor_mk2" })
+        foreach (var kind in new[] { "shield", "sensor", "reactor_mk2", "dock" })
             root["structures"]!.AsObject().Remove(kind);
         void RemoveWhere(string section, params string[] ids)
         {

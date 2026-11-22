@@ -48,6 +48,8 @@ public sealed partial class BeltNetwork
     private int AfterShields(Structure s, (int Mx, int My, int Mz) key, int damage)
     {
         int percent = ShieldPercentFor(s, key);
+        // The shields of the station a ship is docked at cover it too, with the best of the two (ADR 0029).
+        if (s.DockedTo >= 0 && _structures.TryGetValue(s.DockedTo, out var host)) percent = Math.Max(percent, ShieldPercentFor(host, (int.MinValue, int.MinValue, int.MinValue)));
         if (percent == 0) return damage;
         return Math.Max(1, damage - (int)((long)damage * percent / 100));
     }

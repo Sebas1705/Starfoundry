@@ -56,6 +56,12 @@ public static class RejectTexts
         Reject.NoCockpitOrEngine => "toast.reject.noCockpitOrEngine",
         Reject.NoDroneBay => "toast.reject.noDroneBay",
         Reject.LastEssentialModule => "toast.reject.lastEssentialModule",
+        Reject.Docked => "toast.reject.docked",
+        Reject.NotDocked => "toast.reject.notDocked",
+        Reject.NoFreePort => "toast.reject.noFreePort",
+        Reject.TooFast => "toast.reject.tooFast",
+        Reject.NoRoom => "toast.reject.noRoom",
+        Reject.AlreadyDocked => "toast.reject.alreadyDocked",
         _ => null,
     };
 }

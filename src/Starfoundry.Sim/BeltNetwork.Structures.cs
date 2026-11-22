@@ -81,6 +81,7 @@ public sealed partial class BeltNetwork
     {
         if (!_players.TryGetValue(player, out var p) || p.ShipStructure < 0) return 0;
         var s = _structures[p.ShipStructure];
+        if (s.DockedTo >= 0) return 0; // a docked ship is locked to its port
         long satisfaction = StructureRules ? s.Satisfaction : PowerRules.FullSatisfaction;
         return (int)(PlayerRules.MoveUnitsPerTick * (long)EnginePercent(s) * satisfaction / (StructureFlight.PercentScale * PowerRules.FullSatisfaction));
     }
@@ -95,7 +96,7 @@ public sealed partial class BeltNetwork
         return fs < 0 || CanFlyStructure(_structures[fs]);
     }
 
-    private bool CanFlyStructure(Structure s) => ModuleCount(s, ModuleKind.Cockpit) > 0 && ModuleCount(s, ModuleKind.Engine) > 0;
+    private bool CanFlyStructure(Structure s) => s.DockedTo < 0 && ModuleCount(s, ModuleKind.Cockpit) > 0 && ModuleCount(s, ModuleKind.Engine) > 0;
 
     /// <summary>Items the player's hold can carry: the sum of the cargo modules of the ship structure when structure rules are on
     /// and the player has one, otherwise <see cref="PlayerRules.HoldCapacity"/>.</summary>
@@ -119,7 +120,7 @@ public sealed partial class BeltNetwork
     private void MoveShipStructure(Player p, int structure)
     {
         var s = _structures[structure];
-        if (!CanFlyStructure(s))
+        if (s.DockedTo >= 0 || !CanFlyStructure(s))
         {
             // The last engine or cockpit is gone: the ship stops where it is.
             p.MoveX = p.MoveY = p.MoveZ = 0;
@@ -232,6 +233,7 @@ public sealed partial class BeltNetwork
         s.BurnRemaining.Remove((mx, my, mz)); // a removed reactor loses the hydrogen it was burning
         s.DroneProgress.Remove((mx, my, mz));
         s.ModuleDamage.Remove((mx, my, mz));
+        ReleaseDocksUsing(id, (mx, my, mz)); // a destroyed port lets go of the ship docked there
         if (s.DroneDeposit >= 0 && ModuleCount(s, ModuleKind.DroneBay) == 0) s.DroneDeposit = -1; // the last bay is gone: nothing mines
         StructureVersion++;
     }
@@ -321,6 +323,7 @@ public sealed partial class BeltNetwork
                 mix(s.DroneDeposit); mix(s.DroneProgress.Count);
                 foreach (var (m, pr) in s.DroneProgress) { mix(m.Mx); mix(m.My); mix(m.Mz); mix(pr); }
             }
+            MixDocking(s, mix); // only docked ships and stations with a stock mix anything
         }
     }
 
@@ -354,6 +357,7 @@ public sealed partial class BeltNetwork
                 if (pr < 1) Fail($"structure {id} drone progress {pr} out of range");
             }
             if (s.Satisfaction is < 0 or > PowerRules.FullSatisfaction) Fail($"structure {id} satisfaction {s.Satisfaction} out of range");
+            ValidateDocking(s);
         }
         foreach (var p in _players.Values)
         {

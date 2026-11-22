@@ -56,6 +56,22 @@ public static partial class ModuleModels
     /// <summary>Neighbour bits of a module: which of its six sides touch another module of the same structure.</summary>
     public const int Left = 1, Right = 2, Front = 4, Rear = 8, Up = 16, Down = 32;
 
+    /// <summary>
+    /// Docking bits of a module's mask (ADR 0029), above the neighbour bits: a free docking port opens on this side (guide lights round the
+    /// collar), and a ship is docked on this side (an airlock; the matching neighbour bit is set too, so the wall is a doorway).
+    /// </summary>
+    public const int PortLeft = 64, PortRight = 128, PortFront = 256, PortRear = 512;
+    public const int DockedLeft = 1024, DockedRight = 2048, DockedFront = 4096, DockedRear = 8192;
+
+    /// <summary>The mask bits for a port face: (neighbour, free-port, docked). The faces are PosX = right, NegX = left, PosZ = rear and NegZ = front.</summary>
+    public static (int Neighbour, int Port, int Docked) PortBits(Dir face) => face switch
+    {
+        Dir.PosX => (Right, PortRight, DockedRight),
+        Dir.NegX => (Left, PortLeft, DockedLeft),
+        Dir.PosZ => (Rear, PortRear, DockedRear),
+        _ => (Front, PortFront, DockedFront),
+    };
+
     /// <summary>The neighbour mask of the module at (mx, my, mz) in a set of module coordinates; the front of a ship is -Z.</summary>
     public static int NeighbourMask(Func<int, int, int, bool> has, int mx, int my, int mz) =>
         (has(mx - 1, my, mz) ? Left : 0) | (has(mx + 1, my, mz) ? Right : 0) | (has(mx, my, mz - 1) ? Front : 0)
@@ -75,6 +91,7 @@ public static partial class ModuleModels
         ModuleKind.Shield => new Color(0.30f, 0.60f, 1f),
         ModuleKind.Sensor => new Color(0.20f, 0.85f, 0.78f),
         ModuleKind.Core => new Color(1f, 0.78f, 0.30f),
+        ModuleKind.Dock => new Color(0.20f, 0.90f, 0.80f),
         _ => new Color(0.58f, 0.64f, 0.76f),
     };
 
@@ -102,9 +119,12 @@ public static partial class ModuleModels
             case ModuleKind.Shield: Shield(c); break;
             case ModuleKind.Sensor: Sensor(c); break;
             case ModuleKind.ReactorMk2: ReactorMk2(c); break;
+            case ModuleKind.Dock: DockModule(c); break;
             default: HullModule(c); break;
         }
         Joints(c);
+        Airlocks(c);
+        PortGuides(c);
         Exposed(c);
         Details(c);
         return r;
@@ -515,6 +535,7 @@ public static partial class ModuleModels
         foreach (bool lateral in new[] { true, false })
         {
             if (!c.Has(lateral ? Right : Rear)) continue;
+            if (c.Has(lateral ? DockedRight : DockedRear)) continue; // a docked side has an airlock instead of a plain joint
             Models.Add(c.R, "Joint", $"{c.K}.joint.{lateral}", Models.Body(), mb =>
             {
                 mb.At(default);
@@ -539,6 +560,128 @@ public static partial class ModuleModels
                 mb.Block(lateral ? new(wall, y, 4) : new(4, y, wall), lateral ? new(0.2f, 0.05f, len) : new(len, 0.05f, 0.2f));
             });
         }
+    }
+
+    // ---- docking: airlocks, port guides and the dock module ----------------------------------------------------
+
+    private static readonly Color Hazard = new(0.98f, 0.80f, 0.10f);
+
+    /// <summary>
+    /// The airlock of a side a ship is docked on: a heavy frame with hazard-striped jambs and a lit lintel on the station, a slimmer collar
+    /// on the ship, and the two door leaves slid back into the jambs. Both modules draw their own half in their own wall plane, so the two
+    /// frames meet in the middle of the joint.
+    /// </summary>
+    private static void Airlocks(Cx c)
+    {
+        foreach (var (docked, lateral, far) in new[] { (DockedLeft, true, false), (DockedRight, true, true), (DockedFront, false, false), (DockedRear, false, true) })
+        {
+            if (!c.Has(docked)) continue;
+            string side = (lateral ? "L" : "F") + (far ? "1" : "0");
+            Models.Add(c.R, "Airlock" + side, $"{c.K}.airlock.{side}", Models.Body(), mb =>
+            {
+                mb.At(default);
+                float edge = lateral ? W : D;
+                float wall = far ? edge - 0.14f : 0.14f;
+                float dir = far ? -1f : 1f; // towards the inside of this module
+                float jh = c.Ship ? ShipDoorHeight : DoorHeight;
+                float w = DoorHalf - (c.Ship ? 0.18f : 0f);
+                float depth = c.Ship ? 0.34f : 0.5f;
+                Vector3 P(float along, float y, float across = 0f) => lateral ? new(wall + dir * across, y, along) : new(along, y, wall + dir * across);
+                Vector3 S(float len, float hh, float d) => lateral ? new(d, hh, len) : new(len, hh, d);
+                mb.C(c.Ship ? Panel : Steel);
+                foreach (float s in new[] { -1f, 1f })
+                    mb.Block(P(4 + s * (w + 0.18f), 0.08f + jh / 2, depth / 2), S(0.36f, jh, depth));
+                mb.Block(P(4, 0.08f + jh + 0.14f, depth / 2), S(2 * w + 0.72f, 0.28f, depth));
+                if (!c.Ship)
+                {
+                    // hazard stripes up the jambs
+                    for (int i = 0; i < 6; i++)
+                        foreach (float s in new[] { -1f, 1f })
+                        {
+                            mb.C(i % 2 == 0 ? Hazard : Dark);
+                            mb.Block(P(4 + s * (w + 0.18f), 0.3f + i * (jh - 0.3f) / 6f + 0.2f, depth + 0.01f), S(0.37f, (jh - 0.3f) / 6f, 0.02f));
+                        }
+                }
+                mb.C(c.Role).Block(P(4, 0.08f + jh + 0.3f, depth / 2), S(2 * w + 0.8f, 0.06f, depth + 0.04f));
+                // the door leaves, slid back into the jambs
+                mb.C(Slab).Block(P(4 - (w + 0.05f), 0.08f + jh / 2, depth + 0.07f), S(0.1f, jh, 0.12f));
+                mb.Block(P(4 + (w + 0.05f), 0.08f + jh / 2, depth + 0.07f), S(0.1f, jh, 0.12f));
+                mb.C(Dark).Block(P(4, 0.098f), S(2 * w, 0.01f, depth)); // the sill
+            });
+            Models.Add(c.R, "GlowAirlock" + side, $"{c.K}.airlocklight.{side}", Models.Glow(Green, 2.4f), mb =>
+            {
+                mb.At(default);
+                float edge = lateral ? W : D;
+                float wall = far ? edge - 0.14f : 0.14f, dir = far ? -1f : 1f;
+                float y = 0.08f + (c.Ship ? ShipDoorHeight : DoorHeight) - 0.04f, len = 2 * DoorHalf - 0.5f;
+                float across = (c.Ship ? 0.34f : 0.5f) + 0.02f;
+                mb.Block(lateral ? new(wall + dir * across, y, 4) : new(4, y, wall + dir * across), lateral ? new(0.06f, 0.07f, len) : new(len, 0.07f, 0.06f));
+            });
+        }
+    }
+
+    /// <summary>The collar positions of the four sides (builder +Y turned to point outwards), shared by the docking collars and their guide rings.</summary>
+    private static (int Side, int Port, Vector3 Pos, Vector3 Rot)[] CollarSpots(float inset) => new[]
+    {
+        (Left, PortLeft, new Vector3(inset, 1.9f, 4), Models.Deg(0, 0, 90)),
+        (Right, PortRight, new Vector3(W - inset, 1.9f, 4), Models.Deg(0, 0, -90)),
+        (Front, PortFront, new Vector3(4, 1.9f, inset), Models.Deg(-90, 0, 0)),
+        (Rear, PortRear, new Vector3(4, 1.9f, D - inset), Models.Deg(90, 0, 0)),
+    };
+
+    /// <summary>
+    /// Guide lights round the collar of every free docking port of the module: a ring of lamps that pulses (the "GlowGuide" parts), so a
+    /// port reads as an open mouth to fly into. Only sides whose port bit is set draw it.
+    /// </summary>
+    private static void PortGuides(Cx c)
+    {
+        foreach (var (side, port, pos, rot) in CollarSpots(c.Ship ? -0.02f : StationFace))
+        {
+            if (!c.Has(port) || c.Has(side)) continue;
+            Models.Add(c.R, "GlowGuide" + side, $"{c.K}.guide.{side}", Models.Glow(c.Role, 2.8f), mb =>
+            {
+                mb.At(pos, rot);
+                mb.Torus(new(0, 0.1f, 0), 1.5f, 0.05f, 24, 4);
+                for (int i = 0; i < 8; i++)
+                {
+                    float a = Mathf.Tau * i / 8f + Mathf.Pi / 8f;
+                    mb.Block(new(MathF.Cos(a) * 1.5f, 0.14f, MathF.Sin(a) * 1.5f), new(0.2f, 0.12f, 0.2f));
+                }
+            });
+        }
+    }
+
+    /// <summary>
+    /// A dock module: a plated hull section with hazard-striped floor lanes, and on a ship a docking collar on every flank that touches
+    /// nothing (a station module draws its collars already).
+    /// </summary>
+    private static void DockModule(Cx c)
+    {
+        Skin(c, Roof, detail: true);
+        Frame(c, Roof);
+        Models.Add(c.R, "Lanes", $"{c.K}.lanes", Models.Body(), mb =>
+        {
+            mb.At(default);
+            for (int i = 0; i < 8; i++)
+            {
+                mb.C(i % 2 == 0 ? Hazard : Dark);
+                mb.Block(new(1.0f, 0.1f, 0.5f + i * 0.9f), new(0.35f, 0.02f, 0.45f));
+                mb.Block(new(7.0f, 0.1f, 0.5f + i * 0.9f), new(0.35f, 0.02f, 0.45f));
+            }
+            mb.C(c.Role).Block(new(4, 0.1f, 4), new(1.6f, 0.02f, 1.6f));
+        });
+        if (!c.Ship) return;
+        Models.Add(c.R, "Collars", $"{c.K}.collars", Models.Body(), mb =>
+        {
+            foreach (var (side, _, pos, rot) in CollarSpots(-0.03f))
+            {
+                if (c.Has(side)) continue;
+                mb.At(pos, rot).C(Steel).Prism(default, 1.3f, 1.15f, 0.1f, 8, 22.5f);
+                mb.C(Dark).Prism(new(0, 0.005f, 0), 0.95f, 0.95f, 0.11f, 8, 22.5f);
+                mb.C(c.Role).Prism(new(0, 0.01f, 0), 0.4f, 0.4f, 0.115f, 8, 22.5f);
+            }
+            mb.At(default);
+        });
     }
 
     /// <summary>Windows, solar arrays, radiators, masts and fins on the sides of a module that touch nothing: what makes the outside of a bigger structure read as a ship or a station.</summary>

@@ -152,10 +152,13 @@ void fragment() {
             if (!rebuild) continue;
             bool ship = st.Kind == StructureKind.Ship;
             // A module is rebuilt when its kind or its set of neighbours changes: the sides that touch another module get doorways, the others hull.
+            // The docking bits (free ports, airlocks of a docked ship) are part of the mask, so docking rebuilds the two modules at the port.
             bool Has(int x, int y, int z) => st.Modules.ContainsKey((x, y, z));
+            var dock = DockBits(net, st);
+            int Mask(int x, int y, int z) => ModuleModels.NeighbourMask(Has, x, y, z) | dock.GetValueOrDefault((x, y, z));
             foreach (var key in sr.Modules.Keys.ToList())
                 if (!st.Modules.TryGetValue(key, out var k) || k != sr.Modules[key].Kind
-                    || sr.Masks[key] != ModuleModels.NeighbourMask(Has, key.Mx, key.My, key.Mz))
+                    || sr.Masks[key] != Mask(key.Mx, key.My, key.Mz))
                 {
                     sr.Modules[key].Node.QueueFree();
                     sr.Modules.Remove(key);
@@ -164,7 +167,7 @@ void fragment() {
             foreach (var (key, kind) in st.Modules)
             {
                 if (sr.Modules.ContainsKey(key)) continue;
-                int mask = ModuleModels.NeighbourMask(Has, key.Mx, key.My, key.Mz);
+                int mask = Mask(key.Mx, key.My, key.Mz);
                 var node = ModuleModels.Build(kind, ship, st.Id, mask);
                 node.Position = new Vector3(key.Mx * StationGrid.ModuleX, key.My * StationGrid.ModuleY, key.Mz * StationGrid.ModuleZ);
                 sr.Root.AddChild(node);
@@ -179,6 +182,37 @@ void fragment() {
         }
     }
 
+    private const int DockedAny = ModuleModels.DockedLeft | ModuleModels.DockedRight | ModuleModels.DockedFront | ModuleModels.DockedRear;
+
+    /// <summary>
+    /// The docking bits of every port-bearing module of a structure: the free-port bit on a station's open ports (guide lights), and for
+    /// a joined port the docked bit plus the neighbour bit (so the wall becomes a doorway) on the station module and on the ship module.
+    /// </summary>
+    private static Dictionary<(int Mx, int My, int Mz), int> DockBits(BeltNetwork net, Structure st)
+    {
+        var bits = new Dictionary<(int, int, int), int>();
+        void Or((int, int, int) key, int v) => bits[key] = bits.GetValueOrDefault(key) | v;
+        if (st.Kind == StructureKind.Station)
+            foreach (var p in net.DockPorts(st.Id))
+            {
+                var (nb, pb, db) = ModuleModels.PortBits(p.Face);
+                if (p.Free) Or((p.Mx, p.My, p.Mz), pb);
+                else Or((p.Mx, p.My, p.Mz), nb | db);
+            }
+        else if (net.TryGetStructureDock(st.Id, out var d))
+        {
+            var (nb, _, db) = ModuleModels.PortBits(d.ShipFace);
+            Or((d.ShipMx, d.ShipMy, d.ShipMz), nb | db);
+        }
+        return bits;
+    }
+
+    private int _guideStation = -1;
+    private (int Mx, int My, int Mz) _guideModule;
+
+    /// <summary>Lights the guide lights of the port module the ship is being guided to (pass a negative station to switch them off).</summary>
+    public void SetGuide(int station, (int Mx, int My, int Mz) module) { _guideStation = station; _guideModule = module; }
+
     public override void _Process(double delta)
     {
         _time += delta;
@@ -191,7 +225,10 @@ void fragment() {
             foreach (var (k, _) in sr.Modules.Values) if (k == ModuleKind.Engine) engines++;
             // a bigger flame for more engines and for more throttle; a single engine at cruise is 1
             float thrustLevel = (_thrustLevel.TryGetValue(id, out float lv) ? lv : 1f) * (0.85f + 0.3f * MathF.Min(engines, 4));
-            foreach (var (kind, node) in sr.Modules.Values)
+            foreach (var (mkey, (kind, node)) in sr.Modules)
+            {
+                bool airlock = (sr.Masks[mkey] & DockedAny) != 0;
+                bool guided = id == _guideStation && mkey == _guideModule;
                 switch (kind)
                 {
                     case ModuleKind.Engine:
@@ -211,22 +248,29 @@ void fragment() {
                         Models.Animate(node, _time, burning);
                         break;
                     case ModuleKind.Core:
-                        Models.Animate(node, _time, false);
+                    case ModuleKind.Dock:
+                        Models.Animate(node, _time, guided || airlock); // guide lights and airlock lights pulse while they matter
                         break;
                     case ModuleKind.Cockpit:
                     case ModuleKind.Cargo:
                     case ModuleKind.DroneBay:
                         Models.SetAmber(node, amber);
                         Models.AnimateBlink(node, _time, sat / 1000f);
+                        if (airlock) Models.Animate(node, _time, true);
                         break;
                     case ModuleKind.Hull:
                     case ModuleKind.Workshop:
                     case ModuleKind.Defence:
                         Models.SetAmber(node, amber);
                         Models.AnimateBlink(node, _time, sat / 1000f);
+                        if (airlock) Models.Animate(node, _time, true);
+                        break;
+                    default:
+                        if (airlock) Models.Animate(node, _time, true);
                         break;
 
                 }
+            }
         }
         if (_coreMarker is { Visible: true } m)
         {

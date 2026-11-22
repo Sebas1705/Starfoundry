@@ -13,6 +13,8 @@ public enum Sfx
     MineLoop, MinePop, DroneWhoosh,
     // Building
     PlaceThunk, DemolishCrunch, ModuleSnap,
+    // Docking
+    DockClamp, DockRelease, Airlock,
     // Threat
     WaveAlarm, EnemyShot, TurretShot, ModuleHit, Explosion, HullRumble,
     // Obstacles and boost (ADR 0028)
@@ -60,6 +62,10 @@ public static class SoundCatalog
         new(Sfx.PlaceThunk, AudioBus.Sfx, false, 0.05, -8f),
         new(Sfx.DemolishCrunch, AudioBus.Sfx, false, 0.08, -8f),
         new(Sfx.ModuleSnap, AudioBus.Sfx, false, 0.08, -9f),
+
+        new(Sfx.DockClamp, AudioBus.Sfx, false, 0.50, -7f),
+        new(Sfx.DockRelease, AudioBus.Sfx, false, 0.50, -9f),
+        new(Sfx.Airlock, AudioBus.Sfx, false, 0.60, -10f),
 
         new(Sfx.WaveAlarm, AudioBus.Sfx, false, 4.00, -8f),
         new(Sfx.EnemyShot, AudioBus.Sfx, false, 0.06, -14f),

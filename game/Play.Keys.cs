@@ -76,10 +76,18 @@ public partial class Play
         }
 
         var jumpCost = Net.JumpCost();
+        var dock = DockKeyInfo();
         return new KeyState
         {
             BoostAvailable = _content.World is not null && Net.CanFly(Player),
             Boosting = Net.IsBoosting(Player),
+            Dock = dock.Hint,
+            DockReady = dock.Ready,
+            DockAssisting = _dockAssist,
+            DockDistanceCells = dock.DistanceCells,
+            DockSpeedPercent = dock.SpeedPercent,
+            StockUsed = dock.Used,
+            StockCapacity = dock.Capacity,
             PauseOpen = PauseOpen,
             HelpOpen = _helpOpen,
             BuildOpen = BuildOpen,

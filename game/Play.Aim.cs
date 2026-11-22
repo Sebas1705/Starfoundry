@@ -19,7 +19,7 @@ public partial class Play
     private (int S, int Mx, int My, int Mz)? _structModuleAim;
     private (int X, int Y, int Z)? _foundAim;
 
-    private bool AimActive => _mouseLook || _stationDemo || _structuresShot || _walkShot || _keysShotPath is not null;
+    private bool AimActive => _mouseLook || _stationDemo || _structuresShot || _walkShot || _dockShot || _keysShotPath is not null;
 
     private bool StationSelected => _tool == ToolMode.Build && _palette[_selected].IsStation;
 
@@ -219,7 +219,7 @@ public partial class Play
     // ---- the module tool (structures) -------------------------------------------------------------------------
 
     private static readonly ModuleKind[] PlaceableKinds =
-        { ModuleKind.Cockpit, ModuleKind.Engine, ModuleKind.Reactor, ModuleKind.Cargo, ModuleKind.Workshop, ModuleKind.Defence, ModuleKind.Hull, ModuleKind.DroneBay, ModuleKind.Shield, ModuleKind.Sensor, ModuleKind.ReactorMk2 };
+        { ModuleKind.Cockpit, ModuleKind.Engine, ModuleKind.Reactor, ModuleKind.Cargo, ModuleKind.Workshop, ModuleKind.Defence, ModuleKind.Hull, ModuleKind.DroneBay, ModuleKind.Shield, ModuleKind.Sensor, ModuleKind.ReactorMk2, ModuleKind.Dock };
 
     private string KindName(ModuleKind k) => L("module." + k.ToString().ToLowerInvariant());
 
@@ -304,6 +304,10 @@ public partial class Play
             if (_moduleKind == ModuleKind.Core) return Why(Reject.KindNotAllowed);
         }
         else if (st.Kind == StructureKind.Station && _moduleKind != ModuleKind.Core) return Why(Reject.KindNotAllowed);
+        // A station is fixed: no cockpit and no engine; and a ship has no core (ADR 0029).
+        if (st.Kind == StructureKind.Station && _moduleKind is ModuleKind.Cockpit or ModuleKind.Engine) return L("why.stationFixed");
+        if (st.Kind == StructureKind.Ship && _moduleKind == ModuleKind.Core) return Why(Reject.KindNotAllowed);
+        if (Net.ModuleOverlapsDocked(s, mx, my, mz)) return Why(Reject.Overlap); // a docked ship sits there
 
         if (st.Kind == StructureKind.Station)
         {
@@ -409,7 +413,7 @@ public partial class Play
         int ship = ShipStruct;
         if (ship >= 0)
         {
-            string flight = Net.CanFly(Player) ? L("hud.flightReady") : L("hud.flightNot");
+            string flight = Net.IsDocked(Player) ? L("hud.flightDocked") : Net.CanFly(Player) ? L("hud.flightReady") : L("hud.flightNot");
             sb.Append(L("hud.structure", L("structure.ship"), flight)).Append('\n');
             if (details) sb.Append(L("hud.modulesDetail", ModuleSummary(Net.GetStructure(ship)) + ", " + L("hud.integrity", Net.StructureHpFraction(ship) / 10))).Append('\n');
         }
@@ -445,6 +449,7 @@ public partial class Play
         }
         if (found) add(L("mark.station"), new Color(0.45f, 0.8f, 1f), nearestAt, 10f);
 
+        DockMarker(add);
         IceMarker(add);
         DroneMarkers(add);
 
