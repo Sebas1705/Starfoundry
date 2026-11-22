@@ -67,5 +67,19 @@ Same bot, delay and seeds, after the bulwark and the larger waves 3 to 10 ([defe
 - Relaxed on seed 20261120 now wins (the note above had it stuck on an expedition); the waves of that run fall at different times now. A side effect of the new table, not a tuned result.
 - Story levels: 01 (1:48), 02 (5:52) and 03 (17:53, 3 stars, five waves) are won by the bot as before; level 03 needed no change to its own wave modifiers. Level 05 (Hard, 12 waves) is not played by the bot; Hard wins above.
 
+## Measured after docking, world generation and free flight (2026-11-22)
+Same bot, delay (6 s) and seeds, on the build with docking ([docking](docking.md)), generated worlds and obstacles, and free flight. The bot needed no change and content was not touched.
+
+| Preset (goal) | Seed 20261121 | Seed 20261120 | Seed 777 |
+| --- | --- | --- | --- |
+| Relaxed (8) | Win 46:24 (was 43:14) | Win 42:39 (was 41:30) | Win 41:37 (was 41:48) |
+| Normal (10) | Win 47:00 (was 45:01) | Win 45:07 (was 43:50) | Win 44:12 (was 47:59) |
+| Hard (12) | Win 48:13 (was 46:26) | Win 47:56 (was 50:47) | Win 51:16 (was 48:58) |
+| Brutal (15) | Lost 36:28 (7 waves; was 41:49, 10) | Lost 41:56 (10 waves; was 42:26, 10) | Lost 43:08 (10 waves; was 44:27, 11) |
+
+- Relaxed, Normal and Hard win on every seed, within about 3 minutes either way of the previous table (Normal 44:12 to 47:00, a smaller spread than before). Nothing drifted far enough to investigate; first wave warnings are 16:21 (Relaxed), 15:13 (Normal), 14:26 (Hard) and 13:36 (Brutal) on the other seeds, 16:28, 15:20, 14:33 and 13:44 on the main one.
+- Brutal is still lost on every seed. On the main seed it now falls earlier (wave 7, minute 36:28, 19 machines and 5 modules lost); the other two are within a minute and a wave of before. One seed is not a trend, but if Brutal is ever tuned, start from that run.
+- Hard lost two modules on seed 20261120 and none elsewhere; Relaxed and Normal lost none.
+
 ## Not measured
 Custom rule combinations, `FreeBuild` and `StartingItems` with the bot, and play by a person. The New Game screen that picks a preset is part D of the design.

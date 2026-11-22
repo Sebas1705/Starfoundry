@@ -516,6 +516,7 @@ public partial class Play
         if (_toastLabels[0].Visible) textTop = Math.Min(textTop, _toastBox.Position.Y);
         if (_modeHint.Text.Length > 0) textTop = Math.Min(textTop, _modeHint.Position.Y);
         float bottom = Math.Max(24f, size.Y - textTop + 10f);
+        _markers.RightLimit = ResearchOpen || BuildOpen ? DockRect(size).Position.X - 6f : 0f;
         var items = new List<MarkerLayer.Item>();
 
         void Add(string label, Color color, Vector3 target, float hideBelow = 4f, string? distanceText = null, int priority = 1)

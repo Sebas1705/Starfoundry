@@ -16,6 +16,9 @@ public partial class MarkerLayer : Control
     private const int FontSize = 13;
     private Item[] _items = Array.Empty<Item>();
 
+    /// <summary>Labels stay left of this x (the build and research panels dock at the right and would hide them); 0 means the whole width.</summary>
+    public float RightLimit;
+
     public MarkerLayer()
     {
         MouseFilter = MouseFilterEnum.Ignore;
@@ -77,7 +80,7 @@ public partial class MarkerLayer : Control
             Vector2? textPos = null;
             foreach (var c in candidates)
             {
-                var pos = new Vector2(Math.Clamp(c.X, 4f, Math.Max(4f, Size.X - w - 4f)), Math.Clamp(c.Y, FontSize + 2f, Math.Max(FontSize + 2f, Size.Y - 6f)));
+                var pos = new Vector2(Math.Clamp(c.X, 4f, Math.Max(4f, (RightLimit > 0f ? Math.Min(RightLimit, Size.X) : Size.X) - w - 4f)), Math.Clamp(c.Y, FontSize + 2f, Math.Max(FontSize + 2f, Size.Y - 6f)));
                 var rect = new Rect2(pos.X - 3f, pos.Y - FontSize, w + 6f, LineHeight - 1f);
                 bool free = true;
                 foreach (var t in taken) if (t.Intersects(rect)) { free = false; break; }
