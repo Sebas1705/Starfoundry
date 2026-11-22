@@ -103,12 +103,21 @@ public partial class KeyPanel : PanelContainer
         var label = UiKit.Text(labelSize, LabelColour(row.State));
         label.Text = Loc.T(row.LabelKey, row.LabelArgs ?? Array.Empty<object>());
         label.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        Control labelCell = label;
+        if (IconCatalog.ForKeyRow(row.Id) is { } iconId)
+        {
+            var withIcon = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
+            withIcon.AddThemeConstantOverride("separation", 5);
+            withIcon.AddChild(new IconRect(iconId, labelSize + 3, LabelColour(row.State), tooltip: false));
+            withIcon.AddChild(label);
+            labelCell = withIcon;
+        }
         grid.AddChild(caps);
-        grid.AddChild(label);
+        grid.AddChild(labelCell);
         _capCells.Add(caps);
 
         string tip = TipFor(row, extraTip);
-        var cells = new Control[] { caps, label };
+        var cells = new Control[] { caps, labelCell };
         foreach (var cell in cells)
         {
             if (row.State == KeyRowState.Disabled) cell.Modulate = new Color(1f, 1f, 1f, 0.55f);

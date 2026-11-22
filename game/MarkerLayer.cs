@@ -11,7 +11,7 @@ namespace Starfoundry.Game;
 /// </summary>
 public partial class MarkerLayer : Control
 {
-    public readonly record struct Item(string Text, Color Color, MarkerPlacement Place, int Priority = 1);
+    public readonly record struct Item(string Text, Color Color, MarkerPlacement Place, int Priority = 1, string Icon = "", string ShortText = "");
 
     private const int FontSize = 13;
     private Item[] _items = Array.Empty<Item>();
@@ -52,11 +52,18 @@ public partial class MarkerLayer : Control
             var color = item.Color with { A = item.Color.A * fade };
             var sh = shadow with { A = shadow.A * fade };
             float w = font.GetStringSize(item.Text, HorizontalAlignment.Left, -1, FontSize).X;
+            // The full name and details are for the important marks (priority 2 and up) and the near ones; the rest are an icon with its distance.
+            string text = item.Priority >= 2 || item.ShortText.Length == 0 || p.Distance < NearLabel ? item.Text : item.ShortText;
+            w = font.GetStringSize(text, HorizontalAlignment.Left, -1, FontSize).X;
             var candidates = new List<Vector2>();
             if (p.OnScreen)
             {
-                DrawPolygon(Diamond(at, 8f), new[] { sh });
-                DrawPolygon(Diamond(at, 6f), new[] { color });
+                if (item.Icon.Length > 0) Chip(at, item.Icon, color, sh);
+                else
+                {
+                    DrawPolygon(Diamond(at, 8f), new[] { sh });
+                    DrawPolygon(Diamond(at, 6f), new[] { color });
+                }
                 // The crosshair and the aim card beside it own the middle of the screen: a label that would land on them goes above
                 // its diamond, and when that is still in the way it is left out (the diamond stays).
                 var keepClear = new Rect2(Size.X / 2f - 60f, Size.Y / 2f - 34f, 540f, 190f);
@@ -72,6 +79,7 @@ public partial class MarkerLayer : Control
                 var n = new Vector2(-d.Y, d.X);
                 DrawPolygon(new[] { at + d * 13f, at - d * 7f + n * 9f, at - d * 7f - n * 9f }, new[] { sh });
                 DrawPolygon(new[] { at + d * 10f, at - d * 5f + n * 6.5f, at - d * 5f - n * 6.5f }, new[] { color });
+                if (item.Icon.Length > 0) Chip(at - d * 24f, item.Icon, color, sh);
                 var basePos = new Vector2(at.X - d.X * (w / 2f + 18f) - w / 2f, at.Y - d.Y * 20f + 5f);
                 // Edge labels stack along the edge instead of sitting on top of each other.
                 foreach (float k in new[] { 0f, 1f, -1f, 2f, -2f, 3f, -3f })
@@ -90,10 +98,20 @@ public partial class MarkerLayer : Control
                 break;
             }
             if (textPos is not { } tp) continue; // label left out, the mark stays
-            DrawStringOutline(font, tp, item.Text, HorizontalAlignment.Left, -1, FontSize, 4, sh);
-            DrawString(font, tp, item.Text, HorizontalAlignment.Left, -1, FontSize, color);
+            DrawStringOutline(font, tp, text, HorizontalAlignment.Left, -1, FontSize, 4, sh);
+            DrawString(font, tp, text, HorizontalAlignment.Left, -1, FontSize, color);
         }
     }
+
+    /// <summary>The icon on a dark round chip with a ring in the mark's colour: readable over bright space.</summary>
+    private void Chip(Vector2 at, string icon, Color color, Color shadow)
+    {
+        DrawCircle(at, 14f, shadow with { A = shadow.A * 0.8f });
+        DrawArc(at, 13f, 0f, MathF.Tau, 28, color, 1.5f, true);
+        DrawTextureRect(Icons.Get(icon, 18), new Rect2(at - new Vector2(9f, 9f), new Vector2(18f, 18f)), false, color);
+    }
+
+    private const float NearLabel = 60f;
 
     private static Vector2[] Diamond(Vector2 c, float r) => new[] { c + new Vector2(0, -r), c + new Vector2(r, 0), c + new Vector2(0, r), c + new Vector2(-r, 0) };
 }

@@ -13,8 +13,8 @@ namespace Starfoundry.Game;
 public partial class Play
 {
     private VBoxContainer _powerBox = null!;
-    private Label _powerTitle = null!, _powerFuel = null!;
-    private ProgressBar _powerBar = null!;
+    private GaugeRow _powerRow = null!;
+    private IconCount _fuelRow = null!;
     private Label _targetPower = null!;
     private readonly FuelWatch _fuelWatch = new();
 
@@ -35,13 +35,10 @@ public partial class Play
     {
         _powerBox = new VBoxContainer { Visible = false, MouseFilter = Control.MouseFilterEnum.Ignore };
         _powerBox.AddThemeConstantOverride("separation", 2);
-        _powerTitle = MakeText(14);
-        _powerBar = new ProgressBar { MinValue = 0, MaxValue = 1000, ShowPercentage = false, CustomMinimumSize = new Vector2(160, 8), MouseFilter = Control.MouseFilterEnum.Ignore };
-        _powerBar.AddThemeStyleboxOverride("background", Box(new Color(0.12f, 0.14f, 0.2f), null, 3, 0f));
-        _powerFuel = MakeText(13);
-        _powerBox.AddChild(_powerTitle);
-        _powerBox.AddChild(_powerBar);
-        _powerBox.AddChild(_powerFuel);
+        _powerRow = new GaugeRow("status:power");
+        _fuelRow = new IconCount("item:core:hydrogen");
+        _powerBox.AddChild(_powerRow);
+        _powerBox.AddChild(_fuelRow);
         parent.AddChild(_powerBox);
     }
 
@@ -56,14 +53,13 @@ public partial class Play
         var band = PowerFormat.Band(st.SatisfactionPermille);
         var colour = BandColor(band);
         bool reactor = HasReactor(ship);
-        _powerTitle.Text = reactor || st.Production > 0
-            ? L("hud.power", st.Production, st.Demand, PowerFormat.Percent(st.SatisfactionPermille))
-            : L("hud.power.noReactor");
-        _powerTitle.AddThemeColorOverride("font_color", colour);
-        _powerBar.Value = st.SatisfactionPermille;
-        _powerBar.AddThemeStyleboxOverride("fill", Box(colour, null, 3, 0f));
-        _powerFuel.Text = PowerFormat.FuelLine(st, BurnInterval);
-        _powerFuel.AddThemeColorOverride("font_color", PowerFormat.TimeLeftTicks(st, BurnInterval) < PowerFormat.LowFuelSeconds * Units.TicksPerSecond ? colour == GoodColor ? PowerAmber : colour : Colors.White);
+        bool powered = reactor || st.Production > 0;
+        _powerRow.Set("status:power", st.SatisfactionPermille / 1000f, powered ? $"{st.Production}/{st.Demand}" : "-",
+            powered ? colour : BadColor,
+            powered ? L("hud.power", st.Production, st.Demand, PowerFormat.Percent(st.SatisfactionPermille)) : L("hud.power.noReactor"));
+        long left = PowerFormat.TimeLeftTicks(st, BurnInterval);
+        var fuelColour = left < PowerFormat.LowFuelSeconds * Units.TicksPerSecond ? colour == GoodColor ? PowerAmber : colour : UiTheme.Text;
+        _fuelRow.SetText("item:core:hydrogen", left <= 0 ? $"{st.HydrogenInHold}  -" : $"{st.HydrogenInHold}  ·  {PowerFormat.Clock(left)}", left <= 0 ? BadColor : fuelColour, PowerFormat.FuelLine(st, BurnInterval));
 
         switch (_fuelWatch.Update(st, reactor, BurnInterval))
         {

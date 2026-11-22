@@ -25,9 +25,7 @@ public partial class Play
     private PanelContainer _modulePanel = null!;
     private Label _moduleTitle = null!, _moduleHpLabel = null!;
     private ProgressBar _moduleHp = null!;
-    private HBoxContainer _integrityBox = null!;
-    private Label _integrityLabel = null!;
-    private ProgressBar _integrityBar = null!;
+    private GaugeRow _integrityBox = null!;
     private Label _waveBanner = null!, _goalLabel = null!;
 
     private readonly Dictionary<(int S, int Mx, int My, int Mz), double> _hitBars = new();
@@ -42,12 +40,7 @@ public partial class Play
     /// <summary>The integrity bar in the status block, the hit vignette (behind every panel), the module bars, the module panel and the wave banner.</summary>
     private void BuildDefenceUi(VBoxContainer statusBox)
     {
-        _integrityBox = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore, Visible = false };
-        _integrityBox.AddThemeConstantOverride("separation", 8);
-        _integrityLabel = MakeText(13);
-        _integrityBar = new ProgressBar { MinValue = 0, MaxValue = 1000, ShowPercentage = false, CustomMinimumSize = new Vector2(110, 10), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter, MouseFilter = Control.MouseFilterEnum.Ignore };
-        _integrityBox.AddChild(_integrityLabel);
-        _integrityBox.AddChild(_integrityBar);
+        _integrityBox = new GaugeRow("status:health") { Visible = false };
         statusBox.AddChild(_integrityBox);
 
         _vignetteMat = new ShaderMaterial
@@ -117,10 +110,7 @@ void fragment() {
         {
             int permille = Net.StructureHpFraction(ship);
             float f = permille / 1000f;
-            _integrityLabel.Text = L("hud.integrity", permille / 10);
-            _integrityLabel.AddThemeColorOverride("font_color", HpColor(f));
-            _integrityBar.Value = permille;
-            StyleBar(_integrityBar, f);
+            _integrityBox.Set("status:health", f, $"{permille / 10} %", HpColor(f), L("hud.integrity", permille / 10));
         }
 
         // The wave: a big countdown while the warning runs, the enemy count while it is fought.
