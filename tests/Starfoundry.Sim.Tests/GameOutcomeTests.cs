@@ -155,6 +155,7 @@ public class GameOutcomeTests
         ClearWaves(w, 2);
         int station = w.Network.CreateStructure(0, StructureKind.Station, 0, 0, 30 * Units.CellUnits);
         w.Network.AddStructureModuleUnchecked(station, 0, 0, 0, ModuleKind.Core);
+        JumpOnce(w); // winning also needs a completed jump
 
         Assert.Equal(OutcomeKind.Won, GameOutcome.Evaluate(w.Network, 0, new WorldRules { GoalWaves = 2 }).Kind);
         Assert.Equal(OutcomeKind.Won, GameOutcome.Evaluate(w.Network, 0, new WorldRules { GoalWaves = 1 }).Kind);

@@ -121,9 +121,11 @@ public class StructureBotTests
         // No waves: the economy alone. Measured (seed 20261121): the last of the 17 nodes at about minute 93, the first drone at 30.
         var r = Play(continueAfterWin: true, minutes: 120, threats: false);
         _out.WriteLine(r.Format());
-        foreach (var node in TestContent.Core.Research)
+        // The electronics branch (silicon, circuits, shields, sensors, Mk2 power) is not part of the bot's plan.
+        var planned = TestContent.Core.Research.Where(n => !n.Id.StartsWith("core:silicon_") && n.Id is not ("core:electronics" or "core:shielding" or "core:sensors" or "core:advanced_power")).ToList();
+        foreach (var node in planned)
             Assert.True(r.Has("Researched " + node.Id.Replace("core:", "")), $"'{node.Id}' was never researched");
-        double last = TestContent.Core.Research.Max(n => Min(r, "Researched " + n.Id.Replace("core:", "")));
+        double last = planned.Max(n => Min(r, "Researched " + n.Id.Replace("core:", "")));
         Assert.True(last <= 110, $"the last node came at minute {last:F1}");
         Assert.True(Min(r, "First drone bay built") <= 40, $"the first drone bay came at minute {Min(r, "First drone bay built"):F1}");
         Assert.True(r.MinedByDrones > 2000, $"drones mined only {r.MinedByDrones}");
