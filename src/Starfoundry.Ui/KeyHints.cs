@@ -17,6 +17,14 @@ public enum HintContext
     Flying,
 }
 
+/// <summary>Where the ship stands with respect to a station port: nothing to say, a free port close by (guidance shows) or docked.</summary>
+public enum DockHint
+{
+    None,
+    Near,
+    Docked,
+}
+
 /// <summary>The build tool in hand, as the key panel distinguishes them.</summary>
 public enum HintTool
 {
@@ -115,6 +123,18 @@ public sealed record KeyState
     public bool JumpAffordable { get; init; } = true;
     public bool SystemChosen { get; init; }
     public string JumpCost { get; init; } = "";
+
+    // docking (ADR 0028): rows and guidance appear only near a free port of one of the player's stations, or while docked
+    public DockHint Dock { get; init; }
+    /// <summary>Near a port: the ship is within docking range of it and slow enough, so the key docks at once.</summary>
+    public bool DockReady { get; init; }
+    /// <summary>The assisted approach is flying the ship to the port.</summary>
+    public bool DockAssisting { get; init; }
+    public int DockDistanceCells { get; init; }
+    public int DockSpeedPercent { get; init; }
+    /// <summary>Docked: items in the station stock and its capacity.</summary>
+    public int StockUsed { get; init; }
+    public int StockCapacity { get; init; }
 }
 
 /// <summary>
@@ -188,6 +208,7 @@ public static class KeyHints
     /// <summary>(a) Seated and flying, nothing aimed at.</summary>
     private static IEnumerable<KeyRow> FlyingRows(KeyState s)
     {
+        foreach (var row in DockRows(s)) yield return row;
         yield return BuildRow(s);
         yield return Row("research", "T", "research", "T", Lit(s.ResearchOpen));
         if (s.HasGalaxy) yield return Row("map", "G", "map", "G", Lit(s.MapOpen));
@@ -204,12 +225,35 @@ public static class KeyHints
         yield return Row("help", "F1", "help", "F1");
     }
 
+    /// <summary>
+    /// The docking rows, only by context: near a free port the dock key and the distance and speed guidance (the key starts the assisted
+    /// approach unless the ship is already in range and slow enough); docked, the undock key, the two transfer keys and the stock.
+    /// </summary>
+    private static IEnumerable<KeyRow> DockRows(KeyState s)
+    {
+        if (s.Dock == DockHint.Near)
+        {
+            if (s.DockAssisting) yield return Row("dock", "U", "dockCancel", "U", KeyRowState.Active);
+            else if (s.DockReady) yield return Row("dock", "U", "dock", "U");
+            else yield return Row("dock", "U", "dockAssist", "U");
+            yield return new KeyRow("dockGuide", Array.Empty<string>(), "key.dockGuide", KeyRowState.Info, null, null, new object[] { s.DockDistanceCells, s.DockSpeedPercent });
+        }
+        else if (s.Dock == DockHint.Docked)
+        {
+            yield return Row("undock", "U", "undock", "U");
+            yield return Row("unload", ",", "unload", "Comma");
+            yield return Row("load", ".", "load", "Period");
+            yield return new KeyRow("stock", Array.Empty<string>(), "key.stock", KeyRowState.Info, null, null, new object[] { s.StockUsed, s.StockCapacity });
+        }
+    }
+
     /// <summary>(b) Standing and walking inside the ship.</summary>
     private static IEnumerable<KeyRow> WalkingRows(KeyState s)
     {
         yield return Row("walk", "WASD", "walk", state: KeyRowState.Info);
         yield return Row("run", "@shift", "run", state: KeyRowState.Info);
         yield return s.NearSeat ? Row("seat", "E", "sit", "E") : Off("seat", "E", "sit", "key.why.farSeat");
+        foreach (var row in DockRows(s)) yield return row;
         yield return BuildRow(s);
         yield return Row("research", "T", "research", "T", Lit(s.ResearchOpen));
         if (s.StructuresOn) yield return Row("found", "I", "found", "I");

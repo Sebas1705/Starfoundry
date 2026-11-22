@@ -949,6 +949,9 @@ public sealed class SimWorld
             if (p.Kind == ModuleKind.Core) return Reject.KindNotAllowed; // only the first module can be the core
         }
         else if (s.Kind == StructureKind.Station && p.Kind != ModuleKind.Core) return Reject.KindNotAllowed;
+        // A station is fixed (ADR 0028): it has no cockpit and no engine, and a ship has no core.
+        if (s.Kind == StructureKind.Station && p.Kind is ModuleKind.Cockpit or ModuleKind.Engine) return Reject.KindNotAllowed;
+        if (s.Kind == StructureKind.Ship && p.Kind == ModuleKind.Core) return Reject.KindNotAllowed;
 
         var centre = ModuleCentre(s, p.Mx, p.My, p.Mz);
         if (!StructurePointInRange(player, s, centre.X, centre.Y, centre.Z)) return Reject.OutOfRange;

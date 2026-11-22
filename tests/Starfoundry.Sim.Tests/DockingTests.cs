@@ -83,6 +83,23 @@ public class DockingTests
         Assert.Equal(4 * Cell, sz);
     }
 
+    [Fact]
+    public void A_station_is_fixed_it_takes_no_cockpit_or_engine_and_a_ship_takes_no_core()
+    {
+        var w = Dockable(out int ship, out int station);
+        Assert.Equal(Reject.KindNotAllowed, Run(w, new PlaceModuleIn(station, 0, 0, 1, ModuleKind.Engine)));
+        Assert.Equal(Reject.KindNotAllowed, Run(w, new PlaceModuleIn(station, 0, 0, 1, ModuleKind.Cockpit)));
+        Ok(w, new PlaceModuleIn(station, 0, 0, 1, ModuleKind.Reactor));
+        Assert.Equal(Reject.KindNotAllowed, Run(w, new PlaceModuleIn(ship, 1, 0, 0, ModuleKind.Core)));
+        // Nothing moves a station: it has no player and no thrust, and a station's origin is the one it was founded at.
+        var o = w.Network.GetStructure(station);
+        var before = (o.OriginX, o.OriginY, o.OriginZ);
+        Ok(w, new SetThrust(1024, 0, 0));
+        w.Step(Tps * 2);
+        Assert.Equal(before, (o.OriginX, o.OriginY, o.OriginZ));
+        Assert.NotEqual(0, w.Network.GetStructure(ship).OriginX);
+    }
+
     // ---- docking --------------------------------------------------------------------------------------
 
     [Fact]
@@ -584,9 +601,46 @@ public class DockingTests
         Ok(w, DockWest(station)); // cores and cockpits still dock
     }
 
+    // ---- the key panel shows docking only by context --------------------------------------------------------
+
+    private static string[] KeyIds(Starfoundry.Ui.KeyState s) => Starfoundry.Ui.KeyHints.For(s).Last().Rows.Select(r => r.Id).ToArray();
+
+    [Fact]
+    public void Docking_rows_appear_only_near_a_port_or_while_docked()
+    {
+        var far = new Starfoundry.Ui.KeyState { StructuresOn = true, CanWalk = true };
+        Assert.DoesNotContain("dock", KeyIds(far));
+        Assert.DoesNotContain("undock", KeyIds(far));
+
+        var near = far with { Dock = Starfoundry.Ui.DockHint.Near, DockDistanceCells = 14, DockSpeedPercent = 60 };
+        Assert.Equal("dock", KeyIds(near)[0]);
+        Assert.Equal("key.dockAssist", Starfoundry.Ui.KeyHints.For(near).Last().Rows[0].LabelKey);
+        var guide = Starfoundry.Ui.KeyHints.For(near).Last().Rows.Single(r => r.Id == "dockGuide");
+        Assert.Equal(new object[] { 14, 60 }, guide.LabelArgs);
+        Assert.Equal(Starfoundry.Ui.KeyRowState.Info, guide.State);
+        Assert.Equal("key.dock", Starfoundry.Ui.KeyHints.For(near with { DockReady = true }).Last().Rows[0].LabelKey);
+        var assisting = Starfoundry.Ui.KeyHints.For(near with { DockAssisting = true }).Last().Rows[0];
+        Assert.Equal("key.dockCancel", assisting.LabelKey);
+        Assert.Equal(Starfoundry.Ui.KeyRowState.Active, assisting.State);
+
+        var docked = far with { Dock = Starfoundry.Ui.DockHint.Docked, StockUsed = 3, StockCapacity = 60 };
+        Assert.Equal(new[] { "undock", "unload", "load", "stock" }, KeyIds(docked).Take(4).ToArray());
+        Assert.DoesNotContain("dock", KeyIds(docked));
+        // On foot the same rows show too.
+        var walking = docked with { Standing = true };
+        Assert.Contains("undock", KeyIds(walking));
+        Assert.Contains("stock", KeyIds(walking));
+    }
+
     [Fact]
     public void Dock_strings_exist_in_both_languages()
     {
+        foreach (var key in new[] { "key.dock", "key.dockAssist", "key.dockCancel", "key.dockGuide", "key.undock", "key.unload", "key.load", "key.stock" })
+        {
+            Assert.True(Starfoundry.Ui.Loc.Has(key), key);
+            var (es, en) = Starfoundry.Ui.Loc.All.First(p => p.Key == key).Value;
+            Assert.NotEqual(es, en);
+        }
         foreach (var key in new[] { "module.dock", "module.dock.purpose" })
         {
             Assert.True(Starfoundry.Ui.Loc.Has(key), key);

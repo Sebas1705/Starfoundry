@@ -37,6 +37,9 @@ public static class SoundBank
             Sfx.PlaceThunk => PlaceThunk(rng),
             Sfx.DemolishCrunch => DemolishCrunch(rng),
             Sfx.ModuleSnap => ModuleSnap(rng),
+            Sfx.DockClamp => DockClamp(rng),
+            Sfx.DockRelease => DockRelease(rng),
+            Sfx.Airlock => Airlock(rng),
             Sfx.WaveAlarm => WaveAlarm(),
             Sfx.EnemyShot => EnemyShot(rng),
             Sfx.TurretShot => TurretShot(rng),
@@ -290,6 +293,49 @@ public static class SoundBank
         Synth.AddTone(b, 0.07, 0.15, 2500, 2400, 0.55, 45, h2: 0.2);
         Synth.AddTone(b, 0.07, 0.15, 110, 70, 0.6, 22);
         Synth.AddNoise(b, rng, 0, 0.01, 0.2, 200, 6000, 1500);
+        return b;
+    }
+
+    // ---- docking ----------------------------------------------------------------------------------
+
+    /// <summary>The docking clamps closing: a heavy clunk, a metallic ring and a second, lighter latch.</summary>
+    private static float[] DockClamp(SynthRng rng)
+    {
+        var b = Synth.Buffer(0.7);
+        Synth.AddTone(b, 0, 0.30, 95, 55, 0.9, 12, h2: 0.4);
+        Synth.AddNoise(b, rng, 0, 0.06, 0.5, 40, 2500, 120);
+        Synth.AddTone(b, 0.01, 0.40, 640, 620, 0.25, 9, h2: 0.5, h3: 0.3);
+        Synth.AddTone(b, 0.22, 0.18, 130, 80, 0.6, 18, h2: 0.3);
+        Synth.AddNoise(b, rng, 0.22, 0.03, 0.3, 60, 3000, 200);
+        return b;
+    }
+
+    /// <summary>The clamps letting go: a short pressure hiss and a low unlatching thud.</summary>
+    private static float[] DockRelease(SynthRng rng)
+    {
+        var b = Synth.Buffer(0.8);
+        Synth.AddNoise(b, rng, 0.04, 0.6, 0.35, 5, 6500, 1800, attack: 0.03);
+        Synth.AddTone(b, 0, 0.2, 80, 60, 0.7, 16, h2: 0.3);
+        Synth.AddTone(b, 0.05, 0.25, 420, 300, 0.2, 14, h2: 0.4);
+        return b;
+    }
+
+    /// <summary>An airlock door: a pneumatic rush that sweeps up and a soft thud as the leaf stops.</summary>
+    private static float[] Airlock(SynthRng rng)
+    {
+        const double L = 0.8;
+        var b = Synth.Buffer(L);
+        var hi = Synth.Noise(rng, L, 5200, 1200, cyclic: false);
+        var lo = Synth.Noise(rng, L, 900, 150, cyclic: false);
+        for (int i = 0; i < b.Length; i++)
+        {
+            double t = i / (double)b.Length;
+            double bell = Math.Sin(Math.PI * Math.Min(1.0, t * 1.15));
+            bell *= bell;
+            double bright = Math.Min(1.0, t * 1.6);
+            b[i] = (float)(0.6 * bell * (hi[i] * bright + lo[i] * (1 - bright)));
+        }
+        Synth.AddTone(b, 0.52, 0.2, 110, 70, 0.7, 20, h2: 0.3);
         return b;
     }
 
