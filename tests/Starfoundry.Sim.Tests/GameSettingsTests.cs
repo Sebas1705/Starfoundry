@@ -105,7 +105,7 @@ public class GameSettingsTests
     }
 
     [Fact]
-    public void GoalWavesDefaultsToTenAndRoundTrips()
+    public void LegacyGoalWavesStillRoundTripsInOldFiles()
     {
         Assert.Equal(10, GameSettings.Defaults().GoalWaves);
         var s = new GameSettings { GoalWaves = 17 };
@@ -119,11 +119,21 @@ public class GameSettingsTests
     [InlineData(3, 3)]
     [InlineData(30, 30)]
     [InlineData(500, 30)]
-    public void GoalWavesIsClamped(int value, int expected)
+    public void LegacyGoalWavesIsClamped(int value, int expected)
     {
         Assert.Equal(expected, new GameSettings { GoalWaves = value }.Clamped().GoalWaves);
         Assert.Equal(expected, GameSettings.Parse("goal_waves=" + value).GoalWaves);
         Assert.Equal(expected, GoalSettings.From(new GameSettings { GoalWaves = value }).WavesToWin);
+    }
+
+    [Fact]
+    public void AnOldFileWithAGoalStillLoadsAndTheWorldRulesDecideTheGoal()
+    {
+        var old = GameSettings.Parse("language=en\ngoal_waves=25\nfov=90");
+        Assert.Equal(90f, old.Fov);
+        Assert.Equal(25, old.GoalWaves); // kept for the file, not used by any game
+        Assert.Equal(WorldRules.Relaxed.GoalWaves, GoalSettings.From(WorldRules.Relaxed).WavesToWin);
+        Assert.NotEqual(old.GoalWaves, GoalSettings.From(new WorldRules()).WavesToWin);
     }
 
     [Fact]

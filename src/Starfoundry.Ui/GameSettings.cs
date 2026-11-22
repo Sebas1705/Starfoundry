@@ -39,7 +39,7 @@ public sealed record GameSettings
 
     public bool Fullscreen { get; init; }
 
-    /// <summary>Difficulty: how many waves must be cleared (with a station standing) to win; 3 to 30, 10 by default.</summary>
+    /// <summary>Legacy: the goal-waves slider of older versions. It is still parsed and written so an old settings file round-trips, but no screen shows it and no game reads it: the difficulty preset or scenario (<c>WorldRules.GoalWaves</c>) decides the goal.</summary>
     public int GoalWaves { get; init; } = GoalSettings.DefaultWaves;
 
     /// <summary>The defaults for a system locale: Spanish for "es*" locales, English for any other known one, Spanish when there is none.</summary>
