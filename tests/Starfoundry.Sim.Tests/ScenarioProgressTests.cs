@@ -159,11 +159,11 @@ public class ScenarioProgressTests
         w.Network.AddStructureModuleUnchecked(s, 10, 0, 0, ModuleKind.DroneBay);
         int dep = w.Network.AddDeposit(Ore, 1000, 0, 0, 0);
         Ok(w, new AssignDrones(s, dep));
-        w.Step(2 * 90);
+        w.Step(2 * 36);
         p.Update(w.Network, 0);
         Assert.InRange(p.Find("mine")!.Current, 1, 2);
         Assert.Equal(GoalStatus.Pending, p.Find("mine")!.Status);
-        w.Step(3 * 90);
+        w.Step(3 * 36);
         p.Update(w.Network, 0);
         Assert.Equal(GoalStatus.Done, p.Find("mine")!.Status);
         Assert.Equal(GoalStatus.Done, p.Find("make")!.Status);
@@ -228,7 +228,7 @@ public class ScenarioProgressTests
         // The standard rule needs the waves and a station; the scenario also asks for a jump, so it is a step stricter.
         Assert.Equal(OutcomeKind.Playing, GameOutcome.Evaluate(w.Network, 0, rules).Kind);
         FoundStation(w);
-        Assert.Equal(OutcomeKind.Won, GameOutcome.Evaluate(w.Network, 0, rules).Kind);
+        Assert.Equal(OutcomeKind.Playing, GameOutcome.Evaluate(w.Network, 0, rules).Kind); // the standard rule also needs a completed jump now
         var progress = new ScenarioProgress(C, def);
         progress.Update(w.Network, 0);
         Assert.Equal(GoalStatus.Pending, progress.Find("jump")!.Status);
@@ -238,6 +238,7 @@ public class ScenarioProgressTests
         w.Step(ExplorationRules.JumpChargeTicks);
         progress.Update(w.Network, 0);
         Assert.Equal(2L, progress.Find("jump")!.Current);
+        Assert.Equal(OutcomeKind.Won, GameOutcome.Evaluate(w.Network, 0, rules).Kind); // waves, station and jump: the same rule as the scenario
         // The campaign asks for the rules' goal waves (10 on default rules), which this world has not cleared.
         Assert.Equal(10L, progress.Find("hold_the_line")!.Target);
         Assert.Equal(OutcomeKind.Playing, progress.Outcome);
@@ -463,7 +464,7 @@ public class ScenarioProgressTests
         w.Network.AddStructureModuleUnchecked(ship, 10, 0, 0, ModuleKind.DroneBay);
         int dep = w.Network.AddDeposit(Ore, 5000, 0, 0, 0);
         Ok(w, new AssignDrones(ship, dep));
-        w.Step(Tps * 60 * 5);
+        w.Step(Tps * 60); // one drone bay at density 100 mines 50 ore a minute: enough for the checks, short of the goal
         p.Update(w.Network, 0);
         Assert.True(p.Find("mine_iron")!.Current >= 3);
         Assert.Equal(GoalStatus.Pending, p.Find("mine_iron")!.Status);
