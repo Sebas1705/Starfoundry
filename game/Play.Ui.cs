@@ -177,6 +177,7 @@ public partial class Play
         _btnRepair = MakeButton("", RepairAll, minWidth: 170);
         foreach (var b in new[] { _btnMine, _btnRefine, _btnScan, _btnMap, _btnWeapons, _btnRepair, _btnResearch }) actions.AddChild(b);
         _actions = MakePanel(actions);
+        _actions.Visible = false; // the key panel at the bottom right replaces these buttons (the objects stay so their state code keeps working)
 
         // The bottom strip is one compact line at the bottom left: the hold and the tool in hand with its cost. Nothing menu-like lives
         // here; the build menu, the shortcuts and the quick keys are in the key panel at the bottom right (see BuildKeyPanel).
@@ -488,7 +489,7 @@ public partial class Play
         var basis = _camera.GlobalTransform.Basis;
         var cam = new CameraBasis(V(-basis.Z), V(basis.X), V(basis.Y), Mathf.DegToRad(_camera.Fov));
         var eye = _camera.GlobalPosition;
-        float left = _actions.Position.X + _actions.Size.X + 14f;
+        float left = _actions.Visible ? _actions.Position.X + _actions.Size.X + 14f : 26f;
         float bottom = Math.Max(24f, size.Y - _toolbar.Position.Y + 10f);
         var items = new List<MarkerLayer.Item>();
 
