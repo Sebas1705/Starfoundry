@@ -55,7 +55,8 @@ public sealed partial class ObstacleView : Node3D
         var body = Holder(_radius / 1.3f);
         body.Scale = new Vector3(1f + (_seed % 5) * 0.06f, 0.82f + (_seed % 3) * 0.1f, 1f + (_seed % 4) * 0.07f) * (_radius / 1.3f);
         var tint = big ? new Color(0.42f, 0.36f, 0.32f) : new Color(0.38f, 0.36f, 0.40f);
-        Models.Add(body, "Rock", $"obs.rock.{kindId}.{_seed % 40}", Models.Body(), mb => Models.BuildRock(mb, tint, _seed % 40, big ? 1.5f : 1.8f, 0.5f));
+        var rockMi = Models.Add(body, "Rock", $"obs.rock.{kindId}.{_seed % 40}", Materials.Rock(), mb => Models.BuildRock(mb, tint, _seed % 40, big ? 1.5f : 1.8f, 0.5f));
+        rockMi.MaterialOverride = Materials.Rock((body.Scale.X + body.Scale.Y + body.Scale.Z) / 3f);
         body.RotationDegrees = new Vector3(_seed % 360, (_seed * 7) % 360, 0);
     }
 
@@ -64,7 +65,7 @@ public sealed partial class ObstacleView : Node3D
     private void BuildMine()
     {
         var body = Holder(_radius);
-        Models.Add(body, "Shell", "obs.mine.shell", Models.Body(), mb =>
+        Models.Add(body, "Shell", "obs.mine.shell", Models.Burnt(), mb =>
         {
             mb.C(new Color(0.16f, 0.16f, 0.19f)).Sphere(Vector3.Zero, Vector3.One * 0.78f, 6, 12);
             mb.C(new Color(0.30f, 0.28f, 0.26f)).Torus(Vector3.Zero, 0.78f, 0.07f, 16, 5);
@@ -96,7 +97,7 @@ public sealed partial class ObstacleView : Node3D
     {
         var body = Holder(_radius);
         _spin = body;
-        Models.Add(body, "Crystals", $"obs.crystal.{_seed % 12}", Models.Glow(new Color(0.65f, 0.35f, 1f), 1.6f), mb =>
+        Models.Add(body, "Crystals", $"obs.crystal.{_seed % 12}", CrystalMat(), mb =>
         {
             var rng = new Models.Rng(_seed % 12 + 5);
             for (int c = 0; c < 8; c++)
@@ -117,6 +118,23 @@ public sealed partial class ObstacleView : Node3D
             MaterialOverride = Models.GlowAlpha(new Color(0.8f, 0.4f, 1f), 0.35f, 0.045f),
         };
         body.AddChild(_halo);
+    }
+
+    private static StandardMaterial3D? _crystalMat;
+
+    /// <summary>Unstable crystals: faceted library crystal with a violet emissive mask.</summary>
+    private static StandardMaterial3D CrystalMat()
+    {
+        if (_crystalMat is not null) return _crystalMat;
+        var m = (StandardMaterial3D)Materials.Crystal(0.3f, 0.1f).Duplicate();
+        var violet = new Color(0.65f, 0.35f, 1f);
+        m.VertexColorUseAsAlbedo = true;
+        m.AlbedoColor = violet * 0.7f;
+        m.EmissionEnabled = true;
+        m.Emission = violet;
+        m.EmissionEnergyMultiplier = 1.6f;
+        m.EmissionOperator = BaseMaterial3D.EmissionOperatorEnum.Multiply;
+        return _crystalMat = m;
     }
 
     // ---- nebulae -----------------------------------------------------------------------------------
@@ -176,7 +194,7 @@ public sealed partial class ObstacleView : Node3D
     {
         var body = Holder(_radius / 1.4f);
         body.RotationDegrees = new Vector3((_seed % 30) - 15, (_seed * 13) % 360, (_seed % 40) - 20);
-        Models.Add(body, "Hull", $"obs.wreck.{_seed % 10}", Models.Body(), mb =>
+        Models.Add(body, "Hull", $"obs.wreck.{_seed % 10}", Materials.Rust(), mb =>
         {
             var rng = new Models.Rng(_seed % 10 + 3);
             var plate = new Color(0.30f, 0.33f, 0.34f);
@@ -203,6 +221,7 @@ public sealed partial class ObstacleView : Node3D
             }
             mb.At(Vector3.Zero);
         });
+        if (body.GetNodeOrNull<MeshInstance3D>("Hull") is { } hullMi) hullMi.MaterialOverride = Materials.Rust(body.Scale.X);
         _lightMat = new StandardMaterial3D { AlbedoColor = new Color(0.5f, 0.3f, 0.05f), EmissionEnabled = true, Emission = new Color(1f, 0.7f, 0.2f), EmissionEnergyMultiplier = 2.2f };
         _light = new MeshInstance3D { Name = "Beacon", Mesh = new SphereMesh { Radius = 0.14f, Height = 0.28f, RadialSegments = 8, Rings = 4 }, MaterialOverride = _lightMat, Position = new Vector3(-1.1f, 0.85f, 0) };
         body.AddChild(_light);
@@ -214,7 +233,7 @@ public sealed partial class ObstacleView : Node3D
     {
         var body = Holder(_radius);
         _spin = body;
-        Models.Add(body, "Plates", $"obs.debris.{_seed % 16}", Models.Body(), mb =>
+        Models.Add(body, "Plates", $"obs.debris.{_seed % 16}", Materials.Rust(), mb =>
         {
             var rng = new Models.Rng(_seed % 16 + 9);
             var cols = new[] { new Color(0.34f, 0.35f, 0.38f), new Color(0.22f, 0.23f, 0.26f), new Color(0.40f, 0.28f, 0.20f) };
@@ -228,6 +247,7 @@ public sealed partial class ObstacleView : Node3D
             }
             mb.At(Vector3.Zero);
         });
+        if (body.GetNodeOrNull<MeshInstance3D>("Plates") is { } platesMi) platesMi.MaterialOverride = Materials.Rust(body.Scale.X);
     }
 
     // ---- per frame ----------------------------------------------------------------------------------

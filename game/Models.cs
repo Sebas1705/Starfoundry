@@ -129,7 +129,7 @@ public static partial class Models
     {
         string key = $"deposit.{seed}.{tint.ToHtml()}";
         var r = new Node3D { Name = "Deposit" };
-        Add(r, "Rock", key + ".rock", Body(), mb => BuildRock(mb, tint, seed));
+        Add(r, "Rock", key + ".rock", Materials.Rock(1f, 2.4f), mb => BuildRock(mb, tint, seed));
         Add(r, "GlowCrystals", key + ".crystals", Glow(tint, 1.8f), mb => BuildCrystals(mb, seed));
         return r;
     }
@@ -436,14 +436,26 @@ public static partial class Models
 
     private static readonly Dictionary<string, StandardMaterial3D> Mats = new();
 
-    internal static StandardMaterial3D Body()
-    {
-        if (!Mats.TryGetValue("body", out var m))
-            Mats["body"] = m = new StandardMaterial3D { VertexColorUseAsAlbedo = true, AlbedoColor = Colors.White, Roughness = 0.55f, Metallic = 0.22f };
-        return m;
-    }
+    /// <summary>Plating at machine scale: machines, drones, enemies and the player ship (see <see cref="Materials"/>).</summary>
+    internal static StandardMaterial3D Body() => Materials.Machine();
 
-    internal static StandardMaterial3D Glow(Color c, float energy)
+    /// <summary>Plating at module scale: ship and station modules.</summary>
+    internal static StandardMaterial3D HullMat() => Materials.Hull();
+
+    /// <summary>Dark structural metal: trusses, rails, masts, frames.</summary>
+    internal static StandardMaterial3D Struct() => Materials.Structural();
+
+    /// <summary>Burnt metal: nozzles and barrels.</summary>
+    internal static StandardMaterial3D Burnt() => Materials.Burnt();
+
+    /// <summary>An emissive light with a soft panel mask.</summary>
+    internal static StandardMaterial3D Glow(Color c, float energy) => Materials.Light(c, energy);
+
+    /// <summary>An emissive vent: slats with light in the gaps.</summary>
+    internal static StandardMaterial3D GlowVent(Color c, float energy) => Materials.Light(c, energy, true);
+
+    /// <summary>A plain emissive material (flames, muzzle flashes): no texture, so scaled parts do not stretch it.</summary>
+    internal static StandardMaterial3D GlowPlain(Color c, float energy)
     {
         string key = $"glow.{c.ToHtml()}.{energy}";
         if (!Mats.TryGetValue(key, out var m))
@@ -476,20 +488,7 @@ public static partial class Models
         return m;
     }
 
-    internal static StandardMaterial3D GlassMat()
-    {
-        if (!Mats.TryGetValue("glass", out var m))
-            Mats["glass"] = m = new StandardMaterial3D
-            {
-                AlbedoColor = new Color(0.10f, 0.20f, 0.36f),
-                Roughness = 0.12f,
-                Metallic = 0.5f,
-                EmissionEnabled = true,
-                Emission = new Color(0.15f, 0.40f, 0.95f),
-                EmissionEnergyMultiplier = 0.4f,
-            };
-        return m;
-    }
+    internal static StandardMaterial3D GlassMat() => Materials.Glass();
 
     // ---- mesh plumbing -----------------------------------------------------------------------------
 
@@ -666,6 +665,19 @@ public static partial class Models
             Block(Vector3.Zero, new Vector3(thick, len, thick));
             _xf = saved;
             return this;
+        }
+
+        /// <summary>Adds this builder's triangles as one more surface of <paramref name="mesh"/>.</summary>
+        public void AddSurface(ArrayMesh mesh, Material mat)
+        {
+            if (Tris == 0) return;
+            var arrays = new Godot.Collections.Array();
+            arrays.Resize((int)Mesh.ArrayType.Max);
+            arrays[(int)Mesh.ArrayType.Vertex] = _v.ToArray();
+            arrays[(int)Mesh.ArrayType.Normal] = _n.ToArray();
+            arrays[(int)Mesh.ArrayType.Color] = _c.ToArray();
+            mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+            mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, mat);
         }
 
         public ArrayMesh ToMesh(Material mat)

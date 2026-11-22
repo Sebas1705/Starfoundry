@@ -45,20 +45,24 @@ public static class BeltModels
         _ => (Shape.Ingot, new Color(0.7f, 0.72f, 0.78f)),
     };
 
-    private static StandardMaterial3D? _material;
-
-    /// <summary>The one material of every belt and item mesh: vertex colour times instance colour.</summary>
-    public static StandardMaterial3D Material() => _material ??= new StandardMaterial3D { VertexColorUseAsAlbedo = true, Roughness = 0.5f, Metallic = 0.12f };
+    /// <summary>The material of an item mesh (vertex colour times instance colour, with a texture for the stuff it is made of).</summary>
+    public static StandardMaterial3D ItemMaterial(Shape shape) => shape switch
+    {
+        Shape.Ore => Materials.Ore(0.8f, 0.5f),
+        Shape.Crystal => Materials.Crystal(0.3f, 0.1f),
+        _ => Materials.ItemMetal(),
+    };
 
     private static readonly Dictionary<string, ArrayMesh> Cache = new();
 
-    private static ArrayMesh Get(string key, Action<Models.Mb> build)
+    private static ArrayMesh Get(string key, Material mat, Action<Models.Mb> build, Action<ArrayMesh>? post = null)
     {
         if (!Cache.TryGetValue(key, out var mesh))
         {
             var mb = new Models.Mb();
             build(mb);
-            Cache[key] = mesh = mb.ToMesh(Material());
+            Cache[key] = mesh = mb.ToMesh(mat);
+            post?.Invoke(mesh);
             mesh.ResourceName = key;
         }
         return mesh;
@@ -68,7 +72,7 @@ public static class BeltModels
 
     // ---- items ----------------------------------------------------------------------------------------
 
-    public static ArrayMesh Item(Shape shape) => Get("item." + shape, mb =>
+    public static ArrayMesh Item(Shape shape) => Get("item." + shape, ItemMaterial(shape), mb =>
     {
         mb.At(default);
         switch (shape)
@@ -133,12 +137,14 @@ public static class BeltModels
     /// One belt cell, 1 long along +X and 0.9 wide, from y = 0 to 0.25 (rails). Tier 0 has one chevron per cell, tier 1 two, tier 2 two with
     /// taller rails and a bright centre line. The tier colour is the instance colour; the shape carries only brightness.
     /// </summary>
-    public static ArrayMesh Tile(int tier) => Get("belt.tile." + tier, mb =>
+    public static ArrayMesh Tile(int tier) => GetTile(tier);
+
+    private static ArrayMesh GetTile(int tier) => Get("belt.tile." + tier, Materials.Structural(), mb =>
     {
         mb.At(default);
         float rail = tier == 2 ? 0.30f : 0.25f;
         mb.C(G(0.50f)).Block(new(0, 0.07f, 0), new(1.0f, 0.14f, 0.86f));
-        mb.C(G(0.22f)).Block(new(0, 0.15f, 0), new(1.0f, 0.03f, 0.58f)); // the running surface
+        // the running surface is the second surface of the mesh (belt texture), see Get
         foreach (float s in new[] { -1f, 1f })
         {
             mb.C(G(1f)).Block(new(0, rail / 2, s * 0.385f), new(1.0f, rail, 0.12f));
@@ -153,10 +159,15 @@ public static class BeltModels
         foreach (float x in xs)
             foreach (float s in new[] { -1f, 1f })
                 mb.Extrude(new[] { new Vector2(x - 0.11f, s * sz), new Vector2(x - 0.04f, s * sz), new Vector2(x + 0.10f, 0f), new Vector2(x + 0.03f, 0f) }, 0.165f, 0.178f);
+    }, mesh =>
+    {
+        var bed = new Models.Mb();
+        bed.At(default).C(G(0.30f)).Block(new(0, 0.15f, 0), new(1.0f, 0.03f, 0.58f)); // the running surface: belt texture, flow along +X
+        bed.AddSurface(mesh, Materials.Belt());
     });
 
     /// <summary>A flat octagonal cap with a darker inner disc: put on the end of a splitting belt (amber), a sink (red) or a source (green) through the instance colour.</summary>
-    public static ArrayMesh Hub() => Get("belt.hub", mb =>
+    public static ArrayMesh Hub() => Get("belt.hub", Materials.Structural(), mb =>
     {
         mb.At(default);
         mb.C(G(1f)).Prism(new(0, 0.168f, 0), 0.34f, 0.34f, 0.014f, 8, 22.5f);
