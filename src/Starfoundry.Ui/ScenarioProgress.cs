@@ -79,6 +79,44 @@ public sealed class ScenarioProgress
     /// <summary>Secondary goals done, and how many there are.</summary>
     public (int Done, int Total) SecondaryCount => (_goals.Count(g => !g.Primary && g.Status == GoalStatus.Done), _goals.Count(g => !g.Primary));
 
+    /// <summary>What a save has to remember (see <see cref="ProgressSnapshot"/>). <paramref name="tick"/> is the tick of the save.</summary>
+    public ProgressSnapshot Export(long tick, bool keepPlaying)
+    {
+        var goals = _goals.Select(g => new GoalSnapshot(g.Goal.Id, g.Status, g.Current, g.CompletedSeconds, g.FailedSeconds)).ToList();
+        var beats = new List<(int, double)>();
+        foreach (var e in _fired)
+            for (int i = 0; i < Scenario.Story.Count; i++)
+                if (ReferenceEquals(Scenario.Story[i], e.Beat)) beats.Add((i, e.Seconds));
+        return new ProgressSnapshot(tick, goals, beats, Outcome, Reason, Stars, _decidedAt, keepPlaying);
+    }
+
+    /// <summary>
+    /// Puts a saved state back, before the first <see cref="Update"/> after loading a save: goals keep the seconds they were done or failed at, beats
+    /// that fired do not fire again, a decided outcome stays decided. Goals the scenario no longer has and beats out of range are ignored.
+    /// </summary>
+    public void Restore(ProgressSnapshot snap)
+    {
+        for (int i = 0; i < _goals.Length; i++)
+        {
+            var saved = snap.Goals.FirstOrDefault(g => g.Id == _goals[i].Goal.Id);
+            if (saved is null) continue;
+            _goals[i] = _goals[i] with { Status = saved.Status, Current = Math.Max(0, saved.Current), CompletedSeconds = saved.CompletedSeconds, FailedSeconds = saved.FailedSeconds };
+            if (saved.Status == GoalStatus.Done) _goals[i] = _goals[i] with { Current = _goals[i].Target };
+        }
+        _fired.Clear();
+        _firedBeats.Clear();
+        foreach (var (beat, seconds) in snap.Beats.OrderBy(b => b.Seconds))
+        {
+            if (beat < 0 || beat >= Scenario.Story.Count || !_firedBeats.Add(beat)) continue;
+            _fired.Add(new StoryEvent(Scenario.Story[beat], seconds));
+        }
+        _started = true;
+        Outcome = snap.Outcome;
+        Reason = snap.Reason;
+        Stars = snap.Stars;
+        _decidedAt = snap.DecidedSeconds;
+    }
+
     /// <summary>The goal with this id, or null.</summary>
     public GoalState? Find(string id) => _goals.FirstOrDefault(g => g.Goal.Id == id);
 
