@@ -98,7 +98,10 @@ public sealed record KeyState
     public bool ThreatActive { get; init; }
     public bool ThreatNow { get; init; }
     public bool Armed { get; init; }
+    /// <summary>The mining laser is the weapon in hand (M).</summary>
     public bool Mining { get; init; }
+    /// <summary>The laser is firing: the simulation is mining the deposit under the crosshair.</summary>
+    public bool LaserFiring { get; init; }
     public bool Refining { get; init; }
     public bool ScanReady { get; init; } = true;
     public bool AnythingDamaged { get; init; }
@@ -186,6 +189,7 @@ public static class KeyHints
         if (s.HasGalaxy) yield return Row("map", "G", "map", "G", Lit(s.MapOpen));
         yield return s.ScanReady ? Row("scan", "K", "scan", "K") : Off("scan", "K", "scan", "key.why.scanWait");
         yield return Row("mine", "M", s.Mining ? "mineStop" : "mine", "M", Lit(s.Mining));
+        if (s.Mining) yield return Row("mineFire", "@hold", "mineFire", state: s.LaserFiring ? KeyRowState.Active : KeyRowState.Info);
         yield return Row("refine", "F", s.Refining ? "refineStop" : "refine", "F", Lit(s.Refining));
         yield return s.ThreatActive ? Row("weapons", "V", "weapons", "V", Lit(s.Armed)) : Off("weapons", "V", "weapons", "key.why.noThreats");
         if (s.StructuresOn) yield return Row("found", "I", "found", "I");
@@ -254,6 +258,7 @@ public static class KeyHints
     {
         yield return Row("choose", "@click", "choose");
         yield return Row("mine", "M", s.Mining ? "mineStop" : "mine", "M", Lit(s.Mining));
+        if (s.Mining) yield return Row("mineFire", "@hold", "mineFire", state: s.LaserFiring ? KeyRowState.Active : KeyRowState.Info);
         if (s.DroneBayBuilt) yield return Row("drones", "F7", "drones", "F7");
         else if (s.StructuresOn) yield return Off("drones", "F7", "drones", s.DroneBayLocked ? "key.why.droneLocked" : "key.why.noBay");
         yield return BuildRow(s);

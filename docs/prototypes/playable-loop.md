@@ -3,7 +3,7 @@
 Status: done (2026-11-19). Builds on [belts](belts.md), [machines](machines.md) and the [command layer](../specs/13-command-layer.md). Decision: [ADR 0005](../adr/0005-campaign-economy-hold-costs-and-research-gates.md) (proposed).
 
 ## The loop
-1. **Mine by hand** (`M`): 2 ore per second into a 60-item hold.
+1. **Mine by hand** (`M` takes out the mining laser, hold the left click on a deposit in range; see [mining laser](mining-laser.md)): 2 ore per second into a 60-item hold.
 2. **Refine on the ship** (`F`): the micro-refinery turns ore into ingots, one every 4 seconds.
 3. **Build** (`1`-`9`, click or drag): belts, drills, smelters, assemblers, research labs and depots. Everything costs items from the hold; removing refunds.
 4. **Automate**: a drill pulls ore from a deposit, a belt carries it to a smelter, then on to a **depot** that delivers ingots straight into the hold.

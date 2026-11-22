@@ -26,7 +26,9 @@ public partial class Play
     private Hover _hover = new(HoverKind.None, -1, "");
     private int _selMachine = -1;
     private Vector3? _waypoint;
-    private bool _pendingMine;
+    /// <summary>The mining laser is the weapon in hand (M): holding the left button fires it at the deposit under the crosshair.</summary>
+    private bool _laserOn;
+    private bool _laserOutOfRangeToasted;
     private const float DefaultDistance = 10f; // overview camera of the scripted modes
     private const float MouseSensitivity = 0.0025f; // radians per pixel
     private const float MaxPitch = 85f * MathF.PI / 180f;
@@ -586,7 +588,7 @@ public partial class Play
 
     /// <summary>True while a mining order is active but the hold is at the mining limit, so nothing is mined.</summary>
     private bool MiningPausedByLimit =>
-        _structuresOn && (Net.MiningDeposit(Player) >= 0 || _pendingMine)
+        _structuresOn && Net.MiningDeposit(Player) >= 0
         && HudFormat.MiningLimitReached(Net.HoldTotal(Player), Net.HoldCapacity(Player));
 
     private void UpdateStatus()
@@ -903,7 +905,6 @@ public partial class Play
         if (_structuresOn && _cursorY == 0) _cursorY = DefaultStructureLayer;
         _selMachine = -1;
         _waypoint = null;
-        _pendingMine = false;
         _seated = true; // the loaded world has its own ship and modules: start at the seat again
         _bodyVolumesVersion = -1;
         _tool = ToolMode.Pointer;
@@ -1054,7 +1055,7 @@ public partial class Play
 
         // Actions.
         var player = Net.GetPlayerInfo(Player);
-        bool mining = Net.MiningDeposit(Player) >= 0 || _pendingMine;
+        bool mining = _laserOn;
         _btnMine.Text = mining ? L("btn.mineStop") : L("btn.mine");
         _btnMine.SetPressedNoSignal(mining);
         _btnMine.TooltipText = MiningPausedByLimit ? L("tip.minePaused") : L("tip.mine");
@@ -1543,7 +1544,6 @@ public partial class Play
             // Letting go of the mouse stops the ship and any autopilot run: no thrust is left running unattended.
             _waypoint = null;
             _beltAnchor = null;
-            _pendingMine = false;
             _dragStart = null;
             SendThrust((0, 0, 0), force: true);
         }
@@ -1579,7 +1579,7 @@ public partial class Play
                 else if (_selMachine >= 0) _selMachine = -1;
                 else if (_tool == ToolMode.Build) _tool = ToolMode.Pointer;
                 else if (_mapOpen) _mapOpen = false;
-                else { _waypoint = null; _pendingMine = false; _wantCapture = false; OpenPause(); } // last: let go of the mouse and open the pause menu
+                else { _waypoint = null; _wantCapture = false; OpenPause(); } // last: let go of the mouse and open the pause menu
                 break;
             case Key.F1: _helpOpen = !_helpOpen; break;
             case Key.F11:
@@ -1661,7 +1661,6 @@ public partial class Play
         {
             // Standing: no flight. WASD walk (see UpdateBody); the autopilot is off and the ship holds still.
             _waypoint = null;
-            _pendingMine = false;
             SendThrust((0, 0, 0), force: _throttle.LastSent != (0, 0, 0));
             return;
         }
@@ -1675,7 +1674,6 @@ public partial class Play
             if (forward != 0 || right != 0 || up != 0)
             {
                 _waypoint = null; // flying by hand takes over from the autopilot
-                _pendingMine = false;
                 thrust = ToThrust(CockpitForward() * forward + CockpitRight() * right + Vector3.Up * up);
             }
         }
@@ -1686,46 +1684,50 @@ public partial class Play
             else thrust = ToThrust(to.Normalized());
         }
 
-        if (_pendingMine && Net.IsDeposit(_selectedDeposit) && Net.InMineRange(Player, _selectedDeposit))
-        {
-            _pendingMine = false;
-            _waypoint = null;
-            thrust = (0, 0, 0);
-            Send(new StartMining(_selectedDeposit));
-        }
+        UpdateLaser();
 
         SendThrust(thrust, force: thrust == (0, 0, 0) && _throttle.LastSent != (0, 0, 0));
     }
 
-    /// <summary>The M button: fly to the selected deposit if needed, then mine it.</summary>
+    /// <summary>The M key and the Mine button: take the mining laser in hand, or stow it. Mining itself is firing it (see <see cref="UpdateLaser"/>).</summary>
     private void ToggleMining()
     {
-        if (Net.MiningDeposit(Player) >= 0 || _pendingMine)
+        if (_laserOn)
         {
-            _pendingMine = false;
-            Send(new StopMining());
-            ToastProduction(L("toast.miningStopped"), 4.0);
+            SetLaser(false);
+            ToastProduction(L("toast.laserStowed"), 4.0);
             return;
         }
-        if (Standing) { ToastLogistics(L("toast.sitToFly")); return; } // mining may need the autopilot: sit at the pilot seat first
-        if (!Net.IsDeposit(_selectedDeposit) || !Net.IsDepositRevealed(_selectedDeposit))
+        if (Standing) { ToastLogistics(L("toast.sitToFly")); return; }
+        SetLaser(true);
+        ToastProduction(L("toast.laserReady"), 6.0);
+    }
+
+    private void SetLaser(bool on)
+    {
+        _laserOn = on;
+        _laserOutOfRangeToasted = false;
+        if (on) { _tool = ToolMode.Pointer; _beltAnchor = null; _dragStart = null; }
+        else if (Net.HasPlayer(Player) && Net.MiningDeposit(Player) >= 0) Send(new StopMining());
+    }
+
+    /// <summary>Per frame: while the laser is in hand and the fire button is held, the deposit under the crosshair (inside the range of the
+    /// laser) is mined by the simulation. Letting go, looking away, going out of range or standing up stops it. Only changes are sent.</summary>
+    private void UpdateLaser()
+    {
+        if (!_laserOn) return;
+        if (Standing || _tool == ToolMode.Build || PanelOpen()) { SetLaser(false); return; }
+        bool fire = (_mouseLook && Input.IsMouseButtonPressed(MouseButton.Left));
+        int want = -1;
+        if (fire && _hover.Kind == HoverKind.Deposit && Net.IsDeposit(_hover.Id) && Net.DepositRemaining(_hover.Id) > 0)
         {
-            var nearest = RevealedDeposits().FirstOrDefault(-1);
-            if (nearest < 0) { ToastLogistics(L("toast.noDeposits")); return; }
-            _selectedDeposit = nearest;
+            if (Net.InMineRange(Player, _hover.Id)) { want = _hover.Id; _laserOutOfRangeToasted = false; }
+            else if (!_laserOutOfRangeToasted) { _laserOutOfRangeToasted = true; ToastLogistics(L("toast.laserTooFar", PlayerRules.MineRangeCells)); }
         }
-
-        if (Net.InMineRange(Player, _selectedDeposit)) { Send(new StartMining(_selectedDeposit)); return; }
-
-        // Out of range: fly to a point a few cells from the deposit on the ship's side, mine on arrival.
-        var pos = Net.DepositPosition(_selectedDeposit);
-        var dep = new Vector3(pos.X, pos.Y, pos.Z);
-        var ship = ShipPosition(0f);
-        var dir = (ship - dep);
-        dir = dir.LengthSquared() < 0.01f ? Vector3.Right : dir.Normalized();
-        _waypoint = dep + dir * (PlayerRules.MineRangeCells - 2);
-        _pendingMine = true;
-        ToastProduction(L("toast.flyingToMine", ItemName(Net.DepositItem(_selectedDeposit))));
+        if (_world.PendingCommands > 0) return;
+        int now = Net.MiningDeposit(Player);
+        if (want < 0) { if (now >= 0) Send(new StopMining()); }
+        else if (now != want) Send(new StartMining(want));
     }
 
     // ---- hover and inspection ----------------------------------------------------------------------------
