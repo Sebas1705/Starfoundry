@@ -20,8 +20,8 @@ public sealed record GoalSettings(int WavesToWin = GoalSettings.DefaultWaves)
 /// <summary>Where a game stands: still going, won, or lost.</summary>
 public enum OutcomeKind { Playing, Won, Lost }
 
-/// <summary>Why the game ended (<see cref="None"/> while it is going on).</summary>
-public enum OutcomeReason { None, WavesSurvived, ShipLost }
+/// <summary>Why the game ended (<see cref="None"/> while it is going on). The last two come from scenarios: every primary goal done without waves among them, and a primary goal failed (a kept module lost, a time limit passed).</summary>
+public enum OutcomeReason { None, WavesSurvived, ShipLost, GoalsDone, GoalFailed }
 
 /// <summary>The numbers of the end screen.</summary>
 /// <param name="PlaySeconds">Simulated play time.</param>

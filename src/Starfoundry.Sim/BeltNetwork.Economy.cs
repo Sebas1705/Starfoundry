@@ -604,6 +604,8 @@ public sealed partial class BeltNetwork
                     p.MineProgress = 0;
                     d.Remaining--;
                     MinedByHand++;
+                    CountProduced(d.Item, 1);
+                    CountMined(d.Item, 1);
                     AddToHold(p, d.Item, 1);
                 }
             }
@@ -656,7 +658,7 @@ public sealed partial class BeltNetwork
         {
             p.ShipReserved = 0;
             p.ShipCrafting = false;
-            foreach (var o in r.Outputs) AddToHold(p, o.Item, o.Count);
+            foreach (var o in r.Outputs) { AddToHold(p, o.Item, o.Count); CountProduced(o.Item, o.Count); }
         }
 
         if (p.ShipCrafting) return;

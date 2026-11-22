@@ -180,6 +180,8 @@ public sealed partial class BeltNetwork
                 {
                     m.Out[o.Item] += o.Count;
                     MachineOutputsCreated += o.Count;
+                    CountProduced(o.Item, o.Count);
+                    if (Content.Machines[m.Type].Role == MachineRole.Drill) CountMined(o.Item, o.Count);
                 }
                 m.Crafting = false;
             }

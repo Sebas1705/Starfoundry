@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "id": "sandbox",
+  "order": 200,
+  "name_es": "Modo libre",
+  "name_en": "Sandbox",
+  "description_es": "Sin objetivos. Tú eliges las reglas, la semilla y con qué empiezas.",
+  "description_en": "No goals. You choose the rules, the seed and what you start with.",
+  "briefing_es": "Todo desbloqueado y gratis. Las amenazas, la riqueza y el resto de reglas las eliges tú.",
+  "briefing_en": "Everything unlocked and free. Threats, richness and the other rules are your choice.",
+  "mode": "sandbox",
+  "player_rules": true,
+  "rules": { "threats_enabled": false }
+}

@@ -21,8 +21,8 @@ public static class CommandCodec
     /// <summary>Version 2 added the content hash to the header, version 3 the game mode, version 4 the galaxy seed, version 5 the threat flag.</summary>
     /// Version 6 added the station-rules flag (bit 1); the structures flag (bit 2) uses a bit that version 6 left free,
     /// so logs written before it simply read as structures off and the version stays 6.
-    private const byte LogVersion = 7;
-    /// Version 7 added the world rules block (flags bit 3, written only for non-default rules).
+    private const byte LogVersion = 8;
+    /// Version 7 added the world rules block (flags bit 3, written only for non-default rules). Version 8 added the scenario id (flags bit 4).
     /// <summary>Version 5 headers carry no station-rules or structures flag; they still load, with both rules off.</summary>
     private const byte OldestLogVersion = 5;
 
@@ -297,7 +297,7 @@ public static class CommandCodec
     /// <summary>Writes a log: magic, version, content hash, count, then (tick, player, command) entries.
     /// Pass <see cref="ContentDb.Hash"/> of the content the log was recorded with (0 if there is none).</summary>
     public static void WriteLog(Stream stream, IReadOnlyList<LoggedCommand> log, ulong contentHash = 0, GameMode mode = GameMode.Sandbox,
-        ulong galaxySeed = 0, bool threats = false, bool stationRules = false, bool structures = false, WorldRules? rules = null)
+        ulong galaxySeed = 0, bool threats = false, bool stationRules = false, bool structures = false, WorldRules? rules = null, string? scenarioId = null)
     {
         using var w = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
         w.Write(Magic);
@@ -306,12 +306,20 @@ public static class CommandCodec
         w.Write((byte)mode);
         w.Write(galaxySeed);
         bool hasRules = rules is not null && !rules.IsDefault;
-        w.Write((byte)((threats ? 1 : 0) | (stationRules ? 2 : 0) | (structures ? 4 : 0) | (hasRules ? 8 : 0)));
+        bool hasScenario = !string.IsNullOrEmpty(scenarioId);
+        w.Write((byte)((threats ? 1 : 0) | (stationRules ? 2 : 0) | (structures ? 4 : 0) | (hasRules ? 8 : 0) | (hasScenario ? 16 : 0)));
         if (hasRules)
         {
             byte[] block = rules!.Serialize();
             w.Write(block.Length);
             w.Write(block);
+        }
+        if (hasScenario)
+        {
+            byte[] id = Encoding.UTF8.GetBytes(scenarioId!);
+            if (id.Length > MaxScenarioIdBytes) throw new ArgumentException("The scenario id is too long.", nameof(scenarioId));
+            w.Write(id.Length);
+            w.Write(id);
         }
         w.Write(log.Count);
         foreach (var e in log)
@@ -352,7 +360,18 @@ public static class CommandCodec
 
     /// <summary>Also returns the world rules (flags bit 3, version 7). Logs without the block, including versions 5 and 6, read as default rules.</summary>
     public static List<LoggedCommand> ReadLog(Stream stream, out ulong contentHash, out GameMode mode, out ulong galaxySeed, out bool threats,
-        out bool stationRules, out bool structures, out WorldRules rules)
+        out bool stationRules, out bool structures, out WorldRules rules) =>
+        ReadLog(stream, out contentHash, out mode, out galaxySeed, out threats, out stationRules, out structures, out rules, out _);
+
+    /// <summary>Longest scenario id the header carries, in UTF-8 bytes.</summary>
+    public const int MaxScenarioIdBytes = 64;
+
+    /// <summary>
+    /// Also returns the scenario id (flags bit 4, version 8), or null. A world made from a scenario must be rebuilt with it
+    /// (<see cref="SimWorld.ReplayScenario"/>); logs of versions 5 to 7 read as no scenario.
+    /// </summary>
+    public static List<LoggedCommand> ReadLog(Stream stream, out ulong contentHash, out GameMode mode, out ulong galaxySeed, out bool threats,
+        out bool stationRules, out bool structures, out WorldRules rules, out string? scenarioId)
     {
         using var r = new BinaryReader(stream, Encoding.UTF8, leaveOpen: true);
         var magic = r.ReadBytes(Magic.Length);
@@ -365,7 +384,7 @@ public static class CommandCodec
         mode = (GameMode)rawMode;
         galaxySeed = r.ReadUInt64();
         byte flags = r.ReadByte();
-        int knownFlags = version >= 7 ? 15 : version >= 6 ? 7 : 1;
+        int knownFlags = version >= 8 ? 31 : version >= 7 ? 15 : version >= 6 ? 7 : 1;
         if (flags > knownFlags) throw new InvalidDataException($"Unknown header flags {flags}.");
         threats = (flags & 1) != 0;
         stationRules = (flags & 2) != 0;
@@ -378,6 +397,15 @@ public static class CommandCodec
             var block = r.ReadBytes(length);
             if (block.Length != length) throw new InvalidDataException("The world rules block is truncated.");
             rules = WorldRules.Deserialize(block);
+        }
+        scenarioId = null;
+        if ((flags & 16) != 0)
+        {
+            int length = r.ReadInt32();
+            if (length < 1 || length > MaxScenarioIdBytes) throw new InvalidDataException("Bad scenario id length.");
+            var bytes = r.ReadBytes(length);
+            if (bytes.Length != length) throw new InvalidDataException("The scenario id is truncated.");
+            scenarioId = Encoding.UTF8.GetString(bytes);
         }
         int count = r.ReadInt32();
         if (count < 0) throw new InvalidDataException("Negative entry count.");

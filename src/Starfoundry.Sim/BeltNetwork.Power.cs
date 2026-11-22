@@ -141,7 +141,11 @@ public sealed partial class BeltNetwork
                     production += WorldRules.Scale(kinds.PowerOutput(kind), Rules.PowerOutputPercent);
                     rem--;
                 }
-                else production += kinds.EmergencyPower(kind); // no fuel: the reactor still trickles a little power
+                else
+                {
+                    production += kinds.EmergencyPower(kind); // no fuel: the reactor still trickles a little power
+                    FuelStarvedTicks++;
+                }
                 if (rem > 0) s.BurnRemaining[key] = rem; else s.BurnRemaining.Remove(key);
             }
             s.PowerProduction = production;

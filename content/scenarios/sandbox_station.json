@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "id": "sandbox_station",
+  "order": 201,
+  "name_es": "Modo libre con estación",
+  "name_en": "Sandbox with a station",
+  "description_es": "Como el modo libre, pero con un núcleo de estación vacío junto a la nave.",
+  "description_en": "Like the sandbox, with a bare station core next to the ship.",
+  "briefing_es": "Todo desbloqueado y gratis, con un núcleo de estación esperando junto a la nave.",
+  "briefing_en": "Everything unlocked and free, with a station core waiting next to the ship.",
+  "mode": "sandbox",
+  "player_rules": true,
+  "rules": { "threats_enabled": false },
+  "start": {
+    "structures": [
+      { "template": "starter_ship" },
+      { "template": "blank_station", "kind": "station", "offset": [10, 0, -8] }
+    ]
+  }
+}

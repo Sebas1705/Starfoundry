@@ -228,6 +228,9 @@ public sealed class ContentDb
     /// <summary>The ship the campaign starts in (built at world creation when structure rules are on), or null if the content has none.</summary>
     public StructureTemplate? StarterShip { get; }
 
+    /// <summary>Every structure template by id (<c>starter_ship</c> included): pre-built ships and stations that scenarios place at world creation.</summary>
+    public IReadOnlyDictionary<string, StructureTemplate> Templates { get; }
+
     /// <summary>Index of the reactor fuel item (<see cref="PowerRules.FuelItemId"/>), or -1 when the content has none.</summary>
     public int FuelItem { get; }
 
@@ -240,11 +243,12 @@ public sealed class ContentDb
     private ContentDb(List<ItemDef> items, List<MachineDef> machines, List<RecipeDef> recipes, BeltDef?[] belts, List<ResearchDef> research,
         GalaxyRules? galaxy, List<ArchetypeDef> archetypes, ItemStack[] jumpCost,
         ThreatRules? threat, List<EnemyDef> enemies, List<WaveSpec> waves, ModuleRules? modules, StructureContent? structures,
-        StructureTemplate? starterShip)
+        StructureTemplate? starterShip, SortedDictionary<string, StructureTemplate> templates)
     {
         Modules = modules;
         Structures = structures;
         StarterShip = starterShip;
+        Templates = templates;
         Threat = threat;
         Enemies = enemies;
         Waves = waves;
@@ -664,14 +668,19 @@ public sealed class ContentDb
             if (root.TryGetProperty("structures", out var st)) structures = LoadStructures(st, itemIds);
 
             StructureTemplate? starterShip = null;
+            var templates = new SortedDictionary<string, StructureTemplate>(StringComparer.Ordinal);
             if (root.TryGetProperty("structure_templates", out var tpl))
             {
-                RequireObject(tpl, "structure_templates", "starter_ship");
-                if (tpl.TryGetProperty("starter_ship", out var ss))
+                if (tpl.ValueKind != JsonValueKind.Object) throw new InvalidDataException("'structure_templates' must be an object.");
+                foreach (var prop in tpl.EnumerateObject())
                 {
+                    string tn = prop.Name;
+                    if (tn.Length == 0 || tn.Any(c => !(char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '_')))
+                        throw new InvalidDataException($"Invalid structure template id '{tn}' (lower case letters, digits and underscores).");
                     if (structures is null) throw new InvalidDataException("'structure_templates' needs a 'structures' section.");
-                    starterShip = LoadTemplate(ss, "structure_templates.starter_ship", structures, machines, recipes, beltIds, itemIds);
+                    templates.Add(tn, LoadTemplate(prop.Value, "structure_templates." + tn, structures, machines, recipes, beltIds, itemIds));
                 }
+                templates.TryGetValue("starter_ship", out starterShip);
             }
 
             var enemies = new List<EnemyDef>();
@@ -711,7 +720,7 @@ public sealed class ContentDb
             }
             else if (enemies.Count > 0 || waves.Count > 0) throw new InvalidDataException("Enemies and waves need a threat section.");
 
-            return new ContentDb(items, machines, recipes, belts, research, galaxy, archetypes, jumpCost, threat, enemies, waves, modules, structures, starterShip);
+            return new ContentDb(items, machines, recipes, belts, research, galaxy, archetypes, jumpCost, threat, enemies, waves, modules, structures, starterShip, templates);
         }
     }
 
@@ -1096,7 +1105,7 @@ public sealed class ContentDb
             }
         }
         else Mix(-1);
-        if (StarterShip is { } ship)
+        void MixTemplate(StructureTemplate ship)
         {
             Mix(ship.Modules.Length);
             foreach (var m in ship.Modules) { Mix(m.Mx); Mix(m.My); Mix(m.Mz); Mix((int)m.Kind); }
@@ -1106,7 +1115,15 @@ public sealed class ContentDb
             foreach (var b in ship.Belts) { Mix(b.X); Mix(b.Y); Mix(b.Z); Mix((int)b.Dir); Mix(b.Length); Mix((int)b.Tier); Mix(b.From); Mix(b.To); }
             if (ship.Hold.Length > 0) MixStacks(ship.Hold);
         }
+        if (StarterShip is { } ship) MixTemplate(ship);
         else Mix(-1);
+        // Other templates (scenario starts) are mixed only when present, in id order, so content with only the starter ship hashes as before.
+        foreach (var (tid, tpl) in Templates)
+        {
+            if (tid == "starter_ship") continue;
+            MixStr(tid);
+            MixTemplate(tpl);
+        }
         if (Threat is { } th)
         {
             Mix(th.AlertMax); Mix(th.SignatureThreshold); Mix(th.DecayPerTick); Mix(th.AlertAfterWave); Mix(th.WarningTicks);

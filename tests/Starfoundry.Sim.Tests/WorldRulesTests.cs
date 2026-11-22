@@ -526,7 +526,7 @@ public class WorldRulesTests
         byte[] plain = LogBytes(log, null);
         byte[] normal = LogBytes(log, WorldRules.Normal);
         Assert.Equal(plain, normal); // default rules write no block
-        Assert.Equal(7, plain[4]);
+        Assert.Equal(8, plain[4]); // version 8 added the scenario id; the rules block is unchanged
         Assert.Equal(0, plain[4 + 1 + 8 + 1 + 8] & 8);
 
         byte[] hard = LogBytes(log, WorldRules.Hard);
@@ -547,7 +547,7 @@ public class WorldRulesTests
         // A damaged rules block or an unknown flag is refused.
         var cut = hard.Take(4 + 1 + 8 + 1 + 8 + 1 + 4 + 5).ToArray();
         Assert.Throws<InvalidDataException>(() => CommandCodec.ReadLog(new MemoryStream(cut), out _, out _, out _, out _, out _, out _, out _));
-        var unknown = (byte[])plain.Clone(); unknown[4 + 1 + 8 + 1 + 8] |= 16;
+        var unknown = (byte[])plain.Clone(); unknown[4 + 1 + 8 + 1 + 8] |= 32; // bit 4 (16) is the scenario flag since version 8
         Assert.Throws<InvalidDataException>(() => CommandCodec.ReadLog(new MemoryStream(unknown), out _, out _, out _, out _, out _, out _, out _));
         var badLength = (byte[])hard.Clone(); badLength[4 + 1 + 8 + 1 + 8 + 1 + 3] = 0x7f;
         Assert.Throws<InvalidDataException>(() => CommandCodec.ReadLog(new MemoryStream(badLength), out _, out _, out _, out _, out _, out _, out _));

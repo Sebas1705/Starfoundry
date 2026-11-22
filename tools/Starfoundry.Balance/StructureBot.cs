@@ -105,6 +105,22 @@ public sealed partial class StructureBot
         _ship = Net.ShipStructure(0);
     }
 
+    /// <summary>Plays a story level: the world is made by <see cref="SimWorld.CreateScenario(ContentDb, ScenarioDef, ulong, WorldRules?)"/> and the
+    /// game is decided by the scenario's goals (<see cref="ScenarioProgress"/>). Only the levels listed in <c>StructureBot.Scenario.cs</c> have a plan.</summary>
+    public StructureBot(ContentDb content, ScenarioDef scenario, ulong seed = 0)
+    {
+        _c = content;
+        _scenario = scenario;
+        _progress = new ScenarioProgress(content, scenario);
+        _w = SimWorld.CreateScenario(content, scenario, seed);
+        _w.Network.EnsurePlayer(0);
+        _ship = Net.ShipStructure(0);
+        Threats = _w.Network.ThreatActive;
+    }
+
+    private readonly ScenarioDef? _scenario;
+    private readonly ScenarioProgress? _progress;
+
     /// <summary>The world the bot plays in, for inspecting or saving it after a run.</summary>
     public SimWorld World => _w;
 
@@ -208,7 +224,7 @@ public sealed partial class StructureBot
     {
         Record();
         if (Trace is not null && NowSeconds % 60 == 0) StatusLine();
-        var outcome = GameOutcome.Evaluate(Net, 0, new GoalSettings(GoalWaves));
+        var outcome = _progress is null ? GameOutcome.Evaluate(Net, 0, new GoalSettings(GoalWaves)) : ScenarioOutcome();
         if (outcome.Kind == OutcomeKind.Won && !_seen.Contains(VictoryMilestone))
         {
             _report.Outcome = OutcomeKind.Won;
@@ -378,7 +394,7 @@ public sealed partial class StructureBot
         _maxSeconds = maxSeconds;
         try
         {
-            PlayCampaign();
+            if (_progress is null) PlayCampaign(); else PlayScenario();
             _report.End = "the plan ran out before the game was decided";
             // Keep the base alive until the game is decided.
             Goal("hold the line until the waves are done");

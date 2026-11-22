@@ -20,6 +20,31 @@ var lookup = Starfoundry.Ui.ContentLocator.Resolve(Starfoundry.Ui.ContentLocator
 if (lookup.Path is null) { Console.Error.WriteLine("content/core.json not found. Tried:\n" + lookup.TriedText); return 1; }
 
 var content = ContentDb.FromFile(lookup.Path);
+if (args.FirstOrDefault(a => a.StartsWith("--scenario=")) is { } scenarioArg)
+{
+    // A story level: dotnet run --project tools/Starfoundry.Balance -- --scenario=01_first_light [--minutes 90] [--trace] [--delay=6] [--seed=N]
+    // Plays levels 01, 02 and 03; levels 04 and 05 are validated by reachability analysis in the content tests only.
+    string id = scenarioArg["--scenario=".Length..];
+    var catalog = ScenarioCatalog.FromDirectory(content, Path.Combine(Path.GetDirectoryName(lookup.Path)!, "scenarios"));
+    var def = catalog.Find(id);
+    if (def is null) { Console.Error.WriteLine($"Unknown scenario '{id}'. Known: {string.Join(", ", catalog.All.Select(s => s.Id))}"); return 1; }
+    if (!StructureBot.PlayableScenarios.Contains(id)) { Console.Error.WriteLine($"The bot has no plan for '{id}'. Playable: {string.Join(", ", StructureBot.PlayableScenarios)}"); return 1; }
+    string? Val(string name) => args.SkipWhile(a => a != name).Skip(1).FirstOrDefault() ?? args.FirstOrDefault(a => a.StartsWith(name + "="))?[(name.Length + 1)..];
+    int scenarioMinutes = Val("--minutes") is { } mt2 ? int.Parse(mt2) : 90;
+    ulong scenarioSeed = Val("--seed") is { } sd2 ? ulong.Parse(sd2) : 0;
+    var scenarioBot = new StructureBot(content, def, scenarioSeed)
+    {
+        ActionDelaySeconds = args.Any(a => a.StartsWith("--delay=")) ? delay : 6,
+        Trace = args.Contains("--trace") ? Console.Out : null,
+    };
+    var scenarioReport = scenarioBot.Run(scenarioMinutes * 60);
+    Console.WriteLine($"Scenario run: {def.Id}, seed {(scenarioSeed != 0 ? scenarioSeed : def.Seed)}, action delay {scenarioBot.ActionDelaySeconds} s\n");
+    Console.WriteLine(scenarioReport.Format());
+    Console.WriteLine($"Stars: {scenarioBot.Stars}");
+    foreach (var g in scenarioBot.GoalStates)
+        Console.WriteLine($"- {(g.Primary ? "primary" : "secondary")} {g.Goal.Id}: {g.Status}{(g.CompletedSeconds is { } c ? " at " + StructureBotReport.Clock(c) : "")}{(g.FailedSeconds is { } f ? " at " + StructureBotReport.Clock(f) : "")} ({g.ProgressText})");
+    return scenarioReport.Outcome == Starfoundry.Ui.OutcomeKind.Won ? 0 : 2;
+}
 if (args.Contains("--structures"))
 {
     // The structure campaign: dotnet run --project tools/Starfoundry.Balance -- --structures --minutes 120 --seed N --trace [--delay=6] [--no-threats] [--difficulty=relaxed|normal|hard|brutal] [--continue]

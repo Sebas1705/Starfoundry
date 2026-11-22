@@ -28,6 +28,7 @@ One decision per file, `NNNN-slug.md`. An accepted ADR is never rewritten; add a
 | [0022](0022-structure-economy-fixes.md) | Structure worlds: free ports, quartz and carbon ports, emergency reactor power, cheaper defence and reactor modules, no removing the last essential ship module | proposed | 2026-11-21 |
 | [0023](0023-world-rules-and-difficulty.md) | World rules (integer percentages and flags) and difficulty presets are stored in the log header, version 7 | proposed | 2026-11-22 |
 | [0024](0024-resource-expansion.md) | Silicon, circuits, titanium alloy and fuel cells, with shield, sensor and Mk2 reactor modules | proposed | 2026-11-22 |
+| [0025](0025-scenarios-and-goals.md) | Scenarios are data files with goals, a story and an engine-free goals engine; the log header (version 8) carries the scenario id | proposed | 2026-11-22 |
 
 ## Template
 ```markdown

@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "id": "05_long_watch",
+  "order": 5,
+  "name_es": "La larga guardia",
+  "name_en": "The Long Watch",
+  "description_es": "La campaña completa en dificultad Difícil: una estación, un salto y 12 oleadas.",
+  "description_en": "The full campaign on Hard: a station, a jump and 12 waves.",
+  "briefing_es": "Todo lo aprendido, sin red. Funda una estación, salta a otro sistema y resiste doce oleadas con el núcleo intacto. El Remanente llega antes, golpea más fuerte y los yacimientos son más pobres. Yo estaré aquí, vigilando.",
+  "briefing_en": "Everything you have learned, without a net. Found a station, jump to another system and survive twelve waves with the core intact. The Remnant comes sooner, hits harder and the deposits are thinner. I will be here, keeping watch.",
+  "rules": { "preset": "hard" },
+  "goals": {
+    "primary": [
+      { "id": "hold_the_line", "type": "survive_waves",
+        "text_es": "Sobrevive a todas las oleadas", "text_en": "Survive every wave" },
+      { "id": "found_station", "type": "found_stations", "count": 1,
+        "text_es": "Funda una estación", "text_en": "Found a station" },
+      { "id": "jump", "type": "visit_systems", "count": 2,
+        "text_es": "Salta a otro sistema", "text_en": "Jump to another system" },
+      { "id": "keep_core", "type": "keep_alive", "kind": "core",
+        "text_es": "No pierdas el núcleo de la estación", "text_en": "Do not lose the station core" }
+    ],
+    "secondary": [
+      { "id": "no_losses", "type": "keep_alive",
+        "text_es": "No pierdas ningún módulo", "text_en": "Lose no module" }
+    ]
+  },
+  "story": [
+    { "trigger": "start",
+      "text_es": "Nada de tutorial esta vez. Yo vigilo el sensor; tú, el resto.",
+      "text_en": "No tutorial this time. I will watch the scope; you take care of everything else." },
+    { "trigger": "goal:jump",
+      "text_es": "Estamos lejos de casa. Que no se te olvide que hay que volver a tiempo.",
+      "text_en": "We are far from home. Do not forget we need to be back in time." },
+    { "trigger": "lose",
+      "text_es": "Guardia terminada. No fue por falta de intentarlo.",
+      "text_en": "Watch is over. It was not for lack of trying." },
+    { "trigger": "win",
+      "text_es": "La guardia ha terminado y seguimos aquí. Bien hecho, capitán.",
+      "text_en": "The watch is over and we are still here. Well done, captain." }
+  ],
+  "stars": { "two_star_seconds": 4200, "three_star_seconds": 3300, "two_star_secondary": 0, "three_star_secondary": -1 }
+}

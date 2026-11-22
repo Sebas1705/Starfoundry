@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "id": "04_deep_vein",
+  "order": 4,
+  "name_es": "Veta profunda",
+  "name_en": "Deep Vein",
+  "description_es": "Investiga titanio y blindaje avanzado, salta a otros sistemas y fabrica placas de titanio. Las amenazas tardan en llegar.",
+  "description_en": "Research titanium and advanced plating, jump to other systems and make titanium plates. Threats are slow to arrive.",
+  "briefing_es": "Todo lo bueno está lejos de casa: el titanio, el níquel, el cuarzo. Investiga la fundición de titanio y el blindaje avanzado, sal a buscarlos y vuelve con placas de titanio. El Remanente nos dará unos quince minutos antes de empezar a molestar.",
+  "briefing_en": "Everything worth having is far from home: titanium, nickel, quartz. Research titanium smelting and advanced plating, go and find them, and come back with titanium plates. The Remnant will give us about fifteen minutes before it starts to bother us.",
+  "rules": { "preset": "normal", "first_wave_grace_seconds": 900 },
+  "start": { "seed": 20261121 },
+  "goals": {
+    "primary": [
+      { "id": "titanium_smelting", "type": "research", "node": "core:titanium_smelting",
+        "text_es": "Investiga la fundición de titanio", "text_en": "Research titanium smelting" },
+      { "id": "advanced_plating", "type": "research", "node": "core:advanced_plating",
+        "text_es": "Investiga el blindaje avanzado", "text_en": "Research advanced plating" },
+      { "id": "explore", "type": "visit_systems", "count": 2,
+        "text_es": "Visita 2 sistemas (el de origen cuenta)", "text_en": "Visit 2 systems (home counts)" },
+      { "id": "titanium_plates", "type": "produce", "item": "core:titanium_plate", "count": 20,
+        "text_es": "Fabrica 20 placas de titanio", "text_en": "Make 20 titanium plates" }
+    ],
+    "secondary": [
+      { "id": "quick_plates", "type": "produce", "item": "core:titanium_plate", "count": 20, "time_limit_seconds": 2400,
+        "text_es": "Fabrica las placas en menos de 40 minutos", "text_en": "Make the plates in under 40 minutes" }
+    ]
+  },
+  "story": [
+    { "trigger": "start",
+      "text_es": "El titanio no crece en casa. Necesitarás el motor de salto, un laboratorio y paciencia. Escanea los sistemas vecinos y mira qué hay.",
+      "text_en": "Titanium does not grow at home. You will need the jump drive, a laboratory and patience. Scan the neighbouring systems and see what is out there." },
+    { "trigger": "goal:explore",
+      "text_es": "Un sistema nuevo. Apunta los yacimientos: el titanio, el níquel y el cuarzo tienen que salir de aquí.",
+      "text_en": "A new system. Note the deposits: the titanium, the nickel and the quartz have to come from out here." },
+    { "trigger": "goal:titanium_smelting",
+      "text_es": "Fundición de titanio lista. Para el blindaje avanzado necesitarás también níquel y cuarzo.",
+      "text_en": "Titanium smelting done. Advanced plating will also want nickel and quartz." },
+    { "trigger": "win",
+      "text_es": "Placas de titanio en la bodega. Esto ya es otra liga, capitán.",
+      "text_en": "Titanium plates in the hold. This is a different league, captain." }
+  ],
+  "stars": { "two_star_seconds": 4500, "three_star_seconds": 3000, "two_star_secondary": 0, "three_star_secondary": -1 }
+}

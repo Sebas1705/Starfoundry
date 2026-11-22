@@ -8,6 +8,10 @@ internal static class TestContent
     public static readonly ContentDb Core =
         ContentDb.FromFile(Path.Combine(AppContext.BaseDirectory, "content", "core.json"));
 
+    /// <summary>Every scenario file of <c>content/scenarios</c>, loaded against <see cref="Core"/>.</summary>
+    public static readonly ScenarioCatalog Scenarios =
+        ScenarioCatalog.FromDirectory(Core, Path.Combine(AppContext.BaseDirectory, "content", "scenarios"));
+
     /// <summary>The core content without the starter ship: structure worlds that build their own ships by hand start empty.</summary>
     public static readonly ContentDb CoreWithoutStarterShip = ContentDb.FromJson(RemoveStarterShip());
 
