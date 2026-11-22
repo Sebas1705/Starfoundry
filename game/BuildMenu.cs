@@ -192,7 +192,7 @@ public partial class BuildMenu : Control
         foreach (var entry in all.Where(e => e.Category == _tab))
         {
             var b = UiKit.Button("", () => { }, 13);
-            b.CustomMinimumSize = new Vector2(width, 132);
+            b.CustomMinimumSize = new Vector2(width, 64); // grown to fit the text in Update
             b.Alignment = HorizontalAlignment.Left;
             var e = entry;
             b.Pressed += () => Chosen?.Invoke(e);
@@ -211,12 +211,12 @@ public partial class BuildMenu : Control
             var cost = L(13);
             cost.ClipText = false;
             cost.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-            cost.CustomMinimumSize = new Vector2(width - 18f, 18f);
+            cost.CustomMinimumSize = new Vector2(width - 18f, 17f);
             var power = L(12, new Color(0.95f, 0.82f, 0.5f));
             var detail = L(12, Muted);
             detail.AutowrapMode = TextServer.AutowrapMode.WordSmart;
             detail.ClipText = false;
-            detail.CustomMinimumSize = new Vector2(width - 18f, 30f);
+            detail.CustomMinimumSize = new Vector2(width - 18f, 0f);
             var status = L(12);
             b.AddChild(box);
             _grid.AddChild(b);
@@ -235,6 +235,13 @@ public partial class BuildMenu : Control
         cell.Cost.AddThemeColorOverride("font_color", v.Locked ? new Color(0.55f, 0.57f, 0.64f) : v.Affordable ? Good : Bad);
         cell.Detail.Text = v.Description;
         cell.Status.Text = v.Status;
+        cell.Status.Visible = v.Status.Length > 0;
+        cell.Detail.Visible = v.Description.Length > 0;
+        // The card is as tall as its text: no reserved blank lines under a short description.
+        float textWidth = Math.Max(120f, cell.Button.CustomMinimumSize.X - 18f);
+        int Lines(string s, float charWidth) => s.Length == 0 ? 0 : (int)Math.Ceiling(s.Length * charWidth / textWidth);
+        float h = 14f + 22f + 18f * Math.Max(1, Lines(v.Cost, 7f)) + (v.Power.Length > 0 ? 17f : 0f) + 16f * Lines(v.Description, 6.4f) + (v.Status.Length > 0 ? 18f * Lines(v.Status, 6.4f) : 0f);
+        cell.Button.CustomMinimumSize = new Vector2(cell.Button.CustomMinimumSize.X, Math.Max(60f, h));
         cell.Status.AddThemeColorOverride("font_color", v.Locked ? new Color(1f, 0.82f, 0.4f) : Bad);
         cell.Button.Modulate = v.Locked ? new Color(0.78f, 0.78f, 0.85f) : Colors.White;
         cell.Button.TooltipText = v.Role + (v.Status.Length > 0 ? "\n" + v.Status : "");

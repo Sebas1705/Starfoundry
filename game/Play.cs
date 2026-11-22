@@ -42,7 +42,7 @@ public partial class Play : Node3D
     // Only the scripted modes (--demo, --stress) use an overview camera that follows the base from above; normal play never does.
     private float _overviewDistance = DefaultDistance;
     private Vector3 _overviewTarget = new(7f, 0f, 2f);
-    private MeshInstance3D _grid = null!;
+    private MeshInstance3D _cellHelper = null!; // faint build cells around the aimed cell, only with a cell build tool in hand
     private bool Overview => _demo || _stressMachines > 0 || _structureDemo;
     private const float CockpitFov = 80f;
     private const uint ShipLayer = 1u << 1; // render layer 2: the ship model, hidden from the cockpit camera
@@ -355,26 +355,6 @@ public partial class Play : Node3D
         AddChild(_camera);
         PlaceCamera(ShipPosition(0f));
 
-        // A faint floor so the build layer is readable; it follows the ship so the ground never ends under the cockpit.
-        var grid = _grid = new MeshInstance3D { Mesh = new PlaneMesh { Size = new Vector2(400, 400) }, Position = new Vector3(20, -0.02f, 10) };
-        // Unlit dark floor with faint cell lines (world-space, so the lines stay put while the plane follows the ship) fading into the distance.
-        var floorShader = new Shader
-        {
-            Code = @"shader_type spatial;
-render_mode unshaded;
-varying vec3 wpos;
-void vertex() { wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
-void fragment() {
-    vec2 g = abs(fract(wpos.xz - 0.5) - 0.5) / fwidth(wpos.xz);
-    float line = 1.0 - min(min(g.x, g.y), 1.0);
-    float fade = 1.0 - smoothstep(25.0, 70.0, distance(wpos.xz, CAMERA_POSITION_WORLD.xz));
-    vec3 col = mix(vec3(0.035, 0.04, 0.06), vec3(0.18, 0.24, 0.36), line * fade * 0.8);
-    ALBEDO = col;
-}",
-        };
-        grid.MaterialOverride = new ShaderMaterial { Shader = floorShader };
-        AddChild(grid);
-
         _stationView = new StationView();
         AddChild(_stationView);
 
@@ -388,6 +368,8 @@ void fragment() {
         _dragGhost = new MeshInstance3D { Mesh = new BoxMesh { Size = Vector3.One }, MaterialOverride = ghostMat, Visible = false };
         AddChild(_ghost);
         AddChild(_dragGhost);
+        _cellHelper = BuildCellHelper();
+        _ghost.AddChild(_cellHelper);
 
         // Deposits: spheres where the simulation says they are, shrinking as they run dry.
         for (int d = 0; d < Net.DepositCount; d++)
@@ -406,6 +388,31 @@ void fragment() {
         AddChild(_ship);
         _buildRange = RangeDisc(PlayerRules.BuildRangeCells, new Color(0.4f, 0.7f, 1f, 0.07f));
         _mineRange = RangeDisc(PlayerRules.MineRangeCells, new Color(1f, 0.6f, 0.2f, 0.12f));
+    }
+
+    /// <summary>A 9x9 patch of faint cell lines under the aimed cell (child of the ghost, so it lives in the structure's local cells).</summary>
+    private static MeshInstance3D BuildCellHelper()
+    {
+        var shader = new Shader
+        {
+            Code = @"shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled;
+void fragment() {
+    vec2 p = UV * 9.0;
+    vec2 d = abs(fract(p + 0.5) - 0.5) / fwidth(p);
+    float line = 1.0 - min(min(d.x, d.y), 1.0);
+    float fade = 1.0 - smoothstep(1.2, 4.5, length(p - 4.5));
+    ALBEDO = vec3(0.35, 0.6, 1.0) * line * fade * 0.5;
+}",
+        };
+        return new MeshInstance3D
+        {
+            Mesh = new PlaneMesh { Size = new Vector2(9f, 9f) },
+            Position = new Vector3(0f, -0.49f, 0f),
+            MaterialOverride = new ShaderMaterial { Shader = shader },
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            Visible = false,
+        };
     }
 
     private MeshInstance3D RangeDisc(float radius, Color color)
@@ -465,6 +472,7 @@ void fragment() {
     private void UpdateShip(float alpha, float dt)
     {
         var pos = ShipPosition(_demo ? 0f : alpha);
+        Ambience.Track(pos);
         // The nose points where the ship is heading; it eases round and holds its heading while parked.
         if (Net.HasPlayer(Player))
         {
@@ -492,7 +500,6 @@ void fragment() {
             disc.Position = new Vector3(pos.X, Overview ? pos.Y : floorY, pos.Z);
             disc.Scale = new Vector3(r, 0.2f, r);
         }
-        _grid.Position = new Vector3(pos.X, -0.02f, pos.Z);
         if (Overview)
         {
             // After a jump the camera snaps to the ship instead of flying hundreds of cells.
