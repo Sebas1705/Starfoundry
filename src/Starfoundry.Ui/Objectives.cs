@@ -24,7 +24,7 @@ public enum Objective
     /// <summary>Station rules only: a cargo port (unloader) is built.</summary>
     CargoPort,
 
-    /// <summary>Structures only: the first iron plate reached the hold or an assembler output.</summary>
+    /// <summary>Structures only: an assembler made a plate (or a depot delivered something), so the factory runs.</summary>
     WatchFactory,
 
     /// <summary>Structures only: the player owns a station.</summary>
@@ -38,6 +38,9 @@ public enum Objective
 
     /// <summary>Structures only: a drone bay module exists in a structure of the player and has a deposit assigned.</summary>
     Automate,
+
+    /// <summary>Structures only: a structure of the player has a fabrication bay (or a station core), where machines and belts can be built (ADR 0031).</summary>
+    FabBay,
 }
 
 public sealed record ObjectiveState(Objective Objective, bool Done, bool StationRules = false)
@@ -77,7 +80,7 @@ public sealed class ObjectiveTracker
 
     private static readonly Objective[] StructuresOrder =
     {
-        Objective.Fly, Objective.Mine, Objective.WatchFactory, Objective.FoundStation, Objective.MakeFuel, Objective.AddModule,
+        Objective.Fly, Objective.Mine, Objective.Refine, Objective.FabBay, Objective.WatchFactory, Objective.FoundStation, Objective.MakeFuel, Objective.AddModule,
         Objective.Research, Objective.Scan, Objective.Defend, Objective.Automate, Objective.Expand,
     };
 
@@ -133,8 +136,8 @@ public sealed class ObjectiveTracker
         Mark(Objective.Refine, () => Has(net, player, "core:iron_ingot", 3));
         if (Structures)
         {
-            Mark(Objective.WatchFactory, () => Has(net, player, "core:iron_plate", 1)
-                || AnyMachine(net, m => _content.Machines[m.Type].Id == "core:assembler" && m.OutputItems > 0));
+            Mark(Objective.WatchFactory, () => AnyMachine(net, m => _content.Machines[m.Type].Id == "core:assembler" && (m.OutputItems > 0 || m.Crafting)) || net.DepotDelivered > 0); // a machine made it, not the workbench
+            Mark(Objective.FabBay, () => net.Structures().Any(st => st.Owner == player && st.Modules.Values.Any(k => _content.Structures is { } kinds && kinds.IsBuildable(k) && kinds.AllowsBelts(k) && kinds.AllowsRole(k, MachineRole.Crafter))));
             Mark(Objective.FoundStation, () => net.Structures().Any(st => st.Owner == player && st.Kind == StructureKind.Station));
             Mark(Objective.MakeFuel, () =>
                 Has(net, player, "core:hydrogen", StarterHydrogen + 1)
