@@ -43,6 +43,10 @@ public static class SoundBank
             Sfx.ModuleHit => ModuleHit(rng),
             Sfx.Explosion => Explosion(rng),
             Sfx.HullRumble => HullRumble(rng),
+            Sfx.RockThud => RockThud(rng),
+            Sfx.MineBeep => MineBeep(),
+            Sfx.SalvageChime => SalvageChime(),
+            Sfx.BoostWhoosh => BoostWhoosh(rng),
             Sfx.MusicCalm => Music(rng, tense: false),
             Sfx.MusicTense => Music(rng, tense: true),
             _ => throw new ArgumentOutOfRangeException(nameof(id)),
@@ -360,6 +364,52 @@ public static class SoundBank
             b[i] = (float)(env * n[i]);
         }
         Synth.AddTone(b, 0, L, 40, 30, 0.7, 3.2);
+        return b;
+    }
+
+    /// <summary>A dull knock of a hull against rock: a low thump and a short scrape of noise.</summary>
+    private static float[] RockThud(SynthRng rng)
+    {
+        var b = Synth.Buffer(0.55);
+        Synth.AddTone(b, 0, 0.35, 85, 38, 1.0, 9);
+        Synth.AddTone(b, 0, 0.2, 190, 110, 0.5, 16, h2: 0.4);
+        Synth.AddNoise(b, rng, 0, 0.16, 0.7, 50, 1800, 300);
+        return b;
+    }
+
+    /// <summary>A short urgent double beep: a mine has armed.</summary>
+    private static float[] MineBeep()
+    {
+        var b = Synth.Buffer(0.34);
+        Synth.AddTone(b, 0, 0.09, 1480, 1480, 0.8, 6, h3: 0.3);
+        Synth.AddTone(b, 0.15, 0.09, 1480, 1480, 0.8, 6, h3: 0.3);
+        return b;
+    }
+
+    /// <summary>A rising three-note chime: something was salvaged.</summary>
+    private static float[] SalvageChime()
+    {
+        var b = Synth.Buffer(0.7);
+        Synth.AddTone(b, 0, 0.3, 523, 523, 0.7, 6, h2: 0.25);
+        Synth.AddTone(b, 0.12, 0.3, 659, 659, 0.7, 6, h2: 0.25);
+        Synth.AddTone(b, 0.24, 0.4, 784, 784, 0.7, 5, h2: 0.25);
+        return b;
+    }
+
+    /// <summary>A short rushing sweep when the boost engages.</summary>
+    private static float[] BoostWhoosh(SynthRng rng)
+    {
+        const double L = 0.8;
+        var b = Synth.Buffer(L);
+        var n = Synth.Noise(rng, L, 2400, 250, cyclic: false);
+        var low = Synth.Noise(rng, L, 500, 100, cyclic: false);
+        for (int i = 0; i < b.Length; i++)
+        {
+            double t = i / (double)b.Length;
+            double env = Math.Min(1.0, t / 0.15) * Math.Exp(-2.2 * t);
+            b[i] = (float)(env * (n[i] * t + low[i] * (1 - t) * 0.9));
+        }
+        Synth.AddTone(b, 0, L, 70, 160, 0.4, 2.5);
         return b;
     }
 

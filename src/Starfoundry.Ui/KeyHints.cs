@@ -104,6 +104,9 @@ public sealed record KeyState
     /// <summary>The laser is firing: the simulation is mining the deposit under the crosshair.</summary>
     public bool LaserFiring { get; init; }
     public bool Refining { get; init; }
+    /// <summary>The content has boost (Shift while flying, ADR 0028).</summary>
+    public bool BoostAvailable { get; init; }
+    public bool Boosting { get; init; }
     public bool ScanReady { get; init; } = true;
     public bool AnythingDamaged { get; init; }
     public bool DroneBayBuilt { get; init; }
@@ -195,6 +198,7 @@ public static class KeyHints
         yield return s.ThreatActive ? Row("weapons", "V", "weapons", "V", Lit(s.Armed)) : Off("weapons", "V", "weapons", "key.why.noThreats");
         if (s.StructuresOn) yield return Row("found", "I", "found", "I");
         if (s.ModuleToolAvailable) yield return Row("module", "N", "module", "N");
+        if (s.BoostAvailable) yield return Row("boost", "Shift", "boost", state: s.Boosting ? KeyRowState.Active : KeyRowState.Info);
         if (s.CanWalk) yield return Row("seat", "E", "stand", "E");
         yield return Row("info", "H", "info", "H", Lit(s.InfoOpen));
         yield return Row("help", "F1", "help", "F1");

@@ -15,6 +15,8 @@ public enum Sfx
     PlaceThunk, DemolishCrunch, ModuleSnap,
     // Threat
     WaveAlarm, EnemyShot, TurretShot, ModuleHit, Explosion, HullRumble,
+    // Obstacles and boost (ADR 0028)
+    RockThud, MineBeep, SalvageChime, BoostWhoosh,
     // Music (loops)
     MusicCalm, MusicTense,
 }
@@ -65,6 +67,11 @@ public static class SoundCatalog
         new(Sfx.ModuleHit, AudioBus.Sfx, false, 0.12, -8f),
         new(Sfx.Explosion, AudioBus.Sfx, false, 0.25, -5f),
         new(Sfx.HullRumble, AudioBus.Sfx, false, 0.50, -7f),
+
+        new(Sfx.RockThud, AudioBus.Sfx, false, 0.10, -6f),
+        new(Sfx.MineBeep, AudioBus.Ui, false, 0.20, -11f),
+        new(Sfx.SalvageChime, AudioBus.Ui, false, 0.50, -10f),
+        new(Sfx.BoostWhoosh, AudioBus.Sfx, false, 1.00, -12f),
 
         new(Sfx.MusicCalm, AudioBus.Ambience, true, 0, -14f, 0.8f),
         new(Sfx.MusicTense, AudioBus.Ambience, true, 0, -14f, 0.8f),

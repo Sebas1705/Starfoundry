@@ -78,6 +78,8 @@ public partial class Play
         var jumpCost = Net.JumpCost();
         return new KeyState
         {
+            BoostAvailable = _content.World is not null && Net.CanFly(Player),
+            Boosting = Net.IsBoosting(Player),
             PauseOpen = PauseOpen,
             HelpOpen = _helpOpen,
             BuildOpen = BuildOpen,
