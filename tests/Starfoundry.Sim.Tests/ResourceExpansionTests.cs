@@ -24,7 +24,7 @@ public class ResourceExpansionTests
     public void The_new_items_are_appended_after_the_old_ones()
     {
         Assert.Equal(new[] { "core:silicon", "core:circuit", "core:titanium_alloy", "core:fuel_cell" },
-            C.Items.Skip(14).Select(i => i.Id).ToArray());
+            C.Items.Skip(14).Take(4).Select(i => i.Id).ToArray());
         Assert.Equal("core:hydrogen", C.Items[13].Id);
         Assert.Equal(Item("core:fuel_cell"), C.FuelCellItem);
     }

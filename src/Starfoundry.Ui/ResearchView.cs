@@ -26,7 +26,7 @@ public sealed record ResearchRequirement(int Index, string Id, bool Done);
 /// <param name="Progress">Share of the cost delivered, 0 to 1 (1 for a finished node).</param>
 /// <param name="Level">Levels finished; <paramref name="MaxLevels"/> is more than 1 for repeatable nodes.</param>
 public sealed record ResearchEntry(int Index, string Id, ResearchState State, IReadOnlyList<ResearchCostLine> Cost, IReadOnlyList<ResearchRequirement> Requires,
-    IReadOnlyList<ResearchUnlock> Unlocks, double Progress, int Level, int MaxLevels)
+    IReadOnlyList<ResearchUnlock> Unlocks, double Progress, int Level, int MaxLevels, ResearchField Field = ResearchField.Basic)
 {
     public bool Repeatable => MaxLevels > 1;
 
@@ -77,7 +77,7 @@ public static class ResearchView
         double progress = done ? 1.0 : needed == 0 ? 0.0 : (double)delivered / needed;
 
         var requires = node.Requires.Select(r => new ResearchRequirement(r, content.Research[r].Id, net.IsResearched(r))).ToList();
-        return new ResearchEntry(node.Index, node.Id, state, lines, requires, Unlocks(content, node), progress, level, node.MaxLevels);
+        return new ResearchEntry(node.Index, node.Id, state, lines, requires, Unlocks(content, node), progress, level, node.MaxLevels, node.Field);
     }
 
     /// <summary>Machines, recipes, belts, abilities and bonuses a node gives, in that order.</summary>
@@ -107,6 +107,14 @@ public static class ResearchView
         BonusKind.RepairHeal => "repair_heal",
         BonusKind.ShipHull => "ship_hull",
         BonusKind.ShipDamage => "ship_damage",
+        BonusKind.ModuleHp => "module_hp",
+        BonusKind.HoldCapacity => "hold_capacity",
+        BonusKind.FuelBurn => "fuel_burn",
+        BonusKind.SensorRange => "sensor_range",
+        BonusKind.DroneRate => "drone_rate",
+        BonusKind.ShieldAbsorb => "shield_absorb",
+        BonusKind.PowerOutput => "power_output",
+        BonusKind.JumpDiscount => "jump_discount",
         _ => kind.ToString(),
     };
 
@@ -128,7 +136,43 @@ public static class ResearchView
         ResearchUnlockKind.Recipe => Loc.T("research.unlock.recipe", Loc.Name("recipe", u.Id)),
         ResearchUnlockKind.Belt => Loc.T("research.unlock.belt", Loc.T("ui.belt", u.Id[2..])),
         ResearchUnlockKind.Ability => Loc.T("research.unlock.ability", Loc.T("ability." + u.Id)),
+        _ when u.Id == "shield_absorb" => Loc.T("research.unlock.bonusPoints", Loc.T("bonus." + u.Id), u.Percent),
+        _ when u.Id == "jump_discount" => Loc.T("research.unlock.bonusCount", Loc.T("bonus." + u.Id), u.Percent),
         _ => Loc.T("research.unlock.bonus", Loc.T("bonus." + u.Id), u.Percent),
+    };
+
+    /// <summary>The fields in the order the panel lists them: the basic tier first, then the three science fields.</summary>
+    public static readonly ResearchField[] Fields = { ResearchField.Basic, ResearchField.Engineering, ResearchField.Biology, ResearchField.Physics };
+
+    /// <summary>The name of a field, in the current language.</summary>
+    public static string FieldName(ResearchField f) => Loc.T("research.field." + f.ToString().ToLowerInvariant());
+
+    /// <summary>
+    /// Every node grouped by field in <see cref="Fields"/> order (empty fields left out); inside a field the nodes keep the state
+    /// order of <see cref="Build"/> (researching, available, locked, done).
+    /// </summary>
+    public static IReadOnlyList<(ResearchField Field, IReadOnlyList<ResearchEntry> Entries)> BuildByField(ContentDb content, BeltNetwork net, int player)
+    {
+        var all = Build(content, net, player);
+        var groups = new List<(ResearchField, IReadOnlyList<ResearchEntry>)>();
+        foreach (var f in Fields)
+        {
+            var inField = all.Where(e => e.Field == f).ToList();
+            if (inField.Count > 0) groups.Add((f, inField));
+        }
+        return groups;
+    }
+
+    /// <summary>
+    /// The colour a science item is drawn in (an sRGB hex string), or null for any other item: engineering amber, biology green,
+    /// physics blue. The panel tints the cost line and the item icon with it.
+    /// </summary>
+    public static string? ScienceColour(string itemId) => itemId switch
+    {
+        "core:science_engineering" => "#F2A93B",
+        "core:science_biology" => "#5FC27A",
+        "core:science_physics" => "#58A6FF",
+        _ => null,
     };
 
     /// <summary>Why a locked node cannot start: the requirements still unfinished, as a sentence. Empty for the other states.</summary>

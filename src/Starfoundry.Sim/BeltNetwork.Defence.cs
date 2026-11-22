@@ -48,7 +48,7 @@ public sealed partial class BeltNetwork
     public bool ShipLost(int player) => _players.TryGetValue(player, out var p) && p.ShipLost;
 
     /// <summary>Maximum hit points of a module of this kind (0 without structure content).</summary>
-    public int ModuleMaxHp(ModuleKind kind) => Content?.Structures?.ModuleHp(kind) ?? 0;
+    public int ModuleMaxHp(ModuleKind kind) => (Content?.Structures?.ModuleHp(kind) ?? 0) * (100 + _bonus[(int)BonusKind.ModuleHp]) / 100;
 
     /// <summary>Current hit points of a module: its maximum unless it is damaged. Throws if the module does not exist.</summary>
     public int ModuleHp(int structure, int mx, int my, int mz)

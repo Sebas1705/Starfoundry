@@ -60,10 +60,17 @@ public sealed partial class BeltNetwork
     public int JumpRemaining(int player) => _players.TryGetValue(player, out var p) ? p.JumpRemaining : 0;
 
     /// <summary>The items one jump takes from the hold in campaign mode (empty without content). Sandbox jumps are free.</summary>
-    public IReadOnlyList<ItemStack> JumpCost() => Content?.JumpCost ?? Array.Empty<ItemStack>();
+    public ItemStack[] JumpCost()
+    {
+        var cost = Content?.JumpCost;
+        int discount = _bonus[(int)BonusKind.JumpDiscount];
+        if (cost is null) return Array.Empty<ItemStack>();
+        if (discount == 0) return cost;
+        return cost.Select(s => new ItemStack(s.Item, Math.Max(1, s.Count - discount))).ToArray(); // long-range jump research
+    }
 
     /// <summary>True when the player's hold can pay for a jump (always true outside campaign mode, where jumps are free).</summary>
-    public bool CanAffordJump(int player) => Mode != GameMode.Campaign || Content is null || CanPay(player, Content.JumpCost);
+    public bool CanAffordJump(int player) => Mode != GameMode.Campaign || Content is null || CanPay(player, JumpCost());
 
     /// <summary>Fires the scanner: reveals every hidden deposit within range of the ship and returns their ids.</summary>
     public IReadOnlyList<int> Scan(int player)

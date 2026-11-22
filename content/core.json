@@ -54,6 +54,18 @@
     },
     {
       "id": "core:fuel_cell"
+    },
+    {
+      "id": "core:science_engineering"
+    },
+    {
+      "id": "core:science_biology"
+    },
+    {
+      "id": "core:science_physics"
+    },
+    {
+      "id": "core:biomass"
     }
   ],
   "machines": [
@@ -338,6 +350,36 @@
         "interval_ticks": 30,
         "reserve": 0
       }
+    },
+    {
+      "id": "core:engineering_bench",
+      "cost": [
+        { "item": "core:iron_ingot", "count": 20 },
+        { "item": "core:iron_plate", "count": 12 }
+      ],
+      "hp": 100,
+      "signature": 3,
+      "power_use": 15
+    },
+    {
+      "id": "core:physics_lab",
+      "cost": [
+        { "item": "core:iron_ingot", "count": 24 },
+        { "item": "core:iron_plate", "count": 16 }
+      ],
+      "hp": 100,
+      "signature": 3,
+      "power_use": 18
+    },
+    {
+      "id": "core:greenhouse",
+      "cost": [
+        { "item": "core:iron_ingot", "count": 16 },
+        { "item": "core:iron_plate", "count": 12 }
+      ],
+      "hp": 90,
+      "signature": 2,
+      "power_use": 12
     }
   ],
   "recipes": [
@@ -617,6 +659,41 @@
       "inputs": [{ "item": "core:hydrogen", "count": 2 }, { "item": "core:nickel_plate", "count": 1 }],
       "outputs": [{ "item": "core:fuel_cell", "count": 1 }],
       "time_s": 8
+    },
+    {
+      "id": "core:make_engineering_science",
+      "machine": "core:engineering_bench",
+      "inputs": [{ "item": "core:iron_plate", "count": 2 }, { "item": "core:circuit", "count": 1 }],
+      "outputs": [{ "item": "core:science_engineering", "count": 1 }],
+      "time_s": 6
+    },
+    {
+      "id": "core:make_physics_science",
+      "machine": "core:physics_lab",
+      "inputs": [{ "item": "core:silicon", "count": 1 }, { "item": "core:nickel_plate", "count": 1 }],
+      "outputs": [{ "item": "core:science_physics", "count": 1 }],
+      "time_s": 8
+    },
+    {
+      "id": "core:grow_biomass",
+      "machine": "core:greenhouse",
+      "inputs": [{ "item": "core:ice", "count": 2 }, { "item": "core:carbon", "count": 1 }],
+      "outputs": [{ "item": "core:biomass", "count": 1 }],
+      "time_s": 10
+    },
+    {
+      "id": "core:make_biology_science",
+      "machine": "core:greenhouse",
+      "inputs": [{ "item": "core:biomass", "count": 1 }, { "item": "core:iron_plate", "count": 1 }],
+      "outputs": [{ "item": "core:science_biology", "count": 1 }],
+      "time_s": 6
+    },
+    {
+      "id": "core:biomass_to_hydrogen",
+      "machine": "core:hydrogen_cracker",
+      "inputs": [{ "item": "core:biomass", "count": 1 }],
+      "outputs": [{ "item": "core:hydrogen", "count": 2 }],
+      "time_s": 6
     }
   ],
   "belts": [
@@ -1053,6 +1130,125 @@
       "requires": ["core:electronics"],
       "unlocks": ["core:make_fuel_cell"],
       "abilities": ["reactor_mk2"]
+    },
+    {
+      "id": "core:structural_plating",
+      "field": "engineering",
+      "cost": [{ "item": "core:science_engineering", "count": 10 }, { "item": "core:iron_plate", "count": 100 }],
+      "requires": ["core:electronics"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "module_hp", "percent": 25 }]
+    },
+    {
+      "id": "core:alloy_hulls",
+      "field": "engineering",
+      "cost": [{ "item": "core:science_engineering", "count": 15 }, { "item": "core:iron_plate", "count": 120 }],
+      "requires": ["core:structural_plating", "core:ship_armor"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "ship_hull", "percent": 30 }]
+    },
+    {
+      "id": "core:repair_drones",
+      "field": "engineering",
+      "cost": [{ "item": "core:science_engineering", "count": 20 }, { "item": "core:iron_plate", "count": 150 }],
+      "requires": ["core:alloy_hulls", "core:field_repair"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "repair_heal", "percent": 50 }]
+    },
+    {
+      "id": "core:automated_turrets",
+      "field": "engineering",
+      "cost": [{ "item": "core:science_engineering", "count": 25 }, { "item": "core:iron_plate", "count": 150 }],
+      "requires": ["core:repair_drones", "core:turret_calibration"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "turret_rate", "percent": 15 }]
+    },
+    {
+      "id": "core:cargo_expansion",
+      "field": "engineering",
+      "cost": [{ "item": "core:science_engineering", "count": 30 }, { "item": "core:iron_plate", "count": 200 }],
+      "requires": ["core:automated_turrets"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "hold_capacity", "percent": 50 }]
+    },
+    {
+      "id": "core:algae_fuel",
+      "field": "biology",
+      "cost": [{ "item": "core:science_biology", "count": 10 }, { "item": "core:iron_plate", "count": 100 }],
+      "requires": ["core:advanced_plating"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "fuel_burn", "percent": 25 }]
+    },
+    {
+      "id": "core:closed_loop",
+      "field": "biology",
+      "cost": [{ "item": "core:science_biology", "count": 15 }, { "item": "core:iron_plate", "count": 120 }],
+      "requires": ["core:algae_fuel"],
+      "unlocks": ["core:biomass_to_hydrogen"]
+    },
+    {
+      "id": "core:medical_bay",
+      "field": "biology",
+      "cost": [{ "item": "core:science_biology", "count": 20 }, { "item": "core:iron_plate", "count": 150 }],
+      "requires": ["core:closed_loop", "core:field_repair"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "repair_heal", "percent": 25 }, { "kind": "ship_hull", "percent": 20 }]
+    },
+    {
+      "id": "core:bio_sensors",
+      "field": "biology",
+      "cost": [{ "item": "core:science_biology", "count": 25 }, { "item": "core:iron_plate", "count": 150 }],
+      "requires": ["core:medical_bay", "core:sensors"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "sensor_range", "percent": 50 }]
+    },
+    {
+      "id": "core:symbiotic_drones",
+      "field": "biology",
+      "cost": [{ "item": "core:science_biology", "count": 30 }, { "item": "core:iron_plate", "count": 200 }],
+      "requires": ["core:bio_sensors", "core:drone_automation"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "drone_rate", "percent": 30 }]
+    },
+    {
+      "id": "core:field_theory",
+      "field": "physics",
+      "cost": [{ "item": "core:science_physics", "count": 10 }, { "item": "core:iron_plate", "count": 100 }],
+      "requires": ["core:shielding"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "shield_absorb", "percent": 10 }]
+    },
+    {
+      "id": "core:efficient_reactors",
+      "field": "physics",
+      "cost": [{ "item": "core:science_physics", "count": 15 }, { "item": "core:iron_plate", "count": 120 }],
+      "requires": ["core:field_theory", "core:advanced_power"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "power_output", "percent": 15 }]
+    },
+    {
+      "id": "core:long_range_jump",
+      "field": "physics",
+      "cost": [{ "item": "core:science_physics", "count": 20 }, { "item": "core:iron_plate", "count": 150 }],
+      "requires": ["core:efficient_reactors", "core:jump_drive"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "jump_discount", "percent": 1 }]
+    },
+    {
+      "id": "core:targeting_lasers",
+      "field": "physics",
+      "cost": [{ "item": "core:science_physics", "count": 25 }, { "item": "core:iron_plate", "count": 150 }],
+      "requires": ["core:long_range_jump", "core:turret_calibration"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "turret_damage", "percent": 20 }]
+    },
+    {
+      "id": "core:quantum_sensors",
+      "field": "physics",
+      "cost": [{ "item": "core:science_physics", "count": 30 }, { "item": "core:iron_plate", "count": 200 }],
+      "requires": ["core:targeting_lasers", "core:sensors"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "sensor_range", "percent": 50 }]
     }
   ],
   "galaxy": {

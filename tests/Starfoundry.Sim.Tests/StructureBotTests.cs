@@ -122,7 +122,7 @@ public class StructureBotTests
         var r = Play(continueAfterWin: true, minutes: 120, threats: false);
         _out.WriteLine(r.Format());
         // The electronics branch (silicon, circuits, shields, sensors, Mk2 power) is not part of the bot's plan.
-        var planned = TestContent.Core.Research.Where(n => !n.Id.StartsWith("core:silicon_") && n.Id is not ("core:electronics" or "core:shielding" or "core:sensors" or "core:advanced_power")).ToList();
+        var planned = TestContent.Core.Research.Where(n => n.Field == ResearchField.Basic && !n.Id.StartsWith("core:silicon_") && n.Id is not ("core:electronics" or "core:shielding" or "core:sensors" or "core:advanced_power")).ToList();
         foreach (var node in planned)
             Assert.True(r.Has("Researched " + node.Id.Replace("core:", "")), $"'{node.Id}' was never researched");
         double last = planned.Max(n => Min(r, "Researched " + n.Id.Replace("core:", "")));
@@ -131,6 +131,29 @@ public class StructureBotTests
         Assert.True(r.MinedByDrones > 2000, $"drones mined only {r.MinedByDrones}");
         // Hydrogen holds: the ice deposit of home (1500 to 2000) lasts, so no reactor ran dry for more than a few minutes in two hours.
         Assert.True(r.EmergencySeconds < 600, $"{r.EmergencySeconds} s on emergency power");
+    }
+
+    [Fact]
+    public void Bot_in_science_mode_builds_the_three_chains_and_researches_the_whole_extended_tree()
+    {
+        // Left alone (no waves) on rich deposits: the tier needs more ore than the home system holds. Measured on seed 20261121:
+        // complete at about minute 345 (see docs/prototypes/research.md); the bound is generous.
+        var rules = new WorldRules { DepositRichnessPercent = 400 };
+        var bot = new StructureBot(TestContent.Core, Seed, threats: false, rules: rules) { ContinueAfterVictory = true, Science = true };
+        var r = bot.Run(500 * 60);
+        _out.WriteLine(r.Format());
+        foreach (var node in TestContent.Core.Research.Where(n => n.Field != ResearchField.Basic))
+            Assert.True(r.Has("Researched " + node.Id.Replace("core:", "")), $"'{node.Id}' was never researched");
+        Assert.True(r.Has("Science tier complete"));
+        Assert.True(r.At("Science tier complete") / Minute <= 480, "the science tier took too long");
+        Assert.True(bot.World.Network.ResearchItemsUsed > 0);
+    }
+
+    [Fact]
+    public void Default_bot_path_does_not_touch_the_science_tier()
+    {
+        var r = Play(continueAfterWin: true, minutes: 100, threats: false);
+        Assert.DoesNotContain(r.Timeline, t => t.Name.StartsWith("Researched ") && TestContent.Core.Research.Any(n => n.Field != ResearchField.Basic && t.Name == "Researched " + n.Id.Replace("core:", "")));
     }
 
     [Fact]

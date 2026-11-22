@@ -61,7 +61,7 @@ public sealed partial class BeltNetwork
     }
 
     private int DroneInterval(Deposit d) =>
-        DepositRules.Scale(Content!.Structures!.DroneIntervalTicks(ModuleKind.DroneBay), d.Density);
+        DepositRules.Scale(Math.Max(1, Content!.Structures!.DroneIntervalTicks(ModuleKind.DroneBay) * 100 / (100 + _bonus[(int)BonusKind.DroneRate])), d.Density);
 
     /// <summary>Same limit as hand mining: room in the hold and below the mining limit.</summary>
     private bool DroneHoldHasRoom(Player p) => p.HoldTotal + p.ShipReserved < HoldCapacityOf(p) && !MiningHoldLimitReached(p);

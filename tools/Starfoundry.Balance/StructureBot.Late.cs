@@ -36,6 +36,7 @@ public sealed partial class StructureBot
         }
         // Last: advanced plating (the ingot ore and quartz of the expedition are still in the hold).
         ResearchNow("core:advanced_plating", TiIngots, NiIngots, QuartzRaw);
+        if (Science) PlayScience();
     }
 
     private bool _stationLabsBuilt;

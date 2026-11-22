@@ -40,7 +40,8 @@ public sealed partial class BeltNetwork
             if (kind == ModuleKind.Shield && k != key) others++;
         if (others == 0) return 0;
         var def = kinds.Get(ModuleKind.Shield);
-        return Math.Min(def.ShieldMaxPercent, def.ShieldPercent + def.ShieldStackPercent * (others - 1));
+        int points = _bonus[(int)BonusKind.ShieldAbsorb]; // field theory research: percentage points on top
+        return Math.Min(def.ShieldMaxPercent + points, def.ShieldPercent + points + def.ShieldStackPercent * (others - 1));
     }
 
     /// <summary>The damage that gets through the shields: never below 1 for a positive hit.</summary>
@@ -56,6 +57,9 @@ public sealed partial class BeltNetwork
         _structures.TryGetValue(structure, out var s) ? ShieldPercentFor(s, (int.MinValue, int.MinValue, int.MinValue)) : 0;
 
     // ---- sensors -----------------------------------------------------------------------------------
+
+    /// <summary>Reveal range of a sensor module in cells, with the research bonus (bio-sensors, quantum sensors).</summary>
+    public long SensorRangeCells(ModuleKind kind) => (long)(Content?.Structures?.SensorRangeCells(kind) ?? 0) * (100 + _bonus[(int)BonusKind.SensorRange]) / 100;
 
     /// <summary>True when the structure has a sensor module and enough power for it to work.</summary>
     public bool SensorActive(int structure) =>
@@ -78,7 +82,7 @@ public sealed partial class BeltNetwork
             {
                 if (kind != ModuleKind.Sensor) continue;
                 var c = ModuleWorldCentre(s.Id, key.Mx, key.My, key.Mz);
-                long range = (long)kinds.SensorRangeCells(kind) * cu;
+                long range = SensorRangeCells(kind) * cu;
                 foreach (var d in _deposits)
                 {
                     if (d.Revealed) continue;

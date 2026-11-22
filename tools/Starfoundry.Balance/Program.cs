@@ -55,11 +55,22 @@ if (args.Contains("--structures"))
     string difficulty = Value("--difficulty") ?? "normal";
     var rules = WorldRules.Preset(difficulty);
     if (rules is null) { Console.Error.WriteLine($"Unknown difficulty '{difficulty}'. Use relaxed, normal, hard or brutal."); return 1; }
+    // --richness=N scales every deposit (25..400 percent): the science tier needs far more ore than the home system holds, so
+    // --science is measured with --richness=400 to study the research time rather than the ore supply.
+    if (Value("--richness") is { } rich)
+        rules = new WorldRules
+        {
+            EnemyDamagePercent = rules.EnemyDamagePercent, EnemyHpPercent = rules.EnemyHpPercent, WaveSizePercent = rules.WaveSizePercent,
+            WaveIntervalPercent = rules.WaveIntervalPercent, FirstWaveGraceSeconds = rules.FirstWaveGraceSeconds,
+            DepositRichnessPercent = int.Parse(rich), PowerOutputPercent = rules.PowerOutputPercent, GoalWaves = rules.GoalWaves,
+            ThreatsEnabled = rules.ThreatsEnabled, FreeBuild = rules.FreeBuild, StartingItems = rules.StartingItems,
+        };
     var bot = new StructureBot(content, sSeed, threats: !args.Contains("--no-threats"), rules: rules)
     {
         ActionDelaySeconds = args.Any(a => a.StartsWith("--delay=")) ? delay : 6,
         Trace = args.Contains("--trace") ? Console.Out : null,
-        ContinueAfterVictory = args.Contains("--continue"),
+        ContinueAfterVictory = args.Contains("--continue") || args.Contains("--science"),
+        Science = args.Contains("--science"),
     };
     var sReport = bot.Run(sMinutes * 60);
     Console.WriteLine($"Structure campaign run: seed {sSeed}, difficulty {difficulty}, goal {bot.GoalWaves} waves, action delay {bot.ActionDelaySeconds} s\n");

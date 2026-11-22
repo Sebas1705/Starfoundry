@@ -694,6 +694,14 @@ public class StructureDefenceTests
         RemoveWhere("research", "core:advanced_power", "core:sensors", "core:shielding", "core:electronics", "core:silicon_processing");
         RemoveWhere("recipes", "core:smelt_silicon", "core:make_circuit", "core:make_alloy", "core:make_fuel_cell");
         RemoveWhere("items", "core:silicon", "core:circuit", "core:titanium_alloy", "core:fuel_cell");
+        // And before the science fields (ADR 0026): no science items, biomass, science machines, recipes or research, so the item,
+        // machine and research tables (and everything hashed from them) are as they were.
+        RemoveWhere("research", "core:structural_plating", "core:alloy_hulls", "core:repair_drones", "core:automated_turrets", "core:cargo_expansion",
+            "core:algae_fuel", "core:closed_loop", "core:medical_bay", "core:bio_sensors", "core:symbiotic_drones",
+            "core:field_theory", "core:efficient_reactors", "core:long_range_jump", "core:targeting_lasers", "core:quantum_sensors");
+        RemoveWhere("recipes", "core:make_engineering_science", "core:make_physics_science", "core:grow_biomass", "core:make_biology_science", "core:biomass_to_hydrogen");
+        RemoveWhere("machines", "core:engineering_bench", "core:physics_lab", "core:greenhouse");
+        RemoveWhere("items", "core:science_engineering", "core:science_biology", "core:science_physics", "core:biomass");
         // And before the Normal-mode hardening: no bulwark and the original wave table.
         TestContent.ClassicWaves(root);
         // And before the second balance pass: the small container held 60.

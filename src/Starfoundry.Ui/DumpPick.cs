@@ -30,7 +30,7 @@ public static class DumpPick
             if (item < 0) continue;
             int held = net.HoldCount(player, item);
             if (id == "core:ice" && hydrogen < IceKeepHydrogen) continue;
-            foreach (var j in content.JumpCost)
+            foreach (var j in net.JumpCost())
                 if (j.Item == item) held -= j.Count; // keep the fuel for a jump
             if (held <= 0) continue;
             if (best is null || held > best.Count) best = new ItemStack(item, held);

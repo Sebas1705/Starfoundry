@@ -184,7 +184,7 @@ public sealed partial class BeltNetwork
     private List<Deposit> _deposits = new();
     private int[] _level = Array.Empty<int>(); // research levels: 0 not done, 1 done, more for repeatable nodes
 
-    private readonly int[] _bonus = new int[6];
+    private readonly int[] _bonus = new int[Enum.GetValues<BonusKind>().Length];
 
     /// <summary>Total research bonus of a kind, as a percentage.</summary>
     public int BonusPercent(BonusKind kind) => _bonus[(int)kind];

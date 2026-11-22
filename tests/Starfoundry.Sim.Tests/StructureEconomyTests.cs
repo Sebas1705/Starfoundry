@@ -56,6 +56,27 @@ public class StructureEconomyTests
     }
 
     [Fact]
+    public void Every_science_item_has_a_chain()
+    {
+        // Each science item is made by its own dedicated machine from items that can be delivered, and no recipe of the basic
+        // crafters makes it (the lab is the only place that eats it).
+        foreach (var (science, machine) in new[]
+        {
+            ("core:science_engineering", "core:engineering_bench"), ("core:science_biology", "core:greenhouse"), ("core:science_physics", "core:physics_lab"),
+        })
+        {
+            int item = C.ItemIndex(science);
+            Assert.True(Deliverable(item, _ => true, new HashSet<int>()), $"{science} cannot be made from deliverable items");
+            var makers = C.Recipes.Where(r => r.Outputs.Any(o => o.Item == item)).ToList();
+            Assert.Single(makers);
+            Assert.Equal(machine, C.Machines[makers[0].Machine].Id);
+            Assert.False(HandMinable(item) || HasPort(item), $"{science} must not come from a port");
+            Assert.Contains(C.Research, n => n.Cost.Any(c => c.Item == item)); // and something eats it
+        }
+        Assert.True(Deliverable(C.ItemIndex("core:biomass"), _ => true, new HashSet<int>()));
+    }
+
+    [Fact]
     public void Every_raw_item_in_a_deposit_has_a_port()
     {
         // Hand-mined ores are the only way into the factory, so each needs an unloader that carries it.

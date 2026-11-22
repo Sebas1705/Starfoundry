@@ -113,7 +113,7 @@ public sealed partial class BeltNetwork
         if (fs < 0 || kinds is null) return PlayerRules.HoldCapacity;
         int total = 0;
         foreach (var k in _structures[fs].ModuleMap.Values) total += kinds.HoldCapacity(k);
-        return total;
+        return total * (100 + _bonus[(int)BonusKind.HoldCapacity]) / 100;
     }
 
     private void MoveShipStructure(Player p, int structure)
@@ -328,7 +328,7 @@ public sealed partial class BeltNetwork
             foreach (var (m, rem) in s.BurnRemaining)
             {
                 if (!s.ModuleMap.TryGetValue(m, out var rk) || !ModuleKindIds.IsReactor(rk)) Fail($"structure {id} burns a module {m} that is no reactor");
-                else if (rem < 1 || rem > (Content?.Structures?.BurnIntervalTicks(rk) ?? 0) * PowerRules.FuelCellBurnIntervals) Fail($"structure {id} burn time {rem} out of range");
+                else if (rem < 1 || rem > BurnInterval(rk) * PowerRules.FuelCellBurnIntervals) Fail($"structure {id} burn time {rem} out of range");
             }
             foreach (var (m, hp) in s.ModuleDamage)
             {

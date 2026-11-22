@@ -76,7 +76,8 @@ public static class Models
         "core:ice_unloader" => BuildUnloader(),
         "core:quartz_unloader" => BuildUnloader(),
         "core:carbon_unloader" => BuildUnloader(),
-        "core:hydrogen_cracker" => BuildCracker(),
+        "core:hydrogen_cracker" or "core:greenhouse" => BuildCracker(), // science machines reuse a model until they get their own
+        "core:engineering_bench" or "core:physics_lab" => BuildAssembler(),
         _ => BuildCrate(),
     };
 

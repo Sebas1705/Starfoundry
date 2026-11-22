@@ -96,7 +96,7 @@ public sealed class Tips
     {
         cost = 0;
         bool shortOf = false;
-        foreach (var stack in _content.JumpCost)
+        foreach (var stack in net.JumpCost())
         {
             if (cost == 0) cost = stack.Count;
             if (net.HoldCount(player, stack.Item) < stack.Count) shortOf = true;
@@ -119,7 +119,7 @@ public sealed class Tips
         {
             if (def.Role != MachineRole.Unloader || def.Unloader is not { Item: >= 0 } u) continue;
             int spare = net.HoldCount(player, u.Item);
-            foreach (var j in _content.JumpCost)
+            foreach (var j in net.JumpCost())
                 if (j.Item == u.Item) spare -= j.Count; // carbon kept for a jump is not a surplus
             if (spare < PortTipOreCount || PortStands(net, u.Item)) continue;
             return u.Item;
