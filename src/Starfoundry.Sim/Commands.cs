@@ -168,6 +168,11 @@ public sealed record Undock : Command;
 /// stock, otherwise the stock is loaded into the hold. A <see cref="Count"/> of zero or less, or more than is available or fits, moves as many as possible.</summary>
 public sealed record TransferItems(int Item, int Count, bool ToStation) : Command;
 
+/// <summary>Sets the attitude of the commanding player's ship (ADR 0030): a unit quaternion (W, X, Y, Z) in fixed point, 16384 being 1.0 (<see cref="AttitudeRules.Scale"/>).
+/// The ship's modules, ports and every range measured from them are turned about the pilot seat. Rejected with <see cref="Reject.InvalidArgument"/> when
+/// the quaternion is not of unit length within <see cref="AttitudeRules.NormTolerance"/>, and with <see cref="Reject.Docked"/> for a turn while docked.</summary>
+public sealed record SetAttitude(int W, int X, int Y, int Z) : Command;
+
 /// <summary>Several commands applied atomically: either all succeed or the world is left untouched.</summary>
 public sealed record Batch(Command[] Commands) : Command;
 
@@ -284,6 +289,9 @@ public enum Reject
 
     /// <summary>The ship is already docked.</summary>
     AlreadyDocked,
+
+    /// <summary>The ship is turned more than about 15 degrees away from the axes of the port it wants to dock at.</summary>
+    Misaligned,
 }
 
 /// <summary>Outcome of one submitted command.</summary>

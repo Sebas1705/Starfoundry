@@ -275,14 +275,9 @@ public sealed partial class BeltNetwork
     /// Structure 0 is the legacy world with its origin at 0.</summary>
     public (long X, long Y, long Z) WorldCentre(int structure, int x, int y, int z)
     {
-        long ox = 0, oy = 0, oz = 0;
-        if (structure != 0)
-        {
-            var s = GetStructure(structure);
-            ox = s.OriginX; oy = s.OriginY; oz = s.OriginZ;
-        }
         long cu = Units.CellUnits;
-        return (ox + x * cu + cu / 2, oy + y * cu + cu / 2, oz + z * cu + cu / 2);
+        if (structure == 0) return (x * cu + cu / 2, y * cu + cu / 2, z * cu + cu / 2);
+        return StructureToWorld(GetStructure(structure), x * cu + cu / 2, y * cu + cu / 2, z * cu + cu / 2);
     }
 
     /// <summary>Throws if a structure other than 0 has a coordinate outside the local grid limit.</summary>
@@ -323,6 +318,7 @@ public sealed partial class BeltNetwork
                 mix(s.DroneDeposit); mix(s.DroneProgress.Count);
                 foreach (var (m, pr) in s.DroneProgress) { mix(m.Mx); mix(m.My); mix(m.Mz); mix(pr); }
             }
+            MixAttitude(s, mix);
             MixDocking(s, mix); // only docked ships and stations with a stock mix anything
         }
     }
@@ -357,6 +353,7 @@ public sealed partial class BeltNetwork
                 if (pr < 1) Fail($"structure {id} drone progress {pr} out of range");
             }
             if (s.Satisfaction is < 0 or > PowerRules.FullSatisfaction) Fail($"structure {id} satisfaction {s.Satisfaction} out of range");
+            ValidateAttitude(s);
             ValidateDocking(s);
         }
         foreach (var p in _players.Values)

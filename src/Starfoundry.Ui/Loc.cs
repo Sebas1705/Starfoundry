@@ -919,6 +919,7 @@ public static class Loc
         ["toast.reject.tooFast"] = ("Vas demasiado rápido para atracar: reduce la potencia", "You are going too fast to dock: lower the throttle"),
         ["toast.reject.noRoom"] = ("No hay sitio para pasar eso: la bodega o el almacén de la estación está lleno", "No room to move that: the hold or the station stock is full"),
         ["toast.reject.alreadyDocked"] = ("La nave ya está atracada", "The ship is already docked"),
+        ["toast.reject.misaligned"] = ("Alinea la nave con el puerto antes de atracar", "Line the ship up with the port before docking"),
         ["hud.nextWave"] = ("Próxima oleada {0}: {1} enemigos, en {2}", "Next wave {0}: {1} enemies, in {2}"),
         ["hud.nextWaveUnknown"] = ("Próxima oleada {0}: {1} enemigos", "Next wave {0}: {1} enemies"),
 

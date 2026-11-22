@@ -526,7 +526,7 @@ public class WorldRulesTests
         byte[] plain = LogBytes(log, null);
         byte[] normal = LogBytes(log, WorldRules.Normal);
         Assert.Equal(plain, normal); // default rules write no block
-        Assert.Equal(11, plain[4]); // version 11 added the docking commands; the rules block is unchanged
+        Assert.Equal(12, plain[4]); // version 12 added SetAttitude; the rules block is unchanged
         Assert.Equal(0, plain[4 + 1 + 8 + 1 + 8] & 8);
 
         byte[] hard = LogBytes(log, WorldRules.Hard);

@@ -104,6 +104,9 @@ public sealed class Structure
     /// <summary>Ticks left in which this structure takes no further collision damage (ADR 0028). Mixed only when non-zero.</summary>
     internal int ImpactCooldown;
 
+    /// <summary>Ships only: the attitude set by <see cref="SetAttitude"/> (ADR 0030). The identity unless set; mixed into the checksum only when it is not.</summary>
+    internal Attitude Attitude = Attitude.Identity;
+
     /// <summary>Ships only: the station this ship is docked at, or -1 (ADR 0029). While docked the ship is locked to the port pose and cannot thrust.</summary>
     internal int DockedTo = -1;
 
@@ -134,7 +137,7 @@ public sealed class Structure
         c.DroneDeposit = DroneDeposit;
         c.DroneProgress = new SortedDictionary<(int, int, int), int>(DroneProgress);
         c.PowerProduction = PowerProduction; c.PowerDemand = PowerDemand; c.Satisfaction = Satisfaction; c.LaserDraw = LaserDraw; c.ImpactCooldown = ImpactCooldown;
-        c.DockedTo = DockedTo; c.DockShipModule = DockShipModule; c.DockStationModule = DockStationModule;
+        c.Attitude = Attitude; c.DockedTo = DockedTo; c.DockShipModule = DockShipModule; c.DockStationModule = DockStationModule;
         c.DockShipFace = DockShipFace; c.DockStationFace = DockStationFace;
         c.Stock = Stock is null ? null : (int[])Stock.Clone();
         return c;

@@ -95,9 +95,9 @@ public sealed partial class BeltNetwork
     {
         var s = GetStructure(structure);
         long cu = Units.CellUnits;
-        return (s.OriginX + ((long)mx * StationGrid.ModuleX + StationGrid.ModuleX / 2) * cu,
-                s.OriginY + ((long)my * StationGrid.ModuleY + StationGrid.ModuleY / 2) * cu,
-                s.OriginZ + ((long)mz * StationGrid.ModuleZ + StationGrid.ModuleZ / 2) * cu);
+        return StructureToWorld(s, ((long)mx * StationGrid.ModuleX + StationGrid.ModuleX / 2) * cu,
+                ((long)my * StationGrid.ModuleY + StationGrid.ModuleY / 2) * cu,
+                ((long)mz * StationGrid.ModuleZ + StationGrid.ModuleZ / 2) * cu);
     }
 
     // ---- targeting -----------------------------------------------------------------------------

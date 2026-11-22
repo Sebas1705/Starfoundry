@@ -137,39 +137,8 @@ public sealed partial class BeltNetwork
     private bool SphereTouchesStructure(Structure s, long cx, long cy, long cz, long radius)
     {
         foreach (var key in s.ModuleMap.Keys)
-        {
-            var (dx, dy, dz) = ToBox(s, key, cx, cy, cz);
-            if (dx * dx + dy * dy + dz * dz <= radius * radius) return true;
-        }
+            if (BoxToPoint(s, key, cx, cy, cz).D2 <= radius * radius) return true;
         return false;
-    }
-
-    /// <summary>The vector from a sphere centre to the nearest point of a module's box (zero when the centre is inside the box).</summary>
-    private static (long X, long Y, long Z) ToBox(Structure s, (int Mx, int My, int Mz) key, long cx, long cy, long cz)
-    {
-        long cu = Units.CellUnits;
-        long x0 = s.OriginX + (long)key.Mx * StationGrid.ModuleX * cu, y0 = s.OriginY + (long)key.My * StationGrid.ModuleY * cu, z0 = s.OriginZ + (long)key.Mz * StationGrid.ModuleZ * cu;
-        long x1 = x0 + StationGrid.ModuleX * cu, y1 = y0 + StationGrid.ModuleY * cu, z1 = z0 + StationGrid.ModuleZ * cu;
-        return (Math.Clamp(cx, x0, x1) - cx, Math.Clamp(cy, y0, y1) - cy, Math.Clamp(cz, z0, z1) - cz);
-    }
-
-    /// <summary>The direction out of a module box through its nearest face, for a sphere centre inside it, and the depth to that face.</summary>
-    private static ((long X, long Y, long Z) Dir, long Depth) InsideBox(Structure s, (int Mx, int My, int Mz) key, long cx, long cy, long cz)
-    {
-        long cu = Units.CellUnits;
-        long[] lo = { s.OriginX + (long)key.Mx * StationGrid.ModuleX * cu, s.OriginY + (long)key.My * StationGrid.ModuleY * cu, s.OriginZ + (long)key.Mz * StationGrid.ModuleZ * cu };
-        long[] size = { StationGrid.ModuleX * cu, StationGrid.ModuleY * cu, StationGrid.ModuleZ * cu };
-        long[] c = { cx, cy, cz };
-        long best = long.MaxValue; int axis = 1, sign = 1;
-        for (int a = 0; a < 3; a++)
-        {
-            long toLo = c[a] - lo[a], toHi = lo[a] + size[a] - c[a];
-            if (toLo < best) { best = toLo; axis = a; sign = 1; }
-            if (toHi < best) { best = toHi; axis = a; sign = -1; }
-        }
-        // The centre is nearer the low face: the box must move up the axis to leave it behind, and the other way round.
-        var dir = (axis == 0 ? sign : 0L, axis == 1 ? sign : 0L, axis == 2 ? sign : 0L);
-        return (dir, best);
     }
 
     // ---- the tick --------------------------------------------------------------------------------------
@@ -249,19 +218,22 @@ public sealed partial class BeltNetwork
         long r = g.Radius;
         foreach (var key in s.ModuleMap.Keys)
         {
-            var (dx, dy, dz) = ToBox(s, key, c.X, c.Y, c.Z);
-            long d2 = dx * dx + dy * dy + dz * dz;
+            var box = BoxToPoint(s, key, c.X, c.Y, c.Z);
+            long d2 = box.D2;
             if (d2 >= r * r) continue;
             long dist = IntMath.ISqrt(d2);
             long pen;
             (long, long, long) dir;
+            long norm = 1;
             if (d2 == 0)
             {
-                var (inDir, depth) = InsideBox(s, key, c.X, c.Y, c.Z);
-                dir = inDir; pen = depth + r; dist = 1;
+                var (inDir, depth) = InsideBoxOf(s, key, c.X, c.Y, c.Z, 1);
+                pen = depth + r; dir = inDir; dist = 1;
+                // A turned ship: the direction gets the length of the penetration (a unit vector would round away), and the length divides it again.
+                if (!s.Attitude.IsIdentity) { dir = InsideBoxOf(s, key, c.X, c.Y, c.Z, Math.Max(1, pen)).Dir; norm = Math.Max(1, pen); }
             }
-            else { dir = (dx, dy, dz); pen = r - dist; }
-            if (pen > hitPen) { hitPen = pen; hitKey = key; hitDir = dir; hitDist = d2 == 0 ? 1 : dist; }
+            else { dir = (box.X, box.Y, box.Z); pen = r - dist; norm = dist; }
+            if (pen > hitPen) { hitPen = pen; hitKey = key; hitDir = dir; hitDist = norm; }
         }
         if (hitPen == 0) return;
 
@@ -340,8 +312,7 @@ public sealed partial class BeltNetwork
             if (SystemOfStructure(s) != g.System) continue;
             foreach (var key in s.ModuleMap.Keys)
             {
-                var (dx, dy, dz) = ToBox(s, key, g.X, g.Y, g.Z);
-                long dist = IntMath.ISqrt(dx * dx + dy * dy + dz * dz);
+                long dist = IntMath.ISqrt(BoxToPoint(s, key, g.X, g.Y, g.Z).D2);
                 if (dist >= blast) continue;
                 hits.Add((s.Id, key, (int)Math.Max(1, def.Damage * (blast - dist) / blast)));
             }
