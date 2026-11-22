@@ -46,6 +46,62 @@ public partial class Play
         return (ulong)Random.Shared.NextInt64(1, 1_000_000_000);
     }
 
+    // ---- scenario ----------------------------------------------------------------------------------------------------
+
+    private ScenarioCatalog _scenarios = ScenarioCatalog.Empty;
+    private ScenarioDef? _scenario;
+    private ScenarioProgress? _progress;
+    private string? _goalsShotPath;
+
+    private sealed record ScenarioPlan(ScenarioDef Def, ulong Seed, WorldRules Rules);
+
+    /// <summary>
+    /// Which scenario this run plays, or null for the legacy path (every scripted flag keeps it, so the old numbers and shots do not change).
+    /// In order: the scenario of a save being continued (its seed and rules come from the header); <c>--goals-shot</c> (level 3);
+    /// <c>--scenario=id</c> with an optional <c>--seed=N</c>; then the choice made on the New Game screen when no other flag is given.
+    /// </summary>
+    private ScenarioPlan? ChooseScenario(string[] args)
+    {
+        if (_scenarios.All.Count == 0) return null;
+        if (Launch.Mode == Launch.Intent.Continue && Launch.ContinueSave is { } slot && Godot.FileAccess.FileExists(SavePath(slot)))
+        {
+            try
+            {
+                var info = SaveGame.Peek(new System.IO.MemoryStream(Godot.FileAccess.GetFileAsBytes(SavePath(slot))));
+                if (info.ScenarioId is not null && _scenarios.Find(info.ScenarioId) is { } saved && info.GalaxySeed != 0)
+                    return new ScenarioPlan(saved, info.GalaxySeed, info.Rules ?? saved.Rules);
+            }
+            catch (Exception e) { GD.PrintErr("SCENARIO could not read the save header: " + e.Message); }
+            return null;
+        }
+        string? id = null;
+        ulong seed = 0;
+        WorldRules? rules = null;
+        if (_goalsShotPath is not null || (_endShotPath is not null && !args.Contains("--end-legacy"))) id = "03_under_siege";
+        else if (args.FirstOrDefault(a => a.StartsWith("--scenario="))?["--scenario=".Length..] is { Length: > 0 } flag)
+        {
+            id = flag;
+            if (args.FirstOrDefault(a => a.StartsWith("--seed="))?["--seed=".Length..] is { } s && ulong.TryParse(s, out ulong fixedSeed)) seed = fixedSeed;
+            if (args.FirstOrDefault(a => a.StartsWith("--difficulty="))?["--difficulty=".Length..] is { } d) rules = WorldRules.Preset(d);
+        }
+        else if (Launch.ScenarioId is { } chosen && !args.Any(a => !a.StartsWith("--menu-shot=") && !a.StartsWith(ContentLocator.ContentFlag)))
+        {
+            id = chosen;
+            seed = Launch.Seed;
+            rules = Launch.Rules;
+        }
+        if (id is null || _scenarios.Find(id) is not { } def)
+        {
+            if (id is not null) GD.PrintErr($"SCENARIO unknown scenario '{id}'");
+            return null;
+        }
+        if (def.PlayerRules && rules is null) rules = def.Rules;
+        rules ??= def.Rules;
+        if (seed == 0) seed = def.Seed;
+        if (seed == 0) seed = (ulong)Random.Shared.NextInt64(1, 1_000_000_000);
+        return new ScenarioPlan(def, seed, rules);
+    }
+
     // ---- building the panels ----------------------------------------------------------------------------------------
 
     private void BuildPanels()

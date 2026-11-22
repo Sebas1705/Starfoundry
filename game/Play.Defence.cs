@@ -206,6 +206,13 @@ void fragment() {
 
     private void UpdateGoalLine()
     {
+        if (_progress is not null)
+        {
+            _goalLabel.Visible = false; // the goals section of the scenario replaces the line
+            UpdateGoalsPanel();
+            return;
+        }
+        _goalsBox.Visible = false;
         bool show = !_demo && _gameMode == GameMode.Campaign && Net.ThreatActive;
         _goalLabel.Visible = show;
         if (!show) return;

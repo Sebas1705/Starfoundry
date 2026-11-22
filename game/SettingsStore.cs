@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using Starfoundry.Sim;
 using Starfoundry.Ui;
 
 namespace Starfoundry.Game;
@@ -89,6 +90,33 @@ public static class Launch
 
     /// <summary>The save to load when <see cref="Mode"/> is <see cref="Intent.Continue"/> ("quicksave" or "autosave").</summary>
     public static string? ContinueSave;
+
+    /// <summary>The scenario of a new game chosen on the New Game screen (null for the scripted runs and the legacy path).</summary>
+    public static string? ScenarioId;
+
+    /// <summary>The rules for the scenario (the campaign's difficulty, the sandbox form); null keeps the scenario's own.</summary>
+    public static WorldRules? Rules;
+
+    /// <summary>The galaxy seed for the new game; 0 means a random one (or the scenario's fixed seed).</summary>
+    public static ulong Seed;
+
+    /// <summary>Sets a new game of a scenario (and clears the continue request).</summary>
+    public static void StartScenario(string id, WorldRules? rules, ulong seed)
+    {
+        Mode = Intent.New;
+        ContinueSave = null;
+        ScenarioId = id;
+        Rules = rules;
+        Seed = seed;
+    }
+
+    /// <summary>Forgets the chosen scenario (the next game takes the legacy path unless a scenario is set again).</summary>
+    public static void ClearScenario()
+    {
+        ScenarioId = null;
+        Rules = null;
+        Seed = 0;
+    }
 
     /// <summary><c>--menu-shot=path</c>: the menu shot continues in the game scene, which saves the pause overlay shots.</summary>
     public static string? MenuShotPath;

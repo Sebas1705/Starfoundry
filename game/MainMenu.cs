@@ -31,7 +31,8 @@ public partial class MainMenu : Control
         _menuShotPath = args.FirstOrDefault(a => a.StartsWith("--menu-shot="))?["--menu-shot=".Length..];
         // Any other flag means a scripted run or a screenshot: no menu.
         // --content=path only says where core.json is; it does not make the run scripted.
-        if (args.Any(a => !a.StartsWith("--menu-shot=") && !a.StartsWith(ContentLocator.ContentFlag)))
+        _newGameShotPath = args.FirstOrDefault(a => a.StartsWith("--newgame-shot="))?["--newgame-shot=".Length..];
+        if (args.Any(a => !a.StartsWith("--menu-shot=") && !a.StartsWith("--newgame-shot=") && !a.StartsWith(ContentLocator.ContentFlag) && !a.StartsWith("--ui-lang=")))
         {
             Launch.Mode = Launch.Intent.New;
             CallDeferred(MethodName.StartGame);
@@ -39,12 +40,16 @@ public partial class MainMenu : Control
         }
 
         SettingsStore.EnsureLoaded();
-        if (ContentSource.Load(args, out var contentLookup, out string? contentError) is null)
+        if (args.Contains("--ui-lang=es")) Loc.Lang = Language.Es;
+        if (args.Contains("--ui-lang=en")) Loc.Lang = Language.En;
+        _content = ContentSource.Load(args, out var contentLookup, out string? contentError);
+        if (_content is null)
         {
             ContentSource.ShowError(this, contentLookup, contentError);
             SetProcess(false);
             return;
         }
+        _contentPath = contentLookup.Path;
         AudioManager.Create(this); // UI sounds in the menu (clicks, slider previews)
         Input.MouseMode = Input.MouseModeEnum.Visible;
         BuildBackground();
@@ -53,12 +58,42 @@ public partial class MainMenu : Control
         string? save = Launch.NewestSave();
         _menu.AddEntry(() => Loc.T("menu.continue"), () => { Launch.Mode = Launch.Intent.Continue; Launch.ContinueSave = save; StartGame(); },
             () => save is not null, () => save is null ? Loc.T("menu.noSave") : SaveDetail(save));
-        _menu.AddEntry(() => Loc.T("menu.new"), () => { Launch.Mode = Launch.Intent.New; Launch.ContinueSave = null; StartGame(); });
+        _menu.AddEntry(() => Loc.T("menu.new"), () => OpenNewGame());
         _menu.AddEntry(() => Loc.T("menu.settings"), () => _menu.Open(MenuScreen.Page.Settings));
         _menu.AddEntry(() => Loc.T("menu.controls"), () => _menu.Open(MenuScreen.Page.Controls));
         _menu.AddEntry(() => Loc.T("menu.quit"), () => GetTree().Quit());
         _menu.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(_menu);
+    }
+
+    private ContentDb? _content;
+    private string? _contentPath;
+    private string? _newGameShotPath;
+    private NewGameScreen? _newGame;
+
+    /// <summary>Opens the New Game screen over the menu; its Start button sets the <see cref="Launch"/> choice and starts the game scene.</summary>
+    private void OpenNewGame(NewGameScreen.Tab tab = NewGameScreen.Tab.Campaign)
+    {
+        if (_content is null || _newGame is not null) return;
+        var catalog = ScenarioStore.Catalog(_content, _contentPath);
+        var screen = _newGame = new NewGameScreen(_content, catalog, tab);
+        screen.Started += choice =>
+        {
+            Launch.StartScenario(choice.ScenarioId, choice.Rules, choice.Seed);
+            StartGame();
+        };
+        screen.Cancelled += CloseNewGame;
+        _menu.Visible = false;
+        AddChild(screen);
+    }
+
+    private void CloseNewGame()
+    {
+        if (_newGame is null) return;
+        _newGame.QueueFree();
+        _newGame = null;
+        _menu.Visible = true;
+        _menu.Open(MenuScreen.Page.Main);
     }
 
     private void StartGame()
@@ -93,6 +128,7 @@ public partial class MainMenu : Control
     {
         _time += delta;
         if (_camera is not null) _camera.Rotation = new Vector3(0.12f * MathF.Sin((float)_time * 0.13f), (float)_time * 0.05f, 0f);
+        if (_newGameShotPath is not null) { NewGameShotFrame(); return; }
         if (_menuShotPath is null) return;
         _frame++;
         if (_frame == 45) Save(_menuShotPath);
@@ -108,6 +144,17 @@ public partial class MainMenu : Control
             _menu.Open(MenuScreen.Page.Main);
             StartGame(); // the game scene saves the pause overlay and quits
         }
+    }
+
+    /// <summary><c>--newgame-shot=path</c>: saves the three tabs of the New Game screen (<c>path.campaign.png</c>, <c>path.story.png</c>, <c>path.sandbox.png</c>) and quits.</summary>
+    private void NewGameShotFrame()
+    {
+        string path = _newGameShotPath!;
+        _frame++;
+        if (_frame == 10) OpenNewGame(NewGameScreen.Tab.Campaign);
+        if (_frame == 40) { Save(path + ".campaign.png"); _newGame?.ShowTab(NewGameScreen.Tab.Story); }
+        if (_frame == 70) { Save(path + ".story.png"); _newGame?.ShowTab(NewGameScreen.Tab.Sandbox); }
+        if (_frame == 100) { Save(path + ".sandbox.png"); GetTree().Quit(); }
     }
 
     private void Save(string path) => GetViewport().GetTexture().GetImage().SavePng(path);

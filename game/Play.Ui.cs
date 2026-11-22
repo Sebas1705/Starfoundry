@@ -234,6 +234,7 @@ public partial class Play
         objButtons.AddChild(_btnHelp);
         objButtons.AddChild(_btnLang);
         obj.AddChild(objButtons);
+        BuildGoalsUi(obj);
         obj.AddChild(_objectivesText);
         // The goal stays pinned as the last line, whether the list is open or folded.
         _goalLabel = MakeText(14, new Color(1f, 0.85f, 0.45f));
@@ -710,7 +711,7 @@ public partial class Play
         if (_stationRules) sb.Append(L("hud.modules", Net.ModuleCount(Player))).Append('\n');
         if (_structuresOn) StructureHud(sb, details: false);
         if (MiningPausedByLimit) { sb.Append(L("hud.miningPaused")).Append('\n'); if (colour == Colors.White) colour = WornColor; }
-        if (!_objectivesOpen && _objectives.Current is { } cur)
+        if (GuidedSteps && !_objectivesOpen && _objectives.Current is { } cur)
             sb.Append(L("hud.ess.step", L(_objectives.States.First(s => s.Objective == cur).TitleKey))).Append('\n');
         if (_demo) sb.Append(L("hud.speed", _demoSpeed));
         else if (_speed != 1 || _paused) sb.Append(_paused ? L("hud.paused") : L("hud.speed", _speed));
@@ -751,8 +752,11 @@ public partial class Play
         {
             DirAccess.MakeDirRecursiveAbsolute(ProjectSettings.GlobalizePath("user://saves"));
             var ms = new System.IO.MemoryStream();
-            SaveGame.Write(ms, _world, _content, _gameMode, _galaxySeed, _threatsOn, Player, _stationRules, _structuresOn);
+            SaveGame.Write(ms, _world, _content, _gameMode, _galaxySeed, _threatsOn, Player, _stationRules, _structuresOn,
+                _scenario is not null || !Net.Rules.IsDefault ? Net.Rules : null, _scenario);
             WriteSlotAtomically(name, ms.ToArray());
+            // The goals engine is recomputed from the world on load, so when each goal was done travels beside the save.
+            if (_progress is not null) ScenarioStore.WriteSidecar(name, _progress.Export(_world.Tick, _continueEndless));
             if (!silent) Toast(L("toast.saved", PlayLog.Format(Net.Tick / (double)Units.TicksPerSecond)));
             return true;
         }
@@ -804,7 +808,8 @@ public partial class Play
         {
             byte[] bytes = Godot.FileAccess.GetFileAsBytes(SavePath(name));
             // A save of another galaxy cannot be loaded into this scene (its deposits and sky are built from the seed): reopen the scene on it.
-            if (SaveGame.Peek(new System.IO.MemoryStream(bytes)).GalaxySeed != _galaxySeed)
+            var peek = SaveGame.Peek(new System.IO.MemoryStream(bytes));
+            if (peek.GalaxySeed != _galaxySeed || peek.ScenarioId != _scenario?.Id)
             {
                 FinishPlayLog();
                 Launch.Mode = Launch.Intent.Continue;
@@ -813,8 +818,9 @@ public partial class Play
                 GetTree().CallDeferred(SceneTree.MethodName.ReloadCurrentScene);
                 return true;
             }
-            var world = SaveGame.Read(new System.IO.MemoryStream(bytes), _content, out var info);
+            var world = SaveGame.Read(new System.IO.MemoryStream(bytes), _content, out var info, _scenarios);
             _world = world;
+            _loadedSnapshot = _scenario is null ? null : ScenarioStore.ReadSidecar(name, info.Ticks);
             _gameMode = info.Mode;
             _threatsOn = info.Threats;
             // The save decides the rules, whatever the running game started with.
@@ -947,6 +953,7 @@ public partial class Play
         _outcomeShown = false;
         _continueEndless = false;
         _endScreen?.Dismiss();
+        ResetGoalsAfterLoad();
         if (_playLog is not null)
         {
             _logFile?.StoreLine($"-- loaded a save at game time {PlayLog.Format(Net.Tick / (double)Units.TicksPerSecond)} (galaxy seed {_galaxySeed})");
@@ -1216,6 +1223,8 @@ public partial class Play
     {
         _objectivesPanel.Visible = true;
         UpdateGoalLine();
+        _btnObjectives.Visible = GuidedSteps;
+        if (!GuidedSteps) { _objectivesText.Visible = false; return; }
         _goalLabel.CustomMinimumSize = new Vector2(Math.Clamp(GetViewport().GetVisibleRect().Size.X * 0.3f, 240, 420), 0);
         var states = _objectives.States;
         var current = _objectives.Current;
@@ -1309,6 +1318,7 @@ public partial class Play
         // The status text wraps so it never runs under the steps panel at the top right.
         _objectivesText.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _objectivesText.CustomMinimumSize = new Vector2(Math.Clamp(size.X * 0.3f, 240, 420), 0);
+        LayoutGoals(Math.Clamp(size.X * 0.3f, 240, 420));
         _objectivesPanel.ResetSize();
         var objMin = _objectivesPanel.GetCombinedMinimumSize();
         _statusLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -1430,7 +1440,7 @@ public partial class Play
 
     public override void _UnhandledInput(InputEvent e)
     {
-        if (_demo || PauseOpen || EndOpen) return;
+        if (_demo || PauseOpen || EndOpen || StoryOpen) return;
 
         switch (e)
         {
@@ -1544,7 +1554,7 @@ public partial class Play
     // ---- cursor capture ------------------------------------------------------------------------------------
 
     /// <summary>Panels that need the pointer: the help overlay, the research panel, the build menu and the star map.</summary>
-    private bool PanelOpen() => PauseOpen || EndOpen || _helpOpen || ResearchOpen || BuildOpen || (_mapOpen && Net.Galaxy is not null);
+    private bool PanelOpen() => PauseOpen || EndOpen || StoryOpen || _helpOpen || ResearchOpen || BuildOpen || (_mapOpen && Net.Galaxy is not null);
 
     /// <summary>Releases or captures the mouse so it matches what the player wants and what is on screen.</summary>
     private void UpdateCapture()

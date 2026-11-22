@@ -35,6 +35,7 @@ public partial class Play
     private void UpdateOutcome()
     {
         if (_demo || _endScreen is null) return;
+        if (_progress is not null) { UpdateScenarioOutcome(); return; }
         _goal = _endShotGoal ?? GoalSettings.From(SettingsStore.Current);
         if (_outcomeShown || _gameMode != GameMode.Campaign || !Net.ThreatActive || _defenceShotPath is not null || !Net.HasPlayer(Player)) return;
         var r = GameOutcome.Evaluate(Net, Player, _goal);
@@ -130,11 +131,20 @@ public partial class Play
     /// picture, the win rule itself is covered by tests) is saved as <c>path.victory.png</c>; then the cockpit is destroyed for real and
     /// the defeat overlay goes through the normal check and is saved as <c>path.defeat.png</c>.
     /// </summary>
-    private void EndShotSetup()
+    private void EndShotSetup(string[] args)
     {
         _wantCapture = false;
         _shotPhase = 3; // the structures-shot script stays out of it
         _endShotGoal = new GoalSettings(10);
+        if (args.Contains("--ui-lang=es")) Loc.Lang = Language.Es;
+        if (args.Contains("--ui-lang=en")) Loc.Lang = Language.En;
+        if (_scenario is not null)
+        {
+            // Level 3 already has its station: only some time on the clock, short of the first wave.
+            _briefingShown = true;
+            _world.Step(Units.TicksPerSecond * 60);
+            return;
+        }
         int ship = ShipStruct;
         if (ship < 0) return;
         var o = ShipPosition(0f);
@@ -148,6 +158,11 @@ public partial class Play
     {
         if (_endShotPath is null) return;
         _endFrame++;
+        if (_scenario is not null && _progress is not null)
+        {
+            ScenarioEndShotFrame();
+            return;
+        }
         if (_endFrame == 20)
             ShowOutcome(new OutcomeResult(OutcomeKind.Won, OutcomeReason.WavesSurvived,
                 new OutcomeStats(Net.Tick / (double)Units.TicksPerSecond, 14, 2, 0, 3, 10, 412, 186, 5)));
@@ -168,6 +183,34 @@ public partial class Play
             if (System.IO.File.Exists(victory)) { GD.Print("SHOT victory save was written, removing it"); System.IO.File.Delete(victory); }
             GetTree().Quit();
         }
+    }
+
+    /// <summary>Scenario version of the end shots: a made-up win with two stars (the bonus goal failed), then a real defeat.</summary>
+    private void ScenarioEndShotFrame()
+    {
+        string path = _endShotPath!;
+        if (_endFrame == 20)
+        {
+            var goals = _progress!.Goals.Select(g => g.Goal.Id == "no_losses"
+                ? new GoalSnapshot(g.Goal.Id, GoalStatus.Failed, 0, null, 612.0)
+                : new GoalSnapshot(g.Goal.Id, GoalStatus.Done, g.Target, 1180.0, null)).ToList();
+            _progress.Restore(new ProgressSnapshot(Net.Tick, goals, new List<(int, double)>(), OutcomeKind.Won, OutcomeReason.WavesSurvived, 2, 1523.0, false));
+            ShowScenarioOutcome();
+        }
+        if (_endFrame == 50) Save(path + ".victory.png");
+        if (_endFrame == 51)
+        {
+            ContinueEndless();
+            _progress = new ScenarioProgress(_content, _scenario!);
+            _briefingShown = true;
+            RebuildGoalRows();
+            var s = Net.ShipStructure(Player);
+            foreach (var (k, kind) in Net.GetStructure(s).Modules.Where(m => m.Value == ModuleKind.Cockpit).Select(m => (m.Key, m.Value)).ToList())
+                ShotHit(s, k.Mx, k.My, k.Mz, 9999);
+            _world.Step();
+        }
+        if (_endFrame == 80) Save(path + ".defeat.png");
+        if (_endFrame == 81) GetTree().Quit();
     }
 
     private void Save(string path)

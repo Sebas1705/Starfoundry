@@ -91,5 +91,8 @@ Design decisions the numbers come from:
 4. Run `dotnet test`: the catalog test counts the files and `ScenarioContentTests` checks texts, numbers and that every goal is deliverable. Add the level to `StructureBot.PlayableScenarios` with a plan in `StructureBot.Scenario.cs` and a `Bot_wins_level_NN` test, or state in the table above that it is validated by reachability only.
 5. Add the row to the table above with the measured time.
 
+## The game UI (part D)
+Built: the New Game screen (`game/NewGameScreen.cs`: Campaign, Story, Sandbox), the goals section of the HUD (`GoalsView` builds it from `ScenarioProgress`), the briefing dialog and story toasts, the scenario end screens with stars and records, `progress.cfg` (`ProgressRecord`), `sandbox_presets.cfg` (`SandboxPresets`) and the `<slot>.goals` sidecar that fixes the "completion times restart after a load" gap (`ProgressSnapshot`; ignored when its tick does not match the save). How to use it is in [the play-test guide](../playtest.md). The sandbox form picks one of six open-ended scenarios: `sandbox`, `sandbox_station`, `sandbox_siege` (free build, sandbox mode) and `custom`, `custom_station`, `custom_siege` (costs and research gates, campaign mode, no goals), because the world mode belongs to the scenario and is part of its hash.
+
 ## What is not done
-The New Game screen, the goals panel, the briefing and end screens and the progress file (part D); packaging the `content/scenarios` folder in the export (the loaders take a directory next to `core.json`); a bot plan for levels 4 and 5; the campaign and the sandbox are not played by the scenario bot.
+Packaging the `content/scenarios` folder in the export (the loaders take a directory next to `core.json`); a bot plan for levels 4 and 5; the campaign and the sandbox are not played by the scenario bot.
