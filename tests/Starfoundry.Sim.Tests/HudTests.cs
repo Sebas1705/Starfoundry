@@ -97,32 +97,6 @@ public class HudTests
         Assert.Equal(100f, Markers.NearestCluster(points, new Vec3(90, 0, 0), 10f)!.Value.X, 3);
     }
 
-    [Theory]
-    [InlineData(0f, -1f, 0f)]   // looking along -Z: north
-    [InlineData(1f, 0f, 90f)]   // +X: east
-    [InlineData(0f, 1f, 180f)]  // +Z: south
-    [InlineData(-1f, 0f, 270f)] // -X: west
-    public void HeadingFollowsTheAxes(float fx, float fz, float expected)
-    {
-        Assert.Equal(expected, Compass.HeadingDegrees(fx, fz), 2);
-    }
-
-    [Fact]
-    public void CompassLettersAndStrip()
-    {
-        Assert.Equal("N", Compass.Letter(359f));
-        Assert.Equal("NE", Compass.Letter(50f));
-        Assert.Equal("W", Compass.Letter(270f));
-        Assert.Equal(0f, Compass.HeadingDegrees(0f, 0f));
-
-        string strip = Compass.Strip(0f);
-        Assert.Contains("[N]", strip);
-        Assert.Contains("NE", strip);
-        Assert.Contains("NW", strip);
-        Assert.Equal(Compass.Strip(0f).Length, Compass.Strip(100f).Length); // width does not change as it turns
-        Assert.Contains("[E]", Compass.Strip(90f));
-    }
-
     [Fact]
     public void ToastsAreCappedAtThreeNewestFirstKept()
     {

@@ -18,8 +18,8 @@ public class KeyHintsTests
     {
         var s = Flying();
         Assert.Equal(HintContext.Flying, KeyHints.ContextOf(s));
-        Assert.Equal(new[] { "build", "research", "map", "scan", "mine", "refine", "weapons", "found", "module", "seat", "info", "help" }, Ids(s));
-        Assert.Equal(new[] { "B", "T", "G", "K", "M", "F", "V", "I", "N", "E", "H", "F1" }, Rows(s).Select(r => r.Caps[0]).ToArray());
+        Assert.Equal(new[] { "build", "research", "map", "scan", "mine", "refine", "weapons", "found", "module", "roll", "look", "seat", "info", "help" }, Ids(s));
+        Assert.Equal(new[] { "B", "T", "G", "K", "M", "F", "V", "I", "N", "Z", "Alt", "E", "H", "F1" }, Rows(s).Select(r => r.Caps[0]).ToArray());
         Assert.Equal("key.ctx.flying", KeyHints.For(s).Last().TitleKey);
     }
 
@@ -27,7 +27,7 @@ public class KeyHintsTests
     public void FlyingDropsWhatTheWorldDoesNotHave()
     {
         var s = Flying() with { HasGalaxy = false, StructuresOn = false, ModuleToolAvailable = false, CanWalk = false };
-        Assert.Equal(new[] { "build", "research", "scan", "mine", "refine", "weapons", "info", "help" }, Ids(s));
+        Assert.Equal(new[] { "build", "research", "scan", "mine", "refine", "weapons", "roll", "look", "info", "help" }, Ids(s));
     }
 
     [Fact]
@@ -157,7 +157,7 @@ public class KeyHintsTests
     {
         var s = Flying() with { MapOpen = true, JumpUnlocked = true, SystemChosen = true, JumpCost = "3 carbon" };
         Assert.Equal(HintContext.StarMap, KeyHints.ContextOf(s));
-        Assert.Equal(new[] { "choose", "jump", "close" }, Ids(s));
+        Assert.Equal(new[] { "choose", "rotate", "jump", "close" }, Ids(s));
         var jump = Find(s, "jump");
         Assert.Equal(new object[] { "3 carbon" }, jump.LabelArgs);
         Assert.Equal("key.jumpCost", jump.LabelKey);

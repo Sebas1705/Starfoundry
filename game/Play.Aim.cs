@@ -7,8 +7,8 @@ using Starfoundry.Sim;
 namespace Starfoundry.Game;
 
 /// <summary>
-/// Aiming and building in the local frame of a structure. Structures are only translated (never rotated), so the crosshair ray is
-/// taken into a structure's frame by subtracting its origin in cells. The ghost, the belt preview and the belt anchor belong to a
+/// Aiming and building in the local frame of a structure. The crosshair ray is taken into a structure's frame through the inverse of
+/// its root transform: stations are only translated, but the player's ship turns freely in flight (see free flight). The ghost, the belt preview and the belt anchor belong to a
 /// structure and are drawn under its root node. With structures off, structure 0 is the world and everything works as before.
 /// </summary>
 public partial class Play
@@ -19,7 +19,7 @@ public partial class Play
     private (int S, int Mx, int My, int Mz)? _structModuleAim;
     private (int X, int Y, int Z)? _foundAim;
 
-    private bool AimActive => _mouseLook || _stationDemo || _structuresShot || _walkShot || _dockShot || _keysShotPath is not null;
+    private bool AimActive => _mouseLook || _stationDemo || _structuresShot || _walkShot || _flightShot || _dockShot || _keysShotPath is not null;
 
     private bool StationSelected => _tool == ToolMode.Build && _palette[_selected].IsStation;
 
@@ -44,9 +44,9 @@ public partial class Play
     {
         var origin = AimOrigin();
         var dir = AimDirection();
-        if (MathF.Abs(dir.Y) < 1e-4f) return null;
         if (!_structuresOn)
         {
+            if (MathF.Abs(dir.Y) < 1e-4f) return null;
             float t = (_cursorY - origin.Y) / dir.Y;
             if (t < AimMinCells || t > AimMaxCells) return null; // too close: the cell would fill the screen
             var hit = origin + dir * t;
@@ -59,10 +59,11 @@ public partial class Play
         int ship = ShipStruct;
         foreach (var st in Net.Structures())
         {
-            var local = origin - StructOrigin(st.Id); // structures are only translated: subtract the origin in cells
-            float t = (_cursorY - local.Y) / dir.Y;
+            var (local, ldir) = AimInStruct(st.Id); // the ray in the structure's own frame (the ship may be turned in any direction)
+            if (MathF.Abs(ldir.Y) < 1e-4f) continue;
+            float t = (_cursorY - local.Y) / ldir.Y;
             if (t < AimMinCells || t > AimMaxCells) continue;
-            var hit = local + dir * t;
+            var hit = local + ldir * t;
             var cell = new Cell(st.Id, (int)MathF.Floor(hit.X), _cursorY, (int)MathF.Floor(hit.Z));
             if (st.Modules.ContainsKey(StationGrid.ModuleOfCell(cell.X, cell.Y, cell.Z)))
             {
@@ -106,13 +107,11 @@ public partial class Play
     /// </summary>
     private int TargetStructure()
     {
-        var origin = AimOrigin();
-        var dir = AimDirection();
         int entered = -1, inside = -1, near = -1;
         float enteredT = AimMaxCells * 2f, nearD = 40f * 40f;
         foreach (var st in Net.Structures())
         {
-            var local = origin - StructOrigin(st.Id);
+            var (local, dir) = AimInStruct(st.Id);
             bool camInside = false;
             float hitT = float.MaxValue;
             foreach (var (mx, my, mz) in st.Modules.Keys)
@@ -252,9 +251,7 @@ public partial class Play
         int s = TargetStructure();
         if (s <= 0) return null;
         var st = Net.GetStructure(s);
-        var origin = AimOrigin();
-        var dir = AimDirection();
-        var local = origin - StructOrigin(s);
+        var (local, dir) = AimInStruct(s);
 
         Vector3? planeHit = null;
         if (MathF.Abs(dir.Y) > 1e-4f)
@@ -439,10 +436,10 @@ public partial class Play
         float best = float.MaxValue;
         foreach (var st in Net.Structures().Where(s => s.Kind == StructureKind.Station))
         {
-            var origin = StructOrigin(st.Id);
+            var xf = StructXform(st.Id);
             foreach (var (mx, my, mz) in st.Modules.Keys)
             {
-                var c = origin + StationView.Centre(mx, my, mz);
+                var c = xf * StationView.Centre(mx, my, mz);
                 float d = (c - eye).LengthSquared();
                 if (d < best) { best = d; nearestAt = c; found = true; }
             }
@@ -461,7 +458,7 @@ public partial class Play
                 if (!Net.IsMachineAlive(id)) continue;
                 var m = Net.GetMachineInfo(id);
                 if (m.Structure != ship || _content.Machines[m.Type].Id != "core:assembler") continue;
-                add(MachineName(m.Type), new Color(1f, 0.8f, 0.35f), StructOrigin(ship) + CellCenter(m.X, m.Y, m.Z), 3f);
+                add(MachineName(m.Type), new Color(1f, 0.8f, 0.35f), StructToWorld(ship, CellCenter(m.X, m.Y, m.Z)), 3f);
                 break;
             }
     }

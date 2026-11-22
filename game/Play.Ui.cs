@@ -59,7 +59,8 @@ public partial class Play
     private Label _statusLabel = null!, _holdItems = null!, _modeHint = null!, _objectivesText = null!, _tooltipLabel = null!;
     private Label _inspectorTitle = null!, _inspectorBody = null!, _helpText = null!;
     private ScrollContainer _helpScroll = null!;
-    private Label _toolLabel = null!, _flightHeading = null!, _flightSpeed = null!;
+    private Label _toolLabel = null!, _flightFrame = null!, _flightSpeed = null!;
+    private NavGizmo _navGizmo = null!;
     private Label _targetTitle = null!, _targetRole = null!, _targetStatus = null!, _targetRecipe = null!, _targetHpLabel = null!;
     private ProgressBar _holdBar = null!, _targetHp = null!;
     private PanelContainer _flightPanel = null!, _targetPanel = null!;
@@ -170,13 +171,15 @@ public partial class Play
         _statusPanel = MakePanel(statusBox);
         _statusPanel.MouseFilter = Control.MouseFilterEnum.Ignore;
 
-        // Flight readout at the top centre: heading strip and speed.
+        // Flight readout at the top centre: the galactic-frame gizmo (no compass: space has no up) and the speed.
         var flight = new VBoxContainer();
-        _flightHeading = MakeText(15, new Color(0.85f, 0.93f, 1f));
-        _flightHeading.HorizontalAlignment = HorizontalAlignment.Center;
+        _flightFrame = MakeText(10, new Color(0.62f, 0.7f, 0.84f));
+        _flightFrame.HorizontalAlignment = HorizontalAlignment.Center;
+        _navGizmo = new NavGizmo { SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter };
         _flightSpeed = MakeText(13, new Color(0.7f, 0.8f, 0.95f));
         _flightSpeed.HorizontalAlignment = HorizontalAlignment.Center;
-        flight.AddChild(_flightHeading);
+        flight.AddChild(_flightFrame);
+        flight.AddChild(_navGizmo);
         flight.AddChild(_flightSpeed);
         _flightPanel = MakePanel(flight);
         _flightPanel.MouseFilter = Control.MouseFilterEnum.Ignore;
@@ -256,6 +259,7 @@ public partial class Play
 
         // The star map and its list are the existing nodes; the jump button sits under them.
         _map = new MapPanel { Visible = false };
+        _map.SystemPicked += id => _selectedSystem = id; // click a dot on the 3D map to choose it
         _uiRoot.AddChild(_map);
         _mapList = MakeText(13);
         _mapList.AddThemeColorOverride("font_outline_color", Colors.Black);
@@ -482,14 +486,14 @@ public partial class Play
 
     private static Vec3 V(Vector3 v) => new(v.X, v.Y, v.Z);
 
-    /// <summary>The heading strip and the speed in cells per second, from the view direction and the ship's movement.</summary>
+    /// <summary>The galactic-frame gizmo (the fixed X, Y, Z of the galaxy, as the camera sees them) and the speed in cells per second.</summary>
     private void UpdateFlight()
     {
         bool show = !_demo && !Overview && Net.HasPlayer(Player);
         _flightPanel.Visible = show;
         if (!show) return;
-        var fwd = CockpitForward();
-        _flightHeading.Text = Compass.Strip(Compass.HeadingDegrees(fwd.X, fwd.Z));
+        _flightFrame.Text = L("hud.frame").ToUpperInvariant();
+        _navGizmo.Set(NavFrame.Project(HudCamera()));
         float speed = (ShipPosition(1f) - ShipPosition(0f)).Length() * Units.TicksPerSecond;
         _flightSpeed.Text = L("hud.flightSpeed", speed.ToString("F1", Loc.Culture));
     }
@@ -512,22 +516,51 @@ public partial class Play
         float bottom = Math.Max(24f, size.Y - textTop + 10f);
         var items = new List<MarkerLayer.Item>();
 
-        void Add(string label, Color color, Vector3 target, float hideBelow = 4f)
+        void Add(string label, Color color, Vector3 target, float hideBelow = 4f, string? distanceText = null)
         {
             var p = Markers.Place(V(target - eye), cam, size.X, size.Y, left, 58f, 24f, bottom, hideBelow);
             // A marker behind the steps panel is unreadable (and hides its text): slide it just below the panel.
             var steps = new Rect2(_objectivesPanel.Position - new Vector2(240f, 0f), _objectivesPanel.Size + new Vector2(240f + 14f, 8f));
             if (_objectivesPanel.Visible && _detailsOpen && steps.HasPoint(new Vector2(p.X, p.Y))) p = p with { Y = steps.End.Y + 22f };
+            // And for the flight readout at the top centre: below it.
+            var flightBox = new Rect2(_flightPanel.Position, _flightPanel.Size).Grow(130f);
+            if (_flightPanel.Visible && flightBox.HasPoint(new Vector2(p.X, p.Y)) && p.Y < _flightPanel.Position.Y + _flightPanel.Size.Y + 40f) p = p with { Y = _flightPanel.Position.Y + _flightPanel.Size.Y + 40f };
             // The same for the key panel in the bottom right corner: the marker slides just above it.
             var keys = _keyRect.Grow(16f);
             if (_keyPanel.Visible && keys.HasPoint(new Vector2(p.X, p.Y))) p = p with { Y = keys.Position.Y - 6f };
-            if (p.Visible && (color == EnemyMarkerColor || ShipHudContext)) items.Add(new MarkerLayer.Item($"{label}  {L("mark.dist", p.Distance.ToString("F0", Loc.Culture))}", color, p));
+            // Off screen the arrow also says how many degrees to turn (the same whichever way up the ship is).
+            string turn = p.OnScreen ? "" : $"  {NavFrame.TurnDegrees(V(target - eye), cam):F0}°";
+            if (p.Visible && (color == EnemyMarkerColor || ShipHudContext)) items.Add(new MarkerLayer.Item($"{label}  {distanceText ?? L("mark.dist", p.Distance.ToString("F0", Loc.Culture))}{turn}", color, p));
         }
 
         if (Net.IsDeposit(_selectedDeposit) && Net.IsDepositRevealed(_selectedDeposit) && Net.DepositRemaining(_selectedDeposit) > 0)
         {
             var dp = Net.DepositPosition(_selectedDeposit);
             Add($"{ItemName(Net.DepositItem(_selectedDeposit))} - {DensityText(_selectedDeposit)}{(DepositHasDrones(_selectedDeposit) ? " - " + L("mark.drones") : "")}", new Color(1f, 0.8f, 0.35f), new Vector3(dp.X, dp.Y, dp.Z), 6f);
+        }
+
+        // Other deposits you know of nearby: a quiet mark each, the two nearest only (the chosen one above keeps its full label).
+        {
+            var others = new List<(int Id, float D2, Vector3 At)>();
+            foreach (int d in RevealedDeposits())
+            {
+                if (d == _selectedDeposit || Net.DepositRemaining(d) <= 0) continue;
+                var q = Net.DepositPosition(d);
+                var at = new Vector3(q.X, q.Y, q.Z);
+                others.Add((d, (at - eye).LengthSquared(), at));
+            }
+            others.Sort((a, b) => a.D2.CompareTo(b.D2));
+            foreach (var (d, _, at) in others.Take(2)) Add(ItemName(Net.DepositItem(d)), new Color(0.78f, 0.66f, 0.4f), at, 8f);
+        }
+
+        // The gate: the direction of the destination chosen on the star map, as a mark at the edge of the system (its distance is in map units).
+        if (_selectedSystem >= 0 && Net.Galaxy is { } gal && Net.CurrentSystem(Player) is var curSys && curSys >= 0 && _selectedSystem != curSys && Net.IsSystemKnown(_selectedSystem))
+        {
+            var from = gal.Systems[curSys];
+            var to = gal.Systems[_selectedSystem];
+            var dir = NavFrame.DirectionTo(new Vec3(from.X, from.Y, from.Z), new Vec3(to.X, to.Y, to.Z));
+            float mapDistance = new Vector3(to.X - from.X, to.Y - from.Y, to.Z - from.Z).Length();
+            Add(L("mark.gate", to.Name), new Color(1f, 0.55f, 0.25f), eye + new Vector3(dir.X, dir.Y, dir.Z) * 900f, 4f, L("mark.gateDist", mapDistance.ToString("F0", Loc.Culture)));
         }
 
         int system = Net.CurrentSystem(Player);
@@ -541,7 +574,7 @@ public partial class Play
         }
         if (nearest is { } e) Add(Loc.Name("enemy", _content.Enemies[e.Type].Id), EnemyMarkerColor, new Vector3(e.X, e.Y, e.Z) / CellUnits, 3f);
 
-        if (_structuresOn) { StructureMarkers(Add); _markers.Set(items); return; }
+        if (_structuresOn) { StructureMarkers((l, c, t, h) => Add(l, c, t, h)); _markers.Set(items); return; }
 
         _baseTmp.Clear();
         foreach (int id in _machineIds)
@@ -1477,10 +1510,7 @@ public partial class Play
     private void OnMouseMotion(InputEventMouseMotion mm)
     {
         if (!_mouseLook) return;
-        var settings = SettingsStore.Current;
-        float sens = MouseSensitivity * settings.MouseSensitivity;
-        _yaw -= mm.Relative.X * sens;
-        _pitch = Mathf.Clamp(_pitch - mm.Relative.Y * sens * (settings.InvertMouseY ? -1f : 1f), -MaxPitch, MaxPitch);
+        LookBy(mm.Relative); // steers the ship while piloting (free flight), otherwise turns the head
     }
 
     private void OnLeftRelease()
@@ -1614,8 +1644,8 @@ public partial class Play
             case Key.Tab: _wantCapture = !_wantCapture; break; // free the cursor to use the buttons, or take it back
             case Key.Y: CycleRecipeKey(); break;
             case Key.R: _dir = _dir switch { Dir.PosX => Dir.PosZ, Dir.PosZ => Dir.NegX, Dir.NegX => Dir.NegZ, _ => Dir.PosX }; Toast(L("toast.beltFacing", _dir.ToString())); break;
-            case Key.Z: _cursorY--; break;
-            case Key.X: _cursorY++; break;
+            case Key.Z when _tool == ToolMode.Build: _cursorY--; break; // flying: Z and X roll the ship instead
+            case Key.X when _tool == ToolMode.Build: _cursorY++; break;
             case Key.M: ToggleMining(); break;
             case Key.E: ToggleSeat(); break;
             case Key.U: DockKey(); break;
@@ -1630,6 +1660,9 @@ public partial class Play
             case Key.J: SendJump(); break;
             case Key.Up: CycleSystem(-1); break;
             case Key.Down: CycleSystem(1); break;
+            case Key.Left when _mapOpen: _map.Orbit(-0.25f, 0f); break; // rotate the 3D map (the roll keys of the flight are not in play with the map open)
+            case Key.Right when _mapOpen: _map.Orbit(0.25f, 0f); break;
+            case Key.Home when _mapOpen: _map.ResetView(); break;
             case Key.F: ToggleRefinery(); break;
             case Key.T: ToggleResearchPanel(); break;
             case Key.B: ToggleBuildMenu(); break;
@@ -1698,7 +1731,10 @@ public partial class Play
             {
                 _waypoint = null; // flying by hand takes over from the autopilot
                 _dockAssist = false;
-                thrust = ToThrust(CockpitForward() * forward + CockpitRight() * right + Vector3.Up * up);
+                // Thrust follows the camera's own axes (the ship's own axes while piloting), as a world-space vector: the simulation never
+                // sees the attitude, only this integer vector (free flight).
+                var cam = CameraWorldBasis();
+                thrust = ToThrust(-cam.Z * forward + cam.X * right + cam.Y * up);
             }
         }
         if (thrust == (0, 0, 0) && _dockAssist) thrust = DockAssistThrust();
@@ -1806,7 +1842,8 @@ public partial class Play
         {
             if (!Net.IsMachineAlive(id)) continue;
             var m = Net.GetMachineInfo(id);
-            if (RayHitsBox(origin, dir, new Vector3(m.X, m.Y, m.Z) + StructOrigin(m.Structure), out float tb) && tb < best) // local cell + structure origin = world
+            var (lo, ld) = AimInStruct(m.Structure); // the ray in the machine structure frame
+            if (RayHitsBox(lo, ld, new Vector3(m.X, m.Y, m.Z), out float tb) && tb < best)
             {
                 best = tb;
                 _hover = new Hover(HoverKind.Machine, id, MachineSummary(id));

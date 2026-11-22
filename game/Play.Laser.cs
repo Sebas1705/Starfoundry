@@ -49,9 +49,10 @@ public partial class Play
         // The beam leaves a little below and ahead of the camera and ends on the rock's surface, facing the ship.
         // From the cockpit the emitter sits low and to the right of the view, so the beam reads as a line running to the rock instead of a dot.
         var aim = AimDirection();
-        var right = aim.Cross(Vector3.Up);
-        right = right.LengthSquared() < 1e-4f ? Vector3.Right : right.Normalized();
-        var from = Overview ? ship + Vector3.Up * 0.3f : AimOrigin() + aim * 0.9f + Vector3.Down * 0.42f + right * 0.38f;
+        var camBasis = _camera.GlobalTransform.Basis; // free flight: "down" and "right" are the camera's, whatever the ship's attitude
+        var right = camBasis.X;
+
+        var from = Overview ? ship + Vector3.Up * 0.3f : AimOrigin() + aim * 0.9f - camBasis.Y * 0.42f + right * 0.38f;
         float surface = 1.2f * DepositView.RockScale(Net.DepositInitial(dep));
         var toShip = (ship - centre).Normalized();
         var to = centre + toShip * surface;

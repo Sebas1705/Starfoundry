@@ -191,7 +191,7 @@ public partial class Play
                 if (!Net.IsMachineAlive(machine)) continue;
                 var m = Net.GetMachineInfo(machine);
                 if (pass == 0 && m.Type != type) continue;
-                var target = StructOrigin(m.Structure) + new Vector3(m.X + 0.5f, m.Y + 0.5f, m.Z + 0.5f);
+                var target = StructToWorld(m.Structure, new Vector3(m.X + 0.5f, m.Y + 0.5f, m.Z + 0.5f));
                 var d = target - _camera.GlobalPosition;
                 if (d.Length() < 2f) continue;
                 _yaw = MathF.Atan2(-d.X, -d.Z);
