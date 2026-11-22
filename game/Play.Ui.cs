@@ -2011,12 +2011,14 @@ public partial class Play
         bool structTool = _structuresOn && (ModuleSelected || StationSelected); // these aim at structures or free space, not at one layer cell
         bool build = _tool == ToolMode.Build && !_demo && AimActive && (_aimCell is not null || structTool);
         _ghost.Visible = build;
+        _cellHelper.Visible = false;
         _crosshair.Tint = Crosshair.Normal;
         if (!build) { _dragGhost.Visible = false; return; }
 
         if (StationSelected) { UpdateFoundGhost(); return; }
         if (ModuleSelected) { if (_structuresOn) UpdateStructModuleGhost(); else UpdateModuleGhost(); return; }
         _ghost.Scale = Vector3.One;
+        _cellHelper.Visible = true;
         var c = _aimCell!.Value;
         Reparent(_ghost, RootOf(c.S)); // local cells under the structure root
         _ghost.Position = CellCenter(c.X, c.Y, c.Z);
