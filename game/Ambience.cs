@@ -196,9 +196,15 @@ void sky() {
             ScaleMin = 0.5f,
             ScaleMax = 1.4f,
         };
-        var mesh = new QuadMesh { Size = new Vector2(0.07f, 0.07f) };
+        // A soft round dot: a plain quad showed up as a small light square when a speck drifted close to the camera.
+        var dot = new Gradient();
+        dot.SetColor(0, new Color(1f, 1f, 1f, 1f));
+        dot.SetColor(1, new Color(1f, 1f, 1f, 0f));
+        var dotTex = new GradientTexture2D { Gradient = dot, Fill = GradientTexture2D.FillEnum.Radial, FillFrom = new Vector2(0.5f, 0.5f), FillTo = new Vector2(1f, 0.5f), Width = 32, Height = 32 };
+        var mesh = new QuadMesh { Size = new Vector2(0.09f, 0.09f) };
         mesh.Material = new StandardMaterial3D
         {
+            AlbedoTexture = dotTex,
             ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
             BillboardMode = BaseMaterial3D.BillboardModeEnum.Enabled,
             Transparency = BaseMaterial3D.TransparencyEnum.Alpha,

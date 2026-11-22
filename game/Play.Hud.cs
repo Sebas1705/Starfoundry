@@ -30,6 +30,26 @@ public partial class Play
     /// <summary>True while the player sits in the pilot seat (or the world has no walking): the ship's data is what the HUD is about.</summary>
     private bool ShipHudContext => !Standing;
 
+    /// <summary>
+    /// Keeps a card out of the bottom text lines (the notifications and the tool hint, which sit under the view's centre): a card that would
+    /// run over them is lifted above them instead. Called after the toasts and the hint are laid out.
+    /// </summary>
+    private Vector2 AvoidBottomText(Vector2 pos, Vector2 size, float gap = 8f)
+    {
+        float top = float.MaxValue;
+        bool toasts = false;
+        foreach (var l in _toastLabels) toasts |= l.Visible;
+        var box = new Rect2(_toastBox.Position, _toastBox.Size);
+        if (toasts && new Rect2(pos, size).Intersects(box)) top = box.Position.Y;
+        if (_modeHint.Text.Length > 0)
+        {
+            var hint = new Rect2(_modeHint.Position, _modeHint.Size);
+            if (new Rect2(pos, size).Intersects(hint)) top = Math.Min(top, hint.Position.Y);
+        }
+        if (top == float.MaxValue) return pos;
+        return new Vector2(pos.X, Math.Max(8f, top - size.Y - gap));
+    }
+
     /// <summary>The title and the hull row at the head of the ship card.</summary>
     private void BuildShipCardHead(VBoxContainer box)
     {
@@ -113,6 +133,8 @@ public partial class Play
         Fade(_objectivesPanel, hud && info, _objectivesPanel.Visible && (_objectivesText.Visible || _goalsBox.Visible || _goalLabel.Visible));
         Fade(_targetPanel, true, _targetPanel.Visible);
         Fade(_tooltipPanel, true, _tooltipPanel.Visible, instantOut: true);
-        _modeHint.Visible = building && _modeHint.Text.Length > 0;
+        // The build hint snaps; the one-line step and laser hints fade in and out like the cards.
+        if (building) { _hudFade[_modeHint] = 1f; _modeHint.Modulate = Colors.White; _modeHint.Visible = _modeHint.Text.Length > 0; }
+        else Fade(_modeHint, !_mapOpen && !ResearchOpen && !BuildOpen && hud, _modeHint.Text.Length > 0);
     }
 }

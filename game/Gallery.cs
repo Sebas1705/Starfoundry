@@ -112,9 +112,9 @@ public partial class Gallery : Node3D
     /// <summary>--focus=modules: every module kind as a ship (front row) and as a station (back row); ship-demo and station-demo: small assembled structures.</summary>
     private void BuildModuleGallery(string focus, int variant)
     {
-        void Put(ModuleKind kind, bool ship, Vector3 at, string? label = null)
+        void Put(ModuleKind kind, bool ship, Vector3 at, string? label = null, int neighbours = 0)
         {
-            var m = ModuleModels.Build(kind, ship, variant);
+            var m = ModuleModels.Build(kind, ship, variant, neighbours);
             m.Position = at;
             AddChild(m);
             _animated.Add(m);
@@ -133,7 +133,11 @@ public partial class Gallery : Node3D
         {
             // Front (-Z) first: cockpit, workshop, cargo, reactor, engine at the back.
             ModuleKind[] row = { ModuleKind.Cockpit, ModuleKind.Workshop, ModuleKind.Cargo, ModuleKind.Reactor, ModuleKind.Engine };
-            for (int i = 0; i < row.Length; i++) Put(row[i], true, new Vector3(0, 0, i * 8f));
+            // Neighbours matter: sides that touch another module get doorways, the exposed ends get bulkheads, stacked decks get a stairwell.
+            (ModuleKind, int, int, int)[] ship = row.Select((k, i) => (k, 0, 0, i)).Append((ModuleKind.Cargo, 0, 1, 2)).ToArray();
+            bool Has(int x, int y, int z) => ship.Any(p => p.Item2 == x && p.Item3 == y && p.Item4 == z);
+            foreach (var (k, x, y, z) in ship)
+                Put(k, true, new Vector3(x * 8f, y * 4f, z * 8f), null, ModuleModels.NeighbourMask(Has, x, y, z));
         }
         else
         {
@@ -141,8 +145,10 @@ public partial class Gallery : Node3D
             {
                 (ModuleKind.Hull, 0, 0, 0), (ModuleKind.Core, 1, 0, 0), (ModuleKind.Workshop, 2, 0, 0),
                 (ModuleKind.Defence, 1, 0, 1), (ModuleKind.Hull, 0, 1, 0), (ModuleKind.Hull, 3, 0, 0), (ModuleKind.Defence, 2, 0, 1),
+                (ModuleKind.Cargo, 2, 1, 0),
             };
-            foreach (var (k, x, y, z) in parts) Put(k, false, new Vector3(x * 8f, y * 4f, z * 8f));
+            bool Has(int x, int y, int z) => parts.Any(p => p.Item2 == x && p.Item3 == y && p.Item4 == z);
+            foreach (var (k, x, y, z) in parts) Put(k, false, new Vector3(x * 8f, y * 4f, z * 8f), null, ModuleModels.NeighbourMask(Has, x, y, z));
         }
     }
 
