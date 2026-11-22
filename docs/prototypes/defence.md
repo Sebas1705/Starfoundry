@@ -96,3 +96,28 @@ Intent, each pinned by a test: undefended bases fall by wave 2 (`Undefended_base
 
 ## Waves checked again (second balance pass, 2026-11-22)
 The wave table was not changed. The structure bot ([structure-bot.md](structure-bot.md)) reaches the win with 8 turrets (two ammo batteries of two on the ship and on the station), two walls per structure and a repair bay each, and lost no module and no machine before wave 10 on any of five seeds: waves 0 to 10 are close to trivial for a player who builds that defence by minute 14. See the "needs decision" list in that document.
+
+## Harder Normal waves (2026-11-22)
+Owner decision ([ADR 0026](../adr/0026-science-fields-and-research-expansion.md)): waves 3 to 10 are 25 to 40 percent larger and a new enemy, `core:bulwark` (600 hp, speed 8, 14 damage every 30 ticks), joins from wave 4 (one; two from wave 8). `EnemyDef` has no armour value, so the bulwark is hit points and slowness only. New table entries: two more scouts and one more striker from wave 3, a striker entry growing by one a wave from wave 7, the bulwark from waves 4 and 8. Waves 0 to 2 are unchanged; the world rule presets scale on top.
+
+Measured by `WaveBalanceTests.Measure_the_wave_table` (same compact layout, seed 20261121, 120 s pause, no repair bay; waves zero-based; `holds 0 to N` means no module was lost up to wave N):
+
+| Turrets | Cannon | No research | With turret calibration |
+| --- | --- | --- | --- |
+| 0 | off | wave 0 destroys the ship | the same |
+| 0 | on | holds 0 to 3, loses a module in wave 4 | the same |
+| 1 | off | holds 0 to 3 (integrity 865 after wave 3), loses a module in wave 4 | holds 0 to 3 (962), loses a module in wave 4 |
+| 1 | on | holds 0 to 5, loses the ship in wave 6 | the same |
+| 2 | off | holds 0 to 5 (839), loses the ship in wave 6 | holds 0 to 5, loses the ship in wave 6 |
+| 2 | on | holds 0 to 5, loses the ship in wave 6 | the same |
+| 3 | off | holds 0 to 5, loses the ship in wave 6 | holds 0 to 6, loses the ship in wave 7 |
+| 3 | on | holds 0 to 6 (933), loses the ship in wave 7 | holds 0 to 8, loses the ship in wave 9 |
+| 4 | off | holds 0 to 6, loses the ship in wave 7 | holds 0 to 8, loses the ship in wave 9 |
+| 4 | on | holds 0 to 8, loses the ship in wave 9 | holds 0 to 8, loses the ship in wave 9 |
+| 5 | on | holds 0 to 8, loses the ship in wave 9 | the same |
+| 6 | off | holds 0 to 8, loses the ship in wave 9 | holds 0 to 10 (830) |
+| 6 | on | holds 0 to 10 (820) | holds 0 to 10 (876) |
+
+So waves 0 to 10 need six turrets with the ship cannon on the compact layout (five fall in wave 9, the wave with two bulwarks); with the cannon off, six turrets need turret calibration. (Before the change four turrets and the cannon held 0 to 8 without losing hit points.) Pinned by `Three_turrets_and_the_ship_cannon_hold_waves_0_to_6`, `Six_turrets_and_the_ship_cannon_hold_waves_0_to_10_and_five_do_not` and `The_bulwark_appears_from_wave_4_and_waves_3_to_10_are_about_30_percent_larger`. Seven or eight turrets in the one defence module fall in wave 9 in the test: an artefact of that layout, not a result.
+
+The structure bot needed no change: it still builds eight turrets (two batteries on the ship and on the station), two walls and a repair bay each, and loses no module and no machine before the win. Normal win minute on the main seed: 45:01 (43:54 in the run just before the change); other seeds 43:50 and 47:59. See [difficulty.md](difficulty.md) for Hard and Brutal.

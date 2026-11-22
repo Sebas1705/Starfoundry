@@ -53,5 +53,19 @@ What it says:
 - Hard being almost as winnable as Normal means the bot's defence has slack at 130 percent; a harder Hard is possible without touching Brutal, but that is a balance decision left open.
 - Relaxed on seed 20261120: the slower waves move the bot's exploration trip (it jumps away from home at about minute 38 once waves 1 to 7 are cleared) into the stretch before wave 8, and the bot runs out of carbon in the third system and cannot return, so the station falls later. That is a limitation of the scripted player (the expedition runs before the goal is reached), not of the rules; the bot still cleared 23 waves.
 
+## Measured again after the harder waves (2026-11-22)
+Same bot, delay and seeds, after the bulwark and the larger waves 3 to 10 ([defence.md](defence.md), [ADR 0026](../adr/0026-science-fields-and-research-expansion.md)). The bot needed no change.
+
+| Preset (goal) | Seed 20261121 | Seed 20261120 | Seed 777 |
+| --- | --- | --- | --- |
+| Relaxed (8) | Win 43:14 | Win 41:30 | Win 41:48 |
+| Normal (10) | Win 45:01 (was 42:57) | Win 43:50 (was 42:02) | Win 47:59 (was 41:58) |
+| Hard (12) | Win 46:26 (was 44:42) | Win 50:47 (was 49:42) | Win 48:58 (was 47:49) |
+| Brutal (15) | Lost 41:49 (10 waves) | Lost 42:26 (10 waves) | Lost 44:27 (11 waves) |
+
+- Normal wins on every seed, 1 to 6 minutes later than in the table above. Hard still wins on all three seeds, 1 to 2 minutes later. Brutal is still lost.
+- Relaxed on seed 20261120 now wins (the note above had it stuck on an expedition); the waves of that run fall at different times now. A side effect of the new table, not a tuned result.
+- Story levels: 01 (1:48), 02 (5:52) and 03 (17:53, 3 stars, five waves) are won by the bot as before; level 03 needed no change to its own wave modifiers. Level 05 (Hard, 12 waves) is not played by the bot; Hard wins above.
+
 ## Not measured
 Custom rule combinations, `FreeBuild` and `StartingItems` with the bot, and play by a person. The New Game screen that picks a preset is part D of the design.
