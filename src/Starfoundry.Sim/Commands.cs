@@ -292,6 +292,9 @@ public enum Reject
 
     /// <summary>The ship is turned more than about 15 degrees away from the axes of the port it wants to dock at.</summary>
     Misaligned,
+
+    /// <summary>Machines and belts are built on the floor of a module only (ADR 0031): the cell is above the floor layer of its module.</summary>
+    NotOnFloor,
 }
 
 /// <summary>Outcome of one submitted command.</summary>

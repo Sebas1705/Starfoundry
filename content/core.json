@@ -694,6 +694,20 @@
       "inputs": [{ "item": "core:biomass", "count": 1 }],
       "outputs": [{ "item": "core:hydrogen", "count": 2 }],
       "time_s": 6
+    },
+    {
+      "id": "core:ship_press",
+      "machine": "core:micro_refinery",
+      "inputs": [{ "item": "core:iron_ingot", "count": 2 }],
+      "outputs": [{ "item": "core:iron_plate", "count": 1 }],
+      "time_s": 2
+    },
+    {
+      "id": "core:ship_ammo",
+      "machine": "core:micro_refinery",
+      "inputs": [{ "item": "core:iron_ingot", "count": 1 }],
+      "outputs": [{ "item": "core:ammo", "count": 4 }],
+      "time_s": 1
     }
   ],
   "belts": [
@@ -1688,7 +1702,7 @@
       "thrust_speed_percent": 0
     },
     "workshop": {
-      "cost": [{ "item": "core:iron_ingot", "count": 24 }],
+      "cost": [{ "item": "core:iron_ingot", "count": 24 }, { "item": "core:iron_plate", "count": 8 }],
       "hp": 200,
       "allows": ["crafter", "lab", "depot", "unloader", "repairer", "belt"],
       "hold_capacity": 0,
@@ -1697,7 +1711,7 @@
     "defence": {
       "cost": [{ "item": "core:iron_plate", "count": 16 }, { "item": "core:iron_ingot", "count": 16 }],
       "hp": 400,
-      "allows": ["turret", "wall"],
+      "allows": ["turret", "wall", "belt"],
       "hold_capacity": 0,
       "thrust_speed_percent": 0,
       "defence_bonus_percent": 10,
@@ -1707,6 +1721,7 @@
       "cost": [{ "item": "core:iron_ingot", "count": 12 }],
       "hp": 120,
       "allows": ["belt"],
+      "buildable": false,
       "hold_capacity": 0,
       "thrust_speed_percent": 0
     },
@@ -1762,46 +1777,36 @@
     "starter_ship": {
       "modules": [
         { "at": [0, 0, 0], "kind": "cockpit" },
-        { "at": [0, 0, 1], "kind": "workshop" },
+        { "at": [0, 0, 1], "kind": "hull" },
         { "at": [0, 0, 2], "kind": "cargo" },
         { "at": [0, 0, 3], "kind": "reactor" },
         { "at": [0, 0, 4], "kind": "engine" }
       ],
       "hold": [{ "item": "core:hydrogen", "count": 20 }],
-      "machines": [
-        { "id": "ore_port", "machine": "core:ore_unloader", "at": [0, 1, 9] },
-        { "id": "smelter", "machine": "core:smelter", "at": [3, 1, 9], "recipe": "core:smelt_iron" },
-        { "id": "assembler", "machine": "core:assembler", "at": [3, 1, 11], "recipe": "core:iron_plate" },
-        { "id": "depot", "machine": "core:depot", "at": [7, 1, 10] }
-      ],
-      "belts": [
-        { "at": [1, 1, 9], "dir": "+x", "length": 2, "tier": "mk1", "from": "ore_port", "to": "smelter" },
-        { "at": [4, 1, 9], "dir": "+x", "length": 4, "tier": "mk1", "from": "smelter", "to": "depot" },
-        { "at": [3, 1, 10], "dir": "+z", "length": 1, "tier": "mk1", "from": "smelter", "to": "assembler" },
-        { "at": [4, 1, 11], "dir": "+x", "length": 4, "tier": "mk1", "from": "assembler", "to": "depot" }
-      ]
+      "machines": [],
+      "belts": []
     },
     "siege_station": {
       "modules": [
         { "at": [0, 0, 0], "kind": "core" },
         { "at": [0, 0, 1], "kind": "workshop" },
-        { "at": [0, 1, 1], "kind": "defence" },
-        { "at": [1, 0, 1], "kind": "reactor" }
+        { "at": [1, 0, 1], "kind": "defence" },
+        { "at": [0, 1, 1], "kind": "reactor" }
       ],
       "hold": [],
       "machines": [
-        { "id": "ore_port", "machine": "core:ore_unloader", "at": [0, 1, 8] },
-        { "id": "smelter", "machine": "core:smelter", "at": [3, 1, 8], "recipe": "core:smelt_iron" },
-        { "id": "depot", "machine": "core:depot", "at": [7, 1, 8] },
-        { "id": "ammo_port", "machine": "core:unloader", "at": [0, 3, 8] },
-        { "id": "ammo_assembler", "machine": "core:assembler", "at": [2, 3, 8], "recipe": "core:make_ammo" }
+        { "id": "ore_port", "machine": "core:ore_unloader", "at": [0, 0, 8] },
+        { "id": "smelter", "machine": "core:smelter", "at": [3, 0, 8], "recipe": "core:smelt_iron" },
+        { "id": "depot", "machine": "core:depot", "at": [7, 0, 8] },
+        { "id": "ammo_port", "machine": "core:unloader", "at": [0, 0, 11] },
+        { "id": "ammo_assembler", "machine": "core:assembler", "at": [2, 0, 11], "recipe": "core:make_ammo" }
       ],
       "belts": [
-        { "at": [1, 1, 8], "dir": "+x", "length": 2, "tier": "mk1", "from": "ore_port", "to": "smelter" },
-        { "at": [4, 1, 8], "dir": "+x", "length": 3, "tier": "mk1", "from": "smelter", "to": "depot" },
-        { "at": [1, 3, 8], "dir": "+x", "length": 1, "tier": "mk1", "from": "ammo_port", "to": "ammo_assembler" },
-        { "at": [3, 3, 8], "dir": "+x", "length": 3, "tier": "mk1", "from": "ammo_assembler", "to": null },
-        { "at": [2, 3, 9], "dir": "+x", "length": 4, "tier": "mk1", "from": "ammo_assembler", "to": null }
+        { "at": [1, 0, 8], "dir": "+x", "length": 2, "tier": "mk1", "from": "ore_port", "to": "smelter" },
+        { "at": [4, 0, 8], "dir": "+x", "length": 3, "tier": "mk1", "from": "smelter", "to": "depot" },
+        { "at": [1, 0, 11], "dir": "+x", "length": 1, "tier": "mk1", "from": "ammo_port", "to": "ammo_assembler" },
+        { "at": [3, 0, 11], "dir": "+x", "length": 9, "tier": "mk1", "from": "ammo_assembler", "to": null },
+        { "at": [2, 0, 12], "dir": "+x", "length": 10, "tier": "mk1", "from": "ammo_assembler", "to": null }
       ]
     },
     "cold_ship": {
@@ -1814,16 +1819,16 @@
       ],
       "hold": [{ "item": "core:hydrogen", "count": 6 }],
       "machines": [
-        { "id": "ore_port", "machine": "core:ore_unloader", "at": [0, 1, 9] },
-        { "id": "smelter", "machine": "core:smelter", "at": [3, 1, 9], "recipe": "core:smelt_iron" },
-        { "id": "assembler", "machine": "core:assembler", "at": [3, 1, 11], "recipe": "core:iron_plate" },
-        { "id": "depot", "machine": "core:depot", "at": [7, 1, 10] }
+        { "id": "ore_port", "machine": "core:ore_unloader", "at": [0, 0, 9] },
+        { "id": "smelter", "machine": "core:smelter", "at": [3, 0, 9], "recipe": "core:smelt_iron" },
+        { "id": "assembler", "machine": "core:assembler", "at": [3, 0, 11], "recipe": "core:iron_plate" },
+        { "id": "depot", "machine": "core:depot", "at": [7, 0, 10] }
       ],
       "belts": [
-        { "at": [1, 1, 9], "dir": "+x", "length": 2, "tier": "mk1", "from": "ore_port", "to": "smelter" },
-        { "at": [4, 1, 9], "dir": "+x", "length": 4, "tier": "mk1", "from": "smelter", "to": "depot" },
-        { "at": [3, 1, 10], "dir": "+z", "length": 1, "tier": "mk1", "from": "smelter", "to": "assembler" },
-        { "at": [4, 1, 11], "dir": "+x", "length": 4, "tier": "mk1", "from": "assembler", "to": "depot" }
+        { "at": [1, 0, 9], "dir": "+x", "length": 2, "tier": "mk1", "from": "ore_port", "to": "smelter" },
+        { "at": [4, 0, 9], "dir": "+x", "length": 4, "tier": "mk1", "from": "smelter", "to": "depot" },
+        { "at": [3, 0, 10], "dir": "+z", "length": 1, "tier": "mk1", "from": "smelter", "to": "assembler" },
+        { "at": [4, 0, 11], "dir": "+x", "length": 4, "tier": "mk1", "from": "assembler", "to": "depot" }
       ]
     },
     "siege_ship": {
@@ -1843,16 +1848,16 @@
       ],
       "hold": [{ "item": "core:hydrogen", "count": 20 }],
       "machines": [
-        { "id": "ore_port", "machine": "core:ore_unloader", "at": [0, 1, 9] },
-        { "id": "smelter", "machine": "core:smelter", "at": [3, 1, 9], "recipe": "core:smelt_iron" },
-        { "id": "assembler", "machine": "core:assembler", "at": [3, 1, 11], "recipe": "core:iron_plate" },
-        { "id": "depot", "machine": "core:depot", "at": [7, 1, 10] }
+        { "id": "ore_port", "machine": "core:ore_unloader", "at": [0, 0, 9] },
+        { "id": "smelter", "machine": "core:smelter", "at": [3, 0, 9], "recipe": "core:smelt_iron" },
+        { "id": "assembler", "machine": "core:assembler", "at": [3, 0, 11], "recipe": "core:iron_plate" },
+        { "id": "depot", "machine": "core:depot", "at": [7, 0, 10] }
       ],
       "belts": [
-        { "at": [1, 1, 9], "dir": "+x", "length": 2, "tier": "mk1", "from": "ore_port", "to": "smelter" },
-        { "at": [4, 1, 9], "dir": "+x", "length": 4, "tier": "mk1", "from": "smelter", "to": "depot" },
-        { "at": [3, 1, 10], "dir": "+z", "length": 1, "tier": "mk1", "from": "smelter", "to": "assembler" },
-        { "at": [4, 1, 11], "dir": "+x", "length": 4, "tier": "mk1", "from": "assembler", "to": "depot" }
+        { "at": [1, 0, 9], "dir": "+x", "length": 2, "tier": "mk1", "from": "ore_port", "to": "smelter" },
+        { "at": [4, 0, 9], "dir": "+x", "length": 4, "tier": "mk1", "from": "smelter", "to": "depot" },
+        { "at": [3, 0, 10], "dir": "+z", "length": 1, "tier": "mk1", "from": "smelter", "to": "assembler" },
+        { "at": [4, 0, 11], "dir": "+x", "length": 4, "tier": "mk1", "from": "assembler", "to": "depot" }
       ]
     },
     "blank_station": {

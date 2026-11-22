@@ -22,6 +22,15 @@ public static class StationGrid
 
     private static int MaxCoord(int size) => (int)Math.Floor((SimWorld.MaxCoord + 1) / (double)size) - 1;
 
+    /// <summary>The layer, inside a module, whose cells rest on the floor: machines and belts are built there only (ADR 0031).</summary>
+    public const int FloorLayer = 0;
+
+    /// <summary>True when local layer <paramref name="y"/> is the floor layer of the module that contains it.</summary>
+    public static bool IsFloorLayer(int y) => ((y % ModuleY) + ModuleY) % ModuleY == FloorLayer;
+
+    /// <summary>The local layer of the floor of module row <paramref name="my"/>.</summary>
+    public static int FloorY(int my) => my * ModuleY + FloorLayer;
+
     public static bool IsValidModule(int mx, int my, int mz) =>
         mx >= MinX && mx <= MaxX && my >= MinY && my <= MaxY && mz >= MinZ && mz <= MaxZ;
 

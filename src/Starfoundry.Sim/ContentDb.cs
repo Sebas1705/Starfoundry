@@ -806,7 +806,7 @@ public sealed class ContentDb
             string owner = "structures." + names[i];
             RequireObject(k, owner, "cost", "hp", "allows", "hold_capacity", "thrust_speed_percent", "power_output", "burn_interval_ticks",
                 "drone_range_cells", "drone_interval_ticks", "power_use", "defence_bonus_percent", "emergency_power", "regen_hp",
-                "shield_percent", "shield_stack_percent", "shield_max_percent", "sensor_range_cells");
+                "shield_percent", "shield_stack_percent", "shield_max_percent", "sensor_range_cells", "buildable");
             var kindValue = (ModuleKind)i;
             bool isReactor = ModuleKindIds.IsReactor(kindValue);
             bool isBay = kindValue == ModuleKind.DroneBay;
@@ -864,12 +864,19 @@ public sealed class ContentDb
                 if (roles.Contains(role)) throw new InvalidDataException($"'allows' in {owner} lists '{s}' twice.");
                 roles.Add(role);
             }
+            bool buildable = roles.Count > 0 || belts;
+            if (k.TryGetProperty("buildable", out var bj))
+            {
+                if (bj.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) throw new InvalidDataException($"'buildable' in {owner} must be true or false.");
+                buildable = bj.GetBoolean();
+                if (buildable && roles.Count == 0 && !belts) throw new InvalidDataException($"{owner} is buildable but allows nothing.");
+            }
             kinds[i] = new ModuleKindDef((ModuleKind)i,
                 Stacks(k, "cost", owner, itemIds, allowEmpty: false, max: MaxCostStack),
                 Int(k, "hp", owner, 1, 100_000), roles.ToArray(), belts,
                 Int(k, "hold_capacity", owner, 0, 100_000), Int(k, "thrust_speed_percent", owner, 0, 10_000), powerOutput, burnInterval, droneRange, droneInterval, bayPower, defenceBonus, emergency,
                 k.TryGetProperty("regen_hp", out _) ? Int(k, "regen_hp", owner, 1, 1000) : 1,
-                shieldPercent, shieldStack, shieldMax, sensorRange);
+                shieldPercent, shieldStack, shieldMax, sensorRange, buildable);
         }
         return new StructureContent(kinds);
     }
@@ -946,8 +953,8 @@ public sealed class ContentDb
                 if (recipeDefs[recipe].Machine != type) throw new InvalidDataException($"{owner} gives '{name}' the recipe '{rid}' of another machine.");
             }
             var at = Cell(e, "at", owner);
-            if (!InModule(at[0], at[1], at[2], out var kind) || !kinds.AllowsRole(kind, role))
-                throw new InvalidDataException($"Machine '{name}' of {owner} is not inside a module that allows it.");
+            if (!InModule(at[0], at[1], at[2], out var kind) || kinds.CellProblem(kind, at[1], false, role, legacy: false) != Reject.None)
+                throw new InvalidDataException($"Machine '{name}' of {owner} is not on the floor of a module that allows it.");
             if (!cells.Add((at[0], at[1], at[2]))) throw new InvalidDataException($"{owner} puts two things in the cell of '{name}'.");
             machines.Add(new TemplateMachine(name, at[0], at[1], at[2], type, recipe));
         }
@@ -975,8 +982,8 @@ public sealed class ContentDb
             {
                 int x = at[0] + dx * k, y = at[1] + dy * k, z = at[2] + dz * k;
                 if (!StructureGrid.InLocalBounds(x) || !StructureGrid.InLocalBounds(y) || !StructureGrid.InLocalBounds(z)
-                    || !InModule(x, y, z, out var kind) || !kinds.AllowsBelts(kind))
-                    throw new InvalidDataException($"A belt of {owner} is not inside modules that allow belts.");
+                    || !InModule(x, y, z, out var kind) || kinds.CellProblem(kind, y, true, MachineRole.Crafter, legacy: false) != Reject.None)
+                    throw new InvalidDataException($"A belt of {owner} is not on the floor of modules that allow belts.");
                 if (!cells.Add((x, y, z))) throw new InvalidDataException($"{owner} puts two things in one belt cell.");
             }
             int lx = at[0] + dx * (length - 1), ly = at[1] + dy * (length - 1), lz = at[2] + dz * (length - 1);
@@ -1175,6 +1182,7 @@ public sealed class ContentDb
                 if (k.Kind is ModuleKind.Shield or ModuleKind.Sensor) { Mix(k.PowerUse); Mix(k.ShieldPercent); Mix(k.ShieldStackPercent); Mix(k.ShieldMaxPercent); Mix(k.SensorRangeCells); }
                 if (k.Kind == ModuleKind.Defence && k.DefenceBonusPercent != 10) Mix(k.DefenceBonusPercent); // 10 is the default
                 if (k.RegenHp != 1) Mix(k.RegenHp); // 1 is the default
+                if (k.BuildableFloor != (k.AllowedRoles.Length > 0 || k.AllowsBelts)) Mix(k.BuildableFloor ? 7 : 8); // the default is: it allows something
             }
         }
         else Mix(-1);
