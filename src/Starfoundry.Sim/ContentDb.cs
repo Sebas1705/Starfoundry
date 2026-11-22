@@ -106,6 +106,39 @@ public enum BonusKind
 
     /// <summary>The ship weapon does more damage per shot.</summary>
     ShipDamage = 5,
+
+    /// <summary>The maximum hit points of every structure module go up (structure worlds).</summary>
+    ModuleHp = 6,
+
+    /// <summary>The hold capacity of the ship goes up (structure worlds).</summary>
+    HoldCapacity = 7,
+
+    /// <summary>One unit of fuel burns this much longer in every reactor.</summary>
+    FuelBurn = 8,
+
+    /// <summary>Sensor modules reveal hidden deposits from further away.</summary>
+    SensorRange = 9,
+
+    /// <summary>Drone bays mine faster: the interval between items shrinks.</summary>
+    DroneRate = 10,
+
+    /// <summary>Added to the share of damage (in percentage points) the shields of a structure absorb, still capped by the shield maximum plus this bonus.</summary>
+    ShieldAbsorb = 11,
+
+    /// <summary>The output of every burning reactor goes up.</summary>
+    PowerOutput = 12,
+
+    /// <summary>Not a percentage: the number of items taken off every stack of the jump cost (never below 1 item in a stack).</summary>
+    JumpDiscount = 13,
+}
+
+/// <summary>The field a research node belongs to; shown grouped in the research panel. Basic is the original plate-only tier.</summary>
+public enum ResearchField
+{
+    Basic = 0,
+    Engineering = 1,
+    Biology = 2,
+    Physics = 3,
 }
 
 public sealed record Bonus(BonusKind Kind, int Percent);
@@ -132,7 +165,7 @@ public enum Ability
 /// <param name="Requires">Research nodes that must be finished first.</param>
 public sealed record ResearchDef(
     int Index, string Id, ItemStack[] Cost, int[] Requires, int[] UnlockMachines, int[] UnlockRecipes, BeltTier[] UnlockBelts,
-    Ability[] UnlockAbilities, Bonus[] Bonuses, int MaxLevels = 1, int CostGrowthPercent = 0);
+    Ability[] UnlockAbilities, Bonus[] Bonuses, int MaxLevels = 1, int CostGrowthPercent = 0, ResearchField Field = ResearchField.Basic);
 
 /// <param name="SystemCount">Systems in the galaxy, including home.</param>
 /// <param name="SpacingCells">Distance between neighbouring grid positions.</param>
@@ -459,7 +492,7 @@ public sealed class ContentDb
                 var pending = new List<(JsonElement Element, string Id)>();
                 foreach (var e in Array(root, "research"))
                 {
-                    RequireObject(e, "research node", "id", "cost", "requires", "unlocks", "abilities", "bonuses", "repeatable");
+                    RequireObject(e, "research node", "id", "cost", "requires", "unlocks", "abilities", "bonuses", "repeatable", "field");
                     string id = Id(e, "research node");
                     if (!researchIds.TryAdd(id, researchIds.Count)) throw new InvalidDataException($"Duplicate research '{id}'.");
                     if (!allIds.Add(id)) throw new InvalidDataException($"Id '{id}' is used twice across machines, recipes, belts and research.");
@@ -524,6 +557,14 @@ public sealed class ContentDb
                                 "repair_heal" => BonusKind.RepairHeal,
                                 "ship_hull" => BonusKind.ShipHull,
                                 "ship_damage" => BonusKind.ShipDamage,
+                                "module_hp" => BonusKind.ModuleHp,
+                                "hold_capacity" => BonusKind.HoldCapacity,
+                                "fuel_burn" => BonusKind.FuelBurn,
+                                "sensor_range" => BonusKind.SensorRange,
+                                "drone_rate" => BonusKind.DroneRate,
+                                "shield_absorb" => BonusKind.ShieldAbsorb,
+                                "power_output" => BonusKind.PowerOutput,
+                                "jump_discount" => BonusKind.JumpDiscount,
                                 _ => throw new InvalidDataException($"Research '{id}' has an unknown bonus kind."),
                             };
                             if (bonuses.Any(x => x.Kind == kind)) throw new InvalidDataException($"Research '{id}' lists a bonus kind twice.");
@@ -539,7 +580,17 @@ public sealed class ContentDb
                         if (bonuses.Count == 0) throw new InvalidDataException($"Research '{id}' is repeatable but has no bonuses to repeat.");
                     }
                     if (um.Count + ur.Count + ub.Count + ua.Count + bonuses.Count == 0) throw new InvalidDataException($"Research '{id}' unlocks nothing.");
-                    research.Add(new ResearchDef(research.Count, id, cost, requires.ToArray(), um.ToArray(), ur.ToArray(), ub.ToArray(), ua.ToArray(), bonuses.ToArray(), maxLevels, growth));
+                    var field = ResearchField.Basic;
+                    if (e.TryGetProperty("field", out _))
+                        field = Str(e, "field", id) switch
+                        {
+                            "basic" => ResearchField.Basic,
+                            "engineering" => ResearchField.Engineering,
+                            "biology" => ResearchField.Biology,
+                            "physics" => ResearchField.Physics,
+                            _ => throw new InvalidDataException($"Research '{id}' has an unknown field."),
+                        };
+                    research.Add(new ResearchDef(research.Count, id, cost, requires.ToArray(), um.ToArray(), ur.ToArray(), ub.ToArray(), ua.ToArray(), bonuses.ToArray(), maxLevels, growth, field));
                 }
 
                 // Requirements must form a DAG, otherwise some node could never be researched.
@@ -1066,6 +1117,7 @@ public sealed class ContentDb
             Mix(r.UnlockBelts.Length); foreach (var q in r.UnlockBelts) Mix((int)q);
             Mix(r.UnlockAbilities.Length); foreach (var q in r.UnlockAbilities) Mix((int)q);
             Mix(r.Bonuses.Length); foreach (var q in r.Bonuses) { Mix((int)q.Kind); Mix(q.Percent); }
+            if (r.Field != ResearchField.Basic) Mix((int)r.Field);
             Mix(r.MaxLevels); Mix(r.CostGrowthPercent);
         }
         if (Galaxy is { } g)

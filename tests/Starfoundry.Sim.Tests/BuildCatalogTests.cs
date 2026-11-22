@@ -85,7 +85,7 @@ public class BuildCatalogTests
             "belt:mk1", "belt:mk2", "belt:mk3", "core:depot", "core:unloader", "core:ore_unloader", "core:titanium_ore_unloader",
             "core:nickel_ore_unloader", "core:ice_unloader", "core:quartz_unloader", "core:carbon_unloader",
         });
-        Assert.Equal(new[] { "core:smelter", "core:assembler", "core:hydrogen_cracker", "core:research_lab" }, Ids(BuildCategory.Production));
+        Assert.Equal(new[] { "core:smelter", "core:assembler", "core:hydrogen_cracker", "core:engineering_bench", "core:physics_lab", "core:greenhouse", "core:research_lab" }, Ids(BuildCategory.Production));
         Assert.Equal(new[] { "core:turret", "core:wall", "core:repair_bay" }, Ids(BuildCategory.Defence));
         Assert.Contains("module:cargo", Ids(BuildCategory.Structure));
         Assert.Contains("module:drone_bay", Ids(BuildCategory.Structure));

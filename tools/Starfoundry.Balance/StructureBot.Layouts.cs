@@ -151,7 +151,11 @@ public sealed partial class StructureBot
         if (!res.Ok)
         {
             if (res.Reject == Reject.NotEnoughItems) return PlaceMachine(st, x, y, z, machine, recipe);
-            Stuck($"PlaceMachineIn {machine} at ({x},{y},{z}) of structure {st} was rejected: {res.Reject}");
+            string at = "";
+            if (res.Reject == Reject.Overlap)
+                for (int id = 0; id < Net.MachineIdLimit; id++)
+                    if (Net.IsMachineAlive(id) && Net.GetMachineInfo(id) is var mi && mi.Structure == st && mi.X == x && mi.Y == y && mi.Z == z) at = $" (cell held by {_c.Machines[mi.Type].Id}, machine {id})";
+            Stuck($"PlaceMachineIn {machine} at ({x},{y},{z}) of structure {st} was rejected: {res.Reject}{at}");
             return -1;
         }
         return res.CreatedMachines[0];

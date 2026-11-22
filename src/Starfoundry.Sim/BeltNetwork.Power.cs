@@ -97,6 +97,9 @@ public sealed partial class BeltNetwork
     }
 
     /// <summary>Power the always-on modules of a structure draw: shields and sensors.</summary>
+    /// <summary>Ticks one unit of fuel keeps a reactor of this kind burning, with the research bonus (algae fuel).</summary>
+    public int BurnInterval(ModuleKind kind) => (Content?.Structures?.BurnIntervalTicks(kind) ?? 0) * (100 + _bonus[(int)BonusKind.FuelBurn]) / 100;
+
     private int ModuleDemand(Structure s)
     {
         if (Content?.Structures is not { } kinds) return 0;
@@ -134,11 +137,11 @@ public sealed partial class BeltNetwork
                 if (rem == 0)
                 {
                     int intervals = TakeFuel(s.Owner);
-                    if (intervals > 0) rem = kinds.BurnIntervalTicks(kind) * intervals;
+                    if (intervals > 0) rem = BurnInterval(kind) * intervals;
                 }
                 if (rem > 0)
                 {
-                    production += WorldRules.Scale(kinds.PowerOutput(kind), Rules.PowerOutputPercent);
+                    production += WorldRules.Scale(kinds.PowerOutput(kind) * (100 + _bonus[(int)BonusKind.PowerOutput]) / 100, Rules.PowerOutputPercent);
                     rem--;
                 }
                 else

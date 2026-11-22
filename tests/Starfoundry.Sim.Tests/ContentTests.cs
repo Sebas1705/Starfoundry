@@ -12,6 +12,28 @@ internal static class TestContent
     public static readonly ScenarioCatalog Scenarios =
         ScenarioCatalog.FromDirectory(Core, Path.Combine(AppContext.BaseDirectory, "content", "scenarios"));
 
+    /// <summary>
+    /// The core content with the wave table as it was before the Normal-mode hardening (no bulwark, waves 3 to 10 about 30 percent
+    /// smaller): the legacy balance-bot tests measure the pacing of the old campaign against it.
+    /// </summary>
+    public static readonly ContentDb CoreClassicWaves = ContentDb.FromJson(ClassicWavesJson(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", "core.json"))));
+
+    /// <summary>Removes the bulwark and the wave entries added after the first five (the original table).</summary>
+    public static string ClassicWavesJson(string json)
+    {
+        var root = System.Text.Json.Nodes.JsonNode.Parse(json)!.AsObject();
+        ClassicWaves(root);
+        return root.ToJsonString();
+    }
+
+    public static void ClassicWaves(System.Text.Json.Nodes.JsonObject root)
+    {
+        var waves = root["waves"]!.AsArray();
+        while (waves.Count > 5) waves.RemoveAt(waves.Count - 1);
+        var enemies = root["enemies"]!.AsArray();
+        enemies.Remove(enemies.First(e => e!["id"]!.GetValue<string>() == "core:bulwark"));
+    }
+
     /// <summary>The core content without the starter ship: structure worlds that build their own ships by hand start empty.</summary>
     public static readonly ContentDb CoreWithoutStarterShip = ContentDb.FromJson(RemoveStarterShip());
 
@@ -48,10 +70,10 @@ public class ContentTests
     public void CoreContentLoadsWithExpectedShape()
     {
         var c = TestContent.Core;
-        Assert.Equal(18, c.Items.Count); // 14 plus silicon, circuit, titanium alloy and fuel cell
-        Assert.Equal(18, c.Machines.Count); // 16 plus the quartz and carbon ports
-        Assert.Equal(21, c.Recipes.Count); // 17 plus the four resource expansion recipes
-        Assert.Equal(22, c.Research.Count); // 17 plus the five resource expansion nodes
+        Assert.Equal(22, c.Items.Count); // 14 plus silicon, circuit, titanium alloy and fuel cell, plus three science items and biomass
+        Assert.Equal(21, c.Machines.Count); // 16 plus the quartz and carbon ports, plus the engineering bench, physics lab and greenhouse
+        Assert.Equal(26, c.Recipes.Count); // 17 plus the four resource expansion recipes, plus five science and biomass recipes
+        Assert.Equal(37, c.Research.Count); // 17 plus the five resource expansion nodes, plus 15 science nodes
         Assert.Equal(new GalaxyRules(12, 800, 2, 150), c.Galaxy);
         Assert.Equal(8, c.Archetypes.Count);
         Assert.Single(c.Archetypes, a => a.IsHome);

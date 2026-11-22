@@ -427,6 +427,9 @@ public sealed partial class StructureBot
         if (s < 0) return false;
         _feedParts.Add((true, s));
         _feedParts.Add((false, belt));
+        // The port of the row is part of the feed too (taking the feed down leaves its cell free for the next one).
+        for (int id = 0; id < Net.MachineIdLimit; id++)
+            if (Net.IsMachineAlive(id) && Net.GetMachineInfo(id) is var mi && mi.Structure == _ship && mi.X == ox && mi.Y == oy + 3 && mi.Z == oz + row) _feedParts.Add((true, id));
         return !Failed(Cmd(new ConnectToMachine(belt, _lab)), "ConnectToMachine");
     }
 
@@ -461,12 +464,18 @@ public sealed partial class StructureBot
         foreach (var f in feeds)
         {
             int r = FeedRows[row++];
+            int machines0 = Net.MachineIdLimit, segments0 = Net.SegmentIdLimit;
             bool built = f.Kind switch
             {
                 FeedKind.Raw => FeedRaw(r, f.Port),
                 FeedKind.Ingots => FeedIngots(r, f.Port, f.Smelt!),
                 _ => FeedPlates(r == 1 ? 2 : r, f.Port, f.Smelt!, f.Plate!),
             };
+            // Everything the feed made comes down with it (the inner belts and the row's port were not tracked one by one).
+            for (int mid = machines0; mid < Net.MachineIdLimit; mid++)
+                if (Net.IsMachineAlive(mid) && !_feedParts.Contains((true, mid))) _feedParts.Add((true, mid));
+            for (int sid = segments0; sid < Net.SegmentIdLimit; sid++)
+                if (Net.IsAlive(sid) && !_feedParts.Contains((false, sid))) _feedParts.Add((false, sid));
             if (!built) { Stuck($"could not build the lab feed ({f.Port}) for {id}"); ClearFeeds(); return false; }
         }
         if (Failed(Act(new SetResearch(node)), "SetResearch " + id)) { ClearFeeds(); return false; }
@@ -494,10 +503,24 @@ public sealed partial class StructureBot
         foreach (var c in Net.ResearchCost(node))
         {
             string id = _c.Items[c.Item].Id;
-            if (id is "core:iron_plate" or "core:iron_ingot") continue;
+            if (id is "core:iron_plate" or "core:iron_ingot" || id.StartsWith("core:science_")) continue;
             int need = c.Count - Net.ResearchProgress(node, c.Item);
-            if (need <= 0 || Have(id) >= need) continue;
-            Stuck($"research {_c.Research[node].Id} stalled {need} {id} short while the hold has {Have(id)}: something else spent it; mining more");
+            // The ore behind a processed item the lab is waiting for (silicon from quartz, plates from ore): two ore each.
+            var (raw, perItem) = id switch
+            {
+                "core:silicon" => ("core:quartz", 2),
+                "core:titanium_plate" => ("core:titanium_ore", 2),
+                "core:nickel_plate" => ("core:nickel_ore", 2),
+                _ => (id, 1),
+            };
+            if (need <= 0 || Have(raw) >= need * perItem) continue;
+            Stuck($"research {_c.Research[node].Id} stalled {need} {id} short while the hold has {Have(raw)} {raw}: something else spent it; mining more");
+            if (Science && raw is "core:quartz" or "core:nickel_ore" or "core:titanium_ore" && !_inExpedition && Net.HasAbility(Ability.Jump))
+            {
+                // Not at home: one more trip (the smelters and belts hold some of what was brought).
+                Expedition($"{raw} the stalled research still needs", (raw, Have(raw) + need * perItem + 30));
+                continue;
+            }
             if (SystemsWith(c.Item).Contains(0) || c.Item == Item("core:carbon")) Gather(c.Item, need + 6, "a stalled research");
         }
     }

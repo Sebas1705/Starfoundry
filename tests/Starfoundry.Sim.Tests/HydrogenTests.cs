@@ -51,7 +51,7 @@ public class HydrogenTests
         Assert.Equal(Ice, C.Machines[IcePort].Unloader!.Item);
         Assert.Equal(C.Machines[C.MachineIndex("core:ore_unloader")].Unloader!.IntervalTicks, C.Machines[IcePort].Unloader!.IntervalTicks);
         Assert.Equal(Hydrogen, C.FuelItem);
-        Assert.Equal(Hydrogen + 4, C.Items.Count - 1); // silicon, circuit, alloy and fuel cell are appended after it: existing item indices are unchanged
+        Assert.Equal(new[] { "core:silicon", "core:circuit", "core:titanium_alloy", "core:fuel_cell" }, Enumerable.Range(Hydrogen + 1, 4).Select(i => C.Items[i].Id)); // appended after it: existing item indices are unchanged (the science items and biomass come after them)
 
         // Power use per machine, as designed.
         var uses = new Dictionary<string, int>

@@ -466,7 +466,7 @@ public sealed class SimWorld
                 if (!Network.IsSystemKnown(j.System)) return Reject.NotDiscovered;
                 if (Campaign)
                 {
-                    var cost = Network.Content!.JumpCost;
+                    var cost = Network.JumpCost();
                     if (!Network.CanPay(player, cost)) return Reject.NotEnoughItems;
                     Network.Pay(player, cost);
                 }
