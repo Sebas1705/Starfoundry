@@ -11,8 +11,8 @@ A first-time player should be able to open the game and know what to do without 
 | Area | Change |
 | --- | --- |
 | Mouse | First person (see the [first-person design](../superpowers/specs/2026-11-21-first-person-design.md)): the cursor is captured and the mouse looks; the centre crosshair is the aim. Left click on a machine inspects it, on a deposit selects it. With a build tool selected it places in the cell the crosshair meets on the floor (red crosshair and ghost when invalid); for belts press, move the crosshair and release. Right click demolishes what is aimed at. The old top-down camera, wheel zoom, orbit, `Home` and click-to-fly are gone |
-| Keyboard | `W`/`S` fly along the view, `A`/`D` strafe, `Space`/`C` up and down (any direction, sent as `SetThrust`), `M` mine (autopilot flies to the deposit first), `F` refinery, `K` scan, `V` weapons, `T` research, `G` map, `Y` recipe of the item being placed, `R` rotate, `Tab` frees or recaptures the cursor, `Esc` leaves the build tool and then frees the cursor, `F1` help, `L` language |
-| Buttons | Mine, refinery, scan, star map, research and jump are clickable, show their key, and have tooltips |
+| Keyboard | `W`/`S` fly along the view, `A`/`D` strafe, `Space`/`C` up and down (any direction, sent as `SetThrust`), `M` takes out or stows the mining laser (see [mining laser](mining-laser.md)), `F` refinery, `K` scan, `V` weapons, `T` research, `G` map, `Y` recipe of the item being placed, `R` rotate, `Tab` frees or recaptures the cursor, `Esc` leaves the build tool and then frees the cursor, `F1` help, `L` language |
+| Buttons | Mining laser, refinery, scan, star map, research and jump are clickable, show their key, and have tooltips |
 | Build bar | Cost per item, locked items greyed, items you cannot afford in red; shrinks to fit narrow windows |
 | Ghost | The build preview turns red and the reason appears in plain language (overlap, out of range, locked, not enough items) |
 | Inspector | Click a machine: status line (working, waiting for inputs, output blocked, no recipe, out of ammo...), recipe, refund, and a demolish button |

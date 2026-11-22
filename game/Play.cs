@@ -1070,6 +1070,7 @@ void fragment() {
         UpdateMap();
 
         UpdateHover();
+        UpdateLaserFx();
         UpdateGhost();
         UpdateDefenceUi((float)delta);
         UpdateUi((float)delta);

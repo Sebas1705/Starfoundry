@@ -42,6 +42,19 @@ public class KeyHintsTests
     }
 
     [Fact]
+    public void TheMiningLaserInHandAddsAFireRow()
+    {
+        Assert.DoesNotContain("mineFire", Ids(Flying()));
+        var held = Flying() with { Mining = true };
+        Assert.Contains("mineFire", Ids(held));
+        Assert.Equal("@hold", Find(held, "mineFire").Caps[0]);
+        Assert.Equal(KeyRowState.Info, Find(held, "mineFire").State);
+        Assert.Equal(KeyRowState.Active, Find(held with { LaserFiring = true }, "mineFire").State);
+        var aimed = held with { Aim = HintAim.Deposit };
+        Assert.Equal(new[] { "choose", "mine", "mineFire", "drones", "build" }, Ids(aimed));
+    }
+
+    [Fact]
     public void UnavailableRowsAreDimmedWithAReason()
     {
         var s = Flying() with { ScanReady = false, ThreatActive = false };

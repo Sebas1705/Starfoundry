@@ -1,0 +1,68 @@
+using System;
+using Godot;
+using Starfoundry.Sim;
+
+namespace Starfoundry.Game;
+
+/// <summary>
+/// The ship's mining laser, seen. The simulation mines only while it holds a mining order (see <c>UpdateLaser</c>, which sends one
+/// while the fire button is down on a deposit in range); this draws the beam for exactly that state: a pulsing core and a halo from
+/// the ship's nose to the rock, and a hot spot where it lands.
+/// </summary>
+public partial class Play
+{
+    private MeshInstance3D? _laserCore, _laserHalo, _laserSpot;
+    private StandardMaterial3D? _laserCoreMat, _laserHaloMat;
+
+    private void EnsureLaserNodes()
+    {
+        if (_laserCore is not null) return;
+        _laserCoreMat = new StandardMaterial3D { AlbedoColor = new Color(0.7f, 1f, 0.8f), ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded };
+        _laserHaloMat = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(0.2f, 1f, 0.55f, 0.35f),
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+        };
+        _laserCore = new MeshInstance3D { Mesh = new BoxMesh { Size = Vector3.One }, MaterialOverride = _laserCoreMat, Visible = false };
+        _laserHalo = new MeshInstance3D { Mesh = new BoxMesh { Size = Vector3.One }, MaterialOverride = _laserHaloMat, Visible = false };
+        _laserSpot = new MeshInstance3D { Mesh = new SphereMesh { Radius = 0.22f, Height = 0.44f }, MaterialOverride = _laserCoreMat, Visible = false };
+        AddChild(_laserCore);
+        AddChild(_laserHalo);
+        AddChild(_laserSpot);
+    }
+
+    /// <summary>Called every frame: shows the beam while the simulation mines (the order is on and the deposit is in range).</summary>
+    private void UpdateLaserFx()
+    {
+        int dep = Net.HasPlayer(Player) ? Net.MiningDeposit(Player) : -1;
+        bool on = dep >= 0 && Net.IsDeposit(dep) && Net.InMineRange(Player, dep) && !Standing;
+        if (!on)
+        {
+            if (_laserCore is not null) _laserCore.Visible = _laserHalo!.Visible = _laserSpot!.Visible = false;
+            return;
+        }
+        EnsureLaserNodes();
+        var d = Net.DepositPosition(dep);
+        var centre = new Vector3(d.X, d.Y, d.Z);
+        var ship = ShipPosition(0f);
+        // The beam leaves a little below and ahead of the camera and ends on the rock's surface, facing the ship.
+        var from = Overview ? ship + Vector3.Up * 0.3f : AimOrigin() + AimDirection() * 0.8f + Vector3.Down * 0.35f;
+        float surface = 1.2f * DepositView.RockScale(Net.DepositInitial(dep));
+        var toShip = (ship - centre).Normalized();
+        var to = centre + toShip * surface;
+        float length = (to - from).Length();
+        if (length < 0.05f) return;
+
+        float pulse = 0.75f + 0.25f * MathF.Sin((float)_animTime * 38f);
+        foreach (var (node, width) in new[] { (_laserCore!, 0.05f), (_laserHalo!, 0.16f) })
+        {
+            node.Visible = true;
+            node.LookAtFromPosition((from + to) / 2f, to);
+            node.Scale = new Vector3(width * pulse, width * pulse, length);
+        }
+        _laserSpot!.Visible = true;
+        _laserSpot.Position = to;
+        _laserSpot.Scale = Vector3.One * (0.8f + 0.5f * pulse);
+    }
+}

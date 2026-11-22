@@ -74,11 +74,11 @@ public partial class Play
     {
         RefreshBodyVolumes();
         _seated = false;
+        SetLaser(false);
         _body = StandSpot;
         if (!BodyMotion.Contains(Sys(_body), _bodyVolumes)) _body = FromSys(BodyMotion.Nearest(Sys(_body), _bodyVolumes));
         // Flight is off while standing: the thrust is cleared once and any autopilot run or pending mining flight is dropped.
         _waypoint = null;
-        _pendingMine = false;
         SendThrust((0, 0, 0), force: true);
         Toast(L("toast.stoodUp"));
     }
