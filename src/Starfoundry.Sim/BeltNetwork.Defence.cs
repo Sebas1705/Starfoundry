@@ -78,7 +78,7 @@ public sealed partial class BeltNetwork
     {
         if (!StructureRules || structure == 0 || Content?.Structures is not { } kinds || !_structures.TryGetValue(structure, out var s)) return 0;
         long total = (long)ModuleCount(s, ModuleKind.Defence) * kinds.DefenceBonusPercent(ModuleKind.Defence);
-        // A docked ship fights under the guns of its station: the station's defence modules count for it too (ADR 0028).
+        // A docked ship fights under the guns of its station: the station's defence modules count for it too (ADR 0029).
         if (s.DockedTo >= 0 && _structures.TryGetValue(s.DockedTo, out var st)) total += (long)ModuleCount(st, ModuleKind.Defence) * kinds.DefenceBonusPercent(ModuleKind.Defence);
         return (int)Math.Min(total, DefenceRules.MaxBonusPercent);
     }
@@ -282,7 +282,7 @@ public sealed partial class BeltNetwork
         int every = Content?.Threat?.ModuleRegenTicks ?? ThreatRules.DefaultModuleRegenTicks;
         foreach (var s in _structures.Values)
         {
-            // A docked ship is repaired several times as fast, under the power of its station (ADR 0028).
+            // A docked ship is repaired several times as fast, under the power of its station (ADR 0029).
             bool docked = s.DockedTo >= 0 && _structures.TryGetValue(s.DockedTo, out var host) && host.Satisfaction == PowerRules.FullSatisfaction;
             int interval = docked ? Math.Max(1, every / DockRules.RepairSpeedup) : every;
             if (Tick % interval != 0) continue;

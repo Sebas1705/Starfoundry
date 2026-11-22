@@ -559,11 +559,11 @@ public class DockingTests
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, log, C.Hash, GameMode.Sandbox, Seed, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(10, bytes[4]);
+        Assert.Equal(11, bytes[4]);
         Assert.Equal(log, CommandCodec.ReadLog(new MemoryStream(bytes)));
 
         // Older logs cannot hold them: the reader refuses, even inside a batch.
-        foreach (byte old in new byte[] { 5, 7, 9 })
+        foreach (byte old in new byte[] { 5, 7, 9, 10 })
         {
             var copy = (byte[])bytes.Clone();
             copy[4] = old;
@@ -574,16 +574,16 @@ public class DockingTests
     [Fact]
     public void An_older_log_still_replays_unchanged()
     {
-        // A version 9 log has no docking command; it replays to the state the same commands give now.
+        // A version 10 log has no docking command; it replays to the state the same commands give now.
         var w = NewWorld();
         Ok(w, new SetThrust(0, 0, 512));
         w.Step(Tps * 2);
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, w.Log, C.Hash, GameMode.Sandbox, Seed, structures: true);
         byte[] bytes = ms.ToArray();
-        bytes[4] = 9;
+        bytes[4] = 10;
         var log = CommandCodec.ReadLog(new MemoryStream(bytes), out _, out _, out _, out _, out _, out _, out var rules);
-        var replay = SimWorld.Replay(log, w.Tick, SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, structures: true, rules: rules.WithLegacyLaser(true)));
+        var replay = SimWorld.Replay(log, w.Tick, SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, structures: true, rules: rules));
         Assert.Equal(w.Checksum(), replay.Checksum());
     }
 
