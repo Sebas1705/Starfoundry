@@ -7,7 +7,7 @@ public static class ExplorationRules
     public const int ScanRangeCells = 80;
 
     /// <summary>The scanner range in the wide galaxy (ADR 0028), where deposits lie farther from their anchor.</summary>
-    public const int WideScanRangeCells = 220;
+    public const int WideScanRangeCells = 300;
 
     /// <summary>Ticks before the scanner can fire again (5 seconds).</summary>
     public const int ScanCooldownTicks = 150;

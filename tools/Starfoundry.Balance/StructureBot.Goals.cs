@@ -70,6 +70,7 @@ public sealed partial class StructureBot
     private bool Gather(int item, int count, string why, int system = 0, Func<bool>? enough = null)
     {
         int dep = FindDeposit(item, system);
+        if (dep < 0 && system != 0 && system == CurrentSystem && Net.Galaxy!.Wide) { Survey(item, system); dep = FindDeposit(item, system); }
         if (dep < 0) { Stuck($"no revealed {_c.Items[item].Id} deposit in system {system} for {why}"); return false; }
         Say($"gathering {count} {_c.Items[item].Id} for {why}");
         _gatherDepth++;
