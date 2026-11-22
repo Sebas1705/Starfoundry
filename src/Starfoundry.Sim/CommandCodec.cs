@@ -14,15 +14,16 @@ public static class CommandCodec
         TagConnectToMachine = 13, TagConnectFromMachine = 14, TagDisconnectMachine = 15,
         TagStartMining = 16, TagStopMining = 17, TagSetShipRecipe = 18, TagSetResearch = 19,
         TagLinkDeposit = 20, TagUnlinkDeposit = 21, TagSetMovement = 22, TagScan = 23, TagJump = 24, TagSetWeapons = 25, TagRepair = 26, TagSetThrust = 27, TagPlaceModule = 28, TagRemoveModule = 29,
-        TagPlaceMachineIn = 30, TagPlaceSegmentIn = 31, TagPlaceModuleIn = 32, TagRemoveModuleIn = 33, TagFoundStation = 34, TagAssignDrones = 35, TagDumpItems = 36;
+        TagPlaceMachineIn = 30, TagPlaceSegmentIn = 31, TagPlaceModuleIn = 32, TagRemoveModuleIn = 33, TagFoundStation = 34, TagAssignDrones = 35, TagDumpItems = 36, TagFireLaser = 37;
 
     private static readonly byte[] Magic = Encoding.ASCII.GetBytes("SFCL");
 
     /// <summary>Version 2 added the content hash to the header, version 3 the game mode, version 4 the galaxy seed, version 5 the threat flag.</summary>
     /// Version 6 added the station-rules flag (bit 1); the structures flag (bit 2) uses a bit that version 6 left free,
     /// so logs written before it simply read as structures off and the version stays 6.
-    private const byte LogVersion = 8;
+    private const byte LogVersion = 9;
     /// Version 7 added the world rules block (flags bit 3, written only for non-default rules). Version 8 added the scenario id (flags bit 4).
+    /// Version 9 added the FireLaser command (tag 37) and the mining laser's power draw: logs of versions 5 to 8 read with <see cref="WorldRules.LegacyLaser"/> on, so they replay without it (ADR 0027).
     /// <summary>Version 5 headers carry no station-rules or structures flag; they still load, with both rules off.</summary>
     private const byte OldestLogVersion = 5;
 
@@ -54,7 +55,7 @@ public static class CommandCodec
                 or ConnectToMachine or ConnectFromMachine or DisconnectMachine
                 or StartMining or StopMining or SetShipRecipe or SetResearch or LinkDeposit or UnlinkDeposit or SetMovement or SetThrust
                 or Scan or Jump or SetWeapons or Repair or PlaceModule or RemoveModule
-                or PlaceMachineIn or PlaceSegmentIn or PlaceModuleIn or RemoveModuleIn or FoundStation or AssignDrones or DumpItems:
+                or PlaceMachineIn or PlaceSegmentIn or PlaceModuleIn or RemoveModuleIn or FoundStation or AssignDrones or DumpItems or FireLaser:
                 return true;
             default:
                 return false;
@@ -126,6 +127,9 @@ public static class CommandCodec
                 break;
             case StopMining:
                 w.Write(TagStopMining);
+                break;
+            case FireLaser fl:
+                w.Write(TagFireLaser); w.Write(fl.Firing);
                 break;
             case SetShipRecipe ssr:
                 w.Write(TagSetShipRecipe); w.Write(ssr.Recipe);
@@ -261,6 +265,7 @@ public static class CommandCodec
             case TagFoundStation: return new FoundStation(r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
             case TagAssignDrones: return new AssignDrones(r.ReadInt32(), r.ReadInt32());
             case TagDumpItems: return new DumpItems(r.ReadInt32(), r.ReadInt32());
+            case TagFireLaser: return new FireLaser(r.ReadBoolean());
             case TagScan: return new Scan();
             case TagJump: return new Jump(r.ReadInt32());
             case TagSetWeapons: return new SetWeapons(r.ReadBoolean());
@@ -398,6 +403,7 @@ public static class CommandCodec
             if (block.Length != length) throw new InvalidDataException("The world rules block is truncated.");
             rules = WorldRules.Deserialize(block);
         }
+        if (version < 9) rules = rules.WithLegacyLaser(true); // older logs were recorded before the laser drew power
         scenarioId = null;
         if ((flags & 16) != 0)
         {
@@ -418,8 +424,12 @@ public static class CommandCodec
             if (tick < lastTick) throw new InvalidDataException("Log entries are not in tick order.");
             lastTick = tick;
             int player = r.ReadInt32();
-            log.Add(new LoggedCommand(tick, player, Read(r)));
+            var command = Read(r);
+            if (version < 9 && HasFireLaser(command)) throw new InvalidDataException("A log older than version 9 cannot hold a FireLaser command.");
+            log.Add(new LoggedCommand(tick, player, command));
         }
         return log;
     }
+
+    private static bool HasFireLaser(Command c) => c is FireLaser || (c is Batch b && b.Commands.Any(HasFireLaser));
 }

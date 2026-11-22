@@ -1249,6 +1249,20 @@
       "requires": ["core:targeting_lasers", "core:sensors"],
       "unlocks": [],
       "bonuses": [{ "kind": "sensor_range", "percent": 50 }]
+    },
+    {
+      "id": "core:laser_focusing",
+      "cost": [{ "item": "core:iron_plate", "count": 60 }],
+      "requires": ["core:logistics"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "mining_rate", "percent": 25 }]
+    },
+    {
+      "id": "core:beam_collimator",
+      "cost": [{ "item": "core:iron_plate", "count": 100 }, { "item": "core:carbon", "count": 20 }],
+      "requires": ["core:laser_focusing", "core:carbon_drilling"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "mining_rate", "percent": 40 }]
     }
   ],
   "galaxy": {

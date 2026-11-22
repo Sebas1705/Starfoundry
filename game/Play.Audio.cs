@@ -117,9 +117,9 @@ public partial class Play
 
         // Hand mining: a buzz while it works, a pop for each item that enters the hold.
         int hold = Net.HoldTotal(Player);
-        bool mining = pi.MiningDeposit >= 0 && hold < Net.HoldCapacity(Player);
+        bool mining = Net.LaserFiring(Player) && hold < Net.HoldCapacity(Player);
         _audio.SetLoop(Sfx.MineLoop, mining ? 0f : AudioMix.Silent);
-        if (_prevHold >= 0 && hold > _prevHold && pi.MiningDeposit >= 0) _audio.Play(Sfx.MinePop);
+        if (_prevHold >= 0 && hold > _prevHold && Net.LaserFiring(Player)) _audio.Play(Sfx.MinePop);
         _prevHold = hold;
 
         // Research finished.

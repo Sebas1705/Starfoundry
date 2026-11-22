@@ -52,7 +52,7 @@ public class ScienceFieldsTests
             }
             Assert.Equal(1, nodes.Count(n => n.Requires.All(r => C.Research[r].Field != field))); // one entry into each field, the rest is a chain
         }
-        Assert.Equal(22, C.Research.Count(n => n.Field == ResearchField.Basic));
+        Assert.Equal(24, C.Research.Count(n => n.Field == ResearchField.Basic)); // 22 plus the two mining laser nodes (ADR 0027)
     }
 
     // ---- bonuses ------------------------------------------------------------------------------------

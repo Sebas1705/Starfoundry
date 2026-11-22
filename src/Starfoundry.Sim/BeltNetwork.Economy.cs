@@ -24,6 +24,12 @@ public static class PlayerRules
     public const int MineTicksPerItem = 15;
 
     /// <summary>
+    /// Power the mining laser draws from the ship's reactors while it fires (ADR 0027), in the units of a machine's <c>power_use</c>.
+    /// Drawn only by ships with a reactor module, under the structure rules and not with <see cref="WorldRules.LegacyLaser"/>.
+    /// </summary>
+    public const int LaserPowerUse = 5;
+
+    /// <summary>
     /// Structure worlds only: hand mining stops while the hold is at or above this percentage of its capacity, so the rest is
     /// always free for what the factory delivers. Without it the hand-mined ore fills the hold and the depot can never deliver.
     /// </summary>
@@ -84,6 +90,12 @@ internal sealed class Player
     public int HoldTotal;
     public int MiningDeposit = -1;
     public int MineProgress;
+
+    /// <summary>The trigger of the ship's mining laser is released (see <see cref="FireLaser"/>): the order stays but nothing is mined and no power is drawn. Mixed only when set.</summary>
+    public bool LaserReleased;
+
+    /// <summary>Power credit of the mining laser in per mille (below 1000): at less than full power the laser advances only on credited ticks. Mixed only when non-zero.</summary>
+    public int LaserCredit;
     public int ShipRecipe = -1;
     public bool ShipCrafting;
     public int ShipRemaining;
@@ -141,7 +153,7 @@ internal sealed class Player
     {
         var c = new Player(Id, Hold.Length)
         {
-            HoldTotal = HoldTotal, MiningDeposit = MiningDeposit, MineProgress = MineProgress,
+            HoldTotal = HoldTotal, MiningDeposit = MiningDeposit, MineProgress = MineProgress, LaserReleased = LaserReleased, LaserCredit = LaserCredit,
             ShipRecipe = ShipRecipe, ShipCrafting = ShipCrafting, ShipRemaining = ShipRemaining, ShipReserved = ShipReserved,
             X = X, Y = Y, Z = Z, MoveX = MoveX, MoveY = MoveY, MoveZ = MoveZ,
             ThrustX = ThrustX, ThrustY = ThrustY, ThrustZ = ThrustZ, ThrustRemX = ThrustRemX, ThrustRemY = ThrustRemY, ThrustRemZ = ThrustRemZ,
@@ -302,8 +314,65 @@ public sealed partial class BeltNetwork
     /// <summary>Richness of the deposit in percent (25 to 200, 100 is the base rate).</summary>
     public int DepositDensity(int id) => GetDeposit(id).Density;
 
-    /// <summary>Ticks of hand mining per item at the deposit: <c>MineTicksPerItem * 100 / density</c>, at least 1.</summary>
-    public int MineTicksFor(int deposit) => DepositRules.Scale(PlayerRules.MineTicksPerItem, GetDeposit(deposit).Density);
+    /// <summary>Ticks of hand mining per item at the deposit: <c>MineTicksPerItem * 100 / density</c> shortened by the laser research
+    /// (<see cref="BonusKind.MiningRate"/>), at least 1. With no bonus it is exactly the pre-laser-research value.</summary>
+    public int MineTicksFor(int deposit) => MineTicks(GetDeposit(deposit).Density);
+
+    private int MineTicks(int density) =>
+        (int)Math.Max(1L, (long)PlayerRules.MineTicksPerItem * 10_000 / ((long)density * (100 + _bonus[(int)BonusKind.MiningRate])));
+
+    /// <summary>True while the player's mining laser is firing: a mining order is on and the trigger is not released.</summary>
+    public bool LaserFiring(int player) => _players.TryGetValue(player, out var p) && p.MiningDeposit >= 0 && !p.LaserReleased;
+
+    /// <summary>
+    /// Releases (false) or pulls (true) the trigger of the player's mining laser without changing the mining order. A released
+    /// laser mines nothing and draws no power; the partial item it has mined is kept. Needs a mining order.
+    /// </summary>
+    public void FireLaser(int player, bool firing)
+    {
+        var p = GetOrCreatePlayer(player);
+        if (p.MiningDeposit < 0) throw new InvalidOperationException("The player has no mining order.");
+        p.LaserReleased = !firing;
+    }
+
+    /// <summary>Clears the mining order and everything the laser carries with it.</summary>
+    private static void ClearMining(Player p)
+    {
+        p.MiningDeposit = -1;
+        p.MineProgress = 0;
+        p.LaserReleased = false;
+        p.LaserCredit = 0;
+    }
+
+    /// <summary>
+    /// True if the laser would mine this tick: it fires at a deposit that still holds ore, in range, with room in the hold.
+    /// This is what draws power and what advances the progress.
+    /// </summary>
+    private bool LaserWouldMine(Player p) =>
+        p.MiningDeposit >= 0 && !p.LaserReleased && _deposits[p.MiningDeposit].Remaining > 0
+        && p.HoldTotal + p.ShipReserved < HoldCapacityOf(p) && !MiningHoldLimitReached(p) && InMineRange(p.Id, p.MiningDeposit);
+
+    /// <summary>Whether the laser draws power in this world: structure rules, not the legacy laser.</summary>
+    private bool LaserDrawsPower => StructureRules && !Rules.LegacyLaser;
+
+    /// <summary>
+    /// Whether the laser makes progress this tick given the power of the ship it is mounted on: always when the reactors cover what
+    /// the lasers draw (and with no power model), else on the ticks its credit reaches 1000, the way machines work. The laser is
+    /// served before the machines (see <c>StepPower</c>), so only a ship whose production is below the laser's draw slows it.
+    /// Call only when <see cref="LaserWouldMine"/>.
+    /// </summary>
+    private bool LaserAdvances(Player p)
+    {
+        if (!LaserDrawsPower || !_structures.TryGetValue(p.ShipStructure, out var ship) || ship.LaserDraw == 0) return true;
+        int satisfaction = ship.PowerProduction >= ship.LaserDraw
+            ? PowerRules.FullSatisfaction
+            : (int)((long)ship.PowerProduction * PowerRules.FullSatisfaction / ship.LaserDraw);
+        if (satisfaction >= PowerRules.FullSatisfaction) return true;
+        p.LaserCredit += satisfaction;
+        if (p.LaserCredit < PowerRules.FullSatisfaction) return false;
+        p.LaserCredit -= PowerRules.FullSatisfaction;
+        return true;
+    }
 
     /// <summary>Everything a renderer or panel needs to know about a deposit.</summary>
     public DepositInfo GetDepositInfo(int id)
@@ -484,16 +553,12 @@ public sealed partial class BeltNetwork
         var d = GetDeposit(deposit);
         if (d.Remaining <= 0) throw new InvalidOperationException("The deposit is empty.");
         var p = GetOrCreatePlayer(player);
-        if (p.MiningDeposit != deposit) p.MineProgress = 0;
+        if (p.MiningDeposit != deposit) { p.MineProgress = 0; p.LaserCredit = 0; }
         p.MiningDeposit = deposit;
+        p.LaserReleased = false; // starting to mine pulls the trigger, as it always meant
     }
 
-    public void StopMining(int player)
-    {
-        var p = GetOrCreatePlayer(player);
-        p.MiningDeposit = -1;
-        p.MineProgress = 0;
-    }
+    public void StopMining(int player) => ClearMining(GetOrCreatePlayer(player));
 
     /// <summary>Sets what the ship's micro-refinery works on (-1 for nothing). A craft in progress is undone and its inputs returned.</summary>
     public void SetShipRecipe(int player, int recipe)
@@ -595,11 +660,9 @@ public sealed partial class BeltNetwork
                 var d = _deposits[p.MiningDeposit];
                 if (d.Remaining <= 0)
                 {
-                    p.MiningDeposit = -1;
-                    p.MineProgress = 0;
+                    ClearMining(p);
                 }
-                else if (p.HoldTotal + p.ShipReserved < HoldCapacityOf(p) && !MiningHoldLimitReached(p) && InMineRange(p.Id, p.MiningDeposit)
-                    && ++p.MineProgress >= DepositRules.Scale(PlayerRules.MineTicksPerItem, d.Density))
+                else if (LaserWouldMine(p) && LaserAdvances(p) && ++p.MineProgress >= MineTicks(d.Density))
                 {
                     p.MineProgress = 0;
                     d.Remaining--;
@@ -827,6 +890,8 @@ public sealed partial class BeltNetwork
             mix(p.Id); mix(p.HoldTotal); mix(p.MiningDeposit); mix(p.MineProgress);
             if (p.ShipStructure >= 0) mix(p.ShipStructure);
             if (p.ShipLost) mix(-77);
+            if (p.LaserReleased) mix(-91); // mixed only when set and when non-zero: worlds that never touch the laser trigger hash as before
+            if (p.LaserCredit != 0) mix(p.LaserCredit);
             mix(p.ShipRecipe); mix(p.ShipCrafting ? 1 : 0); mix(p.ShipRemaining); mix(p.ShipReserved);
             foreach (int h in p.Hold) mix(h);
         }
@@ -869,6 +934,8 @@ public sealed partial class BeltNetwork
             if (p.MiningDeposit != -1 && !IsDeposit(p.MiningDeposit)) Fail($"player {p.Id} mines an unknown deposit");
             int mineLimit = DepositRules.Scale(PlayerRules.MineTicksPerItem, p.MiningDeposit >= 0 ? _deposits[p.MiningDeposit].Density : DepositRules.MinDensity);
             if (p.MineProgress < 0 || p.MineProgress >= mineLimit) Fail($"player {p.Id} mine progress out of range");
+            if (p.LaserCredit is < 0 or >= PowerRules.FullSatisfaction) Fail($"player {p.Id} laser credit out of range");
+            if (p.MiningDeposit < 0 && (p.LaserReleased || p.LaserCredit != 0)) Fail($"player {p.Id} has laser state without a mining order");
             if (p.ShipRecipe == -1)
             {
                 if (p.ShipCrafting || p.ShipReserved != 0) Fail($"player {p.Id} has no ship recipe but is crafting");

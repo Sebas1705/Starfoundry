@@ -491,6 +491,12 @@ public sealed class SimWorld
                 Network.StopMining(player);
                 return Reject.None;
 
+            case FireLaser fl:
+                if (Network.Content is null) return Reject.NoContent;
+                if (Network.MiningDeposit(player) < 0) return Reject.InvalidArgument; // nothing to fire at: start mining first
+                Network.FireLaser(player, fl.Firing);
+                return Reject.None;
+
             case SetShipRecipe ssr:
             {
                 var content = Network.Content;

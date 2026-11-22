@@ -17,7 +17,7 @@ Can research items of three fields (engineering, biology, physics) be made by de
 A greenhouse has one recipe at a time, so biology needs two of them. The three machines are crafters (workshop and core modules), cost ingots and plates only and need no research. The research lab takes the science and the plates by belt like any other cost item.
 
 ## The tree
-The 22 existing nodes are the Basic field. Costs: science of the field plus iron plates.
+The 22 existing nodes are the Basic field (24 since the two mining laser nodes of [ADR 0027](../adr/0027-mining-laser-rules.md), which are not part of the science tier). Costs: science of the field plus iron plates.
 
 | Field | Node | Science | Plates | Requires | Effect |
 | --- | --- | --- | --- | --- | --- |
@@ -67,6 +67,7 @@ flowchart LR
 | `shield_absorb` | `ShieldPercentFor` (points on the base and on the cap) |
 | `power_output` | `StepPower` (before the world rule percent) |
 | `jump_discount` | `JumpCost()` (items off every stack, never below 1) |
+| `mining_rate` | `MineTicksFor` (ticks per item of the ship's mining laser; two Basic nodes, [ADR 0027](../adr/0027-mining-laser-rules.md)) |
 
 ## The research panel (logic)
 `ResearchEntry.Field`, `ResearchView.BuildByField` (basic, engineering, biology, physics; inside a field the usual state order), `FieldName`, and `ScienceColour` (amber `#F2A93B`, green `#5FC27A`, blue `#58A6FF`) for tinting the cost lines and icons. Item names, field names and bonus names are Loc keys in Spanish and English; points and item-count bonuses ("+10 points", "-1 carbon") have their own unlock texts. The game panel is not changed here.

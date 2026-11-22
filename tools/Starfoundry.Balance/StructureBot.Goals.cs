@@ -126,6 +126,16 @@ public sealed partial class StructureBot
         {
             Stuck($"the hold is at the mining limit while gathering {_c.Items[wanted].Id}: dumping {plates - 20} iron plates (hold {Net.HoldTotal(0)}/{Net.HoldCapacity(0)})");
             Cmd(new DumpItems(Item("core:iron_plate"), plates - 20));
+            return;
+        }
+        // Last resort, only for fuel: with no hydrogen the reactors die, and a hold full of expedition cargo cannot mine the ice that
+        // would bring it back. Throw half of the biggest raw stack out (a second trip is cheaper than a dead ship).
+        if (wanted == Item("core:ice"))
+        {
+            var (id, count) = new[] { "core:quartz", "core:nickel_ore", "core:titanium_ore" }.Select(i => (Id: i, Count: Have(i))).OrderByDescending(p => p.Count).First();
+            if (count < 20) return;
+            Stuck($"the hold is at the mining limit while gathering ice with no room left: dumping {count / 2} {id} (hold {Net.HoldTotal(0)}/{Net.HoldCapacity(0)})");
+            Cmd(new DumpItems(Item(id), count / 2));
         }
     }
 

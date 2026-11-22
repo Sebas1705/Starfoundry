@@ -605,7 +605,7 @@ public partial class Play
 
     /// <summary>True while a mining order is active but the hold is at the mining limit, so nothing is mined.</summary>
     private bool MiningPausedByLimit =>
-        _structuresOn && Net.MiningDeposit(Player) >= 0
+        _structuresOn && Net.LaserFiring(Player)
         && HudFormat.MiningLimitReached(Net.HoldTotal(Player), Net.HoldCapacity(Player));
 
     private void UpdateStatus()
@@ -627,7 +627,7 @@ public partial class Play
 
         int dep = _selectedDeposit;
         string depLine;
-        if (Net.MiningDeposit(Player) >= 0)
+        if (Net.LaserFiring(Player))
         {
             int d = Net.MiningDeposit(Player);
             bool inRange = Net.InMineRange(Player, d);
@@ -1745,8 +1745,11 @@ public partial class Play
         }
         if (_world.PendingCommands > 0) return;
         int now = Net.MiningDeposit(Player);
-        if (want < 0) { if (now >= 0) Send(new StopMining()); }
+        // Firing is a simulation fact (ADR 0027): releasing the button releases the laser trigger and keeps the order, so a short
+        // release does not lose the partial item; a new deposit starts a new order.
+        if (want < 0) { if (Net.LaserFiring(Player)) Send(new FireLaser(false)); }
         else if (now != want) Send(new StartMining(want));
+        else if (!Net.LaserFiring(Player)) Send(new FireLaser(true));
     }
 
     // ---- hover and inspection ----------------------------------------------------------------------------

@@ -73,7 +73,7 @@ public class ContentTests
         Assert.Equal(22, c.Items.Count); // 14 plus silicon, circuit, titanium alloy and fuel cell, plus three science items and biomass
         Assert.Equal(21, c.Machines.Count); // 16 plus the quartz and carbon ports, plus the engineering bench, physics lab and greenhouse
         Assert.Equal(26, c.Recipes.Count); // 17 plus the four resource expansion recipes, plus five science and biomass recipes
-        Assert.Equal(37, c.Research.Count); // 17 plus the five resource expansion nodes, plus 15 science nodes
+        Assert.Equal(39, c.Research.Count); // 17 plus the five resource expansion nodes, plus 15 science nodes, plus two mining laser nodes
         Assert.Equal(new GalaxyRules(12, 800, 2, 150), c.Galaxy);
         Assert.Equal(8, c.Archetypes.Count);
         Assert.Single(c.Archetypes, a => a.IsHome);

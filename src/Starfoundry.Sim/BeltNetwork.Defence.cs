@@ -242,8 +242,7 @@ public sealed partial class BeltNetwork
         p.ShipLost = true;
         p.MoveX = p.MoveY = p.MoveZ = 0;
         p.ClearThrust();
-        p.MiningDeposit = -1;
-        p.MineProgress = 0;
+        ClearMining(p);
         p.JumpTarget = -1;
         p.JumpRemaining = 0;
         ShipsLost++;

@@ -35,7 +35,7 @@ public partial class Play
     /// <summary>Called every frame: shows the beam while the simulation mines (the order is on and the deposit is in range).</summary>
     private void UpdateLaserFx()
     {
-        int dep = Net.HasPlayer(Player) ? Net.MiningDeposit(Player) : -1;
+        int dep = Net.HasPlayer(Player) && Net.LaserFiring(Player) ? Net.MiningDeposit(Player) : -1;
         bool on = dep >= 0 && Net.IsDeposit(dep) && Net.InMineRange(Player, dep) && !Standing;
         if (!on)
         {

@@ -699,6 +699,8 @@ public class StructureDefenceTests
         RemoveWhere("research", "core:structural_plating", "core:alloy_hulls", "core:repair_drones", "core:automated_turrets", "core:cargo_expansion",
             "core:algae_fuel", "core:closed_loop", "core:medical_bay", "core:bio_sensors", "core:symbiotic_drones",
             "core:field_theory", "core:efficient_reactors", "core:long_range_jump", "core:targeting_lasers", "core:quantum_sensors");
+        // And before the mining laser (ADR 0027): no laser research (research is part of the hashed state).
+        RemoveWhere("research", "core:laser_focusing", "core:beam_collimator");
         RemoveWhere("recipes", "core:make_engineering_science", "core:make_physics_science", "core:grow_biomass", "core:make_biology_science", "core:biomass_to_hydrogen");
         RemoveWhere("machines", "core:engineering_bench", "core:physics_lab", "core:greenhouse");
         RemoveWhere("items", "core:science_engineering", "core:science_biology", "core:science_physics", "core:biomass");
