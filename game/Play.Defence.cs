@@ -82,7 +82,7 @@ void fragment() {
         _modulePanel.MouseFilter = Control.MouseFilterEnum.Ignore;
         _modulePanel.Visible = false;
 
-        _waveBanner = MakeText(26, ToastThreatColor);
+        _waveBanner = MakeText(20, ToastThreatColor);
         _waveBanner.AddThemeColorOverride("font_outline_color", Colors.Black);
         _waveBanner.AddThemeConstantOverride("outline_size", 8);
         _waveBanner.HorizontalAlignment = HorizontalAlignment.Center;

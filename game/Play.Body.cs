@@ -112,7 +112,7 @@ public partial class Play
     private string SeatPromptText()
     {
         if (!CanWalk || _demo) return "";
-        if (_seated) return L("hint.stand");
+        if (_seated) return ""; // the key panel already says E stands you up
         return BodyMotion.InSeatReach(Sys(_body), Sys(SeatPosition)) ? L("hint.sit") : "";
     }
 
