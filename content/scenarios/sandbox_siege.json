@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "id": "sandbox_siege",
+  "order": 202,
+  "name_es": "Modo libre con estación de asedio",
+  "name_en": "Sandbox with a siege station",
+  "description_es": "Como el modo libre, con una estación defendida lista junto a la nave.",
+  "description_en": "Like the sandbox, with a ready-made defended station next to the ship.",
+  "briefing_es": "Todo desbloqueado y gratis, con una estación de asedio ya construida junto a la nave.",
+  "briefing_en": "Everything unlocked and free, with a siege station already built next to the ship.",
+  "mode": "sandbox",
+  "player_rules": true,
+  "rules": { "threats_enabled": false },
+  "start": {
+    "structures": [
+      { "template": "starter_ship" },
+      { "template": "siege_station", "kind": "station", "offset": [10, 0, -8] }
+    ]
+  }
+}

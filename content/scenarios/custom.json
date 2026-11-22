@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "id": "custom",
+  "order": 210,
+  "name_es": "Partida a medida",
+  "name_en": "Custom game",
+  "description_es": "Sin objetivos, con costes y desbloqueos de investigación. Tú eliges las reglas, la semilla y con qué empiezas.",
+  "description_en": "No goals, with costs and research unlocks. You choose the rules, the seed and what you start with.",
+  "briefing_es": "Los costes y las investigaciones cuentan. Las amenazas, la riqueza y el resto de reglas las eliges tú.",
+  "briefing_en": "Costs and research count. Threats, richness and the other rules are your choice.",
+  "player_rules": true
+}

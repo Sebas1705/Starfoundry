@@ -29,7 +29,7 @@ public class ScenarioTests
     [Fact]
     public void The_shipped_files_load_in_level_order()
     {
-        Assert.Equal(new[] { "01_first_light", "02_cold_fuel", "03_under_siege", "04_deep_vein", "05_long_watch", "campaign", "sandbox", "sandbox_station" },
+        Assert.Equal(new[] { "01_first_light", "02_cold_fuel", "03_under_siege", "04_deep_vein", "05_long_watch", "campaign", "sandbox", "sandbox_station", "sandbox_siege", "custom", "custom_station", "custom_siege" },
             Catalog.All.Select(s => s.Id).ToArray());
         Assert.True(Catalog.Contains("campaign"));
         Assert.Null(Catalog.Find("nope"));
@@ -263,6 +263,23 @@ public class ScenarioTests
         var station = w.Network.Structures().Single(s => s.Kind == StructureKind.Station);
         Assert.Equal(new[] { ModuleKind.Core }, station.Modules.Values);
         Assert.Equal(0, w.Network.StationsFounded); // a start structure is not a founded one
+    }
+
+    [Theory]
+    [InlineData("sandbox", GameMode.Sandbox, 1)]
+    [InlineData("sandbox_station", GameMode.Sandbox, 2)]
+    [InlineData("sandbox_siege", GameMode.Sandbox, 2)]
+    [InlineData("custom", GameMode.Campaign, 1)]
+    [InlineData("custom_station", GameMode.Campaign, 2)]
+    [InlineData("custom_siege", GameMode.Campaign, 2)]
+    public void The_open_ended_scenarios_build_a_world_with_the_right_mode_and_structures(string id, GameMode mode, int structures)
+    {
+        var def = Catalog.Get(id);
+        Assert.True(def.IsOpenEnded);
+        Assert.True(def.PlayerRules);
+        var w = SimWorld.CreateScenario(C, Catalog, id, 5);
+        Assert.Equal(mode, w.Mode);
+        Assert.Equal(structures, w.Network.Structures().Count());
     }
 
     // ---- the header, saves and replays -------------------------------------------------------------

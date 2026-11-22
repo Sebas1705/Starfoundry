@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "id": "custom_station",
+  "order": 211,
+  "name_es": "Partida a medida con estación",
+  "name_en": "Custom game with a station",
+  "description_es": "Como la partida a medida, con un núcleo de estación vacío junto a la nave.",
+  "description_en": "Like the custom game, with a bare station core next to the ship.",
+  "briefing_es": "Costes y desbloqueos de investigación, con un núcleo de estación esperando junto a la nave.",
+  "briefing_en": "Costs and research unlocks, with a station core waiting next to the ship.",
+  "player_rules": true,
+  "start": {
+    "structures": [
+      { "template": "starter_ship" },
+      { "template": "blank_station", "kind": "station", "offset": [10, 0, -8] }
+    ]
+  }
+}

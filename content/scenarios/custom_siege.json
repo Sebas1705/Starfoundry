@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "id": "custom_siege",
+  "order": 212,
+  "name_es": "Partida a medida con estación de asedio",
+  "name_en": "Custom game with a siege station",
+  "description_es": "Como la partida a medida, con una estación defendida lista junto a la nave.",
+  "description_en": "Like the custom game, with a ready-made defended station next to the ship.",
+  "briefing_es": "Costes y desbloqueos de investigación, con una estación de asedio ya construida junto a la nave.",
+  "briefing_en": "Costs and research unlocks, with a siege station already built next to the ship.",
+  "player_rules": true,
+  "start": {
+    "structures": [
+      { "template": "starter_ship" },
+      { "template": "siege_station", "kind": "station", "offset": [10, 0, -8] }
+    ]
+  }
+}
