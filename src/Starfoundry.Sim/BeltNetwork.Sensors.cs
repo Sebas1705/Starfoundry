@@ -112,7 +112,7 @@ public sealed partial class BeltNetwork
         int room = Math.Max(0, rules.MaxEnemies - _enemies.Count);
         foreach (var spec in Content.Waves)
         {
-            int n = t.Wave < spec.FromWave ? 0 : spec.Base + spec.PerWave * (t.Wave - spec.FromWave);
+            int n = WorldRules.ScaleMin1(t.Wave < spec.FromWave ? 0 : spec.Base + spec.PerWave * (t.Wave - spec.FromWave), Rules.WaveSizePercent); // same scaling as SpawnWave
             n = Math.Min(n, room - total);
             if (n <= 0) continue;
             counts[spec.Enemy] = counts.GetValueOrDefault(spec.Enemy) + n;
@@ -130,7 +130,7 @@ public sealed partial class BeltNetwork
             {
                 bool graceOn = t.Wave == 0 && rules.FirstWaveGraceTicks > 0;
                 int grace = graceOn ? Math.Max(0, rules.FirstWaveGraceTicks - t.Grace) : 0;
-                int alertTicks = Math.Max(0, (rules.AlertMax - t.Alert + rate - 1) / rate);
+                int alertTicks = Math.Max(0, (AlertMaxNow - t.Alert + rate - 1) / rate);
                 ticks = Math.Max(grace, alertTicks) + rules.WarningTicks;
             }
         }
