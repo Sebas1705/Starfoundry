@@ -150,11 +150,11 @@ public static class BuildCatalog
         _ => Loc.T("module." + ModuleKindIds.Id(e.Module!.Value).Replace("_", "")),
     };
 
-    /// <summary>The cost as text ("14 iron ingot, 6 iron plate"), with " per cell" for belts, or the word for free.</summary>
+    /// <summary>The cost as text ("14x iron ingot, 6x iron plate"), with " per cell" for belts, or the word for free.</summary>
     public static string CostText(ContentDb content, BuildEntry e, ItemStack[] cost)
     {
         if (cost.Length == 0) return Loc.T("ui.free");
-        string text = string.Join(", ", cost.Select(s => $"{s.Count} {Loc.Name("item", content.Items[s.Item].Id)}"));
+        string text = string.Join(", ", cost.Select(s => $"{s.Count}x {Loc.Name("item", content.Items[s.Item].Id)}"));
         return e.IsBelt ? text + Loc.T("ui.perCell") : text;
     }
 

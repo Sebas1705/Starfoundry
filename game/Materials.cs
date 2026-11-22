@@ -13,6 +13,9 @@ namespace Starfoundry.Game;
 /// </summary>
 public static class Materials
 {
+    /// <summary>The texture size for the quality setting: low quality halves it (the setting is read once, when a texture is first generated).</summary>
+    private static int N(int size) => SettingsStore.Current.LowTextures ? size / 2 : size;
+
     private static readonly Dictionary<string, TexSet> Sets = new();
     private static readonly Dictionary<string, StandardMaterial3D> Mats = new();
 
@@ -60,28 +63,28 @@ public static class Materials
 
     /// <summary>Plating for the big structures (ship and station modules): panels of about a unit, seams, rivets, wear.</summary>
     public static StandardMaterial3D Hull() => Cached("hull", () =>
-        Build(Set("hull", () => Gen.HullPlating(512, 4, 1101, 3.2f), 3.0f), 4f, 0.82f, 0.30f, 0.9f));
+        Build(Set("hull", () => Gen.HullPlating(N(512), 4, 1101, 3.2f * N(512) / 512f), 3.0f), 4f, 0.82f, 0.30f, 0.9f));
 
     /// <summary>The same plating at machine scale (a panel is a quarter to half a unit): machines, drones, enemies, the player ship.</summary>
     public static StandardMaterial3D Machine() => Cached("machine", () =>
-        Build(Set("machine", () => Gen.HullPlating(512, 2, 2202, 5.0f), 3.0f), 1f, 0.80f, 0.32f, 0.9f));
+        Build(Set("machine", () => Gen.HullPlating(N(512), 2, 2202, 5.0f * N(512) / 512f), 3.0f), 1f, 0.80f, 0.32f, 0.9f));
 
     /// <summary>Dark structural metal for trusses, rails, masts and frames: brushed, bolted, grooved.</summary>
     public static StandardMaterial3D Structural() => Cached("struct", () =>
-        Build(Set("struct", () => Gen.Structural(256, 3303), 2.0f), 2f, 0.65f, 0.75f, 0.8f));
+        Build(Set("struct", () => Gen.Structural(N(256), 3303), 2.0f), 2f, 0.65f, 0.75f, 0.8f));
 
     /// <summary>Structural metal at item scale (ingots, plates, chips on a belt).</summary>
     public static StandardMaterial3D ItemMetal() => Cached("itemmetal", () =>
-        Build(Set("struct", () => Gen.Structural(256, 3303), 2.0f), 0.5f, 0.55f, 0.6f, 0.6f));
+        Build(Set("struct", () => Gen.Structural(N(256), 3303), 2.0f), 0.5f, 0.55f, 0.6f, 0.6f));
 
     /// <summary>Burnt metal for nozzles, barrels and mine shells.</summary>
     public static StandardMaterial3D Burnt() => Cached("burnt", () =>
-        Build(Set("burnt", () => Gen.Burnt(256, 4404), 2.5f), 1.5f, 0.75f, 0.8f, 0.9f));
+        Build(Set("burnt", () => Gen.Burnt(N(256), 4404), 2.5f), 1.5f, 0.75f, 0.8f, 0.9f));
 
     /// <summary>Cockpit glass: the existing dark-blue tint, emissive glow kept, with sheen bands and smudges on top.</summary>
     public static StandardMaterial3D Glass() => Cached("glass", () =>
     {
-        var m = Build(Set("glass", () => Gen.Glass(256, 5505), 1.0f), 3f, 0.30f, 0.5f, 0.4f, false);
+        var m = Build(Set("glass", () => Gen.Glass(N(256), 5505), 1.0f), 3f, 0.30f, 0.5f, 0.4f, false);
         m.AlbedoColor = new Color(0.10f, 0.20f, 0.36f) * 1.15f;
         m.EmissionEnabled = true;
         m.Emission = new Color(0.15f, 0.40f, 0.95f);
@@ -94,7 +97,7 @@ public static class Materials
     /// <summary>An emissive light with a soft panel mask (grid lines and a little noise). Own colour and energy; no vertex colour.</summary>
     public static StandardMaterial3D Light(Color c, float energy, bool grill = false) => Cached($"light.{grill}.{c.ToHtml()}.{energy}", () =>
     {
-        var t = grill ? Set("grill", () => Gen.Grill(128, 6606), 1.5f, true) : Set("lightpanel", () => Gen.LightPanel(128, 6607), 1.0f, true);
+        var t = grill ? Set("grill", () => Gen.Grill(N(128), 6606), 1.5f, true) : Set("lightpanel", () => Gen.LightPanel(128, 6607), 1.0f, true);
         var m = Build(t, grill ? 0.5f : 0.5f, 0.6f, 0.2f, 0.6f, false);
         m.AlbedoColor = c * 0.45f;
         m.EmissionEnabled = true;
@@ -112,7 +115,7 @@ public static class Materials
     {
         float b = Bucket(nodeScale);
         return Cached($"rock.{b:F3}.{tile}", () =>
-            Build(Set("rock", () => Gen.Rock(512, 7707), 4.5f), tile / b, 1.0f, 0f, 1.0f));
+            Build(Set("rock", () => Gen.Rock(N(512), 7707), 4.5f), tile / b, 1.0f, 0f, 1.0f));
     }
 
     /// <summary>Wreck and debris plating: rust over steel.</summary>
@@ -120,21 +123,21 @@ public static class Materials
     {
         float b = Bucket(nodeScale);
         return Cached($"rust.{b:F3}", () =>
-            Build(Set("rust", () => Gen.RustedPlating(512, 8808), 3.0f), 3f / b, 0.9f, 0.5f, 1.0f));
+            Build(Set("rust", () => Gen.RustedPlating(N(512), 8808), 3.0f), 3f / b, 0.9f, 0.5f, 1.0f));
     }
 
     /// <summary>Ore chunks: veined, flecked. <paramref name="rough"/> and <paramref name="metal"/> come from the item's look.</summary>
     public static StandardMaterial3D Ore(float rough, float metal) => Cached($"ore.{rough:F2}.{metal:F2}", () =>
-        Build(Set("ore", () => Gen.Ore(512, 9909), 3.5f), 0.8f, Math.Min(1f, rough / 0.8f), Math.Min(1f, metal / 0.7f), 1.0f));
+        Build(Set("ore", () => Gen.Ore(N(512), 9909), 3.5f), 0.8f, Math.Min(1f, rough / 0.8f), Math.Min(1f, metal / 0.7f), 1.0f));
 
     /// <summary>Ice, optionally see-through (alpha comes from the vertex colour).</summary>
     public static StandardMaterial3D Ice() => Cached("ice", () =>
-        Build(Set("ice", () => Gen.Ice(256, 1010), 2.5f), 1.2f, 0.9f, 0f, 0.8f));
+        Build(Set("ice", () => Gen.Ice(N(256), 1010), 2.5f), 1.2f, 0.9f, 0f, 0.8f));
 
     /// <summary>Crystal facets with an emission mask, for quartz, gems and unstable crystals.</summary>
     public static StandardMaterial3D Crystal(float rough, float metal) => Cached($"crystal.{rough:F2}.{metal:F2}", () =>
     {
-        var t = Set("crystal", () => Gen.Crystal(256, 1111), 2.0f, true);
+        var t = Set("crystal", () => Gen.Crystal(N(256), 1111), 2.0f, true);
         var m = Build(t, 0.7f, Math.Min(1f, rough / 0.5f), metal, 0.8f);
         m.EmissionTexture = t.Emission;
         return m;
@@ -152,7 +155,7 @@ public static class Materials
     public static StandardMaterial3D Belt()
     {
         if (_belt is not null) return _belt;
-        _belt = Build(Set("belt", () => Gen.Belt(256, 1212), 2.0f), 1f, 0.9f, 0.4f, 0.8f);
+        _belt = Build(Set("belt", () => Gen.Belt(N(256), 1212), 2.0f), 1f, 0.9f, 0.4f, 0.8f);
         _belt.Uv1Offset = new Vector3(0f, 0f, 0.5f); // the tile is centred on v = 0.5
         if (!_beltHooked)
         {

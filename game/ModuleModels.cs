@@ -908,9 +908,31 @@ public static partial class ModuleModels
         {
             mb.At(default, Models.Deg(0, 0, -90)).Prism(default, 0.55f, 0f, 0.8f, 8);
         }, new Vector3(x, y, 7.0f), new Vector3(0, -90, 0));
-        Models.Add(c.R, "GlowEngineTrail", "mod.flame.trail", Models.GlowAlpha(new Color(0.35f, 0.7f, 1f), 0.9f, 0.08f), mb =>
+        // The trail is built from slices whose alpha falls off along the length, in three nested cones (a hot centre, a soft rim), so it
+        // fades out instead of ending in a hard edge.
+        Models.Add(c.R, "GlowEngineTrail", "mod.flame.trail", Models.GlowFade(new Color(0.35f, 0.7f, 1f), 1.4f), mb =>
         {
-            mb.At(default, Models.Deg(0, 0, -90)).Prism(new(0, 0.8f, 0), 0.9f, 0.05f, 6.5f, 12);
+            const int slices = 9;
+            const float start = 0.8f, length = 6.5f, r0 = 0.9f, r1 = 0.05f;
+            foreach (var (scale, peak) in new[] { (1f, 0.10f), (0.62f, 0.15f), (0.3f, 0.22f) })
+                for (int i = 0; i < slices; i++)
+                {
+                    float s0 = (float)i / slices, s1 = (float)(i + 1) / slices;
+                    float a = peak * MathF.Pow(1f - (s0 + s1) / 2f, 1.7f);
+                    mb.At(default, Models.Deg(0, 0, -90)).C(new Color(1f, 1f, 1f, a));
+                    float rb = Mathf.Lerp(r0, r1, s0) * scale, rt = Mathf.Lerp(r0, r1, s1) * scale, yb = start + length * s0, yt = start + length * s1;
+                    var axis = new Vector3(0, (yb + yt) / 2f, 0);
+                    for (int j = 0; j < 12; j++) // open slices: no caps, so no discs show through the translucent trail
+                    {
+                        float q0 = Mathf.Tau * j / 12, q1 = Mathf.Tau * (j + 1) / 12;
+                        var b0 = new Vector3(MathF.Cos(q0) * rb, yb, MathF.Sin(q0) * rb);
+                        var b1 = new Vector3(MathF.Cos(q1) * rb, yb, MathF.Sin(q1) * rb);
+                        var t0 = new Vector3(MathF.Cos(q0) * rt, yt, MathF.Sin(q0) * rt);
+                        var t1 = new Vector3(MathF.Cos(q1) * rt, yt, MathF.Sin(q1) * rt);
+                        mb.Tri(b0, t0, b1, axis);
+                        mb.Tri(b1, t0, t1, axis);
+                    }
+                }
         }, new Vector3(x, y, 7.0f), new Vector3(0, -90, 0));
     }
 

@@ -488,6 +488,25 @@ public static partial class Models
         return m;
     }
 
+    /// <summary>A translucent emissive material whose alpha comes from the vertex colour, so a mesh can fade out along its length (engine trails).</summary>
+    internal static StandardMaterial3D GlowFade(Color c, float energy)
+    {
+        string key = $"glowfade.{c.ToHtml()}.{energy}";
+        if (!Mats.TryGetValue(key, out var m))
+            Mats[key] = m = new StandardMaterial3D
+            {
+                VertexColorUseAsAlbedo = true,
+                AlbedoColor = new Color(c.R, c.G, c.B, 1f),
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                EmissionEnabled = true,
+                Emission = c,
+                EmissionEnergyMultiplier = energy,
+            };
+        return m;
+    }
+
     internal static StandardMaterial3D GlassMat() => Materials.Glass();
 
     // ---- mesh plumbing -----------------------------------------------------------------------------

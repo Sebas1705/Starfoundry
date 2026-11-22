@@ -111,6 +111,10 @@ vec4 body(vec3 dir, vec3 bdir, float ang, vec3 ca, vec3 cb, vec3 atm, float band
         float band = sin(lat * 14.0 * bands + warp * 3.0) * 0.5 + 0.5;
         float crater = fbm(n * 6.0 + 9.0);
         vec3 albedo = mix(ca, cb, mix(crater, band, bands));
+        // Fine grain: turbulence along the bands (or mottling on a rocky world) and a few darker storm spots.
+        float fine = fbm(n * 11.0 + 3.0 + warp);
+        albedo *= 0.8 + 0.4 * fine;
+        albedo *= 1.0 - 0.3 * smoothstep(0.62, 0.72, fbm(n * 2.2 + 17.0)) * bands;
         float diff = dot(n, normalize(sdir));
         float lit = smoothstep(-0.12, 0.55, diff);
         float rim = pow(1.0 - z, 3.0) * smoothstep(-0.3, 0.5, diff);
@@ -127,7 +131,7 @@ vec4 body(vec3 dir, vec3 bdir, float ang, vec3 ca, vec3 cb, vec3 atm, float band
         q.y *= 3.6;
         float rr = length(q);
         float rband = smoothstep(1.45, 1.55, rr) * smoothstep(2.35, 2.2, rr);
-        float stripes = 0.7 + 0.3 * sin(rr * 17.0 + seed_offset) * sin(rr * 41.0);
+        float stripes = 0.7 + 0.3 * sin(rr * 17.0 + seed_offset) * sin(rr * 41.0) + 0.12 * sin(rr * 120.0 + fbm(vec3(rr * 6.0, seed_offset, 1.0)) * 6.0);
         float hidden = (q.y < 0.0 && r < 1.0) ? 0.0 : 1.0;
         float ra = rband * stripes * 0.8 * hidden;
         vec3 rc = mix(ca, cb, 0.5) * (0.35 + 0.8 * max(dot(normalize(vec3(t1 * 0.0 + t2 * 0.4 + bdir * 0.9)), normalize(sdir)), 0.0));
@@ -185,7 +189,7 @@ void sky() {
 
     private static WorldEnvironment? _env;
     private static ShaderMaterial? _skyMaterial;
-    private static DirectionalLight3D? _sun;
+    private static DirectionalLight3D? _sun, _fill;
     private static GpuParticles3D? _dust;
     private static Godot.Environment? _environment;
     private static GpuParticles3D? _streaks;
@@ -209,7 +213,7 @@ void sky() {
             BackgroundMode = Godot.Environment.BGMode.Sky,
             Sky = new Sky { SkyMaterial = _skyMaterial, RadianceSize = Sky.RadianceSizeEnum.Size128 },
             AmbientLightSource = Godot.Environment.AmbientSource.Sky,
-            AmbientLightEnergy = 1.1f,
+            AmbientLightEnergy = 1.35f,
             ReflectedLightSource = Godot.Environment.ReflectionSource.Sky,
             TonemapMode = Godot.Environment.ToneMapper.Aces,
             TonemapExposure = 1.05f,
@@ -237,6 +241,9 @@ void sky() {
 
         _sun = new DirectionalLight3D { LightEnergy = 1.1f, ShadowEnabled = false };
         root.AddChild(_sun);
+        // A faint cool fill from the opposite side: the faces turned away from the star read as dim metal, not as black cut-outs.
+        _fill = new DirectionalLight3D { LightEnergy = 0.3f, ShadowEnabled = false, LightSpecular = 0.2f };
+        root.AddChild(_fill);
 
         _dust = BuildDust();
         root.AddChild(_dust);
@@ -353,6 +360,11 @@ void sky() {
         var up = Mathf.Abs(sunDir.Y) > 0.95f ? Vector3.Right : Vector3.Up;
         _sun.Basis = Basis.LookingAt(-sunDir, up);
         _sun.LightColor = sunColor.Lerp(Colors.White, 0.4f);
+        if (_fill is not null)
+        {
+            _fill.Basis = Basis.LookingAt(sunDir * new Vector3(0.9f, -0.7f, 0.9f) + new Vector3(0f, 0.15f, 0f), up);
+            _fill.LightColor = new Color(0.62f, 0.72f, 1f);
+        }
     }
 
     private const float StreakStartSpeed = 4f, StreakFullSpeed = 22f;

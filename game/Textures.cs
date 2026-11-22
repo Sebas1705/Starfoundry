@@ -376,7 +376,7 @@ internal static class Gen
             float band = 0.5f + 0.5f * MathF.Sin((u + v) * Tau * 2f + Tn.Fbm(u, v, 3, 3, 2, seed) * 2f);
             float sheen = Tn.Smooth(0.82f, 1f, band);
             float smudge = Tn.Fbm(u, v, 6, 6, 4, seed + 3);
-            float a = 0.86f + 0.14f * sheen - 0.10f * Tn.Smooth(0.5f, 0.9f, smudge);
+            float a = 0.78f + 0.22f * sheen - 0.18f * Tn.Smooth(0.45f, 0.9f, smudge);
             s.H[i] = 0.04f * smudge;
             s.Ro[i] = 0.45f + 0.55f * Tn.Smooth(0.45f, 0.9f, smudge);
             s.Me[i] = 1f;
@@ -402,8 +402,8 @@ internal static class Gen
             int i = s.Ix(x, y);
             float nz = Tn.Fbm(u, v, 4, 4, 3, seed);
             float line = MathF.Min(MathF.Abs(((u * 4f) % 1f) - 0.5f), MathF.Abs(((v * 4f) % 1f) - 0.5f));
-            float e = 0.78f + 0.22f * nz;
-            if (line > 0.455f) e *= 0.55f;
+            float e = 0.66f + 0.34f * nz;
+            if (line > 0.455f) e *= 0.4f;
             s.Em[i] = e;
             float a = 0.9f - 0.1f * (1f - nz);
             s.Set(i, a, a, a);
@@ -513,7 +513,7 @@ internal static class Gen
             float fl = Tn.Smooth(0.74f, 0.8f, fleck);
             var (f1, f2, id) = Tn.Vor(u, v, 14, seed + 12);
             float pit = 1f - Tn.Smooth(0.05f, 0.25f, f1);
-            float a = 0.72f + 0.25f * m + 0.20f * vein + 0.2f * fl - 0.25f * pit * (id > 0.4f ? 1f : 0f);
+            float a = 0.6f + 0.36f * m + 0.28f * vein + 0.26f * fl - 0.32f * pit * (id > 0.4f ? 1f : 0f);
             s.H[i] = 0.9f * m - 0.5f * pit * (id > 0.4f ? 1f : 0f) + 0.15f * vein;
             s.Ro[i] = 0.85f - 0.55f * fl - 0.25f * vein;
             s.Me[i] = Math.Clamp(0.55f + 0.5f * fl + 0.25f * vein, 0f, 1f);

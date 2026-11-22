@@ -150,7 +150,7 @@ public partial class Gallery : Node3D
         GD.Print($"materials: every texture set built and cached in {clock.ElapsedMilliseconds} ms");
     }
 
-    /// <summary>--focus=belts: three tiers    /// <summary>--focus=belts: three tiers of belt tiles with every item on them, a vertical run and the three end caps.</summary>
+    /// <summary>--focus=belts: three tiers of belt tiles with every item on them, a vertical run and the three end caps.</summary>
     private void BuildBeltGallery()
     {
         Color[] tiers = { new(0.35f, 0.40f, 0.50f), new(0.20f, 0.55f, 0.60f), new(0.85f, 0.50f, 0.20f) };

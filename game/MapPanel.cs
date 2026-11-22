@@ -105,7 +105,7 @@ public partial class MapPanel : Control
 
     public override void _Draw()
     {
-        DrawRect(new Rect2(Vector2.Zero, Size), new Color(0.02f, 0.03f, 0.06f, 0.82f));
+        DrawRect(new Rect2(Vector2.Zero, Size), new Color(0.02f, 0.03f, 0.06f, 0.9f));
         DrawRect(new Rect2(Vector2.Zero, Size), new Color(0.4f, 0.5f, 0.7f, 0.6f), filled: false, width: 1f);
         _hits.Clear();
         if (_galaxy is null) return;
@@ -187,9 +187,35 @@ public partial class MapPanel : Control
             DrawCircle(at, (_visited(id) ? 5f : 3.5f) * k, color);
             if (id == _current) DrawArc(at, 9f * k, 0, Mathf.Tau, 24, Colors.White, 1.5f);
             if (id == _selected) DrawArc(at, 12f * k, 0, Mathf.Tau, 24, new Color(1f, 0.5f, 0.2f), 2f);
-            if (id == _current || id == _selected)
-                DrawString(font, at + new Vector2(13f, -9f), s.Name, HorizontalAlignment.Left, -1, 12, id == _selected ? new Color(1f, 0.7f, 0.4f) : Colors.White);
             _hits.Add((id, at));
+        }
+
+        // Names: the ship's system and the chosen one always; the rest only where there is room, near ones first, fainter with depth.
+        var taken = new List<Rect2>();
+        float NameWidth(string t, int size) => font.GetStringSize(t, HorizontalAlignment.Left, -1, size).X;
+        var labelOrder = new List<(int Id, Vector2 At, float Depth, float K)>(order);
+        labelOrder.Sort((x, y) =>
+        {
+            int Rank(int id) => id == _selected ? 0 : id == _current ? 1 : 2;
+            return Rank(x.Id) != Rank(y.Id) ? Rank(x.Id).CompareTo(Rank(y.Id)) : y.Depth.CompareTo(x.Depth);
+        });
+        foreach (var (id, at, depth, k) in labelOrder)
+        {
+            bool key = id == _current || id == _selected;
+            int fontSize = key ? 12 : 11;
+            string name = _galaxy.Systems[id].Name;
+            float w = NameWidth(name, fontSize);
+            var pos = at + new Vector2(13f * k, -9f * k);
+            if (pos.X + w > Size.X - 4f) pos.X = at.X - 13f * k - w; // flip to the left near the right edge
+            var rect = new Rect2(pos.X - 2f, pos.Y - fontSize, w + 4f, fontSize + 4f);
+            bool free = true;
+            foreach (var t in taken) if (t.Intersects(rect)) { free = false; break; }
+            if (!free && !key) continue;
+            taken.Add(rect);
+            float a = key ? 1f : Mathf.Clamp(0.85f - depth * 0.35f, 0.4f, 0.9f);
+            var c = id == _selected ? new Color(1f, 0.7f, 0.4f) : id == _current ? Colors.White : new Color(0.75f, 0.8f, 0.95f, a);
+            DrawString(font, pos + new Vector2(1f, 1f), name, HorizontalAlignment.Left, -1, fontSize, new Color(0f, 0f, 0f, 0.7f * a));
+            DrawString(font, pos, name, HorizontalAlignment.Left, -1, fontSize, c);
         }
 
         // The fixed galactic frame in the corner: the same axes as the flight gizmo, turned with the orbit.

@@ -667,12 +667,21 @@ void fragment() {
                 parent.AddChild(tn);
                 geo.BeltNodes.Add(tn);
             }
-            // end caps on flat belts: amber where a belt splits in two, red on a sink, green on a source
+            // end caps on belts (flat or vertical): amber where a belt splits in two, red on a sink, green on a source
             var caps = new List<(Vector3, Color)>();
             for (int i = 0; i < infos.Count; i++)
             {
                 var s = infos[i];
-                if (s.DirY != 0) continue;
+                if (s.DirY != 0)
+                {
+                    // a vertical run: the cap lies flat across the end of the item path (top end when it climbs, bottom end when it drops)
+                    var c0 = CellCenter(s.OriginX, s.OriginY, s.OriginZ);
+                    var c1 = CellCenter(s.OriginX, s.OriginY + s.DirY * (s.LengthCells - 1), s.OriginZ);
+                    if (Net.OutputCount(s.Id) >= 2) caps.Add((new Vector3(c1.X, c1.Y + 0.5f * s.DirY, c1.Z), new Color(1f, 0.78f, 0.2f)));
+                    else if (Net.IsSink(s.Id)) caps.Add((new Vector3(c1.X, c1.Y + 0.5f * s.DirY, c1.Z), new Color(0.95f, 0.3f, 0.25f)));
+                    if (Net.HasSource(s.Id)) caps.Add((new Vector3(c0.X, c0.Y - 0.5f * s.DirY, c0.Z), new Color(0.35f, 0.95f, 0.55f)));
+                    continue;
+                }
                 var first = new Vector3(s.OriginX + 0.5f, s.OriginY, s.OriginZ + 0.5f);
                 var last = first + new Vector3(s.DirX, 0, s.DirZ) * (s.LengthCells - 1);
                 if (Net.OutputCount(s.Id) >= 2) caps.Add((last, new Color(1f, 0.78f, 0.2f)));
@@ -810,6 +819,7 @@ void fragment() {
     // ---- exploration --------------------------------------------------------------------------------
 
     private MapPanel _map = null!;
+    private readonly bool _mapAllKnown = OS.GetCmdlineUserArgs().Contains("--map-all-known"); // a screenshot aid: the star map shows every system
     private Label _mapList = null!;
     private bool _mapOpen;
     private int _selectedSystem = -1;
@@ -851,7 +861,7 @@ void fragment() {
         if (!_mapOpen || Net.Galaxy is null) return;
         if (_selectedSystem < 0 || !Net.IsSystemKnown(_selectedSystem)) _selectedSystem = KnownSystems().FirstOrDefault();
         var nose = -_camera.GlobalTransform.Basis.Z;
-        _map.Show(Net.Galaxy, Net.IsSystemKnown, Net.IsSystemVisited, Net.CurrentSystem(Player), _selectedSystem, new System.Numerics.Vector3(nose.X, nose.Y, nose.Z));
+        _map.Show(Net.Galaxy, _mapAllKnown ? _ => true : Net.IsSystemKnown, Net.IsSystemVisited, Net.CurrentSystem(Player), _selectedSystem, new System.Numerics.Vector3(nose.X, nose.Y, nose.Z));
         _mapList.Text = L("map.title") + "\n" + string.Join("\n", KnownSystems().Select(SystemLine));
     }
 

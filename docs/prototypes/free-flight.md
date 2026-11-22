@@ -45,7 +45,7 @@ The simulation only supports axis-aligned structures and integer thrust vectors,
 ## Not tested
 
 - Real mouse and keyboard feel: sensitivity, the roll rate (1.5 radians a second), the head returning to the nose, whether `Z`/`X` are comfortable, and whether steering the ship with the mouse feels right for mining and docking by hand.
-- Legibility of a long upside-down flight, the usefulness of the gizmo, and the marker label clutter when several marks bunch together (the labels can overlap).
+- Legibility of a long upside-down flight and the usefulness of the gizmo. Marker labels no longer overlap: the most important mark (an enemy, the chosen deposit, the gate, the station) takes its label first, the others stack below or above it or lose the label (the diamond stays), and the ones past 160 cells fade towards 40 percent at 700. This was checked in screenshots only, not by hand.
 - The first frames after the mouse is captured: the head turns from the workshop to the nose.
 - The autopilot and the assisted docking approach at odd attitudes (they use world-space thrust and should not care, but were only run level).
 - The 3D map with a large galaxy (only four systems were known in the screenshots).

@@ -181,7 +181,7 @@ public static class ResearchView
         e.State != ResearchState.Locked ? ""
         : Loc.T("research.lockedBy", string.Join(", ", e.Missing.Select(r => Loc.Name("research", r.Id))));
 
-    /// <summary>One cost line as text ("12/90 iron plate"), or only the total for a node the lab has not been given anything for.</summary>
+    /// <summary>One cost line as text ("12/90x iron plate"), or only the total for a node the lab has not been given anything for.</summary>
     public static string CostLineText(ResearchCostLine c) =>
-        $"{c.Delivered}/{c.Needed} {Loc.Name("item", c.ItemId)}";
+        $"{c.Delivered}/{c.Needed}x {Loc.Name("item", c.ItemId)}";
 }
