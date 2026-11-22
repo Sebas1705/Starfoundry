@@ -51,6 +51,34 @@ public static class Materials
         return m;
     }
 
+    /// <summary>
+    /// A material mapped with real UVs instead of triplanar projection. The mesh builder (<see cref="Models.Mb"/>) writes planar UVs in
+    /// mesh-local units, so one texture repeat spans <paramref name="tile"/> units and, because a module is 8 x 4 x 8 units and every
+    /// module model sits on a multiple of that, the panel lines of neighbouring modules (and of the frame, deck and hull of one module)
+    /// meet exactly on cell borders. Chamfers are mapped in their own plane, so they never smear.
+    /// </summary>
+    private static StandardMaterial3D BuildPlanar(TexSet t, float tile, float rough, float metal, float normal)
+    {
+        var m = Build(t, tile, rough, metal, normal);
+        m.Uv1Triplanar = false;
+        m.Uv1Scale = new Vector3(1f / tile, 1f / tile, 1f);
+        Planar.Add(m);
+        return m;
+    }
+
+    private static readonly HashSet<StandardMaterial3D> Planar = new();
+
+    /// <summary>True for a material made by <see cref="BuildPlanar"/>: meshes built for it carry UVs and tangents.</summary>
+    public static bool IsPlanar(Material? m) => m is StandardMaterial3D sm && Planar.Contains(sm);
+
+    /// <summary>Hull plating for the modules of ships and stations, mapped on the module grid (a panel row every 4 cells, so seams meet across modules).</summary>
+    public static StandardMaterial3D ModuleHull() => Cached("mod.hull", () =>
+        BuildPlanar(Set("hull", () => Gen.HullPlating(N(512), 4, 1101, 3.2f * N(512) / 512f), 3.0f), 4f, 0.82f, 0.30f, 0.9f));
+
+    /// <summary>Structural metal for the frames, rails and trusses of the modules, on the same grid (a repeat every 2 cells, so it divides the hull's).</summary>
+    public static StandardMaterial3D ModuleStruct() => Cached("mod.struct", () =>
+        BuildPlanar(Set("struct", () => Gen.Structural(N(256), 3303), 2.0f), 2f, 0.65f, 0.75f, 0.8f));
+
     private static StandardMaterial3D Cached(string key, Func<StandardMaterial3D> make)
     {
         if (!Mats.TryGetValue(key, out var m)) Mats[key] = m = make();
@@ -81,14 +109,27 @@ public static class Materials
     public static StandardMaterial3D Burnt() => Cached("burnt", () =>
         Build(Set("burnt", () => Gen.Burnt(N(256), 4404), 2.5f), 1.5f, 0.75f, 0.8f, 0.9f));
 
-    /// <summary>Cockpit glass: the existing dark-blue tint, emissive glow kept, with sheen bands and smudges on top.</summary>
+    /// <summary>
+    /// Window glass: almost clear, a cool grey-blue tint and a low alpha, very smooth so the sun and the lamps leave sharp highlights, a faint
+    /// rim sheen at grazing angles and the streaks and smudges of the texture as a barely lit reflection. Two-sided (seen from both
+    /// sides of a window); use it with shadow casting off.
+    /// </summary>
     public static StandardMaterial3D Glass() => Cached("glass", () =>
     {
-        var m = Build(Set("glass", () => Gen.Glass(N(256), 5505), 1.0f), 3f, 0.30f, 0.5f, 0.4f, false);
-        m.AlbedoColor = new Color(0.10f, 0.20f, 0.36f) * 1.15f;
+        var t = Set("glass", () => Gen.Glass(N(256), 5505), 1.0f);
+        var m = Build(t, 3f, 0.06f, 0.0f, 0.25f, false);
+        m.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
+        m.CullMode = BaseMaterial3D.CullModeEnum.Disabled;
+        m.AlbedoColor = new Color(0.30f, 0.42f, 0.50f, 0.20f);
+        m.MetallicSpecular = 1.0f;
+        m.RimEnabled = true;
+        m.Rim = 0.7f;
+        m.RimTint = 0.4f;
         m.EmissionEnabled = true;
-        m.Emission = new Color(0.15f, 0.40f, 0.95f);
-        m.EmissionEnergyMultiplier = 0.4f;
+        m.EmissionTexture = t.Albedo;
+        m.Emission = new Color(0.10f, 0.16f, 0.22f);
+        m.EmissionEnergyMultiplier = 0.35f;
+        m.EmissionOperator = BaseMaterial3D.EmissionOperatorEnum.Multiply;
         return m;
     });
 

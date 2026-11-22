@@ -517,7 +517,7 @@ public static partial class Models
     {
         if (!MeshCache.TryGetValue(key, out var mesh))
         {
-            var mb = new Mb();
+            var mb = new Mb { Planar = Materials.IsPlanar(mat) };
             build(mb);
             if (mb.Tris == 0) return null; // nothing to draw (a part that only exists on some sides of a module)
             mesh = mb.ToMesh(mat);
@@ -578,6 +578,38 @@ public static partial class Models
             // Godot front faces are clockwise
             _v.Add(a); _v.Add(c); _v.Add(b);
             for (int i = 0; i < 3; i++) { _n.Add(n); _c.Add(_col); }
+            if (Planar) AddPlanar(a, c, b, n);
+        }
+
+        /// <summary>True when the mesh is for a planar-mapped material (<see cref="Materials.IsPlanar"/>): every triangle gets UVs and tangents.</summary>
+        public bool Planar;
+        private readonly List<Vector2> _uv = new();
+        private readonly List<float> _tan = new();
+
+        /// <summary>
+        /// Planar UVs in mesh-local units (the material scales them). A face whose normal is near an axis is projected along that axis, so a
+        /// wall, floor or roof keeps a continuous grid across neighbouring faces and modules; any other face (a chamfer, a nose slope) is mapped in
+        /// its own plane, u along the axis it is most perpendicular to and v along the face, so panels keep their size and never smear.
+        /// </summary>
+        private void AddPlanar(Vector3 a, Vector3 b, Vector3 c, Vector3 n)
+        {
+            float ax = MathF.Abs(n.X), ay = MathF.Abs(n.Y), az = MathF.Abs(n.Z);
+            Vector3 tu, tv;
+            if (ax >= 0.9f) { tu = Vector3.Back; tv = Vector3.Up; }
+            else if (ay >= 0.9f) { tu = Vector3.Right; tv = Vector3.Back; }
+            else if (az >= 0.9f) { tu = Vector3.Right; tv = Vector3.Up; }
+            else
+            {
+                tu = ax <= ay && ax <= az ? Vector3.Right : ay <= az ? Vector3.Up : Vector3.Back;
+                tv = n.Cross(tu).Normalized();
+                if (tv.LengthSquared() < 1e-6f) tv = Vector3.Up;
+            }
+            float sign = n.Cross(tu).Dot(tv) >= 0f ? 1f : -1f;
+            foreach (var p in new[] { a, b, c })
+            {
+                _uv.Add(new Vector2(p.Dot(tu), p.Dot(tv)));
+                _tan.Add(tu.X); _tan.Add(tu.Y); _tan.Add(tu.Z); _tan.Add(sign);
+            }
         }
 
         public void Quad(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 inside)
@@ -695,6 +727,7 @@ public static partial class Models
             arrays[(int)Mesh.ArrayType.Vertex] = _v.ToArray();
             arrays[(int)Mesh.ArrayType.Normal] = _n.ToArray();
             arrays[(int)Mesh.ArrayType.Color] = _c.ToArray();
+            if (Planar) { arrays[(int)Mesh.ArrayType.TexUV] = _uv.ToArray(); arrays[(int)Mesh.ArrayType.Tangent] = _tan.ToArray(); }
             mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
             mesh.SurfaceSetMaterial(mesh.GetSurfaceCount() - 1, mat);
         }
@@ -706,6 +739,7 @@ public static partial class Models
             arrays[(int)Mesh.ArrayType.Vertex] = _v.ToArray();
             arrays[(int)Mesh.ArrayType.Normal] = _n.ToArray();
             arrays[(int)Mesh.ArrayType.Color] = _c.ToArray();
+            if (Planar) { arrays[(int)Mesh.ArrayType.TexUV] = _uv.ToArray(); arrays[(int)Mesh.ArrayType.Tangent] = _tan.ToArray(); }
             var mesh = new ArrayMesh();
             mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
             mesh.SurfaceSetMaterial(0, mat);

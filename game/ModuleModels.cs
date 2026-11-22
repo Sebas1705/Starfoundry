@@ -27,6 +27,10 @@ public static partial class ModuleModels
     public const float H = StationGrid.ModuleY;
     public const float D = StationGrid.ModuleZ;
 
+    /// <summary>Plating and structural metal of the modules: planar-mapped on the module grid so seams line up across modules (see <see cref="Materials.ModuleHull"/>).</summary>
+    private static StandardMaterial3D ModuleHull() => Materials.ModuleHull();
+    private static StandardMaterial3D ModuleStruct() => Materials.ModuleStruct();
+
     private const float Roof = 3.88f;     // top of a full-height shell
     private const float StationFace = 0.14f; // a station shell stands this far inside the module box, between the frame beams
     private const float LowRoof = 3.0f;  // top of a shell that carries something on its roof (cupola, reactor drum, core pillar)
@@ -136,7 +140,7 @@ public static partial class ModuleModels
     /// The floor of one module: a plated deck that exists only inside the module, with a marking style per kind in the role colour
     /// (a hazard ring under a reactor, cargo lanes, a gold inlay round the core...), and a lit sill across every doorway.
     /// </summary>
-    private static void Deck(Cx c) => Models.Add(c.R, "Deck", $"mod.deck.{c.K}", Models.HullMat(), mb =>
+    private static void Deck(Cx c) => Models.Add(c.R, "Deck", $"mod.deck.{c.K}", ModuleHull(), mb =>
     {
         const float Top = 0.086f;
         var role = c.Role;
@@ -303,7 +307,7 @@ public static partial class ModuleModels
     private static void Skin(Cx c, float roofY, bool nose = false, bool tail = false, bool detail = false, bool collars = true, bool glassRoof = false)
     {
         string key = $"{c.K}.skin.{roofY}.{nose}.{tail}.{detail}.{collars}.{glassRoof}";
-        Models.Add(c.R, "Skin", key, Models.HullMat(), mb =>
+        Models.Add(c.R, "Skin", key, ModuleHull(), mb =>
         {
             mb.At(default);
             if (c.Ship)
@@ -434,7 +438,7 @@ public static partial class ModuleModels
     /// <summary>The load-bearing frame, visible from inside as well. Ship: eight longitudinal beams along the octagon and a ring at each end. Station: the twelve box edges with trim caps on the corners.</summary>
     private static void Frame(Cx c, float roofY, bool nose = false, bool tail = false)
     {
-        Models.Add(c.R, "Frame", $"{c.K}.frame.{roofY}.{nose}.{tail}", Models.Struct(), mb =>
+        Models.Add(c.R, "Frame", $"{c.K}.frame.{roofY}.{nose}.{tail}", ModuleStruct(), mb =>
         {
             mb.At(default);
             if (c.Ship)
@@ -536,7 +540,7 @@ public static partial class ModuleModels
         {
             if (!c.Has(lateral ? Right : Rear)) continue;
             if (c.Has(lateral ? DockedRight : DockedRear)) continue; // a docked side has an airlock instead of a plain joint
-            Models.Add(c.R, "Joint", $"{c.K}.joint.{lateral}", Models.Struct(), mb =>
+            Models.Add(c.R, "Joint", $"{c.K}.joint.{lateral}", ModuleStruct(), mb =>
             {
                 mb.At(default);
                 float wall = lateral ? W - 0.14f : D - 0.14f; // the wall plane, a hair inside the module box
@@ -577,7 +581,7 @@ public static partial class ModuleModels
         {
             if (!c.Has(docked)) continue;
             string side = (lateral ? "L" : "F") + (far ? "1" : "0");
-            Models.Add(c.R, "Airlock" + side, $"{c.K}.airlock.{side}", Models.HullMat(), mb =>
+            Models.Add(c.R, "Airlock" + side, $"{c.K}.airlock.{side}", ModuleHull(), mb =>
             {
                 mb.At(default);
                 float edge = lateral ? W : D;
@@ -659,7 +663,7 @@ public static partial class ModuleModels
     {
         Skin(c, Roof, detail: true);
         Frame(c, Roof);
-        Models.Add(c.R, "Lanes", $"{c.K}.lanes", Models.Struct(), mb =>
+        Models.Add(c.R, "Lanes", $"{c.K}.lanes", ModuleStruct(), mb =>
         {
             mb.At(default);
             for (int i = 0; i < 8; i++)
@@ -671,7 +675,7 @@ public static partial class ModuleModels
             mb.C(c.Role).Block(new(4, 0.1f, 4), new(1.6f, 0.02f, 1.6f));
         });
         if (!c.Ship) return;
-        Models.Add(c.R, "Collars", $"{c.K}.collars", Models.Struct(), mb =>
+        Models.Add(c.R, "Collars", $"{c.K}.collars", ModuleStruct(), mb =>
         {
             foreach (var (side, _, pos, rot) in CollarSpots(-0.03f))
             {
@@ -746,7 +750,7 @@ public static partial class ModuleModels
     private static void ShipFins(Cx c)
     {
         if (c.Kind != ModuleKind.Hull && c.Kind != ModuleKind.Cargo && c.Kind != ModuleKind.Reactor) return;
-        Models.Add(c.R, "Fins", $"{c.K}.fins", Models.Struct(), mb =>
+        Models.Add(c.R, "Fins", $"{c.K}.fins", ModuleStruct(), mb =>
         {
             mb.At(default);
             foreach (float s in new[] { -1f, 1f })
@@ -765,7 +769,7 @@ public static partial class ModuleModels
     {
         // Solar arrays on exposed flanks of hull and cargo modules: a boom with two panels.
         if (c.Kind is ModuleKind.Hull or ModuleKind.Cargo or ModuleKind.Reactor or ModuleKind.ReactorMk2)
-            Models.Add(c.R, "Rigging", $"{c.K}.rigging", Models.Struct(), mb =>
+            Models.Add(c.R, "Rigging", $"{c.K}.rigging", ModuleStruct(), mb =>
             {
                 mb.At(default);
                 foreach (float s in new[] { -1f, 1f })
@@ -797,7 +801,7 @@ public static partial class ModuleModels
             });
         // An antenna dish on the roof of a hull or cargo module with nothing above it.
         if (c.Kind is ModuleKind.Hull or ModuleKind.Cargo && !c.Has(Up))
-            Models.Add(c.R, "Mast", $"{c.K}.antenna", Models.Struct(), mb =>
+            Models.Add(c.R, "Mast", $"{c.K}.antenna", ModuleStruct(), mb =>
             {
                 mb.At(default).C(Steel).Prism(new(1.4f, roof, 1.4f), 0.22f, 0.16f, 1.2f, 8);
                 mb.C(c.Role).Prism(new(1.4f, roof + 1.2f, 1.4f), 0.2f, 0.2f, 0.06f, 8);
@@ -833,7 +837,7 @@ public static partial class ModuleModels
         else
             Models.Add(c.R, "Canopy", $"{c.K}.canopy", Models.GlassMat(), mb => Dome(mb, new(4, 3.05f, 4), new(3.4f, 0.85f, 3.4f), 3, 12));
 
-        Models.Add(c.R, "Seat", $"{c.K}.seat", Models.HullMat(), mb =>
+        Models.Add(c.R, "Seat", $"{c.K}.seat", ModuleHull(), mb =>
         {
             mb.At(default).C(Dark).Block(new(4, 0.4f, 4.6f), new(0.5f, 0.7f, 0.5f));
             mb.C(Steel).Block(new(4, 0.82f, 4.6f), new(1.3f, 0.3f, 1.3f));
@@ -844,7 +848,7 @@ public static partial class ModuleModels
             mb.C(Dark).Beam(new(3.4f, 0.1f, 3.5f), new(3.4f, 1.2f, 3.5f), 0.1f);
             mb.C(Steel).Block(new(3.4f, 1.28f, 3.5f), new(0.28f, 0.14f, 0.28f));
         });
-        Models.Add(c.R, "Console", $"{c.K}.console", Models.HullMat(), mb =>
+        Models.Add(c.R, "Console", $"{c.K}.console", ModuleHull(), mb =>
         {
             mb.At(default).C(Dark).Block(new(4, 0.55f, 2.25f), new(3.6f, 1.0f, 1.0f), 1f, 0.45f);
             mb.C(Steel).Block(new(4, 1.08f, 2.25f), new(3.7f, 0.08f, 0.55f));
@@ -861,7 +865,7 @@ public static partial class ModuleModels
         bool tail = c.Ship && !c.Has(Rear);
         Skin(c, Roof, tail: tail);
         Frame(c, Roof, tail: tail);
-        Models.Add(c.R, "Machinery", $"{c.K}.machinery", Models.HullMat(), mb =>
+        Models.Add(c.R, "Machinery", $"{c.K}.machinery", ModuleHull(), mb =>
         {
             mb.At(default).C(Dark).Block(new(4, 0.8f, 2.4f), new(5.2f, 1.4f, 3.2f));
             mb.C(c.Acc).Block(new(4, 1.52f, 2.4f), new(5.3f, 0.1f, 3.3f));
@@ -940,7 +944,7 @@ public static partial class ModuleModels
     {
         Skin(c, LowRoof);
         Frame(c, LowRoof);
-        Models.Add(c.R, "Containment", $"{c.K}.containment", Models.HullMat(), mb =>
+        Models.Add(c.R, "Containment", $"{c.K}.containment", ModuleHull(), mb =>
         {
             mb.At(default).C(Steel).Prism(new(4, 0.08f, 4), 1.5f, 1.3f, 0.35f, 10);
             foreach (float y in new[] { 1.0f, 2.2f, 3.2f })
@@ -972,7 +976,7 @@ public static partial class ModuleModels
     {
         Skin(c, Roof, detail: false);
         Frame(c, Roof);
-        Models.Add(c.R, "Hatch", $"{c.K}.hatch", Models.HullMat(), mb =>
+        Models.Add(c.R, "Hatch", $"{c.K}.hatch", ModuleHull(), mb =>
         {
             mb.At(default).C(Dark).Block(new(4, Roof + 0.04f, 4), new(3.0f, 0.05f, 3.0f));
             mb.C(Yellow);
@@ -992,7 +996,7 @@ public static partial class ModuleModels
                 for (int i = 0; i < 4; i++) mb.Block(new(o + (x == 0 ? -0.02f : 0.02f), 1.95f, 2.7f + i * 0.87f), new(0.05f, 1.5f, 0.12f));
             }
         });
-        Models.Add(c.R, "Cargo", $"{c.K}.cargo", Models.HullMat(), mb =>
+        Models.Add(c.R, "Cargo", $"{c.K}.cargo", ModuleHull(), mb =>
         {
             mb.At(default);
             // a three-level rack along the left wall
@@ -1027,7 +1031,7 @@ public static partial class ModuleModels
     private static void Workshop(Cx c)
     {
         Frame(c, Roof);
-        Models.Add(c.R, "Rails", $"{c.K}.rails", Models.Struct(), mb =>
+        Models.Add(c.R, "Rails", $"{c.K}.rails", ModuleStruct(), mb =>
         {
             mb.At(default).C(Steel);
             foreach (float x in new[] { 1.2f, W - 1.2f })
@@ -1037,7 +1041,7 @@ public static partial class ModuleModels
             Stripes(mb, 0.4f, W - 0.4f, 0.12f, 0.28f, 0.088f, 9, Yellow, Dark);
             Stripes(mb, 0.4f, W - 0.4f, D - 0.4f, 0.28f, 0.088f, 9, Yellow, Dark);
         });
-        Models.Add(c.R, "Truss", $"{c.K}.truss", Models.Struct(), mb =>
+        Models.Add(c.R, "Truss", $"{c.K}.truss", ModuleStruct(), mb =>
         {
             mb.At(default).C(c.Ship ? Panel : Steel);
             // two lattice girders along Z with a gantry rail across them
@@ -1069,7 +1073,7 @@ public static partial class ModuleModels
                     mb.Block(new(x, Roof - 0.78f, z), new(0.4f, 0.06f, 0.4f));
         });
         if (c.Ship)
-            Models.Add(c.R, "Skirt", $"{c.K}.skirt", Models.Struct(), mb =>
+            Models.Add(c.R, "Skirt", $"{c.K}.skirt", ModuleStruct(), mb =>
             {
                 mb.At(default).C(White);
                 foreach (float x in new[] { 0.2f, W - 0.2f })
@@ -1079,7 +1083,7 @@ public static partial class ModuleModels
                     mb.Block(new(x, 0.62f, 4), new(0.08f, 0.1f, D - 0.4f));
             });
         else
-            Models.Add(c.R, "Kerb", $"{c.K}.kerb", Models.Struct(), mb =>
+            Models.Add(c.R, "Kerb", $"{c.K}.kerb", ModuleStruct(), mb =>
             {
                 mb.At(default).C(Slab);
                 foreach (float x in new[] { 0.2f, W - 0.2f })
@@ -1089,7 +1093,7 @@ public static partial class ModuleModels
 
     private static void Defence(Cx c)
     {
-        Models.Add(c.R, "Parapet", $"{c.K}.parapet", Models.Struct(), mb =>
+        Models.Add(c.R, "Parapet", $"{c.K}.parapet", ModuleStruct(), mb =>
         {
             mb.At(default);
             float top = c.Ship ? 0.3f : 0.75f;
@@ -1121,7 +1125,7 @@ public static partial class ModuleModels
     {
         var t = new Node3D { Name = $"Turret{n}", Position = pos };
         c.R.AddChild(t);
-        Models.Add(t, "Mount", $"{c.K}.mount", Models.HullMat(), mb =>
+        Models.Add(t, "Mount", $"{c.K}.mount", ModuleHull(), mb =>
         {
             mb.At(default).C(Dark).Prism(new(0, 0.07f, 0), 0.95f, 0.95f, 0.2f, 8);
             mb.C(Steel).Prism(new(0, 0.27f, 0), 0.8f, 0.55f, 0.35f, 8);
@@ -1129,7 +1133,7 @@ public static partial class ModuleModels
         });
         var head = Models.Pivot(t, "Head", new(0, 0.9f, 0));
         head.RotationDegrees = new Vector3(0, 90, 0); // faces -Z (the ship's front) until something aims it
-        Models.Add(head, "HeadMesh", $"{c.K}.head", Models.HullMat(), mb =>
+        Models.Add(head, "HeadMesh", $"{c.K}.head", ModuleHull(), mb =>
         {
             mb.At(default).C(c.Ship ? White : Steel).Prism(new(0, -0.2f, 0), 0.62f, 0.5f, 0.45f, 8);
             mb.C(Dark).Sphere(new(0, 0.24f, 0), new(0.4f, 0.26f, 0.4f), 2, 8, dome: true);
@@ -1166,7 +1170,7 @@ public static partial class ModuleModels
         const float roof = 1.2f;
         Skin(c, roof, detail: true, collars: false);
         Frame(c, roof);
-        Models.Add(c.R, "Pylon", $"{c.K}.pylon", Models.HullMat(), mb =>
+        Models.Add(c.R, "Pylon", $"{c.K}.pylon", ModuleHull(), mb =>
         {
             mb.At(default).C(Dark).Prism(new(4, roof, 4), 1.5f, 1.2f, 0.2f, 8);
             mb.C(Steel).Prism(new(4, roof + 0.2f, 4), 0.6f, 0.38f, 1.4f, 8);
@@ -1204,14 +1208,14 @@ public static partial class ModuleModels
         const float roof = 2.2f;
         Skin(c, roof, detail: true, collars: false);
         Frame(c, roof);
-        Models.Add(c.R, "Mast", $"{c.K}.mast", Models.Struct(), mb =>
+        Models.Add(c.R, "Mast", $"{c.K}.mast", ModuleStruct(), mb =>
         {
             mb.At(default).C(Dark).Prism(new(4, roof, 4), 1.2f, 1.0f, 0.14f, 8);
             mb.C(Steel).Prism(new(4, roof + 0.1f, 4), 0.28f, 0.2f, 0.62f, 8);
             mb.C(c.Acc).Prism(new(4, roof + 0.32f, 4), 0.34f, 0.34f, 0.07f, 8);
         });
         var dish = Models.Pivot(c.R, "Dish", new(4, roof + 0.78f, 4));
-        Models.Add(dish, "Bowl", $"{c.K}.bowl", Models.HullMat(), mb =>
+        Models.Add(dish, "Bowl", $"{c.K}.bowl", ModuleHull(), mb =>
         {
             // a dish facing +X and tilted up: a cone that widens towards the front, a dark inner face, a feed horn on three struts
             mb.At(new(0, 0.28f, 0), Models.Deg(0, 0, -52)).C(c.Ship ? White : Panel).Prism(new(0, 0, 0), 0.3f, 1.75f, 0.6f, 16);
@@ -1252,7 +1256,7 @@ public static partial class ModuleModels
     {
         Skin(c, LowRoof);
         Frame(c, LowRoof);
-        Models.Add(c.R, "Containment", $"{c.K}.containment", Models.HullMat(), mb =>
+        Models.Add(c.R, "Containment", $"{c.K}.containment", ModuleHull(), mb =>
         {
             mb.At(default).C(Steel).Prism(new(4, 0.08f, 4), 1.95f, 1.7f, 0.4f, 12);
             mb.C(c.Acc).Prism(new(4, 0.46f, 4), 1.98f, 1.98f, 0.06f, 12);
@@ -1297,7 +1301,7 @@ public static partial class ModuleModels
     public static Node3D DroneCraft(string name = "Drone")
     {
         var n = new Node3D { Name = name };
-        Models.Add(n, "Hull", "mod.drone.hull", Models.HullMat(), mb =>
+        Models.Add(n, "Hull", "mod.drone.hull", ModuleHull(), mb =>
         {
             mb.At(default).C(White).Block(new(0, 0, 0), new(0.46f, 0.2f, 0.84f), 0.7f, 0.5f);
             mb.C(Dark).Block(new(0, 0.12f, 0.08f), new(0.3f, 0.07f, 0.38f));
@@ -1326,7 +1330,7 @@ public static partial class ModuleModels
     {
         float wall = c.Ship ? 0.25f : StationFace + 0.1f;
         Frame(c, Roof);
-        Models.Add(c.R, "Hangar", $"{c.K}.hangar", Models.HullMat(), mb =>
+        Models.Add(c.R, "Hangar", $"{c.K}.hangar", ModuleHull(), mb =>
         {
             mb.At(default).C(c.Ship ? White : Slab);
             foreach (float x in new[] { wall, W - wall })
@@ -1358,12 +1362,12 @@ public static partial class ModuleModels
         });
         Models.Add(c.R, "GlowDoor", $"{c.K}.door", Models.Glow(Amber, 1.5f), mb =>
             mb.At(default).Block(new(4, 1.45f, D - wall - 0.33f), new(3.3f, 2.6f, 0.03f)));
-        Models.Add(c.R, "DoorSlats", $"{c.K}.slats", Models.Struct(), mb =>
+        Models.Add(c.R, "DoorSlats", $"{c.K}.slats", ModuleStruct(), mb =>
         {
             mb.At(default).C(Dark);
             for (int i = 0; i < 5; i++) mb.Block(new(4, 0.45f + i * 0.52f, D - wall - 0.35f), new(3.4f, 0.07f, 0.03f));
         });
-        Models.Add(c.R, "Mast", $"{c.K}.mast", Models.Struct(), mb =>
+        Models.Add(c.R, "Mast", $"{c.K}.mast", ModuleStruct(), mb =>
         {
             mb.At(default).C(Steel).Prism(new(W - 0.9f, 0.08f, 1.0f), 0.14f, 0.1f, 1.6f, 8);
             mb.C(Dark).Prism(new(W - 0.9f, 1.62f, 1.0f), 0.2f, 0.2f, 0.1f, 8);
@@ -1385,7 +1389,7 @@ public static partial class ModuleModels
     {
         Skin(c, LowRoof, detail: false);
         Frame(c, LowRoof);
-        Models.Add(c.R, "Pillar", $"{c.K}.pillar", Models.Struct(), mb =>
+        Models.Add(c.R, "Pillar", $"{c.K}.pillar", ModuleStruct(), mb =>
         {
             mb.At(default).C(Dark).Prism(new(4, 0.08f, 4), 2.0f, 1.7f, 0.22f, 8);
             mb.C(Steel).Prism(new(4, 0.3f, 4), 1.1f, 0.8f, 0.5f, 8);
