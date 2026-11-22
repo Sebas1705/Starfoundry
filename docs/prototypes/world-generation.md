@@ -37,6 +37,8 @@ Star types scale the veins (90 to 160 percent) and the density of rocks (50 to 1
 - Deposits are not solid.
 
 ## Collision damage and balance
+With a turned ship ([ADR 0030](../adr/0030-ship-attitude-in-the-simulation.md)) the module boxes are tested where the attitude puts them; the rules below are unchanged.
+
 A ship at base speed closes at 48 units a tick. Damage is `kind damage * (v^2 - 10^2) / (48^2 - 10^2)`, at least 1, at most 16 times the kind's damage, once per 60 ticks per structure.
 
 | Impact | Closing speed | Damage to the module that hits (cockpit 150 hp, engine 200 hp) |

@@ -1147,6 +1147,7 @@ void fragment() {
     {
         float alpha = (float)Engine.GetPhysicsInterpolationFraction();
         UpdateAttitude((float)delta); // free flight: roll, the settle onto a port, the head back to the nose
+        SyncAttitude(); // ADR 0030: the simulation learns the ship attitude
         UpdateDock((float)delta); // the docking guidance and the settling slide: before anything reads the ship position
         UpdateStructureRoots(alpha); // first: the machine and item nodes are children of these roots
         DrawItems(alpha);

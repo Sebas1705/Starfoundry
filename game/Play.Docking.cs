@@ -102,7 +102,7 @@ public partial class Play
     {
         if (!_dockNear) return;
         var (_, station) = CandidatePorts(_dockCand);
-        add(L("mark.dockPort"), _dockCand.InRange && _dockCand.SlowEnough ? new Color(0.35f, 1f, 0.55f) : new Color(0.3f, 0.9f, 0.85f), station, 2f);
+        add(L("mark.dockPort"), _dockCand.InRange && _dockCand.SlowEnough && _dockCand.Aligned ? new Color(0.35f, 1f, 0.55f) : new Color(0.3f, 0.9f, 0.85f), station, 2f);
     }
 
     /// <summary>What the key panel needs to know about docking.</summary>
@@ -112,7 +112,7 @@ public partial class Play
         if (Net.TryGetDock(Player, out var d)) return (DockHint.Docked, false, 0, 0, Net.StockTotal(d.Station), Net.StockCapacity(d.Station));
         if (!_dockNear) return (DockHint.None, false, 0, 0, 0, 0);
         int speed = (int)(_dockCand.SpeedMilli * 100L / (DockRules.MaxSpeedUnitsPerTick * 1000L));
-        return (DockHint.Near, _dockCand.InRange && _dockCand.SlowEnough, (int)(_dockCand.DistanceUnits / Units.CellUnits), speed, 0, 0);
+        return (DockHint.Near, _dockCand.InRange && _dockCand.SlowEnough && _dockCand.Aligned, (int)(_dockCand.DistanceUnits / Units.CellUnits), speed, 0, 0);
     }
 
     // ---- keys ------------------------------------------------------------------------------------------
@@ -133,7 +133,7 @@ public partial class Play
         if (Standing) { ToastLogistics(L("toast.sitToFly")); return; }
         if (!_dockNear) { ToastLogistics(L("toast.noPortNear", DockGuideCells)); return; }
         if (_dockAssist) { _dockAssist = false; SendThrust((0, 0, 0), force: true); ToastLogistics(L("toast.approachCancelled")); return; }
-        if (_dockCand.InRange && _dockCand.SlowEnough)
+        if (_dockCand.InRange && _dockCand.SlowEnough && _dockCand.Aligned)
         {
             Send(new DockAt(_dockCand.Station, _dockCand.Mx, _dockCand.My, _dockCand.Mz, _dockCand.Face));
             return;
@@ -218,7 +218,7 @@ public partial class Play
         float lateral = (rel - outv * along).Length();
         float dist = rel.Length();
 
-        if (dist <= DockAssistFinishCells && c.SlowEnough)
+        if (dist <= DockAssistFinishCells && c.SlowEnough && c.Aligned)
         {
             if (_world.PendingCommands == 0) Send(new DockAt(c.Station, c.Mx, c.My, c.Mz, c.Face));
             return (0, 0, 0);

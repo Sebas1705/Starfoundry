@@ -499,6 +499,16 @@ public sealed class SimWorld
                 Network.SetBoost(player, sb.On);
                 return Reject.None;
 
+            case SetAttitude sa:
+            {
+                if (!Network.StructureRules) return Reject.NotAllowedHere;
+                if (!Attitude.TryCreate(sa.W, sa.X, sa.Y, sa.Z, out var attitude)) return Reject.InvalidArgument;
+                if (Network.ShipStructure(player) < 0 || Network.ShipLost(player)) return Reject.NoSuchStructure;
+                if (!attitude.IsIdentity && Network.IsDocked(player)) return Reject.Docked; // a docked ship sits on the port's axes
+                Network.SetShipAttitude(player, attitude);
+                return Reject.None;
+            }
+
             case FireLaser fl:
                 if (Network.Content is null) return Reject.NoContent;
                 if (Network.MiningDeposit(player) < 0) return Reject.InvalidArgument; // nothing to fire at: start mining first
@@ -1018,10 +1028,8 @@ public sealed class SimWorld
         {
             foreach (var (m, _) in other.Modules)
             {
-                long mx0 = other.OriginX + (long)m.Mx * StationGrid.ModuleX * cu, my0 = other.OriginY + (long)m.My * StationGrid.ModuleY * cu,
-                    mz0 = other.OriginZ + (long)m.Mz * StationGrid.ModuleZ * cu;
-                if (ox < mx0 + StationGrid.ModuleX * cu && mx0 < ex && oy < my0 + StationGrid.ModuleY * cu && my0 < ey
-                    && oz < mz0 + StationGrid.ModuleZ * cu && mz0 < ez)
+                var (bmin, bmax) = Network.ModuleWorldBounds(other, m); // a turned ship counts by the box around its turned modules
+                if (ox < bmax.X && bmin.X < ex && oy < bmax.Y && bmin.Y < ey && oz < bmax.Z && bmin.Z < ez)
                     return Reject.Overlap;
             }
         }

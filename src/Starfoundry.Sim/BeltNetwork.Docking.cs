@@ -45,7 +45,7 @@ public readonly record struct DockPort(int Structure, int Mx, int My, int Mz, Di
 /// <param name="DistanceUnits">Distance in units between the centre of the ship's port and the station's port.</param>
 /// <param name="SpeedMilli">The ship's commanded speed in thousandths of a unit per tick.</param>
 public readonly record struct DockCandidate(
-    int Station, int Mx, int My, int Mz, Dir Face, int ShipMx, int ShipMy, int ShipMz, long DistanceUnits, int SpeedMilli, bool InRange, bool SlowEnough);
+    int Station, int Mx, int My, int Mz, Dir Face, int ShipMx, int ShipMy, int ShipMz, long DistanceUnits, int SpeedMilli, bool InRange, bool SlowEnough, bool Aligned = true);
 
 /// <summary>The docking state of a ship.</summary>
 public readonly record struct DockState(
@@ -97,10 +97,12 @@ public sealed partial class BeltNetwork
     /// <summary>World position (units) of the centre of a port: the middle of the module face it opens on.</summary>
     public (long X, long Y, long Z) PortWorldPoint(int structure, int mx, int my, int mz, Dir face)
     {
-        var (cx, cy, cz) = ModuleWorldCentre(structure, mx, my, mz);
+        var s = GetStructure(structure);
         var (dx, dz) = FaceStep(face);
         long cu = Units.CellUnits;
-        return (cx + dx * (StationGrid.ModuleX / 2) * cu, cy, cz + dz * (StationGrid.ModuleZ / 2) * cu);
+        return StructureToWorld(s, ((long)mx * StationGrid.ModuleX + StationGrid.ModuleX / 2 + dx * (StationGrid.ModuleX / 2)) * cu,
+                ((long)my * StationGrid.ModuleY + StationGrid.ModuleY / 2) * cu,
+                ((long)mz * StationGrid.ModuleZ + StationGrid.ModuleZ / 2 + dz * (StationGrid.ModuleZ / 2)) * cu);
     }
 
     // ---- state ---------------------------------------------------------------------------------------
@@ -205,7 +207,7 @@ public sealed partial class BeltNetwork
         long range = (long)DockRules.RangeCells * Units.CellUnits;
         int speed = ShipSpeedMilli(player);
         candidate = new DockCandidate(station, mx, my, mz, face, shipKey.Mx, shipKey.My, shipKey.Mz, ISqrt(distSq), speed,
-            distSq <= range * range, speed <= DockRules.MaxSpeedUnitsPerTick * 1000);
+            distSq <= range * range, speed <= DockRules.MaxSpeedUnitsPerTick * 1000, ship.Attitude.IsDockAligned);
         return true;
     }
 
@@ -251,11 +253,11 @@ public sealed partial class BeltNetwork
             if (other.Id == ship.Id) continue;
             foreach (var om in other.ModuleMap.Keys)
             {
-                long ax = other.OriginX + om.Mx * sx, ay = other.OriginY + om.My * sy, az = other.OriginZ + om.Mz * sz;
+                var (bmin, bmax) = ModuleWorldBounds(other, om); // a turned ship is bounded by its box around the turned module
                 foreach (var m in ship.ModuleMap.Keys)
                 {
                     long bx = ox + m.Mx * sx, by = oy + m.My * sy, bz = oz + m.Mz * sz;
-                    if (ax < bx + sx && bx < ax + sx && ay < by + sy && by < ay + sy && az < bz + sz && bz < az + sz) return true;
+                    if (bmin.X < bx + sx && bx < bmax.X && bmin.Y < by + sy && by < bmax.Y && bmin.Z < bz + sz && bz < bmax.Z) return true;
                 }
             }
         }
@@ -279,6 +281,7 @@ public sealed partial class BeltNetwork
         if (!TryDockCandidate(player, d.Station, d.Mx, d.My, d.Mz, d.Face, out candidate)) return Reject.NoFreePort;
         if (!candidate.InRange) return Reject.OutOfRange;
         if (!candidate.SlowEnough) return Reject.TooFast;
+        if (!candidate.Aligned) return Reject.Misaligned;
         pose = DockPose(st, (d.Mx, d.My, d.Mz), d.Face, (candidate.ShipMx, candidate.ShipMy, candidate.ShipMz));
         if (DockPoseOverlaps(ship, pose.X, pose.Y, pose.Z)) return Reject.Overlap;
         return Reject.None;
@@ -290,6 +293,7 @@ public sealed partial class BeltNetwork
         var p = _players[player];
         var ship = _structures[p.ShipStructure];
         ship.OriginX = pose.X; ship.OriginY = pose.Y; ship.OriginZ = pose.Z;
+        ship.Attitude = Attitude.Identity; // the ship settles onto the port's axes: the pose is lattice aligned
         SyncPlayerToStructure(p, ship);
         p.MoveX = p.MoveY = p.MoveZ = 0;
         p.ClearThrust();

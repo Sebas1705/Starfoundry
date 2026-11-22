@@ -62,6 +62,7 @@ public static class RejectTexts
         Reject.TooFast => "toast.reject.tooFast",
         Reject.NoRoom => "toast.reject.noRoom",
         Reject.AlreadyDocked => "toast.reject.alreadyDocked",
+        Reject.Misaligned => "toast.reject.misaligned",
         _ => null,
     };
 }

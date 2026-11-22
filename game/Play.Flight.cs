@@ -7,8 +7,8 @@ namespace Starfoundry.Game;
 /// <summary>
 /// Free flight (see docs/prototypes/free-flight.md). In space there is no up: the ship's attitude is a quaternion turned only about the ship's
 /// own axes (mouse = pitch and yaw, Z/X or the arrow keys = roll), with no pitch limit, no horizon lock and no levelling. The attitude is a
-/// client-side matter: the simulation only ever sees the thrust as a world-space vector, which the client computes from the attitude, so the
-/// command log, the saves and the replays are unchanged. The ship's structure root is turned about the pilot seat, so the seat (and the eye)
+/// client-side matter for steering (the thrust is a world-space vector the client computes from the attitude); since ADR 0030 the quantised attitude is also sent
+/// as SetAttitude so the simulation turns the ship's hit boxes with it (SyncAttitude below). The ship's structure root is turned about the pilot seat, so the seat (and the eye)
 /// stay where the simulation puts the ship.
 ///
 /// Walking inside a ship or station keeps an upright yaw/pitch controller: the "head" (<c>_yaw</c>, <c>_pitch</c>) is always relative to the
@@ -95,12 +95,43 @@ public partial class Play
             if (MathF.Abs(_yaw) < 1e-3f) _yaw = 0f;
             if (MathF.Abs(_pitch) < 1e-3f) _pitch = 0f;
         }
-        else if (IsDockedNow)
+        if (_dockAssist && !IsDockedNow)
+        {
+            // The assisted approach turns the ship onto the port's axes as it closes in: the simulation only docks within about 15 degrees of them.
+            _shipQuat = FlightOrientation.AngleFromIdentity(_shipQuat) < 0.002f
+                ? System.Numerics.Quaternion.Identity
+                : FlightOrientation.Align(_shipQuat, 1f - MathF.Exp(-DockAlignRate * 0.6f * dt));
+        }
+        else if (!Piloting && IsDockedNow)
         {
             // A docking port is axis-aligned: once locked on, the ship eases back onto the port's axes.
             _shipQuat = FlightOrientation.AngleFromIdentity(_shipQuat) < 0.002f
                 ? System.Numerics.Quaternion.Identity
                 : FlightOrientation.Align(_shipQuat, 1f - MathF.Exp(-DockAlignRate * dt));
         }
+    }
+
+    // ---- the simulation's attitude (ADR 0030) ---------------------------------------------------------------
+
+    private readonly AttitudeThrottle _attitudeThrottle = new();
+    private bool _attitudeSynced;
+
+    /// <summary>
+    /// Keeps the simulation's attitude of the ship equal to the pilot's: the first time a ship exists the client adopts the simulation's attitude
+    /// (a loaded game replays its SetAttitude commands), after that the quantised attitude is sent through <see cref="AttitudeThrottle"/>, only
+    /// while no other command waits (like the thrust) and never while docked (a docked ship sits on the port's axes).
+    /// </summary>
+    private void SyncAttitude()
+    {
+        if (_demo || !_structuresOn || ShipStruct < 0 || !Net.HasPlayer(Player)) return;
+        if (!_attitudeSynced)
+        {
+            _attitudeSynced = true;
+            _shipQuat = ShipAttitude.ToQuaternion(Net.AttitudeOf(ShipStruct));
+            return;
+        }
+        if (IsDockedNow || Net.ShipLost(Player) || _world.PendingCommands != 0) return;
+        var wanted = ShipAttitude.Quantize(_shipQuat);
+        if (_attitudeThrottle.Offer(Net.AttitudeOf(ShipStruct), wanted, Time.GetTicksMsec() / 1000.0) is { } cmd) Send(cmd);
     }
 }
