@@ -57,7 +57,7 @@ public static partial class ModuleModels
     public const int Left = 1, Right = 2, Front = 4, Rear = 8, Up = 16, Down = 32;
 
     /// <summary>
-    /// Docking bits of a module's mask (ADR 0028), above the neighbour bits: a free docking port opens on this side (guide lights round the
+    /// Docking bits of a module's mask (ADR 0029), above the neighbour bits: a free docking port opens on this side (guide lights round the
     /// collar), and a ship is docked on this side (an airlock; the matching neighbour bit is set too, so the wall is a doorway).
     /// </summary>
     public const int PortLeft = 64, PortRight = 128, PortFront = 256, PortRear = 512;

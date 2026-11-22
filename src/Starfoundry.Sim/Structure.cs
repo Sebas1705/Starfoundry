@@ -104,14 +104,14 @@ public sealed class Structure
     /// <summary>Ticks left in which this structure takes no further collision damage (ADR 0028). Mixed only when non-zero.</summary>
     internal int ImpactCooldown;
 
-    /// <summary>Ships only: the station this ship is docked at, or -1 (ADR 0028). While docked the ship is locked to the port pose and cannot thrust.</summary>
+    /// <summary>Ships only: the station this ship is docked at, or -1 (ADR 0029). While docked the ship is locked to the port pose and cannot thrust.</summary>
     internal int DockedTo = -1;
 
     /// <summary>Ships only, meaningful while docked: the ship's own port (module and face) and the station's port it is joined to.</summary>
     internal (int Mx, int My, int Mz) DockShipModule, DockStationModule;
     internal Dir DockShipFace, DockStationFace;
 
-    /// <summary>Stations only: the items kept in the station's stock by item index, or null while it never held anything. See ADR 0028.</summary>
+    /// <summary>Stations only: the items kept in the station's stock by item index, or null while it never held anything. See ADR 0029.</summary>
     internal int[]? Stock;
 
     internal Structure(int id, StructureKind kind, int owner, long ox, long oy, long oz)

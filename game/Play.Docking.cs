@@ -8,7 +8,7 @@ using Starfoundry.Ui;
 namespace Starfoundry.Game;
 
 /// <summary>
-/// Docking at a station (ADR 0028): the contextual guidance (a port marker, the guide lights and the dock key row only while a free port of
+/// Docking at a station (ADR 0029): the contextual guidance (a port marker, the guide lights and the dock key row only while a free port of
 /// one of your stations is close), the assisted approach, the animated settling of the ship into the port, undocking with a push-off, the
 /// two transfer keys, and walking across the airlock (the body keeps the ship's local frame; the station's modules are added to the walkable
 /// volumes while docked).

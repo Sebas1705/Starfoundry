@@ -155,7 +155,7 @@ public sealed record AssignDrones(int Structure, int Deposit) : Command;
 /// the hold has, discards every item of the kind. The item must exist and the hold must hold at least one.</summary>
 public sealed record DumpItems(int Item, int Count) : Command;
 
-/// <summary>Docks the commanding player's ship at a port of a station (ADR 0028): <see cref="Face"/> is the horizontal face (PosX, NegX, PosZ or NegZ)
+/// <summary>Docks the commanding player's ship at a port of a station (ADR 0029): <see cref="Face"/> is the horizontal face (PosX, NegX, PosZ or NegZ)
 /// of the station module at (<see cref="Mx"/>, <see cref="My"/>, <see cref="Mz"/>) whose port the ship joins. The ship's own port is the free port on the opposite face
 /// that is nearest. The ship must be within <see cref="DockRules.RangeCells"/> of the port and slower than <see cref="DockRules.MaxSpeedUnitsPerTick"/>; it is then
 /// locked to the port pose until <see cref="Undock"/>. Needs structure rules.</summary>
@@ -164,7 +164,7 @@ public sealed record DockAt(int Station, int Mx, int My, int Mz, Dir Face) : Com
 /// <summary>Releases the commanding player's docked ship, which keeps its position and can thrust again.</summary>
 public sealed record Undock : Command;
 
-/// <summary>Moves items between the docked ship's hold and the stock of the station it is docked at (ADR 0028). <see cref="ToStation"/> unloads the hold into the
+/// <summary>Moves items between the docked ship's hold and the stock of the station it is docked at (ADR 0029). <see cref="ToStation"/> unloads the hold into the
 /// stock, otherwise the stock is loaded into the hold. A <see cref="Count"/> of zero or less, or more than is available or fits, moves as many as possible.</summary>
 public sealed record TransferItems(int Item, int Count, bool ToStation) : Command;
 

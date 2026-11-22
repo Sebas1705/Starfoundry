@@ -1,6 +1,6 @@
 namespace Starfoundry.Sim;
 
-/// <summary>Fixed rules of docking a ship at a station (ADR 0028). Part of the simulation, so changing them changes states.</summary>
+/// <summary>Fixed rules of docking a ship at a station (ADR 0029). Part of the simulation, so changing them changes states.</summary>
 public static class DockRules
 {
     /// <summary>A ship docks when the centre of its port is within this many cells of the station port it joins.</summary>

@@ -304,7 +304,7 @@ public partial class Play
             if (_moduleKind == ModuleKind.Core) return Why(Reject.KindNotAllowed);
         }
         else if (st.Kind == StructureKind.Station && _moduleKind != ModuleKind.Core) return Why(Reject.KindNotAllowed);
-        // A station is fixed: no cockpit and no engine; and a ship has no core (ADR 0028).
+        // A station is fixed: no cockpit and no engine; and a ship has no core (ADR 0029).
         if (st.Kind == StructureKind.Station && _moduleKind is ModuleKind.Cockpit or ModuleKind.Engine) return L("why.stationFixed");
         if (st.Kind == StructureKind.Ship && _moduleKind == ModuleKind.Core) return Why(Reject.KindNotAllowed);
         if (Net.ModuleOverlapsDocked(s, mx, my, mz)) return Why(Reject.Overlap); // a docked ship sits there

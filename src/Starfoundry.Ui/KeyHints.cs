@@ -124,7 +124,7 @@ public sealed record KeyState
     public bool SystemChosen { get; init; }
     public string JumpCost { get; init; } = "";
 
-    // docking (ADR 0028): rows and guidance appear only near a free port of one of the player's stations, or while docked
+    // docking (ADR 0029): rows and guidance appear only near a free port of one of the player's stations, or while docked
     public DockHint Dock { get; init; }
     /// <summary>Near a port: the ship is within docking range of it and slow enough, so the key docks at once.</summary>
     public bool DockReady { get; init; }

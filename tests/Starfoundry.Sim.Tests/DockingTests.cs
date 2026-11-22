@@ -5,7 +5,7 @@ namespace Starfoundry.Sim.Tests;
 
 /// <summary>
 /// The ship moves and the station is fixed; a ship docks at a station port, is locked to its pose, joins it and exchanges items with its stock
-/// (ADR 0028, docs/prototypes/docking.md).
+/// (ADR 0029, docs/prototypes/docking.md).
 /// </summary>
 public class DockingTests
 {
