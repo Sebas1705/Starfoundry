@@ -125,13 +125,8 @@ The first-person HUD is minimal by default and shows information by context, nev
 
 | Context | Rows |
 |---|---|
-<<<<<<< HEAD
-| Flying, nothing aimed | `B` Build, `T` Research, `G` Star map, `K` Scan, `M` Mining laser (and a "Hold click" fire row once it is out), `F` Refine, `V` Weapons, `I` Found station, `N` Module, `E` Stand up, `F1` Help |
-| Standing | `WASD` Walk, `Shift` Run, `E` Sit down (dimmed when far from the seat), `B`, `T`, `I`, `N`, `F1` |
-=======
-| Flying, nothing aimed | `B` Build, `T` Research, `G` Star map, `K` Scan, `M` Mine, `F` Refine, `V` Weapons, `I` Found station, `N` Module, `E` Stand up, `H` Info, `F1` Help |
+| Flying, nothing aimed | `B` Build, `T` Research, `G` Star map, `K` Scan, `M` Mining laser (and a "Hold click" fire row once it is out), `F` Refine, `V` Weapons, `I` Found station, `N` Module, `E` Stand up, `H` Info, `F1` Help |
 | Standing | `WASD` Walk, `Shift` Run, `E` Sit down (dimmed when far from the seat), `B`, `T`, `I`, `N`, `H`, `F1` |
->>>>>>> 7dbd6f9 (feat: context-driven minimal HUD with info panels and unified cards)
 | A build tool in hand | Click Place (belt: Line start, then Line end), `R` Rotate (belts), `Z` `X` Layer, `Y` Recipe (when the machine has several), right click Demolish (module: Remove empty module; a belt line in progress: Cancel the line), `N` Change kind (module tool), `1-0` Quick pick, `B` Menu, `Esc` Cancel |
 | Aiming at a machine | `Y` Recipe (its own), Click Inspect / pin, right click Demolish, `Backspace` Repair (dimmed when nothing is damaged), `B` Build |
 | Aiming at a belt | right click Demolish, `B` Build |
