@@ -278,7 +278,8 @@ public sealed partial class BeltNetwork
 
         Mix(Tick); Mix(Spawned); Mix(Consumed); Mix(Destroyed); Mix(_segs.Count);
         Mix(MachineInputsConsumed); Mix(MachineOutputsCreated); Mix((long)(Content?.Hash ?? 0)); Mix((int)Mode); Mix(ThreatsEnabled ? 1 : 0); if (StationRules) Mix(2); if (StructureRules) Mix(4);
-        if (!Rules.IsDefault) foreach (byte rb in Rules.Serialize()) Mix(rb); // default rules hash as before they existed
+        { var hashed = Rules.LegacyLaser ? Rules.WithLegacyLaser(false) : Rules; // the legacy-laser flag alone (logs older than version 9) hashes as default rules
+            if (!hashed.IsDefault) foreach (byte rb in hashed.Serialize()) Mix(rb); } // default rules hash as before they existed
         MixMachines(Mix);
         MixEconomy(Mix);
         MixStation(Mix);

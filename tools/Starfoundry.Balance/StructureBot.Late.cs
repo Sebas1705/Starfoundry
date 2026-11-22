@@ -37,6 +37,20 @@ public sealed partial class StructureBot
         // Last: advanced plating (the ingot ore and quartz of the expedition are still in the hold).
         ResearchNow("core:advanced_plating", TiIngots, NiIngots, QuartzRaw);
         if (Science) PlayScience();
+        LaserResearch();
+    }
+
+    /// <summary>
+    /// The mining laser upgrades (ADR 0027), researched last on purpose. Measured on seed 20261121: laser focusing before the drone
+    /// automation moved the jump drive 3 minutes later (the lab line, not the ore, is the limit that early), and anywhere before the
+    /// science tier it tips the expeditions into a hold-and-fuel loop that costs hours. They do not pay back on the way to the win, so
+    /// the plan only keeps the whole basic tree researched.
+    /// </summary>
+    private void LaserResearch()
+    {
+        ResearchNow("core:laser_focusing");
+        FetchCarbon(24, "carbon for the beam collimator");
+        ResearchNow("core:beam_collimator", new Feed(FeedKind.Raw, "core:carbon_unloader"));
     }
 
     private bool _stationLabsBuilt;

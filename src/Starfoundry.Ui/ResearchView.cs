@@ -115,6 +115,7 @@ public static class ResearchView
         BonusKind.ShieldAbsorb => "shield_absorb",
         BonusKind.PowerOutput => "power_output",
         BonusKind.JumpDiscount => "jump_discount",
+        BonusKind.MiningRate => "mining_rate",
         _ => kind.ToString(),
     };
 

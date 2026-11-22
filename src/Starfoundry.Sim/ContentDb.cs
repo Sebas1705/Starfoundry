@@ -130,6 +130,9 @@ public enum BonusKind
 
     /// <summary>Not a percentage: the number of items taken off every stack of the jump cost (never below 1 item in a stack).</summary>
     JumpDiscount = 13,
+
+    /// <summary>The ship's mining laser mines faster: the ticks per item shrink (ADR 0027). 100 doubles the rate.</summary>
+    MiningRate = 14,
 }
 
 /// <summary>The field a research node belongs to; shown grouped in the research panel. Basic is the original plate-only tier.</summary>
@@ -565,6 +568,7 @@ public sealed class ContentDb
                                 "shield_absorb" => BonusKind.ShieldAbsorb,
                                 "power_output" => BonusKind.PowerOutput,
                                 "jump_discount" => BonusKind.JumpDiscount,
+                                "mining_rate" => BonusKind.MiningRate,
                                 _ => throw new InvalidDataException($"Research '{id}' has an unknown bonus kind."),
                             };
                             if (bonuses.Any(x => x.Kind == kind)) throw new InvalidDataException($"Research '{id}' lists a bonus kind twice.");

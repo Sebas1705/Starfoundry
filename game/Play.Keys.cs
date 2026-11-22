@@ -105,7 +105,7 @@ public partial class Play
             ThreatNow = threatNow,
             Armed = hasPlayer && player.Armed,
             Mining = _laserOn,
-            LaserFiring = Net.MiningDeposit(Player) >= 0,
+            LaserFiring = Net.LaserFiring(Player),
             Refining = hasPlayer && player.ShipRecipe == _content.RecipeIndex("core:ship_smelt"),
             ScanReady = Net.ScanCooldown(Player) == 0,
             AnythingDamaged = _damagedCount > 0,

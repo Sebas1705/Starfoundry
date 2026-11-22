@@ -477,8 +477,7 @@ public sealed partial class BeltNetwork
         p.Hull = 0;
         p.RespawnRemaining = rules.RespawnTicks;
         SetShipPosition(p, anchor.X * Units.CellUnits, anchor.Y * Units.CellUnits, anchor.Z * Units.CellUnits);
-        p.MiningDeposit = -1;
-        p.MineProgress = 0;
+        ClearMining(p);
         p.JumpTarget = -1;
         p.JumpRemaining = 0;
         p.ClearThrust();

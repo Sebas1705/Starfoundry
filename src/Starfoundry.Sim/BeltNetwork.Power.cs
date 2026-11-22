@@ -100,6 +100,16 @@ public sealed partial class BeltNetwork
     /// <summary>Ticks one unit of fuel keeps a reactor of this kind burning, with the research bonus (algae fuel).</summary>
     public int BurnInterval(ModuleKind kind) => (Content?.Structures?.BurnIntervalTicks(kind) ?? 0) * (100 + _bonus[(int)BonusKind.FuelBurn]) / 100;
 
+    /// <summary>Power the mining laser of the ship's pilot draws while it fires (ADR 0027): <see cref="PlayerRules.LaserPowerUse"/> per laser that would mine this tick.</summary>
+    private int LaserDemand(Structure s)
+    {
+        if (!LaserDrawsPower || s.Kind != StructureKind.Ship) return 0;
+        int total = 0;
+        foreach (var p in _players.Values)
+            if (p.ShipStructure == s.Id && LaserWouldMine(p)) total += PlayerRules.LaserPowerUse;
+        return total;
+    }
+
     private int ModuleDemand(Structure s)
     {
         if (Content?.Structures is not { } kinds) return 0;
@@ -152,8 +162,13 @@ public sealed partial class BeltNetwork
                 if (rem > 0) s.BurnRemaining[key] = rem; else s.BurnRemaining.Remove(key);
             }
             s.PowerProduction = production;
-            s.PowerDemand = demand.GetValueOrDefault(s.Id) + DroneDemand(s) + ModuleDemand(s);
-            s.Satisfaction = PowerRules.Satisfaction(production, s.PowerDemand, hasReactor);
+            int others = demand.GetValueOrDefault(s.Id) + DroneDemand(s) + ModuleDemand(s);
+            s.LaserDraw = hasReactor ? LaserDemand(s) : 0;
+            s.PowerDemand = others + s.LaserDraw;
+            // The mining laser is served first: a brownout slows the machines but never the laser, so a starved base can always mine the ice
+            // that brings the fuel back (the recovery loop of ADR 0022 needs hand mining). It starves only when the reactors give less than it asks.
+            int forMachines = others == 0 ? production : production - Math.Min(production, s.LaserDraw);
+            s.Satisfaction = PowerRules.Satisfaction(forMachines, others, hasReactor);
         }
 
         foreach (var m in _machines)

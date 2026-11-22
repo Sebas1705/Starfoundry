@@ -98,6 +98,9 @@ public sealed class Structure
 
     internal int PowerProduction, PowerDemand, Satisfaction = PowerRules.FullSatisfaction;
 
+    /// <summary>Power the mining lasers of this ship asked for in the last power step (part of <see cref="PowerDemand"/>). The laser is served before the machines, see ADR 0027.</summary>
+    internal int LaserDraw;
+
     internal Structure(int id, StructureKind kind, int owner, long ox, long oy, long oz)
     {
         Id = id; Kind = kind; Owner = owner; OriginX = ox; OriginY = oy; OriginZ = oz;
@@ -111,7 +114,7 @@ public sealed class Structure
         c.ModuleDamage = new SortedDictionary<(int, int, int), int>(ModuleDamage);
         c.DroneDeposit = DroneDeposit;
         c.DroneProgress = new SortedDictionary<(int, int, int), int>(DroneProgress);
-        c.PowerProduction = PowerProduction; c.PowerDemand = PowerDemand; c.Satisfaction = Satisfaction;
+        c.PowerProduction = PowerProduction; c.PowerDemand = PowerDemand; c.Satisfaction = Satisfaction; c.LaserDraw = LaserDraw;
         return c;
     }
 }

@@ -78,6 +78,10 @@ public sealed record StartMining(int Deposit) : Command;
 
 public sealed record StopMining : Command;
 
+/// <summary>Pulls (true) or releases (false) the trigger of the commanding player's mining laser without changing the mining order (ADR 0027).
+/// A released laser mines nothing and draws no power; the partial item is kept. Needs a mining order. <see cref="StartMining"/> pulls the trigger.</summary>
+public sealed record FireLaser(bool Firing) : Command;
+
 /// <summary>Sets what the commanding player's ship micro-refinery works on (-1 for nothing).</summary>
 public sealed record SetShipRecipe(int Recipe) : Command;
 

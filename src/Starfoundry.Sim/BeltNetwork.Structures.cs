@@ -301,6 +301,7 @@ public sealed partial class BeltNetwork
             foreach (var (m, kind) in s.ModuleMap) { mix(m.Mx); mix(m.My); mix(m.Mz); mix((int)kind); }
             if (!StructureRules) continue; // power state exists only under the structure rules
             mix(s.PowerProduction); mix(s.PowerDemand); mix(s.Satisfaction); mix(s.BurnRemaining.Count);
+            if (s.LaserDraw != 0) mix(s.LaserDraw); // only while a laser fires: other worlds hash as before
             foreach (var (m, rem) in s.BurnRemaining) { mix(m.Mx); mix(m.My); mix(m.Mz); mix(rem); }
             if (s.ModuleDamage.Count > 0) // undamaged structures hash as before module hit points existed
             {

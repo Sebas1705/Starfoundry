@@ -129,8 +129,14 @@ public sealed partial class StructureBot
 
         // Pack for the trip: the hold carries a quarter less than its size and the ore comes first, so spare ingots and plates stay behind
         // (the depots refill them at home).
-        foreach (var (spare, keep) in new[] { ("core:iron_ore", 0), ("core:iron_ingot", 20), ("core:iron_plate", 10) })
-            if (Have(spare) > keep + 5) Cmd(new DumpItems(Item(spare), Have(spare) - keep));
+        bool Pack()
+        {
+            bool dumped = false;
+            foreach (var (spare, keep) in new[] { ("core:iron_ore", 0), ("core:iron_ingot", 20), ("core:iron_plate", 10) })
+                if (Have(spare) > keep + 5) { Cmd(new DumpItems(Item(spare), Have(spare) - keep)); dumped = true; }
+            return dumped;
+        }
+        Pack();
 
         bool Satisfied((string Item, int Count) w) => Have(w.Item) >= w.Count;
         int guard = 0;
@@ -146,6 +152,8 @@ public sealed partial class StructureBot
             }
             open = wanted.Where(w => !Satisfied(w)).ToArray();
             if (open.Length == 0) break;
+            // The depots keep delivering at the far end too: throw the spare goods out again before giving up.
+            if (Net.HoldTotal(0) >= Net.HoldCapacity(0) * PlayerRules.MiningHoldLimitPercent / 100 && Pack()) continue;
             if (Net.HoldTotal(0) >= Net.HoldCapacity(0) * PlayerRules.MiningHoldLimitPercent / 100) { Stuck($"the hold is at the mining limit before the expedition got everything ({string.Join(", ", open.Select(o => o.Item + " " + Have(o.Item) + "/" + o.Count))})"); break; }
             // Go where a missing item is known to be, otherwise look at a new system.
             int target = -1;
