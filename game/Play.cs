@@ -66,11 +66,14 @@ public partial class Play : Node3D
     private sealed class Geo
     {
         public Node3D Machines = null!;
-        public MultiMeshInstance3D? Slabs, ItemNode;
-        public MultiMesh Items = null!;
-        public float[] Buf = Array.Empty<float>();
-        public int Count, Capacity;
+        public readonly List<MultiMeshInstance3D> BeltNodes = new(); // belt tiles (one MultiMesh per tier) and the end caps
+        public ItemLayers? Items;
+        public int Capacity;
     }
+
+    // Per content item index: the item's mesh shape and tint (see BeltModels), filled when the geometry is rebuilt.
+    private int[] _itemShape = Array.Empty<int>();
+    private Color[] _itemTint = Array.Empty<Color>();
 
     private readonly Dictionary<int, Geo> _geos = new();
     private Geo?[] _segGeo = Array.Empty<Geo?>(); // by segment id
@@ -466,7 +469,11 @@ void fragment() {
         if (_stationView.StructureRoot(ship) is { } root) root.Position = ShipPosition(_demo ? 0f : alpha);
         var pi = Net.GetPlayerInfo(Player);
         bool thrusting = Net.CanFly(Player) && (pi.MoveX | pi.MoveY | pi.MoveZ | pi.ThrustX | pi.ThrustY | pi.ThrustZ) != 0;
-        _stationView.SetEngines(ship, thrusting);
+        // Throttle (analog thrust, 1024 = full) sets the flame size; a keyboard move is full thrust.
+        float level = (pi.ThrustX | pi.ThrustY | pi.ThrustZ) != 0
+            ? Math.Clamp(MathF.Sqrt((float)pi.ThrustX * pi.ThrustX + (float)pi.ThrustY * pi.ThrustY + (float)pi.ThrustZ * pi.ThrustZ) / 1024f, 0.25f, 1f)
+            : 1f;
+        _stationView.SetEngines(ship, thrusting, level);
     }
 
     private void UpdateShip(float alpha, float dt)
@@ -569,8 +576,8 @@ void fragment() {
         if (_structuresOn || _structureDemo) _stationView.SyncStructures(Net); // makes sure every structure has its root before children are added
         foreach (var old in _geos.Values)
         {
-            old.Slabs?.QueueFree();
-            old.ItemNode?.QueueFree();
+            foreach (var n in old.BeltNodes) n.QueueFree();
+            old.Items?.Free();
             old.Machines.QueueFree();
         }
         _geos.Clear();
@@ -602,42 +609,77 @@ void fragment() {
             list.Add(id);
         }
 
+        _itemShape = new int[_content.Items.Count];
+        _itemTint = new Color[_content.Items.Count];
+        for (int i = 0; i < _itemShape.Length; i++)
+        {
+            var (shape, tint) = BeltModels.StyleOf(_content.Items[i].Id);
+            _itemShape[i] = (int)shape;
+            _itemTint[i] = tint;
+        }
+
         int total = 0;
         foreach (var (structure, geo) in _geos)
         {
             var ids = alive.TryGetValue(structure, out var l) ? l : new List<int>();
             var parent = ParentOf(structure);
 
-            var slabs = new MultiMesh
+            // belts: one MultiMesh of tiles per tier (a tile per cell, turned to the segment's direction), plus end caps
+            var infos = new List<SegmentInfo>(ids.Count);
+            foreach (int sid in ids) infos.Add(Net.GetSegmentInfo(sid));
+            for (int tier = 0; tier < 3; tier++)
             {
-                TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true,
-                Mesh = new BoxMesh { Size = Vector3.One, Material = VertexMaterial() }, InstanceCount = ids.Count,
-            };
-            var slabBuf = new float[ids.Count * FloatsPerItem];
-            for (int i = 0; i < ids.Count; i++)
-            {
-                var s = Net.GetSegmentInfo(ids[i]);
-                float len = s.LengthCells;
-                var origin = CellCenter(s.OriginX, s.OriginY, s.OriginZ);
-                var center = origin + new Vector3(s.DirX, s.DirY, s.DirZ) * (len - 1) / 2f;
-                var scale = new Vector3(s.DirX != 0 ? len : 0.9f, s.DirY != 0 ? len : 0.2f, s.DirZ != 0 ? len : 0.9f);
-                if (s.DirY == 0) center.Y = s.OriginY + 0.1f;
-                Write(slabBuf, i * FloatsPerItem, scale, center, TierColors[(int)s.Tier]);
+                int cells = 0;
+                foreach (var s in infos) if ((int)s.Tier == tier) cells += s.LengthCells;
+                if (cells == 0) continue;
+                var tiles = new MultiMesh
+                {
+                    TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true,
+                    Mesh = BeltModels.Tile(tier), InstanceCount = cells,
+                };
+                var tileBuf = new float[cells * FloatsPerItem];
+                int k = 0;
+                foreach (var s in infos)
+                {
+                    if ((int)s.Tier != tier) continue;
+                    var basis = s.DirY != 0 ? Basis.FromEuler(new Vector3(0, 0, s.DirY * Mathf.Pi / 2f)) : new Basis(Vector3.Up, MathF.Atan2(-s.DirZ, s.DirX));
+                    for (int i = 0; i < s.LengthCells; i++)
+                    {
+                        var c = CellCenter(s.OriginX + s.DirX * i, s.OriginY + s.DirY * i, s.OriginZ + s.DirZ * i);
+                        // a flat belt lies on the floor of its cell; a vertical one is a rail beside the item path, on the side its surface faces
+                        var pos = s.DirY == 0 ? new Vector3(c.X, s.OriginY, c.Z) : new Vector3(c.X + 0.285f * s.DirY, c.Y, c.Z);
+                        WriteXf(tileBuf, k++ * FloatsPerItem, basis, pos, TierColors[tier]);
+                    }
+                }
+                tiles.Buffer = tileBuf;
+                var tn = new MultiMeshInstance3D { Name = "BeltTier" + tier, Multimesh = tiles };
+                parent.AddChild(tn);
+                geo.BeltNodes.Add(tn);
             }
-            slabs.Buffer = slabBuf;
-            geo.Slabs = new MultiMeshInstance3D { Multimesh = slabs };
-            parent.AddChild(geo.Slabs);
-
-            geo.Items = new MultiMesh
+            // end caps on flat belts: amber where a belt splits in two, red on a sink, green on a source
+            var caps = new List<(Vector3, Color)>();
+            for (int i = 0; i < infos.Count; i++)
             {
-                TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true,
-                Mesh = new BoxMesh { Size = Vector3.One, Material = VertexMaterial() },
-                InstanceCount = geo.Capacity, VisibleInstanceCount = 0,
-            };
-            geo.Buf = new float[geo.Capacity * FloatsPerItem];
-            geo.Count = 0;
-            geo.ItemNode = new MultiMeshInstance3D { Multimesh = geo.Items };
-            parent.AddChild(geo.ItemNode);
+                var s = infos[i];
+                if (s.DirY != 0) continue;
+                var first = new Vector3(s.OriginX + 0.5f, s.OriginY, s.OriginZ + 0.5f);
+                var last = first + new Vector3(s.DirX, 0, s.DirZ) * (s.LengthCells - 1);
+                if (Net.OutputCount(s.Id) >= 2) caps.Add((last, new Color(1f, 0.78f, 0.2f)));
+                else if (Net.IsSink(s.Id)) caps.Add((last, new Color(0.95f, 0.3f, 0.25f)));
+                if (Net.HasSource(s.Id)) caps.Add((first, new Color(0.35f, 0.95f, 0.55f)));
+            }
+            if (caps.Count > 0)
+            {
+                var hubs = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true, Mesh = BeltModels.Hub(), InstanceCount = caps.Count };
+                var hubBuf = new float[caps.Count * FloatsPerItem];
+                for (int i = 0; i < caps.Count; i++) WriteXf(hubBuf, i * FloatsPerItem, Basis.Identity, caps[i].Item1, caps[i].Item2);
+                hubs.Buffer = hubBuf;
+                var hn = new MultiMeshInstance3D { Name = "BeltCaps", Multimesh = hubs };
+                parent.AddChild(hn);
+                geo.BeltNodes.Add(hn);
+            }
+
+            geo.Items = new ItemLayers(parent);
             total += geo.Capacity;
         }
         _samples = new ItemSample[total];
@@ -1040,28 +1082,46 @@ void fragment() {
         if (what == NotificationWMCloseRequest || what == NotificationPredelete) FinishPlayLog();
     }
 
+    private const float ItemScale = 0.30f;
+
+    /// <summary>Puts every item on its belt: two passes over the samples (count per shape, then write) so each shape's MultiMesh is exactly as big as needed.</summary>
+    private void DrawItems(float alpha)
+    {
+        foreach (var geo in _geos.Values) geo.Items?.Begin();
+        for (int i = 0; i < _sampleCount; i++)
+        {
+            var s = _samples[i];
+            if (_segGeo[s.Segment] is { Items: { } layers } && s.Type < _itemShape.Length) layers.Count(_itemShape[s.Type]);
+        }
+        foreach (var geo in _geos.Values) geo.Items?.Allocate();
+        for (int i = 0; i < _sampleCount; i++)
+        {
+            var s = _samples[i];
+            if (_segGeo[s.Segment] is not { Items: { } layers } || s.Type >= _itemShape.Length) continue;
+            var g = _segs[s.Segment];
+            float p = MathF.Min(s.Pos + g.Speed * alpha, g.Length) / CellUnits;
+            // Local to the segment's structure: the root node carries the item to its world position. Flat belts: the item stands on the
+            // belt surface; vertical ones: it is centred on the path.
+            var pos = new Vector3(g.Ox + 0.5f + g.Dx * (p - 0.5f), g.Oy + (g.Dy != 0 ? 0.5f + g.Dy * (p - 0.5f) - 0.1f : 0.172f), g.Oz + 0.5f + g.Dz * (p - 0.5f));
+            layers.Add(_itemShape[s.Type], ItemScale, pos, _itemTint[s.Type]);
+        }
+        foreach (var geo in _geos.Values) geo.Items?.Flush();
+    }
+
+    private static void WriteXf(float[] b, int o, Basis basis, Vector3 pos, Color c)
+    {
+        var r0 = basis.Row0; var r1 = basis.Row1; var r2 = basis.Row2;
+        b[o + 0] = r0.X; b[o + 1] = r0.Y; b[o + 2] = r0.Z; b[o + 3] = pos.X;
+        b[o + 4] = r1.X; b[o + 5] = r1.Y; b[o + 6] = r1.Z; b[o + 7] = pos.Y;
+        b[o + 8] = r2.X; b[o + 9] = r2.Y; b[o + 10] = r2.Z; b[o + 11] = pos.Z;
+        b[o + 12] = c.R; b[o + 13] = c.G; b[o + 14] = c.B; b[o + 15] = c.A;
+    }
+
     public override void _Process(double delta)
     {
         float alpha = (float)Engine.GetPhysicsInterpolationFraction();
         UpdateStructureRoots(alpha); // first: the machine and item nodes are children of these roots
-        foreach (var geo in _geos.Values) geo.Count = 0;
-        for (int i = 0; i < _sampleCount; i++)
-        {
-            var s = _samples[i];
-            var geo = _segGeo[s.Segment];
-            if (geo is null || geo.Count >= geo.Capacity) continue;
-            var g = _segs[s.Segment];
-            float p = MathF.Min(s.Pos + g.Speed * alpha, g.Length) / CellUnits;
-            // Local to the segment's structure: the root node carries the item to its world position.
-            var pos = new Vector3(g.Ox + 0.5f + g.Dx * (p - 0.5f), g.Oy + (g.Dy != 0 ? 0.5f + g.Dy * (p - 0.5f) : 0.3f), g.Oz + 0.5f + g.Dz * (p - 0.5f));
-            Write(geo.Buf, geo.Count++ * FloatsPerItem, Vector3.One * 0.22f, pos, ItemColors[s.Type % ItemColors.Length]);
-        }
-        foreach (var geo in _geos.Values)
-        {
-            if (geo.Items is null) continue;
-            geo.Items.VisibleInstanceCount = geo.Count;
-            geo.Items.Buffer = geo.Buf;
-        }
+        DrawItems(alpha);
         _animTime += delta;
         UpdateMachines();
         UpdateEnemies((float)delta);

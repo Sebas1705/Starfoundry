@@ -21,7 +21,7 @@ namespace Starfoundry.Game;
 /// children (<see cref="Models.Aim"/>), "GlowCore" (the reactor),
 /// "GlowLamp" (the drone bay's status light), "GlowDoor" (its launch door).
 /// </summary>
-public static class ModuleModels
+public static partial class ModuleModels
 {
     public const float W = StationGrid.ModuleX;
     public const float H = StationGrid.ModuleY;
@@ -36,8 +36,8 @@ public static class ModuleModels
     private static readonly Color Steel = new(0.46f, 0.50f, 0.58f);
     private static readonly Color Panel = new(0.72f, 0.76f, 0.83f);
     private static readonly Color White = new(0.90f, 0.93f, 0.98f);
-    private static readonly Color Slab = new(0.34f, 0.37f, 0.45f);
-    private static readonly Color SlabLt = new(0.44f, 0.48f, 0.57f);
+    private static readonly Color Slab = new(0.46f, 0.49f, 0.57f);
+    private static readonly Color SlabLt = new(0.58f, 0.62f, 0.70f);
     private static readonly Color Yellow = new(0.98f, 0.86f, 0.18f);
     private static readonly Color Gold = new(1f, 0.78f, 0.30f);
     private static readonly Color Crate = new(0.62f, 0.40f, 0.22f);
@@ -106,6 +106,7 @@ public static class ModuleModels
         }
         Joints(c);
         Exposed(c);
+        Details(c);
         return r;
     }
 
@@ -581,7 +582,7 @@ public static class ModuleModels
         if (c.Has(Up) || c.Kind != ModuleKind.Hull && c.Kind != ModuleKind.Core) return;
         float y = c.Kind == ModuleKind.Core ? 3.0f : Roof;
         if (c.Ship && c.Kind == ModuleKind.Hull) return; // the ship's roof carries its spine stripe instead
-        Models.Add(c.R, "Beacon", $"{c.K}.beacon", Models.Glow(c.Role, 2.2f), mb =>
+        Models.Add(c.R, "GlowBlinkBeacon", $"{c.K}.beacon", Models.Glow(c.Role, 2.2f), mb =>
             mb.At(default).Block(new(c.Ship ? 4f : 6.9f, y + (c.Kind == ModuleKind.Core ? 0.01f : 0.2f), c.Ship ? 4f : 1.1f), new(0.2f, 0.2f, 0.2f)));
     }
 
@@ -594,7 +595,7 @@ public static class ModuleModels
             if (port ? c.Has(Left) : c.Has(Right)) continue;
             var col = port ? new Color(1f, 0.15f, 0.12f) : new Color(0.2f, 1f, 0.35f);
             float x = port ? -0.02f : W + 0.02f, z = c.Kind == ModuleKind.Cockpit ? 3.9f : 1.0f;
-            Models.Add(c.R, "GlowNav", $"{c.K}.nav.{port}", Models.Glow(col, 3.2f), mb =>
+            Models.Add(c.R, "GlowBlinkNav", $"{c.K}.nav.{port}", Models.Glow(col, 3.2f), mb =>
                 mb.At(default).Block(new(x, 2.55f, z), new(0.12f, 0.12f, 0.12f)));
         }
     }
@@ -758,6 +759,15 @@ public static class ModuleModels
         Models.Add(c.R, "GlowEngine", "mod.flame", Models.Glow(new Color(0.25f, 0.65f, 1f), 3.5f), mb =>
         {
             mb.At(default, Models.Deg(0, 0, -90)).Prism(default, 1.05f, 0f, 1.0f, 10);
+        }, new Vector3(x, y, 7.0f), new Vector3(0, -90, 0));
+        // a white-hot core inside the flame, and a long faint trail behind it (both scaled with the thrust level by Animate; the trail only shows while thrusting)
+        Models.Add(c.R, "GlowEngineCore", "mod.flame.core", Models.Glow(new Color(0.85f, 0.97f, 1f), 5f), mb =>
+        {
+            mb.At(default, Models.Deg(0, 0, -90)).Prism(default, 0.55f, 0f, 0.8f, 8);
+        }, new Vector3(x, y, 7.0f), new Vector3(0, -90, 0));
+        Models.Add(c.R, "GlowEngineTrail", "mod.flame.trail", Models.GlowAlpha(new Color(0.35f, 0.7f, 1f), 0.9f, 0.08f), mb =>
+        {
+            mb.At(default, Models.Deg(0, 0, -90)).Prism(new(0, 0.8f, 0), 0.9f, 0.05f, 6.5f, 12);
         }, new Vector3(x, y, 7.0f), new Vector3(0, -90, 0));
     }
 
