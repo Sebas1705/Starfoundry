@@ -28,7 +28,10 @@ public partial class EndScreen : Control
     public override void _Ready() => SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
 
     /// <summary>Shows the overlay for a result: <paramref name="victory"/> picks the title and colours.</summary>
-    public void Present(OutcomeResult result, bool victory, int goalWaves, string note, IReadOnlyList<Choice> choices, ulong? seed = null)
+    /// <summary>What a scenario result adds to the overlay: the scenario, its goals, the stars and the best-result line.</summary>
+    public sealed record ScenarioInfo(string Name, GoalsModel Goals, int Stars, string StarHint, string RecordLine, bool NewRecord);
+
+    public void Present(OutcomeResult result, bool victory, int goalWaves, string note, IReadOnlyList<Choice> choices, ulong? seed = null, ScenarioInfo? scenario = null)
     {
         foreach (var child in GetChildren()) { RemoveChild(child); child.QueueFree(); }
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
@@ -40,7 +43,7 @@ public partial class EndScreen : Control
         centre.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
 
         var accent = victory ? VictoryColor : DefeatColor;
-        var panel = new PanelContainer { CustomMinimumSize = new Vector2(560, 0) };
+        var panel = new PanelContainer { CustomMinimumSize = new Vector2(scenario is not null ? 680 : 560, 0) };
         panel.AddThemeStyleboxOverride("panel", UiKit.Box(PanelBg, accent with { A = 0.85f }, 8, 24f));
         centre.AddChild(panel);
         var body = new VBoxContainer();
@@ -48,26 +51,27 @@ public partial class EndScreen : Control
         panel.AddChild(body);
 
         var title = UiKit.Text(40, accent);
-        title.Text = Loc.T(victory ? "end.victory.title" : "end.defeat.title");
+        title.Text = Loc.T(scenario is not null ? (victory ? "end.s.victory" : "end.s.defeat") : victory ? "end.victory.title" : "end.defeat.title");
         title.HorizontalAlignment = HorizontalAlignment.Center;
         body.AddChild(title);
         var sub = UiKit.Text(14, Muted);
-        sub.Text = victory ? Loc.T("end.victory.sub", goalWaves) : Loc.T("end.defeat.sub");
+        sub.Text = scenario is not null ? scenario.Name : victory ? Loc.T("end.victory.sub", goalWaves) : Loc.T("end.defeat.sub");
         sub.HorizontalAlignment = HorizontalAlignment.Center;
         sub.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         body.AddChild(sub);
+        if (scenario is not null) AddScenarioBlock(body, scenario, victory);
         body.AddChild(new HSeparator());
 
         var st = result.Stats;
-        var grid = new GridContainer { Columns = 2 };
-        grid.AddThemeConstantOverride("h_separation", 28);
+        var grid = new GridContainer { Columns = scenario is not null ? 4 : 2 };
+        grid.AddThemeConstantOverride("h_separation", scenario is not null ? 20 : 28);
         grid.AddThemeConstantOverride("v_separation", 4);
         void Row(string key, string value)
         {
-            var k = UiKit.Text(15, Muted);
+            var k = UiKit.Text(scenario is not null ? 13 : 15, Muted);
             k.Text = Loc.T(key);
             k.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            var v = UiKit.Text(15, Colors.White);
+            var v = UiKit.Text(scenario is not null ? 13 : 15, Colors.White);
             v.Text = value;
             v.HorizontalAlignment = HorizontalAlignment.Right;
             grid.AddChild(k);
@@ -104,6 +108,49 @@ public partial class EndScreen : Control
         }
         Visible = true;
         first?.CallDeferred(Control.MethodName.GrabFocus);
+    }
+
+    private static void AddScenarioBlock(VBoxContainer body, ScenarioInfo info, bool victory)
+    {
+        if (victory)
+        {
+            var stars = new StarRow { Stars = info.Stars, Max = 3, StarSize = 30, Align = HorizontalAlignment.Center, CustomMinimumSize = new Vector2(0, 34), Name = "Stars" };
+            body.AddChild(stars);
+            if (info.StarHint.Length > 0)
+            {
+                var hint = UiKit.Text(12, Muted);
+                hint.Text = info.StarHint;
+                hint.HorizontalAlignment = HorizontalAlignment.Center;
+                body.AddChild(hint);
+            }
+            if (info.RecordLine.Length > 0)
+            {
+                var rec = UiKit.Text(14, info.NewRecord ? new Color(1f, 0.85f, 0.4f) : new Color(0.75f, 0.85f, 1f));
+                rec.Text = info.RecordLine;
+                rec.HorizontalAlignment = HorizontalAlignment.Center;
+                body.AddChild(rec);
+            }
+        }
+        body.AddChild(new HSeparator());
+        foreach (var g in info.Goals.Rows)
+        {
+            var row = new HBoxContainer();
+            row.AddThemeConstantOverride("separation", 8);
+            var mark = new GoalMark { Primary = g.Primary, Status = g.Status, CustomMinimumSize = new Vector2(18, 18) };
+            row.AddChild(mark);
+            Color color = g.Status == GoalStatus.Done ? VictoryColor : g.Status == GoalStatus.Failed ? DefeatColor : new Color(0.8f, 0.84f, 0.92f);
+            var text = UiKit.Text(14, color);
+            text.Text = g.Text;
+            text.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            text.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            row.AddChild(text);
+            var state = UiKit.Text(13, color);
+            state.Text = Loc.T(g.Status == GoalStatus.Done ? "goal.status.done" : g.Status == GoalStatus.Failed ? "goal.status.failed" : "goal.status.pending")
+                + (g.ShowBar && g.Status == GoalStatus.Pending ? "  " + g.ProgressText : "");
+            state.HorizontalAlignment = HorizontalAlignment.Right;
+            row.AddChild(state);
+            body.AddChild(row);
+        }
     }
 
     public void Dismiss() => Visible = false;

@@ -24,7 +24,8 @@ The game had one fixed goal (`GameOutcome`: clear the goal waves with a station 
 - Costs: a version 8 log cannot be read by a build that only knows version 7; a scenario save breaks when the scenario's rules, seed, mode or start structures change (not its texts or goals); the goal progress after loading a save is recomputed from the world, so the recorded completion times of goals restart unless the game stores them or steps the loaded world in small batches.
 - How it is checked: `ScenarioTests` (loader errors, creation, header and save round trips, the counters), `ScenarioProgressTests` (every goal type, time limits, keep goals, story, stars, the shipped levels), `ScenarioContentTests` (texts in both languages, numbers, every goal deliverable, reachability of levels 4 and 5, the bot winning levels 1 to 3) and the unchanged golden checksums.
 - Known gap: `GameOutcome` does not yet ask for a jump, while `campaign.json` does. When the balance pass that makes a jump part of the win lands, `GameOutcome` and the campaign scenario agree; until then the scenario is the stricter of the two.
-- Not decided here: the New Game screen, the goals panel and the end screens (part D of the design), a level editor, more levels.
+- Part D (the New Game screen, the goals panel, the end screens, the progress file and the goals sidecar of a save) is built; see [the scenarios prototype](../prototypes/scenarios.md#the-game-ui-part-d). The sidecar stores the per-goal done and failed seconds, the fired story beats and the decided outcome next to the save, so the recorded completion times survive a load.
+- Not decided here: a level editor, more levels.
 
 ## Alternatives considered
 - **Goals as code, one class per level.** Rejected: levels would need a build, and the bot, the HUD and the tests could not read them.

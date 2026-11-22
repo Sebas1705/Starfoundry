@@ -115,6 +115,7 @@ public partial class Play : Node3D
         var content = ContentSource.Load(args, out var contentLookup, out string? contentError);
         if (content is null) { ContentSource.ShowError(this, contentLookup, contentError); SetProcess(false); SetPhysicsProcess(false); SetProcessUnhandledInput(false); return; }
         _content = content;
+        _scenarios = ScenarioStore.Catalog(content, contentLookup.Path);
         _exploreDemo = args.Contains("--explore-demo");
         _saveTest = args.Contains("--save-test");
         if (args.Contains("--load-bench")) { RunLoadBench(); GetTree().Quit(); return; } // measures the command log and the load time, then quits
@@ -151,7 +152,22 @@ public partial class Play : Node3D
             && (_gameMode == GameMode.Campaign || _structuresShot) && _content.StarterShip is not null;
         _stationRules = !_structuresOn && (_stationDemo
             || (_gameMode == GameMode.Campaign && !_demo && _stressMachines == 0 && !args.Contains("--station-rules=false")));
-        _world = SimWorld.CreateGalaxy(_content, _gameMode, _galaxySeed, threats, _stationRules, _structuresOn);
+        _goalsShotPath = args.FirstOrDefault(a => a.StartsWith("--goals-shot="))?["--goals-shot=".Length..];
+        var plan = ChooseScenario(args);
+        if (plan is not null)
+        {
+            // A scenario game (played from the New Game screen, continued from a scenario save, or a screenshot flag that asks for one).
+            _scenario = plan.Def;
+            _galaxySeed = plan.Seed;
+            _gameMode = plan.Def.SandboxMode ? GameMode.Sandbox : GameMode.Campaign;
+            _threatsOn = true;
+            _structuresOn = true;
+            _stationRules = false;
+            _world = SimWorld.CreateScenario(_content, plan.Def, plan.Seed, plan.Rules);
+            _progress = new ScenarioProgress(_content, plan.Def);
+        }
+        else
+            _world = SimWorld.CreateGalaxy(_content, _gameMode, _galaxySeed, threats, _stationRules, _structuresOn);
         if (_structuresOn) { _yaw = MathF.PI; _pitch = -0.35f; _cursorY = DefaultStructureLayer; } // face the workshop from the pilot seat
         _world.Network.EnsurePlayer(Player); // the ship starts at the origin, inside Home
         if (args.Contains("--structure-demo")) BuildStructureDemo(args);
@@ -175,7 +191,8 @@ public partial class Play : Node3D
         if (!_demo) Toast(L("toast.welcome"));
         if (_structuresShot) StructuresShotSetup(args);
         if (_defenceShotPath is not null) DefenceShotSetup();
-        if (_endShotPath is not null) EndShotSetup();
+        if (_endShotPath is not null) EndShotSetup(args);
+        if (_goalsShotPath is not null) GoalsShotSetup(args);
         if (Launch.Mode == Launch.Intent.Continue && Launch.ContinueSave is { } slot)
         {
             Launch.Mode = Launch.Intent.New;
@@ -1057,6 +1074,7 @@ void fragment() {
         UpdateAudio((float)delta);
         MenuShotTick();
         EndShotFrame();
+        GoalsShotFrame();
         UiShotFrame();
         LayoutShotFrame();
         DefenceShotFrame();
