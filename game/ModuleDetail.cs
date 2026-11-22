@@ -103,7 +103,7 @@ public static partial class ModuleModels
                 }
                 else mb.Block(new(x, wy, 4f), new(0.05f, 0.07f, 7.0f));
             }
-            if (openDeck || lowShell) return;
+            if (openDeck || lowShell || (c.Kind == ModuleKind.Cockpit && !c.Has(Up))) return; // the cockpit has a glass roof: no ceiling strips
             // two ceiling strips along Z; a ship's cockpit has a glass roof so its strips hang a little lower
             float cy = (c.Kind == ModuleKind.Cockpit && c.Ship ? roof - 0.5f : roof - 0.1f);
             foreach (float x in new[] { 2.3f, 5.7f }) mb.Block(new(x, cy, 4f), new(0.16f, 0.04f, 5.6f));
@@ -156,7 +156,6 @@ public static partial class ModuleModels
             case ModuleKind.Cockpit:
                 {
                     mb.At(default);
-                    Lockers(mb, c, false, 6.1f, 3);
                     // a navigation table at the left wall: a slab on a post with a lit chart
                     mb.C(Dark).Prism(new(1.25f, 0.09f, 4.2f), 0.14f, 0.1f, 0.85f, 6);
                     mb.C(Steel).Block(new(1.25f, 0.98f, 4.2f), new(0.9f, 0.07f, 0.9f));

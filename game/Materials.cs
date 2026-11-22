@@ -120,7 +120,7 @@ public static class Materials
         var m = Build(t, 3f, 0.06f, 0.0f, 0.25f, false);
         m.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
         m.CullMode = BaseMaterial3D.CullModeEnum.Disabled;
-        m.AlbedoColor = new Color(0.30f, 0.42f, 0.50f, 0.20f);
+        m.AlbedoColor = new Color(0.30f, 0.42f, 0.50f, 0.26f);
         m.MetallicSpecular = 1.0f;
         m.RimEnabled = true;
         m.Rim = 0.7f;

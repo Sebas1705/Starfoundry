@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Godot;
 using Starfoundry.Sim;
 
@@ -149,7 +150,7 @@ public static partial class ModuleModels
         bool hole = c.Has(Down) && c.Kind is ModuleKind.Hull or ModuleKind.Cargo or ModuleKind.Workshop or ModuleKind.DroneBay
             or ModuleKind.Cockpit or ModuleKind.Engine or ModuleKind.Defence;
         const float Hx0 = 5.4f, Hx1 = 7.0f, Hz0 = 1.0f, Hz1 = 2.6f;
-        void Blk(Vector3 ctr, Vector3 size)
+        void Blk0(Vector3 ctr, Vector3 size)
         {
             if (!hole) { mb.Block(ctr, size); return; }
             float x0 = ctr.X - size.X / 2, x1 = ctr.X + size.X / 2, z0 = ctr.Z - size.Z / 2, z1 = ctr.Z + size.Z / 2;
@@ -165,6 +166,36 @@ public static partial class ModuleModels
             Piece(cx0, cx1, z0, MathF.Min(z1, Hz0));
             Piece(cx0, cx1, MathF.Max(z0, Hz1), z1);
         }
+        // A ship cockpit's nose tapers: its floor is trimmed at the start of the full section and a tapered plate (below) follows the nose.
+        bool noseDeck = c.Ship && c.Kind == ModuleKind.Cockpit && !c.Has(Front);
+        const float NoseEnd = 3.4f;
+        // A ship's floor ends where the lower chamfer of the hull begins (a sloped wall meets the floor a unit in from the side).
+        float xl = c.Ship && !(c.Has(Left) || c.Has(Down)) ? 1.1f : 0f, xr = c.Ship && !(c.Has(Right) || c.Has(Down)) ? W - 1.1f : W;
+        void Blk(Vector3 ctr, Vector3 size)
+        {
+            float cx0 = MathF.Max(ctr.X - size.X / 2, xl), cx1 = MathF.Min(ctr.X + size.X / 2, xr);
+            if (cx1 - cx0 < 0.005f) return;
+            ctr = new(( cx0 + cx1) / 2, ctr.Y, ctr.Z);
+            size = new(cx1 - cx0, size.Y, size.Z);
+            if (noseDeck)
+            {
+                float z0 = ctr.Z - size.Z / 2, z1 = ctr.Z + size.Z / 2;
+                if (z1 <= NoseEnd) return;
+                if (z0 < NoseEnd) { ctr = new(ctr.X, ctr.Y, (NoseEnd + z1) / 2); size = new(size.X, size.Y, z1 - NoseEnd); }
+            }
+            Blk0(ctr, size);
+        }
+        if (noseDeck)
+        {
+            mb.At(default);
+            Vector2[] Plate(float inset) => new[]
+            {
+                new Vector2(4 - NoseHalf(0.25f) + inset, 0.25f + inset), new Vector2(4 + NoseHalf(0.25f) - inset, 0.25f + inset),
+                new Vector2(4 + 2.9f - inset, NoseEnd), new Vector2(4 - 2.9f + inset, NoseEnd),
+            };
+            mb.C(Dark).Extrude(Plate(0f), 0.0f, 0.08f);
+            mb.C(DeckCol).Extrude(Plate(0.3f), 0.0f, 0.084f);
+        }
         mb.At(default); mb.C(Dark); Blk(new(4, 0.04f, 4), new(7.9f, 0.08f, 7.9f));
         mb.C(DeckCol); Blk(new(4, 0.05f, 4), new(7.3f, 0.07f, 7.3f));
         // plate seams every two cells, in a slightly darker tone, so the floor reads as hard-surface plating
@@ -178,7 +209,8 @@ public static partial class ModuleModels
         mb.C(c.Acc);
         foreach (float s in new[] { -1f, 1f })
         {
-            Blk(new(4 + s * 3.5f, Top, 4), new(0.1f, 0.012f, 7.1f));
+            bool chamfered = c.Ship && !(c.Has(s < 0 ? Left : Right) || c.Has(Down)); // a ship deck stops at the lower chamfer of the hull
+            Blk(new(4 + s * (chamfered ? 2.8f : 3.5f), Top, 4), new(0.1f, 0.012f, 7.1f));
             Blk(new(4, Top, 4 + s * 3.5f), new(7.1f, 0.012f, 0.1f));
         }
         switch (c.Kind)
@@ -264,7 +296,7 @@ public static partial class ModuleModels
     private const float DoorHalf = 1.8f, DoorHeight = 2.7f, ShipDoorHeight = 3.1f;
 
     /// <summary>The cross-section of a ship hull in the XY plane, scaled about a point low in the section.</summary>
-    private static Vector2[] Oct(float roofY, float scale, int mask = 0)
+    private static Vector2[] Oct(float roofY, float scale, int mask = 0, float pivotFrac = 0.35f)
     {
         float x0 = 0.05f, x1 = W - 0.05f, y0 = 0.08f, ch = MathF.Min(1.0f, (roofY - y0) * 0.3f);
         // A side that touches another module is squared off (no chamfer), so two modules side by side or stacked meet flush.
@@ -275,38 +307,145 @@ public static partial class ModuleModels
             new Vector2(x0 + bl, y0), new Vector2(x1 - br, y0), new Vector2(x1, y0 + br), new Vector2(x1, roofY - tr),
             new Vector2(x1 - tr, roofY), new Vector2(x0 + tl, roofY), new Vector2(x0, roofY - tl), new Vector2(x0, y0 + bl),
         };
-        var pivot = new Vector2(4f, y0 + (roofY - y0) * 0.35f);
+        var pivot = new Vector2(4f, y0 + (roofY - y0) * pivotFrac);
         for (int i = 0; i < p.Length; i++) p[i] = pivot + (p[i] - pivot) * scale;
         return p;
     }
 
-    /// <summary>A convex tube between two cross-sections at depths <paramref name="za"/> and <paramref name="zb"/>.</summary>
-    private static void Loft(Models.Mb mb, Vector2[] a, float za, Vector2[] b, float zb, bool capA, bool capB, int skipEdges = 0)
+    private static readonly Color Liner = new(0.70f, 0.74f, 0.82f);
+    private const float LinerInset = 0.1f;
+
+    /// <summary>The edges of the section that carry a canopy: the two upper chamfers and the top (roof glass), and the upper sides too round a nose.</summary>
+    private const int NoseGlassEdges = (1 << 2) | RoofEdges | (1 << 6);
+
+    /// <summary>
+    /// A convex tube between two cross-sections at depths <paramref name="za"/> and <paramref name="zb"/>. With <paramref name="liner"/> every face is
+    /// doubled by an inner face a little inside it, facing inwards, so the shell is opaque from inside as well as from outside (a single face is
+    /// culled from behind and the sky shows through). <paramref name="capSkip"/> leaves out the end-cap sectors of those edges.
+    /// </summary>
+    private static void Loft(Models.Mb mb, Vector2[] a, float za, Vector2[] b, float zb, bool capA, bool capB, int skipEdges = 0, bool liner = false, int capSkip = 0)
     {
         var ca = Vector2.Zero; var cb = Vector2.Zero;
         foreach (var p in a) ca += p;
         foreach (var p in b) cb += p;
         ca /= a.Length; cb /= b.Length;
         var inside = new Vector3((ca.X + cb.X) / 2, (ca.Y + cb.Y) / 2, (za + zb) / 2);
+        var col = mb.Col;
+        float dir = MathF.Sign(zb - za);
+        Vector3 In(Vector2 p, Vector2 centre, float z) { var d = (centre - p).Normalized() * LinerInset; return new(p.X + d.X, p.Y + d.Y, z); }
         for (int i = 0; i < a.Length; i++)
         {
             int j = (i + 1) % a.Length;
             var a0 = new Vector3(a[i].X, a[i].Y, za); var a1 = new Vector3(a[j].X, a[j].Y, za);
             var b0 = new Vector3(b[i].X, b[i].Y, zb); var b1 = new Vector3(b[j].X, b[j].Y, zb);
             if (a0.DistanceTo(a1) < 1e-3f && b0.DistanceTo(b1) < 1e-3f) continue; // a squared-off corner has no chamfer face
-            if ((skipEdges & (1 << i)) == 0) mb.Quad(a0, a1, b1, b0, inside);
-            if (capA) mb.Tri(new(ca.X, ca.Y, za), a0, a1, inside);
-            if (capB) mb.Tri(new(cb.X, cb.Y, zb), b0, b1, inside);
+            bool drawn = (skipEdges & (1 << i)) == 0;
+            if (drawn) mb.Quad(a0, a1, b1, b0, inside);
+            bool capOn = (capSkip & (1 << i)) == 0;
+            if (capA && capOn) mb.Tri(new(ca.X, ca.Y, za), a0, a1, inside);
+            if (capB && capOn) mb.Tri(new(cb.X, cb.Y, zb), b0, b1, inside);
+            if (!liner) continue;
+            mb.C(Liner);
+            if (drawn)
+            {
+                var i0 = In(a[i], ca, za); var i1 = In(a[j], ca, za); var j0 = In(b[i], cb, zb); var j1 = In(b[j], cb, zb);
+                var centre = (i0 + i1 + j0 + j1) / 4f;
+                mb.Quad(i0, i1, j1, j0, centre * 2f - inside);
+            }
+            if (capA && capOn)
+                mb.Tri(new(ca.X, ca.Y, za + dir * LinerInset), In(a[i], ca, za + dir * LinerInset), In(a[j], ca, za + dir * LinerInset), new(ca.X, ca.Y, za - dir * 5f));
+            if (capB && capOn)
+                mb.Tri(new(cb.X, cb.Y, zb - dir * LinerInset), In(b[i], cb, zb - dir * LinerInset), In(b[j], cb, zb - dir * LinerInset), new(cb.X, cb.Y, zb + dir * 5f));
+            mb.C(col);
+        }
+    }
+
+    // ---- viewports: framed glass panes in the flank of a module --------------------------------------------------------
+
+    /// <summary>An opening in a side wall, along Z (cells from the module's back-left corner) and up the wall.</summary>
+    private readonly record struct Win(float Z0, float Z1, float Y0, float Y1);
+
+    /// <summary>The viewports of a module kind (one per exposed side wall): what gives the interiors of a crew, workshop, cargo or cockpit module a view of space.</summary>
+    private static Win[] Viewports(Cx c) => c.Kind switch
+    {
+        ModuleKind.Hull or ModuleKind.Workshop => new[] { new Win(2.6f, 5.4f, 1.3f, 2.7f) },
+        ModuleKind.Cargo => new[] { new Win(3.1f, 4.9f, 1.9f, 2.8f) },
+        ModuleKind.Cockpit => new[] { new Win(4.3f, 7.3f, 1.3f, 2.7f) },
+        _ => Array.Empty<Win>(),
+    };
+
+    /// <summary>Wall thickness and the x of the middle of a side wall's slab: a ship's skin is a thin slab flush with the hull, a station's a 0.2 plate.</summary>
+    private static (float Thick, float Mid) WallSlab(Cx c, bool left) =>
+        c.Ship ? (0.12f, left ? 0.05f + 0.06f : W - 0.05f - 0.06f) : (0.2f, left ? StationFace + 0.1f : W - StationFace - 0.1f);
+
+    /// <summary>A side wall with the openings left out: closed blocks round them, so it is opaque from both sides.</summary>
+    private static void SideWall(Models.Mb mb, float xc, float thick, float zA, float zB, float yA, float yB, Win[] wins)
+    {
+        void Piece(float z0, float z1, float y0, float y1)
+        {
+            if (z1 - z0 < 0.01f || y1 - y0 < 0.01f) return;
+            mb.Block(new(xc, (y0 + y1) / 2, (z0 + z1) / 2), new(thick, y1 - y0, z1 - z0));
+        }
+        if (wins.Length == 0) { Piece(zA, zB, yA, yB); return; }
+        float w0 = wins[0].Y0, w1 = wins[0].Y1;
+        Piece(zA, zB, yA, w0);
+        Piece(zA, zB, w1, yB);
+        float z = zA;
+        foreach (var w in wins)
+        {
+            Piece(z, w.Z0, w0, w1);
+            z = w.Z1;
+        }
+        Piece(z, zB, w0, w1);
+    }
+
+    /// <summary>The dark frames and the glass of the viewports of every exposed side wall of a module.</summary>
+    private static void ViewportParts(Cx c, string tag)
+    {
+        var wins = Viewports(c);
+        if (wins.Length == 0) return;
+        foreach (bool left in new[] { true, false })
+        {
+            if (left ? c.Has(Left) : c.Has(Right)) continue;
+            var (thick, xc) = WallSlab(c, left);
+            string side = left ? "L" : "R";
+            Models.Add(c.R, "ViewFrame" + side, $"{c.K}.vframe.{tag}.{side}", ModuleStruct(), mb =>
+            {
+                mb.At(default).C(Dark);
+                const float F = 0.14f;
+                float d = thick + 0.1f;
+                foreach (var w in wins)
+                {
+                    float zc = (w.Z0 + w.Z1) / 2, yc = (w.Y0 + w.Y1) / 2, wl = w.Z1 - w.Z0, hh = w.Y1 - w.Y0;
+                    mb.Block(new(xc, w.Y1 + F / 2, zc), new(d, F, wl + 2 * F));
+                    mb.Block(new(xc, w.Y0 - F / 2, zc), new(d, F, wl + 2 * F));
+                    mb.Block(new(xc, yc, w.Z0 - F / 2), new(d, hh, F));
+                    mb.Block(new(xc, yc, w.Z1 + F / 2), new(d, hh, F));
+                    if (wl > 2.4f) mb.Block(new(xc, yc, zc), new(thick + 0.04f, hh, 0.1f));
+                    mb.C(Steel).Block(new(xc, w.Y0 - F - 0.03f, zc), new(d + 0.06f, 0.06f, wl + 2 * F + 0.1f)); // sill
+                    mb.C(Dark);
+                }
+            });
+            Models.Add(c.R, "ViewGlass" + side, $"{c.K}.vglass.{tag}.{side}", Models.GlassMat(), mb =>
+            {
+                mb.At(default);
+                foreach (var w in wins)
+                    mb.Quad(new(xc, w.Y0, w.Z0), new(xc, w.Y0, w.Z1), new(xc, w.Y1, w.Z1), new(xc, w.Y1, w.Z0), new(xc + 5f, 2f, 4f));
+            }).CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
         }
     }
 
     /// <summary>
-    /// The outer shell. Ship: an octagonal hull with optional tapered nose and tail, a spine and side stripe in the trim colour.
-    /// Station: a slab box with docking collars on the four sides, and raised panels when <paramref name="detail"/>.
+    /// The outer shell. Ship: an octagonal hull with optional tapered nose and tail, a spine and side stripe in the trim colour; every face has an
+    /// inner liner, so the hull is solid seen from inside. Station: a slab box with docking collars on the four sides, and raised panels when
+    /// <paramref name="detail"/>. <paramref name="glassRoof"/> leaves the roof to a glass part (the caller adds it); <paramref name="windows"/> cuts
+    /// the viewports of <see cref="Viewports"/> into the exposed side walls; <paramref name="openRear"/> leaves the rear face open (a hangar door).
     /// </summary>
-    private static void Skin(Cx c, float roofY, bool nose = false, bool tail = false, bool detail = false, bool collars = true, bool glassRoof = false)
+    private static void Skin(Cx c, float roofY, bool nose = false, bool tail = false, bool detail = false, bool collars = true, bool glassRoof = false,
+        bool windows = false, bool openRear = false)
     {
-        string key = $"{c.K}.skin.{roofY}.{nose}.{tail}.{detail}.{collars}.{glassRoof}";
+        var wins = windows ? Viewports(c) : Array.Empty<Win>();
+        string key = $"{c.K}.skin.{roofY}.{nose}.{tail}.{detail}.{collars}.{glassRoof}.{windows}.{openRear}";
         Models.Add(c.R, "Skin", key, ModuleHull(), mb =>
         {
             mb.At(default);
@@ -316,23 +455,32 @@ public static partial class ModuleModels
                 int skip = (c.Has(Right) ? 1 << 2 : 0) | (c.Has(Left) ? 1 << 6 : 0) | (c.Has(Up) ? 1 << 4 : 0) | (c.Has(Down) ? 1 : 0);
                 if (glassRoof) skip |= RoofEdges; // the roof is a separate glass part, see-through from inside
                 float a = nose ? 3.4f : 0.05f, b = tail ? 5.0f : D - 0.05f;
+                bool wallR = wins.Length > 0 && !c.Has(Right), wallL = wins.Length > 0 && !c.Has(Left);
+                if (wallR) skip |= 1 << 2;
+                if (wallL) skip |= 1 << 6;
                 mb.C(White);
                 // exposed ends of the tube are closed by a bulkhead; ends that touch another module stay open
-                bool capFront = !nose && !c.Has(Front), capRear = !tail && !c.Has(Rear);
-                if (nose) Loft(mb, Oct(roofY, 0.28f, c.M), 0.05f, full, a, true, false, skip);
-                Loft(mb, full, a, full, b, capFront, capRear, skip);
-                if (tail) Loft(mb, full, b, Oct(roofY, 0.8f, c.M), 6.1f, false, true, skip);
+                bool capFront = !nose && !c.Has(Front), capRear = !tail && !c.Has(Rear) && !openRear;
+                bool wrap = nose && glassRoof; // a canopy round the nose: glass over the upper half and the tip
+                if (nose) Loft(mb, Oct(roofY, 0.28f, c.M, 0f), 0.05f, full, a, true, false, wrap ? skip | NoseGlassEdges : skip, true, wrap ? NoseGlassEdges : 0);
+                Loft(mb, full, a, full, b, capFront, capRear, skip, true);
+                if (tail) Loft(mb, full, b, Oct(roofY, 0.8f, c.M), 6.1f, false, true, skip, true);
+                if (wallR) SideWall(mb, WallSlab(c, false).Mid, 0.12f, a, b, full[2].Y, full[3].Y, wins);
+                if (wallL) SideWall(mb, WallSlab(c, true).Mid, 0.12f, a, b, full[7].Y, full[6].Y, wins);
                 float zc = (a + b) / 2, len = b - a;
                 float spineTop = full[4].Y;
                 if (!c.Has(Up) && !glassRoof) mb.C(c.Acc).Block(new(4, spineTop + 0.02f, zc), new(1.1f, 0.06f, len - 0.1f));
-                mb.C(Dark).Block(new(4, 0.066f, 4), new(full[1].X - full[0].X - 0.4f, 0.03f, D - 0.4f));
+                mb.C(Dark).Block(new(4, 0.066f, zc), new(full[1].X - full[0].X - 0.4f, 0.03f, len - 0.3f)); // the bilge plate stays inside a nose or a tail
                 float mid = (full[2].Y + full[3].Y) / 2;
-                // role band along each exposed flank, and a thin trim line under it
+                // role band along each exposed flank, and a thin trim line under it (split round a viewport)
                 foreach (float s in new[] { 0.01f, W - 0.01f })
                 {
                     if (s < 1f ? c.Has(Left) : c.Has(Right)) continue;
-                    mb.C(c.Role).Block(new(s, mid, zc), new(0.04f, 0.26f, len - 0.2f));
-                    mb.C(c.Acc).Block(new(s, mid - 0.3f, zc), new(0.04f, 0.05f, len - 0.2f));
+                    foreach (var (z0, z1) in Spans(a + 0.1f, b - 0.1f, wins))
+                    {
+                        mb.C(c.Role).Block(new(s, mid, (z0 + z1) / 2), new(0.04f, 0.26f, z1 - z0));
+                        mb.C(c.Acc).Block(new(s, mid - 0.3f, (z0 + z1) / 2), new(0.04f, 0.05f, z1 - z0));
+                    }
                 }
                 if (detail)
                 {
@@ -344,13 +492,14 @@ public static partial class ModuleModels
                         foreach (float s in new[] { 0.035f, W - 0.035f })
                         {
                             if (s < 1f ? c.Has(Left) : c.Has(Right)) continue;
+                            if (wins.Any(w => i * 2f > w.Z0 - 0.1f && i * 2f < w.Z1 + 0.1f)) continue;
                             mb.Block(new(s, mid, i * 2f), new(0.04f, full[3].Y - full[2].Y, 0.05f));
                         }
                 }
                 // an exposed end of the tube carries a hatch in the role colour: the visible place where the next module would attach
                 foreach (bool front in new[] { true, false })
                 {
-                    if (front ? (nose || c.Has(Front)) : (tail || c.Has(Rear))) continue;
+                    if (front ? (nose || c.Has(Front)) : (tail || c.Has(Rear) || openRear)) continue;
                     float z = front ? 0.05f : D - 0.05f, o = front ? -0.03f : 0.03f;
                     mb.C(Panel).Block(new(4, mid - 0.2f, z + o), new(3.9f, 2.5f, 0.06f));
                     mb.C(Dark).Block(new(4, mid - 0.2f, z + 2 * o), new(3.4f, 2.0f, 0.04f));
@@ -359,16 +508,31 @@ public static partial class ModuleModels
             }
             else
             {
-                BoxShell(mb, c, roofY, detail, collars);
+                BoxShell(mb, c, roofY, detail, collars, wins, glassRoof, openRear);
             }
         });
+        if (wins.Length > 0 && !tail) ViewportParts(c, $"{nose}.{roofY}.{c.Ship}");
+    }
+
+    /// <summary>The stretches of [z0, z1] left between the viewports (a band along a wall is drawn only there).</summary>
+    private static System.Collections.Generic.IEnumerable<(float, float)> Spans(float z0, float z1, Win[] wins)
+    {
+        float z = z0;
+        foreach (var w in wins)
+        {
+            if (w.Z0 - 0.1f > z) yield return (z, w.Z0 - 0.1f);
+            z = MathF.Max(z, w.Z1 + 0.1f);
+        }
+        if (z1 > z) yield return (z, z1);
     }
 
     /// <summary>
-    /// A station module's shell: four walls and a roof of grey slabs, each a thin single-sided plate. A side that touches another module has
-    /// a doorway (jambs and a lintel) instead of a wall; the exposed sides carry a role-colour band and, when asked, a docking collar.
+    /// A station module's shell: four walls and a roof of grey slabs, each a thin closed plate (opaque from both sides). A side that touches another
+    /// module has a doorway (jambs and a lintel) instead of a wall; the exposed sides carry a role-colour band and, when asked, a docking collar.
+    /// An exposed side wall has a viewport when <paramref name="wins"/> says so. With <paramref name="glassRoof"/> the roof is a frame round a
+    /// glass pane (the pane is added by the caller).
     /// </summary>
-    private static void BoxShell(Models.Mb mb, Cx c, float roofY, bool detail, bool collars)
+    private static void BoxShell(Models.Mb mb, Cx c, float roofY, bool detail, bool collars, Win[] wins, bool glassRoof, bool openRear)
     {
         const float T = 0.2f;
         float si = StationFace, y0 = 0.08f, h = roofY - y0;
@@ -377,7 +541,7 @@ public static partial class ModuleModels
             for (int side = 0; side < 2; side++)
             {
                 int bit = axis == 0 ? (side == 0 ? Left : Right) : (side == 0 ? Front : Rear);
-                bool open = c.Has(bit);
+                bool open = c.Has(bit) || (openRear && bit == Rear);
                 float span = axis == 0 ? D - 2 * si : W - 2 * si;
                 float pos = side == 0 ? si + T / 2 : (axis == 0 ? W : D) - si - T / 2;
                 Vector3 P(float along, float y) => axis == 0 ? new(pos, y, along) : new(along, y, pos);
@@ -385,10 +549,15 @@ public static partial class ModuleModels
                 mb.C(Slab);
                 if (!open)
                 {
-                    mb.Block(P(4, y0 + h / 2), S(span, h));
-                    mb.C(c.Role).Block(P(4, roofY * 0.5f), S(span - 0.9f, 0.2f, 0.04f));
-                    mb.C(c.Acc).Block(P(4, roofY * 0.5f - 0.3f), S(span - 0.9f, 0.05f, 0.04f));
-                    if (detail)
+                    bool windowed = axis == 0 && wins.Length > 0;
+                    if (windowed) SideWall(mb, pos, T, si, D - si, y0, roofY, wins);
+                    else mb.Block(P(4, y0 + h / 2), S(span, h));
+                    foreach (var (z0, z1) in windowed ? Spans(0.45f, D - 0.45f, wins) : new[] { (0.45f, D - 0.45f) })
+                    {
+                        mb.C(c.Role).Block(P((z0 + z1) / 2, roofY * 0.5f), S(z1 - z0, 0.2f, 0.04f));
+                        mb.C(c.Acc).Block(P((z0 + z1) / 2, roofY * 0.5f - 0.3f), S(z1 - z0, 0.05f, 0.04f));
+                    }
+                    if (detail && !windowed)
                     {
                         mb.C(SlabLt);
                         foreach (float sx in new[] { 2f, 6f })
@@ -406,14 +575,27 @@ public static partial class ModuleModels
             }
         if (!c.Has(Up))
         {
-            mb.C(Slab).Block(new(4, roofY - T / 2, 4), new(W - 2 * si, T, D - 2 * si));
-            mb.C(c.Acc).Block(new(4, roofY + 0.005f, 4), new(W - 2 * si - 0.6f, 0.02f, 0.14f));
-            if (detail)
+            if (glassRoof)
             {
-                mb.C(SlabLt);
-                foreach (float sx in new[] { 2f, 6f })
-                    foreach (float sz in new[] { 2f, 6f })
-                        mb.Block(new(sx, roofY + 0.012f, sz), new(3.3f, 0.025f, 3.3f));
+                // a frame of four slabs round a square opening that a glass pane closes
+                const float O0 = 1.3f, O1 = 6.7f;
+                mb.C(Slab);
+                mb.Block(new(4, roofY - T / 2, (si + O0) / 2), new(W - 2 * si, T, O0 - si));
+                mb.Block(new(4, roofY - T / 2, (O1 + D - si) / 2), new(W - 2 * si, T, D - si - O1));
+                mb.Block(new((si + O0) / 2, roofY - T / 2, 4), new(O0 - si, T, O1 - O0));
+                mb.Block(new((O1 + W - si) / 2, roofY - T / 2, 4), new(W - si - O1, T, O1 - O0));
+            }
+            else
+            {
+                mb.C(Slab).Block(new(4, roofY - T / 2, 4), new(W - 2 * si, T, D - 2 * si));
+                mb.C(c.Acc).Block(new(4, roofY + 0.005f, 4), new(W - 2 * si - 0.6f, 0.02f, 0.14f));
+                if (detail)
+                {
+                    mb.C(SlabLt);
+                    foreach (float sx in new[] { 2f, 6f })
+                        foreach (float sz in new[] { 2f, 6f })
+                            mb.Block(new(sx, roofY + 0.012f, sz), new(3.3f, 0.025f, 3.3f));
+                }
             }
         }
         if (!collars) return;
@@ -427,7 +609,8 @@ public static partial class ModuleModels
         };
         foreach (var s in spots)
         {
-            if (c.Has(s.bit)) continue;
+            if (c.Has(s.bit) || (openRear && s.bit == Rear)) continue;
+            if (wins.Length > 0 && s.bit is Left or Right) continue; // the side walls carry viewports, not collars
             mb.At(s.pos, s.rot).C(Steel).Prism(default, 1.3f, 1.15f, 0.1f, 8, 22.5f);
             mb.C(Dark).Prism(new(0, 0.005f, 0), 0.95f, 0.95f, 0.11f, 8, 22.5f);
             mb.C(c.Role).Prism(new(0, 0.01f, 0), 0.4f, 0.4f, 0.115f, 8, 22.5f);
@@ -436,9 +619,9 @@ public static partial class ModuleModels
     }
 
     /// <summary>The load-bearing frame, visible from inside as well. Ship: eight longitudinal beams along the octagon and a ring at each end. Station: the twelve box edges with trim caps on the corners.</summary>
-    private static void Frame(Cx c, float roofY, bool nose = false, bool tail = false)
+    private static void Frame(Cx c, float roofY, bool nose = false, bool tail = false, bool canopy = false)
     {
-        Models.Add(c.R, "Frame", $"{c.K}.frame.{roofY}.{nose}.{tail}", ModuleStruct(), mb =>
+        Models.Add(c.R, "Frame", $"{c.K}.frame.{roofY}.{nose}.{tail}.{canopy}", ModuleStruct(), mb =>
         {
             mb.At(default);
             if (c.Ship)
@@ -447,14 +630,19 @@ public static partial class ModuleModels
                 var secs = new System.Collections.Generic.List<(float Z, float S)>();
                 if (nose) { secs.Add((0.07f, 0.28f)); secs.Add((3.4f, 1f)); } else secs.Add((0.07f, 1f));
                 if (tail) { secs.Add((5.0f, 1f)); secs.Add((6.1f, 0.8f)); } else secs.Add((D - 0.07f, 1f));
+                // A canopy frame (cockpit): the beams and rings that border glass are dark mullions, the rest stay plating-coloured.
+                bool Glass(int mask, int i) => canopy && (((mask >> i) & 1) != 0 || ((mask >> ((i + 7) % 8)) & 1) != 0);
                 mb.C(Panel);
                 for (int s = 0; s + 1 < secs.Count; s++)
                 {
-                    var pa = Oct(roofY, secs[s].S, c.M); var pb = Oct(roofY, secs[s + 1].S, c.M);
+                    bool tip = nose && s == 0;
+                    var pa = Oct(roofY, secs[s].S, c.M, tip ? 0f : 0.35f); var pb = Oct(roofY, secs[s + 1].S, c.M);
+                    int gm = tip ? NoseGlassEdges : RoofEdges;
                     for (int i = 0; i < pa.Length; i++)
                     {
                         if (i % 2 == 1 && pa[i].DistanceTo(pa[(i + 1) % pa.Length]) < 1e-3f) continue; // squared corner: one post only
-                        mb.Beam(new(pa[i].X, pa[i].Y, secs[s].Z), new(pb[i].X, pb[i].Y, secs[s + 1].Z), 0.12f);
+                        bool g = Glass(s == secs.Count - 1 ? 0 : gm, i) && s < 1 + (nose ? 1 : 0);
+                        mb.C(g ? Dark : Panel).Beam(new(pa[i].X, pa[i].Y, secs[s].Z), new(pb[i].X, pb[i].Y, secs[s + 1].Z), g ? 0.16f : 0.12f);
                     }
                 }
                 // Ring frames at both ends: a thicker role-colour ring where another module attaches (the visible seam), a plain one at an exposed end.
@@ -462,13 +650,14 @@ public static partial class ModuleModels
                 {
                     var sec = e == 0 ? secs[0] : secs[^1];
                     bool joined = e == 0 ? c.Has(Front) : c.Has(Rear);
-                    var o = Oct(roofY, sec.S, c.M);
-                    mb.C(joined ? c.Role : Panel);
+                    bool nosering = e == 0 && nose;
+                    var o = Oct(roofY, sec.S, c.M, nosering ? 0f : 0.35f);
                     for (int i = 0; i < o.Length; i++)
                     {
                         int j = (i + 1) % o.Length;
                         if (o[i].DistanceTo(o[j]) < 1e-3f) continue;
-                        mb.Beam(new(o[i].X, o[i].Y, sec.Z), new(o[j].X, o[j].Y, sec.Z), joined ? 0.17f : 0.12f);
+                        bool g = canopy && ((nosering ? NoseGlassEdges : e == 1 ? RoofEdges : 0) >> i & 1) != 0;
+                        mb.C(g ? Dark : joined ? c.Role : Panel).Beam(new(o[i].X, o[i].Y, sec.Z), new(o[j].X, o[j].Y, sec.Z), g ? 0.16f : joined ? 0.17f : 0.12f);
                     }
                 }
             }
@@ -699,7 +888,7 @@ public static partial class ModuleModels
             ModuleKind.Cockpit => c.Ship ? Roof : LowRoof,
             _ => Roof,
         };
-        bool windowed = c.Kind is ModuleKind.Hull or ModuleKind.Cargo or ModuleKind.Cockpit or ModuleKind.Core or ModuleKind.Engine;
+        bool windowed = c.Kind is ModuleKind.Core or ModuleKind.Engine; // the others have real viewports
         if (windowed)
             Models.Add(c.R, "Windows", $"{c.K}.windows", Models.Glow(new Color(1f, 0.92f, 0.65f), 1.3f), mb =>
             {
@@ -816,48 +1005,215 @@ public static partial class ModuleModels
     /// <summary>The three upper edges of the hull section (both chamfers and the top): a cockpit has glass there instead of a solid roof.</summary>
     private const int RoofEdges = (1 << 3) | (1 << 4) | (1 << 5);
 
+    /// <summary>The scale of the nose section at depth z (the nose runs from 0.28 at the tip, z = 0.05, to 1 at z = 3.4) and the half width of its flat belly.</summary>
+    private static float NoseScale(float z) => 0.28f + 0.72f * (z - 0.05f) / 3.35f;
+    private static float NoseHalf(float z) => 2.9f * NoseScale(z);
+
+    /// <summary>
+    /// The glass of a ship cockpit: the roof and, round a nose, the upper flanks and the tip too. A faceted greenhouse the pilot looks out of, with the
+    /// mullions of <see cref="CanopyRibs"/> over it.
+    /// </summary>
+    private static void ShipCanopy(Cx c, float roof, bool nose)
+    {
+        Models.Add(c.R, "Canopy", $"{c.K}.canopy.{roof}.{nose}", Models.GlassMat(), mb =>
+        {
+            mb.At(default);
+            var full = Oct(roof, 1f, c.M);
+            float a = nose ? 3.4f : 0.05f;
+            if (nose)
+            {
+                var tip = Oct(roof, 0.28f, c.M, 0f);
+                Loft(mb, tip, 0.05f, full, a, false, false, ~NoseGlassEdges & 0xFF);
+                var ctr = Vector2.Zero;
+                foreach (var p in tip) ctr += p;
+                ctr /= tip.Length;
+                for (int i = 0; i < tip.Length; i++)
+                {
+                    if (((NoseGlassEdges >> i) & 1) == 0) continue;
+                    var p0 = tip[i]; var p1 = tip[(i + 1) % tip.Length];
+                    mb.Tri(new(ctr.X, ctr.Y, 0.05f), new(p0.X, p0.Y, 0.05f), new(p1.X, p1.Y, 0.05f), new(ctr.X, ctr.Y, 3f));
+                }
+            }
+            Loft(mb, full, a, full, D - 0.05f, false, false, ~RoofEdges & 0xFF);
+        }).CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+    }
+
+    /// <summary>Dark mullions across the canopy: rings of beams at intervals over the glass edges and a spine along the top.</summary>
+    private static void CanopyRibs(Cx c, float roof, bool nose)
+    {
+        Models.Add(c.R, "CanopyRibs", $"{c.K}.ribs.{roof}.{nose}", ModuleStruct(), mb =>
+        {
+            mb.At(default).C(Dark);
+            void Ring(float z, float scale, float pivot, int mask)
+            {
+                var o = Oct(roof, scale, c.M, pivot);
+                for (int i = 0; i < o.Length; i++)
+                {
+                    if (((mask >> i) & 1) == 0) continue;
+                    var p = o[i]; var q = o[(i + 1) % o.Length];
+                    if (p.DistanceTo(q) < 1e-3f) continue;
+                    mb.Beam(new(p.X, p.Y, z), new(q.X, q.Y, z), 0.14f);
+                }
+            }
+            var top = Oct(roof, 1f, c.M)[4].Y;
+            if (nose)
+            {
+                foreach (float z in new[] { 1.2f, 2.3f }) Ring(z, NoseScale(z), 0f, NoseGlassEdges);
+                Ring(3.4f, 1f, 0.35f, NoseGlassEdges);
+                var tipTop = Oct(roof, 0.28f, c.M, 0f)[4].Y;
+                mb.Beam(new(4, tipTop, 0.07f), new(4, top, 3.4f), 0.14f);
+                mb.Beam(new(4, top, 3.4f), new(4, top, D - 0.07f), 0.14f);
+            }
+            else mb.Beam(new(4, top, 0.07f), new(4, top, D - 0.07f), 0.14f);
+            foreach (float z in new[] { 4.9f, 6.4f }) Ring(z, 1f, 0.35f, RoofEdges);
+            if (!nose) Ring(2.4f, 1f, 0.35f, RoofEdges);
+        });
+    }
+
+    /// <summary>The glass dome of a station cockpit over the opening in its roof, with meridian and ring mullions.</summary>
+    private static void StationDome(Cx c, float roof)
+    {
+        var centre = new Vector3(4, roof - 0.2f, 4);
+        var radii = new Vector3(2.9f, 1.05f, 2.9f);
+        const int rings = 3, segs = 12;
+        Models.Add(c.R, "Canopy", $"{c.K}.dome.{roof}", Models.GlassMat(), mb => Dome(mb, centre, radii, rings, segs))
+            .CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+        Models.Add(c.R, "CanopyRibs", $"{c.K}.domeribs.{roof}", ModuleStruct(), mb =>
+        {
+            mb.At(default).C(Dark);
+            Vector3 P(int i, int j)
+            {
+                float lat = Mathf.Pi / 2 * i / rings, lon = Mathf.Tau * j / segs;
+                return centre + new Vector3(MathF.Sin(lat) * MathF.Cos(lon) * radii.X, MathF.Cos(lat) * radii.Y, MathF.Sin(lat) * MathF.Sin(lon) * radii.Z);
+            }
+            for (int j = 0; j < segs; j++)
+                for (int i = 0; i < rings; i++)
+                {
+                    mb.Beam(P(i, j), P(i + 1, j), 0.12f);
+                    if (i > 0) mb.Beam(P(i, j), P(i, j + 1), 0.1f);
+                }
+        });
+    }
+
+    /// <summary>A flat glass pane in the roof opening of a station deck (a gun deck), with a dark frame and a cross of mullions.</summary>
+    private static void StationRoofGlass(Cx c, float roof)
+    {
+        const float O0 = 1.3f, O1 = 6.7f;
+        float y = roof - 0.12f;
+        Models.Add(c.R, "Canopy", $"{c.K}.roofpane.{roof}", Models.GlassMat(), mb =>
+            mb.At(default).Quad(new(O0, y, O0), new(O1, y, O0), new(O1, y, O1), new(O0, y, O1), new(4, y - 3f, 4)))
+            .CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+        Models.Add(c.R, "CanopyRibs", $"{c.K}.roofribs.{roof}", ModuleStruct(), mb =>
+        {
+            mb.At(default).C(Dark);
+            mb.Block(new(4, y, 4), new(O1 - O0, 0.1f, 0.14f));
+            mb.Block(new(4, y, 4), new(0.14f, 0.1f, O1 - O0));
+            foreach (float s in new[] { O0, O1 })
+            {
+                mb.Block(new(4, y, s), new(O1 - O0 + 0.14f, 0.12f, 0.16f));
+                mb.Block(new(s, y, 4), new(0.16f, 0.12f, O1 - O0 + 0.14f));
+            }
+        });
+    }
+
     private static void Cockpit(Cx c)
     {
         float roof = c.Ship ? Roof : LowRoof;
         bool nose = c.Ship && !c.Has(Front);
-        Skin(c, roof, nose: nose, glassRoof: c.Ship && !c.Has(Up));
-        if (c.Ship && !c.Has(Up))
-            Models.Add(c.R, "RoofGlass", $"{c.K}.roofglass.{roof}.{nose}", Models.GlassMat(), mb =>
-            {
-                mb.At(default);
-                var full = Oct(roof, 1f, c.M);
-                float a = nose ? 3.4f : 0.05f, b = D - 0.05f;
-                int only = ~RoofEdges & 0xFF; // skip every edge except the roof ones
-                if (nose) Loft(mb, Oct(roof, 0.28f, c.M), 0.05f, full, a, false, false, only);
-                Loft(mb, full, a, full, b, false, false, only);
-            });
-        Frame(c, roof, nose: nose);
-        if (c.Ship)
-            Models.Add(c.R, "Canopy", $"{c.K}.canopy", Models.GlassMat(), mb => Dome(mb, new(4, 2.9f, 2.9f), new(1.5f, 1.1f, 2.1f), 4, 10));
-        else
-            Models.Add(c.R, "Canopy", $"{c.K}.canopy", Models.GlassMat(), mb => Dome(mb, new(4, 3.05f, 4), new(3.4f, 0.85f, 3.4f), 3, 12));
+        bool glassRoof = !c.Has(Up);
+        Skin(c, roof, nose: nose, glassRoof: glassRoof, windows: true);
+        if (glassRoof)
+        {
+            if (c.Ship) { ShipCanopy(c, roof, nose); CanopyRibs(c, roof, nose); }
+            else StationDome(c, roof);
+        }
+        Frame(c, roof, nose: nose, canopy: c.Ship && glassRoof);
 
+        // The pilot seat: a swivel pedestal, a cushion, a reclined back with a headrest, armrests with a flight stick on the right and a throttle
+        // on the left, a harness and foot pedals. The whole mesh is the "Seat" node, hidden while seated.
         Models.Add(c.R, "Seat", $"{c.K}.seat", ModuleHull(), mb =>
         {
-            mb.At(default).C(Dark).Block(new(4, 0.4f, 4.6f), new(0.5f, 0.7f, 0.5f));
-            mb.C(Steel).Block(new(4, 0.82f, 4.6f), new(1.3f, 0.3f, 1.3f));
-            mb.C(c.Acc).Block(new(4, 1.55f, 5.25f), new(1.3f, 1.6f, 0.26f));
-            mb.C(Steel).Block(new(4, 2.5f, 5.3f), new(0.8f, 0.45f, 0.2f));
+            mb.At(default).C(Dark).Prism(new(4, 0.09f, 4.6f), 0.5f, 0.5f, 0.06f, 12);
+            mb.Prism(new(4, 0.15f, 4.6f), 0.14f, 0.14f, 0.5f, 8);
+            mb.C(Steel).Block(new(4, 0.74f, 4.6f), new(1.3f, 0.12f, 1.2f));
+            mb.C(Dark).Block(new(4, 0.86f, 4.55f), new(1.2f, 0.16f, 1.1f), 0.94f, 0.94f);
+            mb.C(c.Acc).Block(new(4, 0.935f, 4.55f), new(1.0f, 0.012f, 0.9f));
+            // the back, reclined about its foot
+            mb.At(new(4, 0.9f, 5.12f), Models.Deg(12, 0, 0));
+            mb.C(Dark).Block(new(0, 0.78f, 0), new(1.3f, 1.56f, 0.3f), 0.92f, 1f);
+            mb.C(c.Acc).Block(new(0, 0.8f, -0.17f), new(0.9f, 1.2f, 0.04f));
+            mb.C(Steel).Block(new(0, 1.74f, 0.02f), new(0.8f, 0.4f, 0.22f));
+            mb.C(Dark).Block(new(0, 1.74f, -0.1f), new(0.6f, 0.3f, 0.06f));
+            foreach (float s in new[] { -1f, 1f }) mb.C(Panel).Block(new(s * 0.3f, 1.0f, -0.2f), new(0.08f, 1.1f, 0.03f)); // harness straps
+            mb.At(default);
             foreach (float s in new[] { -1f, 1f })
-                mb.C(Dark).Block(new(4 + s * 0.78f, 1.15f, 4.6f), new(0.14f, 0.2f, 1.0f));
-            mb.C(Dark).Beam(new(3.4f, 0.1f, 3.5f), new(3.4f, 1.2f, 3.5f), 0.1f);
-            mb.C(Steel).Block(new(3.4f, 1.28f, 3.5f), new(0.28f, 0.14f, 0.28f));
+            {
+                mb.C(Dark).Block(new(4 + s * 0.8f, 1.12f, 4.55f), new(0.18f, 0.14f, 0.95f));
+                mb.C(Steel).Block(new(4 + s * 0.8f, 0.98f, 4.55f), new(0.1f, 0.2f, 0.5f));
+            }
+            // flight stick (right) and throttle quadrant (left)
+            mb.C(Dark).Prism(new(4.8f, 1.19f, 4.3f), 0.07f, 0.05f, 0.3f, 8);
+            mb.C(c.Acc).Sphere(new(4.8f, 1.52f, 4.3f), new(0.09f, 0.09f, 0.09f), 3, 8);
+            mb.C(Steel).Block(new(3.2f, 1.22f, 4.35f), new(0.16f, 0.05f, 0.5f));
+            mb.At(new(3.2f, 1.25f, 4.35f), Models.Deg(-35, 0, 0)).C(Dark).Block(new(0, 0.2f, 0), new(0.07f, 0.4f, 0.07f));
+            mb.At(default);
+            foreach (float s in new[] { -1f, 1f }) mb.C(Steel).Block(new(4 + s * 0.35f, 0.18f, 3.75f), new(0.4f, 0.05f, 0.3f)); // pedals
         });
+
+        // The console under the windscreen: a dark body with a tilted deck, a bezel round each of the three screens, a row of switches and cheek panels.
         Models.Add(c.R, "Console", $"{c.K}.console", ModuleHull(), mb =>
         {
-            mb.At(default).C(Dark).Block(new(4, 0.55f, 2.25f), new(3.6f, 1.0f, 1.0f), 1f, 0.45f);
-            mb.C(Steel).Block(new(4, 1.08f, 2.25f), new(3.7f, 0.08f, 0.55f));
+            mb.At(default).C(Dark).Block(new(4, 0.5f, 2.6f), new(4.8f, 0.9f, 1.1f));
+            mb.C(Steel);
+            foreach (float s in new[] { -1f, 1f }) mb.Block(new(4 + s * 2.45f, 0.75f, 2.6f), new(0.18f, 1.4f, 1.15f));
+            mb.At(new(4, 1.02f, 2.55f), Models.Deg(18, 0, 0));
+            mb.C(Steel).Block(new(0, 0, 0), new(4.9f, 0.14f, 1.25f));
+            mb.C(Dark);
+            mb.Block(new(0, 0.085f, -0.05f), new(1.85f, 0.04f, 0.88f));
+            foreach (float s in new[] { -1f, 1f }) mb.Block(new(s * 1.75f, 0.085f, -0.02f), new(1.3f, 0.04f, 0.82f));
+            // the instruments printed over the lit screens: a horizon line and pitch ticks, a bar chart
+            mb.Block(new(0, 0.108f, -0.05f), new(1.5f, 0.004f, 0.03f));
+            foreach (float z in new[] { -0.25f, 0.15f }) mb.Block(new(0, 0.108f, z), new(0.5f, 0.004f, 0.02f));
+            mb.Block(new(0, 0.108f, -0.05f), new(0.03f, 0.004f, 0.5f));
+            for (int i = 0; i < 5; i++) mb.Block(new(-2.15f + i * 0.22f, 0.108f, 0.1f - 0.1f * ((i * 3) % 4)), new(0.12f, 0.004f, 0.2f + 0.12f * ((i * 3) % 4)));
+            mb.C(Steel);
+            for (int i = 0; i < 12; i++) mb.Block(new(-2.2f + i * 0.4f, 0.09f, 0.5f), new(0.16f, 0.06f, 0.1f)); // the switch row near the pilot
+            mb.At(default).C(Dark);
+            mb.Block(new(4, 1.32f, 2.12f), new(4.9f, 0.1f, 0.08f)); // the lip along the front of the deck
         });
-        Models.Add(c.R, "GlowDash", $"{c.K}.dash", Models.Glow(new Color(0.3f, 0.8f, 1f), 2.2f), mb =>
+        void Screen(string key, Color col, float energy, Action<Models.Mb> shape) =>
+            Models.Add(c.R, "GlowDash", $"{c.K}.{key}", Models.Glow(col, energy), mb =>
+            {
+                mb.At(new(4, 1.02f, 2.55f), Models.Deg(18, 0, 0));
+                shape(mb);
+            });
+        Screen("scr.nav", new Color(0.25f, 0.7f, 1f), 1.1f, mb => mb.Block(new(0, 0.1f, -0.05f), new(1.7f, 0.02f, 0.76f)));
+        Screen("scr.sys", Amber, 0.9f, mb => mb.Block(new(-1.75f, 0.1f, -0.02f), new(1.2f, 0.02f, 0.7f)));
+        Screen("scr.radar", Green, 1.0f, mb =>
         {
-            mb.At(default).Block(new(4, 1.14f, 2.2f), new(2.2f, 0.04f, 0.38f));
-            foreach (float s in new[] { -1f, 1f }) mb.Block(new(4 + s * 1.4f, 1.14f, 2.2f), new(0.6f, 0.04f, 0.38f));
+            mb.Block(new(1.75f, 0.1f, -0.02f), new(1.2f, 0.02f, 0.7f));
         });
+        Models.Add(c.R, "GlowDash", $"{c.K}.radar.ring", Models.Glow(new Color(0.85f, 1f, 0.9f), 1.8f), mb =>
+        {
+            mb.At(new(4, 1.02f, 2.55f), Models.Deg(18, 0, 0));
+            mb.Torus(new(1.75f, 0.118f, -0.02f), 0.28f, 0.012f, 20, 3);
+            mb.Torus(new(1.75f, 0.118f, -0.02f), 0.14f, 0.01f, 16, 3);
+            mb.Block(new(1.75f + 0.14f, 0.118f, -0.02f), new(0.28f, 0.01f, 0.018f));
+        });
+        foreach (var (col, k) in new[] { (new Color(1f, 0.25f, 0.2f), 0), (new Color(0.3f, 1f, 0.45f), 1), (Amber, 2) })
+            Models.Add(c.R, "GlowLamp", $"{c.K}.lamps.{k}", Models.Glow(col, 2.4f), mb =>
+            {
+                mb.At(new(4, 1.02f, 2.55f), Models.Deg(18, 0, 0));
+                for (int i = k; i < 12; i += 3) mb.Block(new(-2.2f + i * 0.4f, 0.125f, 0.5f), new(0.07f, 0.02f, 0.05f));
+            });
+
+        if (nose)
+            Models.Add(c.R, "Pitot", $"{c.K}.pitot", ModuleStruct(), mb =>
+            {
+                ZPrism(mb, 4f, 0.7f, -0.9f, 0.045f, 0.03f, 1.0f, 6, Steel);
+                ZPrism(mb, 4f, 0.7f, -0.95f, 0.02f, 0.01f, 0.08f, 6, Dark);
+                ZPrism(mb, 4f, 0.7f, 0.0f, 0.12f, 0.12f, 0.2f, 8, Dark);
+            });
     }
 
     private static void Engine(Cx c)
@@ -974,7 +1330,7 @@ public static partial class ModuleModels
 
     private static void Cargo(Cx c)
     {
-        Skin(c, Roof, detail: false);
+        Skin(c, Roof, detail: false, windows: true);
         Frame(c, Roof);
         Models.Add(c.R, "Hatch", $"{c.K}.hatch", ModuleHull(), mb =>
         {
@@ -1030,6 +1386,7 @@ public static partial class ModuleModels
 
     private static void Workshop(Cx c)
     {
+        Skin(c, Roof, windows: true);
         Frame(c, Roof);
         Models.Add(c.R, "Rails", $"{c.K}.rails", ModuleStruct(), mb =>
         {
@@ -1114,7 +1471,14 @@ public static partial class ModuleModels
             Stripes(mb, 1.0f, W - 1.0f, 1.0f, 0.45f, 0.088f, 8, Yellow, Dark);
             Stripes(mb, 1.0f, W - 1.0f, D - 1.45f, 0.45f, 0.088f, 8, Yellow, Dark);
         });
-        Frame(c, Roof);
+        bool glass = !c.Has(Up); // a gun deck keeps a glass roof: the crew sees the sky and the turrets turn under it
+        Skin(c, Roof, glassRoof: glass);
+        if (glass)
+        {
+            if (c.Ship) { ShipCanopy(c, Roof, false); CanopyRibs(c, Roof, false); }
+            else StationRoofGlass(c, Roof);
+        }
+        Frame(c, Roof, canopy: c.Ship && glass);
         var spots = c.Ship
             ? new[] { new Vector3(4, 0, 2.5f), new Vector3(4, 0, 5.5f) }
             : new[] { new Vector3(2.5f, 0, 2.5f), new Vector3(5.5f, 0, 2.5f), new Vector3(2.5f, 0, 5.5f), new Vector3(5.5f, 0, 5.5f) };
@@ -1290,7 +1654,7 @@ public static partial class ModuleModels
 
     private static void HullModule(Cx c)
     {
-        Skin(c, Roof, detail: true);
+        Skin(c, Roof, detail: true, windows: true);
         Frame(c, Roof);
     }
 
@@ -1329,13 +1693,14 @@ public static partial class ModuleModels
     private static void DroneBay(Cx c)
     {
         float wall = c.Ship ? 0.25f : StationFace + 0.1f;
+        Skin(c, Roof, openRear: true);
         Frame(c, Roof);
         Models.Add(c.R, "Hangar", $"{c.K}.hangar", ModuleHull(), mb =>
         {
             mb.At(default).C(c.Ship ? White : Slab);
             foreach (float x in new[] { wall, W - wall })
                 mb.Block(new(x, 0.9f, 4), new(0.3f, 1.7f, D - 0.4f));
-            mb.Block(new(4, 1.55f, D - wall - 0.1f), new(W - 0.4f, 3.0f, 0.3f));
+            mb.Block(new(4, 1.9f, D - wall - 0.1f), new(W - 0.4f, 3.8f, 0.3f));
             mb.C(c.Acc);
             foreach (float x in new[] { wall, W - wall })
                 mb.Block(new(x, 1.78f, 4), new(0.34f, 0.07f, D - 0.5f));

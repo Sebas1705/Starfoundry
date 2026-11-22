@@ -558,6 +558,9 @@ public static partial class Models
 
         public Mb C(Color c) { _col = c; return this; }
 
+        /// <summary>The current colour (to restore it after a helper that changes it).</summary>
+        public Color Col => _col;
+
         /// <summary>Sets the transform applied to the following primitives (rotation in radians).</summary>
         public Mb At(Vector3 pos, Vector3 rot = default, Vector3? scale = null)
         {
