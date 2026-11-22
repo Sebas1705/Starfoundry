@@ -6,6 +6,12 @@ public static class PowerRules
     /// <summary>Content id of the reactor fuel.</summary>
     public const string FuelItemId = "core:hydrogen";
 
+    /// <summary>Content id of the compact reactor fuel: one cell burns as long as <see cref="FuelCellBurnIntervals"/> hydrogen.</summary>
+    public const string FuelCellItemId = "core:fuel_cell";
+
+    /// <summary>Burn intervals one fuel cell lasts in a reactor (one hydrogen lasts one).</summary>
+    public const int FuelCellBurnIntervals = 6;
+
     /// <summary>Satisfaction is a per-mille value: 1000 means every machine has all the power it needs.</summary>
     public const int FullSatisfaction = 1000;
 
@@ -26,7 +32,7 @@ public static class PowerRules
 
 /// <summary>Power state of a structure as of the last tick. Burn remaining is the most ticks any burning reactor has left.</summary>
 public readonly record struct PowerStatus(
-    int Production, int Demand, int SatisfactionPermille, int BurnRemainingTicks, int HydrogenInHold, bool Burning);
+    int Production, int Demand, int SatisfactionPermille, int BurnRemainingTicks, int HydrogenInHold, bool Burning, int FuelCellsInHold = 0);
 
 public sealed partial class BeltNetwork
 {
@@ -39,8 +45,9 @@ public sealed partial class BeltNetwork
         int burn = 0;
         foreach (int r in s.BurnRemaining.Values) burn = Math.Max(burn, r);
         int hydrogen = s.Owner >= 0 && Content is { FuelItem: >= 0 } c ? HoldCount(s.Owner, c.FuelItem) : 0;
-        if (!StructureRules) return new PowerStatus(0, 0, PowerRules.FullSatisfaction, 0, hydrogen, false);
-        return new PowerStatus(s.PowerProduction, s.PowerDemand, s.Satisfaction, burn, hydrogen, burn > 0);
+        int cells = s.Owner >= 0 && Content is { FuelCellItem: >= 0 } cc ? HoldCount(s.Owner, cc.FuelCellItem) : 0;
+        if (!StructureRules) return new PowerStatus(0, 0, PowerRules.FullSatisfaction, 0, hydrogen, false, cells);
+        return new PowerStatus(s.PowerProduction, s.PowerDemand, s.Satisfaction, burn, hydrogen, burn > 0, cells);
     }
 
     /// <summary>
@@ -50,7 +57,7 @@ public sealed partial class BeltNetwork
     public bool StationHasNoReactor(int structure)
     {
         if (!StructureRules || structure == 0 || !_structures.TryGetValue(structure, out var s) || s.Kind != StructureKind.Station) return false;
-        if (s.ModuleMap.Values.Contains(ModuleKind.Reactor)) return false;
+        if (s.ModuleMap.Values.Any(ModuleKindIds.IsReactor)) return false;
         foreach (var m in _machines)
             if (m is not null && m.Structure == structure) return true;
         return false;
@@ -72,13 +79,31 @@ public sealed partial class BeltNetwork
     /// <summary>True if the machine's turret may fire: always outside structures, else at half satisfaction or better.</summary>
     private bool TurretHasPower(Machine m) => SatisfactionOf(m.Structure) >= PowerRules.TurretMinSatisfaction;
 
-    private bool TryTakeFuel(int owner)
+    /// <summary>
+    /// Takes one fuel item from the owner's hold: a fuel cell when the hold has one, else a hydrogen. Returns how many burn
+    /// intervals it keeps a reactor burning (<see cref="PowerRules.FuelCellBurnIntervals"/> or 1), or 0 when there is no fuel.
+    /// </summary>
+    private int TakeFuel(int owner)
     {
-        if (owner < 0 || Content is not { FuelItem: >= 0 } c || !_players.TryGetValue(owner, out var p) || p.Hold[c.FuelItem] <= 0) return false;
-        p.Hold[c.FuelItem]--;
+        if (owner < 0 || Content is null || !_players.TryGetValue(owner, out var p)) return 0;
+        int item, intervals;
+        if (Content.FuelCellItem >= 0 && p.Hold[Content.FuelCellItem] > 0) { item = Content.FuelCellItem; intervals = PowerRules.FuelCellBurnIntervals; }
+        else if (Content.FuelItem >= 0 && p.Hold[Content.FuelItem] > 0) { item = Content.FuelItem; intervals = 1; }
+        else return 0;
+        p.Hold[item]--;
         p.HoldTotal--;
         HoldOut++;
-        return true;
+        return intervals;
+    }
+
+    /// <summary>Power the always-on modules of a structure draw: shields and sensors.</summary>
+    private int ModuleDemand(Structure s)
+    {
+        if (Content?.Structures is not { } kinds) return 0;
+        int total = 0;
+        foreach (var kind in s.ModuleMap.Values)
+            if (kind is ModuleKind.Shield or ModuleKind.Sensor) total += kinds.ModulePowerUse(kind);
+        return total;
     }
 
     /// <summary>
@@ -103,20 +128,24 @@ public sealed partial class BeltNetwork
             bool hasReactor = false;
             foreach (var (key, kind) in s.ModuleMap)
             {
-                if (kind != ModuleKind.Reactor) continue;
+                if (!ModuleKindIds.IsReactor(kind)) continue;
                 hasReactor = true;
                 s.BurnRemaining.TryGetValue(key, out int rem);
-                if (rem == 0 && TryTakeFuel(s.Owner)) rem = kinds.BurnIntervalTicks(kind);
+                if (rem == 0)
+                {
+                    int intervals = TakeFuel(s.Owner);
+                    if (intervals > 0) rem = kinds.BurnIntervalTicks(kind) * intervals;
+                }
                 if (rem > 0)
                 {
-                    production += kinds.PowerOutput(kind);
+                    production += WorldRules.Scale(kinds.PowerOutput(kind), Rules.PowerOutputPercent);
                     rem--;
                 }
                 else production += kinds.EmergencyPower(kind); // no fuel: the reactor still trickles a little power
                 if (rem > 0) s.BurnRemaining[key] = rem; else s.BurnRemaining.Remove(key);
             }
             s.PowerProduction = production;
-            s.PowerDemand = demand.GetValueOrDefault(s.Id) + DroneDemand(s);
+            s.PowerDemand = demand.GetValueOrDefault(s.Id) + DroneDemand(s) + ModuleDemand(s);
             s.Satisfaction = PowerRules.Satisfaction(production, s.PowerDemand, hasReactor);
         }
 

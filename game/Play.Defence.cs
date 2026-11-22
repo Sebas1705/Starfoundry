@@ -211,9 +211,13 @@ void fragment() {
         if (!show) return;
         int done = Math.Min(GameOutcome.WavesSurvived(Net), _goal.WavesToWin);
         bool station = !Net.StructureRules || GameOutcome.HasBase(Net, Player);
-        _goalLabel.Text = L(Net.StructureRules ? "goal.line" : "goal.lineNoStation", _goal.WavesToWin, done);
+        bool explored = GameOutcome.HasExplored(Net);
+        _goalLabel.Text = Net.StructureRules
+            ? L("goal.line", _goal.WavesToWin, done, GameOutcome.JumpsDone(Net), GoalSettings.JumpsToWin)
+            : L("goal.lineNoStation", _goal.WavesToWin, done);
         if (!station && done >= _goal.WavesToWin) _goalLabel.Text += "\n" + L("goal.needStation");
-        _goalLabel.AddThemeColorOverride("font_color", done >= _goal.WavesToWin && station ? GoodColor : new Color(1f, 0.85f, 0.45f));
+        else if (station && !explored && done >= _goal.WavesToWin) _goalLabel.Text += "\n" + L("goal.needJump");
+        _goalLabel.AddThemeColorOverride("font_color", done >= _goal.WavesToWin && station && explored ? GoodColor : new Color(1f, 0.85f, 0.45f));
     }
 
     // ---- per tick: hits, toasts and effects ----------------------------------------------------------------------

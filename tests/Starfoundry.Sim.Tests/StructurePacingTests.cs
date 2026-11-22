@@ -107,21 +107,23 @@ public class StructurePacingTests
         var net = w.Network;
         FlyAndMine(w);
         int capacity = net.HoldCapacity(0);
-        Assert.Equal(60, capacity);
+        Assert.Equal(100, capacity);
         int limit = capacity * PlayerRules.MiningHoldLimitPercent / 100;
-        Assert.Equal(45, limit);
+        Assert.Equal(75, limit);
         long mined = net.MinedByHand;
-        int maxTotal = 0, blocked = 0;
+        int maxTotal = 0, blocked = 0; long minedAtLimit = 0;
         for (int i = 0; i < 10 * 60 * Tps; i++)
         {
             int totalBefore = net.GetPlayerInfo(0).HoldTotal;
             w.Step();
-            if (totalBefore >= limit) { Assert.Equal(mined, net.MinedByHand); blocked++; }
+            // The ore port can take an ore out and let mining add one in the same tick, so mining at the limit is throttled, not zero.
+            if (totalBefore >= limit) { blocked++; minedAtLimit += net.MinedByHand - mined; }
             mined = net.MinedByHand;
             maxTotal = Math.Max(maxTotal, net.GetPlayerInfo(0).HoldTotal);
         }
         _out.WriteLine($"max hold {maxTotal}/{capacity}; ticks with mining blocked {blocked}");
         Assert.True(blocked > 0, "the limit was never reached, so it was not exercised");
+        Assert.True(minedAtLimit * PlayerRules.MineTicksPerItem * 2 <= blocked, $"mining ran at the limit: {minedAtLimit} ore in {blocked} ticks");
         // Only the factory can fill the last quarter: mining itself never crosses the limit.
         Assert.True(maxTotal > limit, "the factory never delivered into the reserved quarter");
         w.ValidateInvariants();
@@ -129,6 +131,28 @@ public class StructurePacingTests
         // Legacy worlds keep the full hold for mining.
         var legacy = SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: false);
         Assert.Equal(PlayerRules.HoldCapacity, legacy.Network.HoldCapacity(0));
+    }
+
+    [Fact]
+    public void Depots_leave_a_tenth_of_the_hold_free()
+    {
+        var w = World();
+        var net = w.Network;
+        int ti = C.ItemIndex("core:titanium_plate"), ni = C.ItemIndex("core:nickel_plate");
+        int cap = net.HoldCapacity(0);
+        int limit = cap * PlayerRules.DepotHoldLimitPercent / 100;
+        Assert.Equal(90, limit);
+        // Goods nobody consumes (the 20 starting hydrogen make 80), plus ore for the starter lines: the depot is the only thing that can add to the hold.
+        net.GiveItems(0, ti, 30);
+        net.GiveItems(0, ni, 30);
+        net.GiveItems(0, Ore, 9);
+        int max = 0;
+        long delivered = net.DepotDelivered;
+        for (int i = 0; i < 5 * 60 * Tps; i++) { w.Step(); max = Math.Max(max, net.HoldTotal(0)); }
+        _out.WriteLine($"max hold {max}/{cap}; delivered {net.DepotDelivered - delivered}");
+        Assert.True(net.DepotDelivered > delivered, "the depot never delivered, so the limit was not exercised");
+        Assert.True(max <= limit, $"the depot filled the hold to {max}, past {limit}");
+        w.ValidateInvariants();
     }
 
     [Fact]

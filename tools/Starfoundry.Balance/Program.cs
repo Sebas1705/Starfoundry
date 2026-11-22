@@ -22,18 +22,22 @@ if (lookup.Path is null) { Console.Error.WriteLine("content/core.json not found.
 var content = ContentDb.FromFile(lookup.Path);
 if (args.Contains("--structures"))
 {
-    // The structure campaign: dotnet run --project tools/Starfoundry.Balance -- --structures --minutes 120 --seed N --trace [--delay=6] [--no-threats] [--continue]
+    // The structure campaign: dotnet run --project tools/Starfoundry.Balance -- --structures --minutes 120 --seed N --trace [--delay=6] [--no-threats] [--difficulty=relaxed|normal|hard|brutal] [--continue]
     string? Value(string name) => args.SkipWhile(a => a != name).Skip(1).FirstOrDefault() ?? args.FirstOrDefault(a => a.StartsWith(name + "="))?[(name.Length + 1)..];
     ulong sSeed = Value("--seed") is { } st ? ulong.Parse(st) : 20261121UL;
     int sMinutes = Value("--minutes") is { } mt ? int.Parse(mt) : 120;
-    var bot = new StructureBot(content, sSeed, threats: !args.Contains("--no-threats"))
+    // --difficulty=relaxed|normal|hard|brutal plays with that preset of world rules (default: normal, the content as is).
+    string difficulty = Value("--difficulty") ?? "normal";
+    var rules = WorldRules.Preset(difficulty);
+    if (rules is null) { Console.Error.WriteLine($"Unknown difficulty '{difficulty}'. Use relaxed, normal, hard or brutal."); return 1; }
+    var bot = new StructureBot(content, sSeed, threats: !args.Contains("--no-threats"), rules: rules)
     {
         ActionDelaySeconds = args.Any(a => a.StartsWith("--delay=")) ? delay : 6,
         Trace = args.Contains("--trace") ? Console.Out : null,
         ContinueAfterVictory = args.Contains("--continue"),
     };
     var sReport = bot.Run(sMinutes * 60);
-    Console.WriteLine($"Structure campaign run: seed {sSeed}, action delay {bot.ActionDelaySeconds} s\n");
+    Console.WriteLine($"Structure campaign run: seed {sSeed}, difficulty {difficulty}, goal {bot.GoalWaves} waves, action delay {bot.ActionDelaySeconds} s\n");
     Console.WriteLine(sReport.Format());
     return sReport.Outcome == Starfoundry.Ui.OutcomeKind.Won ? 0 : 2;
 }

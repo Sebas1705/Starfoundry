@@ -118,6 +118,15 @@ public enum Ability
 
     /// <summary>Placing drone bay modules.</summary>
     DroneBay = 1,
+
+    /// <summary>Placing shield modules.</summary>
+    Shield = 2,
+
+    /// <summary>Placing sensor modules.</summary>
+    Sensor = 3,
+
+    /// <summary>Placing mark 2 reactor modules.</summary>
+    ReactorMk2 = 4,
 }
 
 /// <param name="Requires">Research nodes that must be finished first.</param>
@@ -221,6 +230,9 @@ public sealed class ContentDb
 
     /// <summary>Index of the reactor fuel item (<see cref="PowerRules.FuelItemId"/>), or -1 when the content has none.</summary>
     public int FuelItem { get; }
+
+    /// <summary>Index of the compact reactor fuel (<see cref="PowerRules.FuelCellItemId"/>), or -1 when the content has none.</summary>
+    public int FuelCellItem { get; }
     public IReadOnlyList<EnemyDef> Enemies { get; }
     public IReadOnlyList<WaveSpec> Waves { get; }
     public ulong Hash { get; }
@@ -246,6 +258,7 @@ public sealed class ContentDb
         JumpCost = jumpCost;
         foreach (var i in items) _items.Add(i.Id, i.Index);
         FuelItem = _items.TryGetValue(PowerRules.FuelItemId, out int fuel) ? fuel : -1;
+        FuelCellItem = _items.TryGetValue(PowerRules.FuelCellItemId, out int cell) ? cell : -1;
         foreach (var m in machines) _machines.Add(m.Id, m.Index);
         foreach (var r in recipes) _recipes.Add(r.Id, r.Index);
         foreach (var r in research) _research.Add(r.Id, r.Index);
@@ -484,6 +497,9 @@ public sealed class ContentDb
                             {
                                 "jump" => Ability.Jump,
                                 "drone_bay" => Ability.DroneBay,
+                                "shield" => Ability.Shield,
+                                "sensor" => Ability.Sensor,
+                                "reactor_mk2" => Ability.ReactorMk2,
                                 _ => throw new InvalidDataException($"Research '{id}' lists an unknown ability."),
                             };
                             if (ua.Contains(ability)) throw new InvalidDataException($"Research '{id}' lists an ability twice.");
@@ -708,19 +724,38 @@ public sealed class ContentDb
         var kinds = new ModuleKindDef[names.Length];
         for (int i = 0; i < names.Length; i++)
         {
-            if (!st.TryGetProperty(names[i], out var k)) throw new InvalidDataException($"'structures' needs an entry for '{names[i]}'.");
+            if (!st.TryGetProperty(names[i], out var k))
+            {
+                // Kinds added after the first release are optional so older content still loads; an absent kind cannot be placed.
+                if (i >= (int)ModuleKind.Shield) { kinds[i] = new ModuleKindDef((ModuleKind)i, System.Array.Empty<ItemStack>(), 0, System.Array.Empty<MachineRole>(), false, 0, 0); continue; }
+                throw new InvalidDataException($"'structures' needs an entry for '{names[i]}'.");
+            }
             string owner = "structures." + names[i];
             RequireObject(k, owner, "cost", "hp", "allows", "hold_capacity", "thrust_speed_percent", "power_output", "burn_interval_ticks",
-                "drone_range_cells", "drone_interval_ticks", "power_use", "defence_bonus_percent", "emergency_power", "regen_hp");
-            bool isReactor = (ModuleKind)i == ModuleKind.Reactor;
-            bool isBay = (ModuleKind)i == ModuleKind.DroneBay;
-            if (!isBay && (k.TryGetProperty("drone_range_cells", out _) || k.TryGetProperty("drone_interval_ticks", out _) || k.TryGetProperty("power_use", out _)))
-                throw new InvalidDataException($"'drone_range_cells', 'drone_interval_ticks' and 'power_use' only belong to the drone bay, not {owner}.");
+                "drone_range_cells", "drone_interval_ticks", "power_use", "defence_bonus_percent", "emergency_power", "regen_hp",
+                "shield_percent", "shield_stack_percent", "shield_max_percent", "sensor_range_cells");
+            var kindValue = (ModuleKind)i;
+            bool isReactor = ModuleKindIds.IsReactor(kindValue);
+            bool isBay = kindValue == ModuleKind.DroneBay;
+            bool isShield = kindValue == ModuleKind.Shield;
+            bool isSensor = kindValue == ModuleKind.Sensor;
+            if (!isBay && (k.TryGetProperty("drone_range_cells", out _) || k.TryGetProperty("drone_interval_ticks", out _)))
+                throw new InvalidDataException($"'drone_range_cells' and 'drone_interval_ticks' only belong to the drone bay, not {owner}.");
+            if (!isBay && !isShield && !isSensor && k.TryGetProperty("power_use", out _))
+                throw new InvalidDataException($"'power_use' only belongs to the drone bay, shield and sensor, not {owner}.");
+            if (!isShield && (k.TryGetProperty("shield_percent", out _) || k.TryGetProperty("shield_stack_percent", out _) || k.TryGetProperty("shield_max_percent", out _)))
+                throw new InvalidDataException($"'shield_percent', 'shield_stack_percent' and 'shield_max_percent' only belong to the shield, not {owner}.");
+            if (!isSensor && k.TryGetProperty("sensor_range_cells", out _))
+                throw new InvalidDataException($"'sensor_range_cells' only belongs to the sensor, not {owner}.");
             int droneRange = isBay ? (k.TryGetProperty("drone_range_cells", out _) ? Int(k, "drone_range_cells", owner, 1, 10_000) : 60) : 0;
             int droneInterval = isBay ? (k.TryGetProperty("drone_interval_ticks", out _) ? Int(k, "drone_interval_ticks", owner, 1, 1_000_000) : 90) : 0;
-            int bayPower = isBay ? (k.TryGetProperty("power_use", out _) ? Int(k, "power_use", owner, 0, 100_000) : 20) : 0;
+            int bayPower = isBay || isShield || isSensor ? (k.TryGetProperty("power_use", out _) ? Int(k, "power_use", owner, 0, 100_000) : isBay ? 20 : 0) : 0;
+            int shieldPercent = isShield ? (k.TryGetProperty("shield_percent", out _) ? Int(k, "shield_percent", owner, 0, 100) : 30) : 0;
+            int shieldStack = isShield ? (k.TryGetProperty("shield_stack_percent", out _) ? Int(k, "shield_stack_percent", owner, 0, 100) : 10) : 0;
+            int shieldMax = isShield ? (k.TryGetProperty("shield_max_percent", out _) ? Int(k, "shield_max_percent", owner, 0, 100) : 60) : 0;
+            int sensorRange = isSensor ? (k.TryGetProperty("sensor_range_cells", out _) ? Int(k, "sensor_range_cells", owner, 1, 10_000) : 120) : 0;
             if (!isReactor && (k.TryGetProperty("power_output", out _) || k.TryGetProperty("burn_interval_ticks", out _) || k.TryGetProperty("emergency_power", out _)))
-                throw new InvalidDataException($"'power_output', 'burn_interval_ticks' and 'emergency_power' only belong to the reactor, not {owner}.");
+                throw new InvalidDataException($"'power_output', 'burn_interval_ticks' and 'emergency_power' only belong to the reactors, not {owner}.");
             int powerOutput = isReactor ? (k.TryGetProperty("power_output", out _) ? Int(k, "power_output", owner, 0, 100_000) : 100) : 0;
             int burnInterval = isReactor ? (k.TryGetProperty("burn_interval_ticks", out _) ? Int(k, "burn_interval_ticks", owner, 1, 1_000_000) : 900) : 0;
             int emergency = isReactor ? (k.TryGetProperty("emergency_power", out _) ? Int(k, "emergency_power", owner, 0, 100_000) : 15) : 0;
@@ -760,7 +795,8 @@ public sealed class ContentDb
                 Stacks(k, "cost", owner, itemIds, allowEmpty: false, max: MaxCostStack),
                 Int(k, "hp", owner, 1, 100_000), roles.ToArray(), belts,
                 Int(k, "hold_capacity", owner, 0, 100_000), Int(k, "thrust_speed_percent", owner, 0, 10_000), powerOutput, burnInterval, droneRange, droneInterval, bayPower, defenceBonus, emergency,
-                k.TryGetProperty("regen_hp", out _) ? Int(k, "regen_hp", owner, 1, 1000) : 1);
+                k.TryGetProperty("regen_hp", out _) ? Int(k, "regen_hp", owner, 1, 1000) : 1,
+                shieldPercent, shieldStack, shieldMax, sensorRange);
         }
         return new StructureContent(kinds);
     }
@@ -1047,12 +1083,14 @@ public sealed class ContentDb
         {
             foreach (var k in sc.Kinds)
             {
+                if (!sc.IsDefined(k.Kind)) continue; // content that predates a module kind hashes as it did before
                 Mix((int)k.Kind); MixStacks(k.Cost); Mix(k.Hp);
                 Mix(k.AllowedRoles.Length); foreach (var r in k.AllowedRoles) Mix((int)r);
                 Mix(k.AllowsBelts ? 1 : 0); Mix(k.HoldCapacity); Mix(k.ThrustSpeedPercent);
                 if (k.PowerOutput != 0 || k.BurnIntervalTicks != 0) { Mix(k.PowerOutput); Mix(k.BurnIntervalTicks); }
-                if (k.Kind == ModuleKind.Reactor && k.EmergencyPower != 15) Mix(k.EmergencyPower); // 15 is the default
+                if (ModuleKindIds.IsReactor(k.Kind) && k.EmergencyPower != 15) Mix(k.EmergencyPower); // 15 is the default
                 if (k.DroneIntervalTicks != 0) { Mix(k.DroneRangeCells); Mix(k.DroneIntervalTicks); Mix(k.PowerUse); }
+                if (k.Kind is ModuleKind.Shield or ModuleKind.Sensor) { Mix(k.PowerUse); Mix(k.ShieldPercent); Mix(k.ShieldStackPercent); Mix(k.ShieldMaxPercent); Mix(k.SensorRangeCells); }
                 if (k.Kind == ModuleKind.Defence && k.DefenceBonusPercent != 10) Mix(k.DefenceBonusPercent); // 10 is the default
                 if (k.RegenHp != 1) Mix(k.RegenHp); // 1 is the default
             }

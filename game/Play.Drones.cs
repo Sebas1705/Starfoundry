@@ -68,7 +68,7 @@ public partial class Play
     }
 
     private bool DroneBayLocked(ModuleKind kind) =>
-        kind == ModuleKind.DroneBay && _gameMode == GameMode.Campaign && !Net.HasAbility(Ability.DroneBay);
+        _gameMode == GameMode.Campaign && ModuleKindIds.RequiredAbility(kind) is { } needed && !Net.HasAbility(needed);
 
     /// <summary>The structure F7 works on: the one aimed at or entered if it has a bay, else the ship, else the nearest of the player's bays.</summary>
     private int DroneStructure()

@@ -129,7 +129,7 @@ public sealed partial class StructureBot
 
         // Pack for the trip: the hold carries a quarter less than its size and the ore comes first, so spare ingots and plates stay behind
         // (the depots refill them at home).
-        foreach (var (spare, keep) in new[] { ("core:iron_ingot", 20), ("core:iron_plate", 10) })
+        foreach (var (spare, keep) in new[] { ("core:iron_ore", 0), ("core:iron_ingot", 20), ("core:iron_plate", 10) })
             if (Have(spare) > keep + 5) Cmd(new DumpItems(Item(spare), Have(spare) - keep));
 
         bool Satisfied((string Item, int Count) w) => Have(w.Item) >= w.Count;

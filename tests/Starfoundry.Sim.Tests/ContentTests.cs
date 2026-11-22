@@ -44,10 +44,10 @@ public class ContentTests
     public void CoreContentLoadsWithExpectedShape()
     {
         var c = TestContent.Core;
-        Assert.Equal(14, c.Items.Count);
+        Assert.Equal(18, c.Items.Count); // 14 plus silicon, circuit, titanium alloy and fuel cell
         Assert.Equal(18, c.Machines.Count); // 16 plus the quartz and carbon ports
-        Assert.Equal(17, c.Recipes.Count);
-        Assert.Equal(17, c.Research.Count);
+        Assert.Equal(21, c.Recipes.Count); // 17 plus the four resource expansion recipes
+        Assert.Equal(22, c.Research.Count); // 17 plus the five resource expansion nodes
         Assert.Equal(new GalaxyRules(12, 800, 2, 150), c.Galaxy);
         Assert.Equal(8, c.Archetypes.Count);
         Assert.Single(c.Archetypes, a => a.IsHome);

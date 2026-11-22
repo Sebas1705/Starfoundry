@@ -18,8 +18,8 @@ public class StructureBotTests
     private readonly ITestOutputHelper _out;
     public StructureBotTests(ITestOutputHelper output) => _out = output;
 
-    private static StructureBotReport Play(ulong seed = Seed, double delay = 6, bool continueAfterWin = false, int minutes = 120) =>
-        new StructureBot(TestContent.Core, seed) { ActionDelaySeconds = delay, ContinueAfterVictory = continueAfterWin }.Run(minutes * 60);
+    private static StructureBotReport Play(ulong seed = Seed, double delay = 6, bool continueAfterWin = false, int minutes = 120, bool threats = true) =>
+        new StructureBot(TestContent.Core, seed, threats) { ActionDelaySeconds = delay, ContinueAfterVictory = continueAfterWin }.Run(minutes * 60);
 
     private static double Min(StructureBotReport r, string milestone) => r.At(milestone) / Minute;
 
@@ -65,9 +65,15 @@ public class StructureBotTests
         Assert.Equal(OutcomeKind.Won, r.Outcome);
         Assert.Equal(OutcomeReason.WavesSurvived, r.Reason);
         Assert.True(r.WavesSurvived >= GoalSettings.DefaultWaves, $"only {r.WavesSurvived} waves survived");
-        Assert.InRange(r.Seconds / Minute, 20, 90);
+        Assert.InRange(r.Seconds / Minute, 38, 60); // measured 42 to 44 on five seeds: the waves and the jump drive research decide
         // The waves come on their own clock: about three minutes apart once the base is loud.
         Assert.True(r.Has("Wave 10 survived"));
+        // The win needs the research path: the jump drive was researched and a second system visited before it.
+        Assert.True(r.Has("Researched jump_drive"), "won without the jump drive");
+        Assert.True(r.Timeline.Any(t => t.Name.StartsWith("Arrived in system")), "won without leaving home");
+        Assert.True(Min(r, "Researched jump_drive") <= Min(r, "VICTORY: waves survived with a station standing"));
+        Assert.True(Min(r, "Researched drone_automation") < Min(r, "Researched jump_drive"), "automation comes before the jump drive");
+        Assert.True(r.Has("First drone bay built") && r.Has("Drones delivered ore"));
     }
 
     [Theory]
@@ -78,7 +84,7 @@ public class StructureBotTests
     {
         var r = Play(seed);
         Assert.True(r.Outcome == OutcomeKind.Won, "seed " + seed + ": " + r.Format());
-        Assert.InRange(r.Seconds / Minute, 20, 90);
+        Assert.InRange(r.Seconds / Minute, 38, 60); // measured 42 to 44 on five seeds: the waves and the jump drive research decide
     }
 
     [Theory]
@@ -89,7 +95,7 @@ public class StructureBotTests
         var r = Play(delay: delay);
         Assert.True(r.Outcome == OutcomeKind.Won, $"delay {delay}: " + r.Format());
         // The wave clock decides, not the player: even a player 30 s per action behind wins within the same hour or so.
-        Assert.InRange(r.Seconds / Minute, 20, 100);
+        Assert.InRange(r.Seconds / Minute, 38, 90); // 0 s: 44, 30 s: 77
     }
 
     [Fact]
@@ -107,6 +113,24 @@ public class StructureBotTests
             Assert.True(r.Has(name), $"'{name}' never happened");
         Assert.True(Min(r, "Researched jump_drive") <= 60, $"the jump drive came at minute {Min(r, "Researched jump_drive"):F1}");
         Assert.True(Min(r, "Researched nickel_smelting") <= 100, $"nickel smelting came at minute {Min(r, "Researched nickel_smelting"):F1}");
+    }
+
+    [Fact]
+    public void Bot_researches_the_whole_tree_with_drones_when_left_alone()
+    {
+        // No waves: the economy alone. Measured (seed 20261121): the last of the 17 nodes at about minute 93, the first drone at 30.
+        var r = Play(continueAfterWin: true, minutes: 120, threats: false);
+        _out.WriteLine(r.Format());
+        // The electronics branch (silicon, circuits, shields, sensors, Mk2 power) is not part of the bot's plan.
+        var planned = TestContent.Core.Research.Where(n => !n.Id.StartsWith("core:silicon_") && n.Id is not ("core:electronics" or "core:shielding" or "core:sensors" or "core:advanced_power")).ToList();
+        foreach (var node in planned)
+            Assert.True(r.Has("Researched " + node.Id.Replace("core:", "")), $"'{node.Id}' was never researched");
+        double last = planned.Max(n => Min(r, "Researched " + n.Id.Replace("core:", "")));
+        Assert.True(last <= 110, $"the last node came at minute {last:F1}");
+        Assert.True(Min(r, "First drone bay built") <= 40, $"the first drone bay came at minute {Min(r, "First drone bay built"):F1}");
+        Assert.True(r.MinedByDrones > 2000, $"drones mined only {r.MinedByDrones}");
+        // Hydrogen holds: the ice deposit of home (1500 to 2000) lasts, so no reactor ran dry for more than a few minutes in two hours.
+        Assert.True(r.EmergencySeconds < 600, $"{r.EmergencySeconds} s on emergency power");
     }
 
     [Fact]

@@ -16,23 +16,17 @@ public sealed partial class StructureBot
     {
         MoreCargoUpTo(4);
         Goal("prepare the first expedition");
-        // 1: titanium and nickel ore for their smelting research, and quartz for the plating that follows.
-        if (!Expedition("titanium ore, nickel ore and quartz", ("core:titanium_ore", 40), ("core:nickel_ore", 40), ("core:quartz", 30)))
-            Stuck("the first expedition did not bring everything");
+        // One expedition brings everything the three metal nodes need: ore for the two smelting researches (40 each), the same again for
+        // the ingots of advanced plating, and its quartz. (Two trips cost the laboratories about twenty minutes of standing still.)
+        if (!Expedition("titanium ore, nickel ore and quartz", ("core:titanium_ore", 100), ("core:nickel_ore", 100), ("core:quartz", 32)))
+            Stuck("the expedition did not bring everything");
+        // Back home with the win in reach: now the plate supply (drones mine the iron, ore is no longer the limit).
+        StationLabs();
         ResearchNow("core:titanium_smelting", TiRaw);
         ResearchNow("core:nickel_smelting", NiRaw);
         Reinforce();
-        // 2: ingots of both metals and more quartz for advanced plating.
-        Expedition("ore for titanium and nickel ingots, more quartz", ("core:titanium_ore", 40), ("core:nickel_ore", 40), ("core:quartz", 50));
-        ResearchNow("core:advanced_plating", TiIngots, NiIngots, QuartzRaw);
-        Reinforce();
-        // 3: titanium plates (made from ore) for the drone research.
-        Expedition("titanium ore for plates, quartz", ("core:titanium_ore", 40), ("core:quartz", 20));
-        ResearchNow("core:drone_automation", TiPlates, QuartzRaw);
-        Reinforce();
-        // 4: drone bays need titanium and nickel plates in the hold.
-        BuildDrones();
-        // The rest: defence research until the game is decided.
+        // (Drone automation is researched and its bays built before the jump drive, see ResearchPlan.)
+        // The nodes that cost only plates and carbon come next, at home, one after the other.
         FetchCarbon(80, "carbon for advanced logistics");
         ResearchNow("core:advanced_logistics", new Feed(FeedKind.Raw, "core:carbon_unloader"));
         foreach (var id in new[] { "core:turret_calibration", "core:reinforced_plating", "core:rapid_loader", "core:ship_cannon", "core:ship_armor", "core:field_repair", "core:overclock", "core:alloy_refinement", "core:nanite_repair" })
@@ -40,7 +34,30 @@ public sealed partial class StructureBot
             ResearchNow(id);
             Reinforce();
         }
+        // Last: advanced plating (the ingot ore and quartz of the expedition are still in the hold).
+        ResearchNow("core:advanced_plating", TiIngots, NiIngots, QuartzRaw);
     }
+
+    private bool _stationLabsBuilt;
+
+    /// <summary>
+    /// With drones on the iron, ore is no longer the limit: a laboratory's plate line makes at most 30 plates a minute (one assembler),
+    /// so the station gets two reactors and two more labs with their own plate lines (the same two smelter rows and assembler as the ship's).
+    /// </summary>
+    private void StationLabs()
+    {
+        if (_stationLabsBuilt || _station < 0 || !Net.StructureExists(_station) || StationLabLines <= 0) return;
+        _stationLabsBuilt = true;
+        Goal("more laboratories on the station: a reactor and plate lines");
+        FetchCarbon(18, "carbon for two more station reactors");
+        foreach (var (x, y, z) in new[] { (-1, 0, 0), (-1, -1, 0) })
+            if (Need(new[] { new ItemStack(Item("core:carbon"), 8) }, "carbon for a station reactor")) PlaceModule(_station, x, y, z, ModuleKind.Reactor);
+        var (ox, oy, oz) = Origin(1, 0, 0);
+        for (int i = 0; i < StationLabLines; i++) PlateLine(_station, ox, oy, oz, 3 + 2 * i, "core:research_lab", out _);
+    }
+
+    /// <summary>Plate lines with a laboratory each that the bot builds on the station workshop once drones mine the iron.</summary>
+    public int StationLabLines { get; init; } = 2;
 
     private void MoreCargoUpTo(int total)
     {
@@ -65,25 +82,48 @@ public sealed partial class StructureBot
 
     private void BuildDrones()
     {
-        Goal("6 drones: titanium and nickel plates, drone bay modules, assign deposits");
-        var bayCost = _c.Structures!.ModuleCost(ModuleKind.DroneBay);
-        int ti = Item("core:titanium_plate"), ni = Item("core:nickel_plate");
-        int needTi = bayCost.Where(c => c.Item == ti).Sum(c => c.Count) * 2, needNi = bayCost.Where(c => c.Item == ni).Sum(c => c.Count) * 2;
-        if (Have("core:titanium_plate") < needTi || Have("core:nickel_plate") < needNi)
+        Goal("drones: bay modules on the station, assign the home iron deposit first");
+        if (_station < 0 || _homeDeposit < 0) return;
+        // Bays are iron plates and ingots, so they are built as soon as the research is done. The station's bays mine the home iron;
+        // the plate supply of the laboratories was the limit of the research (the hold limit throttles the drones when ore piles up).
+        int placed = 0;
+        foreach (var (x, y, z) in new[] { (0, 0, -1), (0, 0, -2), (-1, 0, 0) })
         {
-            Expedition("ore for the drone bays' titanium and nickel plates", ("core:titanium_ore", needTi * 2), ("core:nickel_ore", needNi * 2));
-            var (ox, oy, oz) = Origin(1, 0, 0); // station workshop
-            if (_station >= 0)
-            {
-                PlateDepotLine(_station, ox, oy, oz, 2, 3, "core:titanium_ore_unloader", "core:smelt_titanium", "core:titanium_plate");
-                PlateDepotLine(_station, ox, oy, oz, 2, 5, "core:nickel_ore_unloader", "core:smelt_nickel", "core:nickel_plate");
-            }
+            if (placed >= DroneBaysOnIron) break;
+            if (PlaceModule(_station, x, y, z, ModuleKind.DroneBay) < 0) break;
+            placed++;
+            if (placed == 1 && !Failed(Act(new AssignDrones(_station, _homeDeposit)), "AssignDrones station->iron")) _dronesOnIron = true;
         }
-        if (!WaitUntil(() => Have("core:titanium_plate") >= 8 && Have("core:nickel_plate") >= 8, 20 * 60)) Stuck("titanium and nickel plates never reached the hold for the drone bays");
-        // One bay on the station mines the iron; one on the ship mines the ice.
-        if (_station >= 0 && PlaceModule(_station, 0, 0, -1, ModuleKind.DroneBay) > 0 && _homeDeposit >= 0)
-            Failed(Act(new AssignDrones(_station, _homeDeposit)), "AssignDrones station->iron");
-        if (WaitUntil(() => Have("core:titanium_plate") >= 8 && Have("core:nickel_plate") >= 8, 10 * 60) && PlaceModule(_ship, B1.X, B1.Y, B1.Z, ModuleKind.DroneBay) > 0 && _iceDeposit >= 0)
-            Failed(Act(new AssignDrones(_ship, _iceDeposit)), "AssignDrones ship->ice");
+        // A ship bay mines the ice, so the hydrogen no longer needs hand-mined trips (the bot pauses it when ice piles up, see ManageDrones).
+        if (_iceDeposit >= 0 && PlaceModule(_ship, B1.X, B1.Y, B1.Z, ModuleKind.DroneBay) > 0 && !Failed(Act(new AssignDrones(_ship, _iceDeposit)), "AssignDrones ship->ice")) _dronesOnIce = true;
     }
+
+    private bool _dronesOnIron, _dronesPaused, _dronesOnIce, _icePaused;
+
+    /// <summary>Ice in the hold above which the ship's drone bay is taken off the ice deposit.</summary>
+    public int IceStock { get; init; } = 40;
+
+    /// <summary>
+    /// A player does not let the drones bury the hold in ore: they are taken off the iron when the stock is plenty (the lines use about
+    /// two ore a second each, the hold limit would stop every other delivery) and put back when it runs down.
+    /// </summary>
+    private void ManageDrones()
+    {
+        if (_dronesOnIce && Net.StructureExists(_ship) && _iceDeposit >= 0)
+        {
+            int ice = Have("core:ice");
+            if (!_icePaused && (ice >= IceStock || Hydrogen >= 45)) { Cmd(new AssignDrones(_ship, -1)); _icePaused = true; }
+            else if (_icePaused && ice <= 12 && Hydrogen < 40 && Net.DepositRemaining(_iceDeposit) > 0) { Cmd(new AssignDrones(_ship, _iceDeposit)); _icePaused = false; }
+        }
+        if (!_dronesOnIron || _station < 0 || !Net.StructureExists(_station) || _homeDeposit < 0) return;
+        int ore = Have("core:iron_ore");
+        if (!_dronesPaused && ore >= DroneOreStock) { Cmd(new AssignDrones(_station, -1)); _dronesPaused = true; }
+        else if (_dronesPaused && ore <= DroneOreStock / 3 && Net.DepositRemaining(_homeDeposit) > 0) { Cmd(new AssignDrones(_station, _homeDeposit)); _dronesPaused = false; }
+    }
+
+    /// <summary>Raw iron ore the hold may hold before the station's drones are taken off the deposit.</summary>
+    public int DroneOreStock { get; init; } = 90;
+
+    /// <summary>Drone bays on the station that mine the home iron (the ship's bays go to ice or carbon only when a stock runs low).</summary>
+    public int DroneBaysOnIron { get; init; } = 2;
 }

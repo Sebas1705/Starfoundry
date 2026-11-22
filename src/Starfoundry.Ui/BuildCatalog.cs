@@ -54,7 +54,7 @@ public static class BuildCatalog
 {
     /// <summary>The module kinds the module tool places in a structure world, in menu order (the core is placed by the station tool).</summary>
     public static readonly ModuleKind[] PlaceableKinds =
-        { ModuleKind.Cockpit, ModuleKind.Engine, ModuleKind.Reactor, ModuleKind.Cargo, ModuleKind.Workshop, ModuleKind.Defence, ModuleKind.Hull, ModuleKind.DroneBay };
+        { ModuleKind.Cockpit, ModuleKind.Engine, ModuleKind.Reactor, ModuleKind.Cargo, ModuleKind.Workshop, ModuleKind.Defence, ModuleKind.Hull, ModuleKind.DroneBay, ModuleKind.Shield, ModuleKind.Sensor, ModuleKind.ReactorMk2 };
 
     public static readonly BuildCategory[] Categories = { BuildCategory.Logistics, BuildCategory.Production, BuildCategory.Defence, BuildCategory.Structure };
 
@@ -80,6 +80,7 @@ public static class BuildCatalog
             for (int i = 0; i < PlaceableKinds.Length; i++)
             {
                 var k = PlaceableKinds[i];
+                if (!kinds.IsDefined(k)) continue; // content without this kind does not offer it
                 var def = kinds.Get(k);
                 list.Add((i, new BuildEntry("module:" + ModuleKindIds.Id(k), BuildCategory.Structure, BuildEntryKind.Module, -1, BeltTier.Mk1, k,
                     def.Cost, def.PowerUse, def.PowerOutput)));
@@ -125,9 +126,9 @@ public static class BuildCatalog
                 locked = net.IsMachineLocked(e.Machine);
                 by = locked ? FirstNode(content, n => n.UnlockMachines.Contains(e.Machine)) : -1;
                 break;
-            case BuildEntryKind.Module when e.Module == ModuleKind.DroneBay:
-                locked = net.Mode == GameMode.Campaign && !net.HasAbility(Ability.DroneBay);
-                by = locked ? FirstNode(content, n => n.UnlockAbilities.Contains(Ability.DroneBay)) : -1;
+            case BuildEntryKind.Module when ModuleKindIds.RequiredAbility(e.Module!.Value) is { } needed:
+                locked = net.Mode == GameMode.Campaign && !net.HasAbility(needed);
+                by = locked ? FirstNode(content, n => n.UnlockAbilities.Contains(needed)) : -1;
                 break;
         }
         return new BuildStatus(locked, net.CanPay(player, cost), cost, by);

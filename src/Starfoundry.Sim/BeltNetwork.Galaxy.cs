@@ -21,6 +21,9 @@ public sealed partial class BeltNetwork
     private bool[] _known = Array.Empty<bool>();
     private bool[] _visited = Array.Empty<bool>();
 
+    /// <summary>Jumps the ships of this world completed (arrivals by the jump drive; flying into a system is not a jump).</summary>
+    public int JumpsCompleted { get; private set; }
+
     /// <summary>The generated galaxy, or null in a world without one.</summary>
     public Galaxy? Galaxy { get; private set; }
 
@@ -127,6 +130,7 @@ public sealed partial class BeltNetwork
         p.MiningDeposit = -1;
         p.MineProgress = 0;
         MarkVisited(p.JumpTarget);
+        JumpsCompleted++;
         p.JumpTarget = -1;
         StructureVersion++;
     }
@@ -153,6 +157,7 @@ public sealed partial class BeltNetwork
         Galaxy = other.Galaxy;
         _known = (bool[])other._known.Clone();
         _visited = (bool[])other._visited.Clone();
+        JumpsCompleted = other.JumpsCompleted;
     }
 
     private void MixGalaxy(Action<long> mix)
@@ -160,6 +165,7 @@ public sealed partial class BeltNetwork
         mix((long)(Galaxy?.Seed ?? 0));
         foreach (bool b in _known) mix(b ? 1 : 0);
         foreach (bool b in _visited) mix(b ? 1 : 0);
+        if (JumpsCompleted != 0) mix(JumpsCompleted); // worlds that never jumped hash as before
     }
 
     private void ValidateGalaxy()

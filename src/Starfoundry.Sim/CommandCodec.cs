@@ -21,7 +21,8 @@ public static class CommandCodec
     /// <summary>Version 2 added the content hash to the header, version 3 the game mode, version 4 the galaxy seed, version 5 the threat flag.</summary>
     /// Version 6 added the station-rules flag (bit 1); the structures flag (bit 2) uses a bit that version 6 left free,
     /// so logs written before it simply read as structures off and the version stays 6.
-    private const byte LogVersion = 6;
+    private const byte LogVersion = 7;
+    /// Version 7 added the world rules block (flags bit 3, written only for non-default rules).
     /// <summary>Version 5 headers carry no station-rules or structures flag; they still load, with both rules off.</summary>
     private const byte OldestLogVersion = 5;
 
@@ -296,7 +297,7 @@ public static class CommandCodec
     /// <summary>Writes a log: magic, version, content hash, count, then (tick, player, command) entries.
     /// Pass <see cref="ContentDb.Hash"/> of the content the log was recorded with (0 if there is none).</summary>
     public static void WriteLog(Stream stream, IReadOnlyList<LoggedCommand> log, ulong contentHash = 0, GameMode mode = GameMode.Sandbox,
-        ulong galaxySeed = 0, bool threats = false, bool stationRules = false, bool structures = false)
+        ulong galaxySeed = 0, bool threats = false, bool stationRules = false, bool structures = false, WorldRules? rules = null)
     {
         using var w = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
         w.Write(Magic);
@@ -304,7 +305,14 @@ public static class CommandCodec
         w.Write(contentHash);
         w.Write((byte)mode);
         w.Write(galaxySeed);
-        w.Write((byte)((threats ? 1 : 0) | (stationRules ? 2 : 0) | (structures ? 4 : 0)));
+        bool hasRules = rules is not null && !rules.IsDefault;
+        w.Write((byte)((threats ? 1 : 0) | (stationRules ? 2 : 0) | (structures ? 4 : 0) | (hasRules ? 8 : 0)));
+        if (hasRules)
+        {
+            byte[] block = rules!.Serialize();
+            w.Write(block.Length);
+            w.Write(block);
+        }
         w.Write(log.Count);
         foreach (var e in log)
         {
@@ -339,24 +347,38 @@ public static class CommandCodec
 
     /// <summary>Also returns whether the world used structure rules. Logs written before the flag existed (and version 5 logs) read as false.</summary>
     public static List<LoggedCommand> ReadLog(Stream stream, out ulong contentHash, out GameMode mode, out ulong galaxySeed, out bool threats,
-        out bool stationRules, out bool structures)
+        out bool stationRules, out bool structures) =>
+        ReadLog(stream, out contentHash, out mode, out galaxySeed, out threats, out stationRules, out structures, out _);
+
+    /// <summary>Also returns the world rules (flags bit 3, version 7). Logs without the block, including versions 5 and 6, read as default rules.</summary>
+    public static List<LoggedCommand> ReadLog(Stream stream, out ulong contentHash, out GameMode mode, out ulong galaxySeed, out bool threats,
+        out bool stationRules, out bool structures, out WorldRules rules)
     {
         using var r = new BinaryReader(stream, Encoding.UTF8, leaveOpen: true);
         var magic = r.ReadBytes(Magic.Length);
         if (!magic.AsSpan().SequenceEqual(Magic)) throw new InvalidDataException("Not a command log.");
         byte version = r.ReadByte();
-        if (version != LogVersion && version != OldestLogVersion) throw new InvalidDataException($"Unsupported log version {version}.");
+        if (version < OldestLogVersion || version > LogVersion) throw new InvalidDataException($"Unsupported log version {version}.");
         contentHash = r.ReadUInt64();
         byte rawMode = r.ReadByte();
         if (rawMode > (byte)GameMode.Campaign) throw new InvalidDataException($"Unknown game mode {rawMode}.");
         mode = (GameMode)rawMode;
         galaxySeed = r.ReadUInt64();
         byte flags = r.ReadByte();
-        int knownFlags = version >= 6 ? 7 : 1;
+        int knownFlags = version >= 7 ? 15 : version >= 6 ? 7 : 1;
         if (flags > knownFlags) throw new InvalidDataException($"Unknown header flags {flags}.");
         threats = (flags & 1) != 0;
         stationRules = (flags & 2) != 0;
         structures = (flags & 4) != 0;
+        rules = WorldRules.Default;
+        if ((flags & 8) != 0)
+        {
+            int length = r.ReadInt32();
+            if (length < 1 || length > 4096) throw new InvalidDataException("Bad world rules block length.");
+            var block = r.ReadBytes(length);
+            if (block.Length != length) throw new InvalidDataException("The world rules block is truncated.");
+            rules = WorldRules.Deserialize(block);
+        }
         int count = r.ReadInt32();
         if (count < 0) throw new InvalidDataException("Negative entry count.");
 

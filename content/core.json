@@ -42,6 +42,18 @@
     },
     {
       "id": "core:hydrogen"
+    },
+    {
+      "id": "core:silicon"
+    },
+    {
+      "id": "core:circuit"
+    },
+    {
+      "id": "core:titanium_alloy"
+    },
+    {
+      "id": "core:fuel_cell"
     }
   ],
   "machines": [
@@ -577,6 +589,34 @@
         }
       ],
       "time_s": 4
+    },
+    {
+      "id": "core:smelt_silicon",
+      "machine": "core:smelter",
+      "inputs": [{ "item": "core:quartz", "count": 2 }],
+      "outputs": [{ "item": "core:silicon", "count": 1 }],
+      "time_s": 5
+    },
+    {
+      "id": "core:make_circuit",
+      "machine": "core:assembler",
+      "inputs": [{ "item": "core:silicon", "count": 1 }, { "item": "core:nickel_plate", "count": 1 }],
+      "outputs": [{ "item": "core:circuit", "count": 1 }],
+      "time_s": 6
+    },
+    {
+      "id": "core:make_alloy",
+      "machine": "core:assembler",
+      "inputs": [{ "item": "core:titanium_plate", "count": 1 }, { "item": "core:carbon", "count": 1 }],
+      "outputs": [{ "item": "core:titanium_alloy", "count": 1 }],
+      "time_s": 5
+    },
+    {
+      "id": "core:make_fuel_cell",
+      "machine": "core:hydrogen_cracker",
+      "inputs": [{ "item": "core:hydrogen", "count": 2 }, { "item": "core:nickel_plate", "count": 1 }],
+      "outputs": [{ "item": "core:fuel_cell", "count": 1 }],
+      "time_s": 8
     }
   ],
   "belts": [
@@ -948,22 +988,71 @@
           "count": 150
         },
         {
-          "item": "core:titanium_plate",
-          "count": 20
-        },
-        {
-          "item": "core:quartz",
+          "item": "core:carbon",
           "count": 20
         }
       ],
       "requires": [
         "core:logistics",
-        "core:advanced_plating"
+        "core:carbon_drilling"
       ],
       "unlocks": [],
       "abilities": [
         "drone_bay"
       ]
+    },
+    {
+      "id": "core:silicon_processing",
+      "cost": [
+        { "item": "core:iron_plate", "count": 200 },
+        { "item": "core:quartz", "count": 30 },
+        { "item": "core:nickel_plate", "count": 20 }
+      ],
+      "requires": ["core:advanced_plating"],
+      "unlocks": ["core:smelt_silicon"]
+    },
+    {
+      "id": "core:electronics",
+      "cost": [
+        { "item": "core:iron_plate", "count": 250 },
+        { "item": "core:silicon", "count": 40 },
+        { "item": "core:titanium_plate", "count": 20 }
+      ],
+      "requires": ["core:silicon_processing"],
+      "unlocks": ["core:make_circuit", "core:make_alloy"]
+    },
+    {
+      "id": "core:shielding",
+      "cost": [
+        { "item": "core:iron_plate", "count": 250 },
+        { "item": "core:silicon", "count": 30 },
+        { "item": "core:titanium_plate", "count": 20 }
+      ],
+      "requires": ["core:electronics"],
+      "unlocks": [],
+      "abilities": ["shield"]
+    },
+    {
+      "id": "core:sensors",
+      "cost": [
+        { "item": "core:iron_plate", "count": 250 },
+        { "item": "core:silicon", "count": 30 },
+        { "item": "core:nickel_plate", "count": 20 }
+      ],
+      "requires": ["core:electronics"],
+      "unlocks": [],
+      "abilities": ["sensor"]
+    },
+    {
+      "id": "core:advanced_power",
+      "cost": [
+        { "item": "core:iron_plate", "count": 300 },
+        { "item": "core:silicon", "count": 30 },
+        { "item": "core:nickel_plate", "count": 30 }
+      ],
+      "requires": ["core:electronics"],
+      "unlocks": ["core:make_fuel_cell"],
+      "abilities": ["reactor_mk2"]
     }
   ],
   "galaxy": {
@@ -989,8 +1078,8 @@
             1
           ],
           "amount": [
-            4000,
-            4000
+            12000,
+            12000
           ]
         },
         {
@@ -1011,8 +1100,8 @@
             1
           ],
           "amount": [
-            600,
-            800
+            1500,
+            2000
           ],
           "density": [
             40,
@@ -1377,7 +1466,7 @@
       "cost": [{ "item": "core:iron_ingot", "count": 20 }],
       "hp": 200,
       "allows": [],
-      "hold_capacity": 60,
+      "hold_capacity": 100,
       "thrust_speed_percent": 0
     },
     "workshop": {
@@ -1404,14 +1493,44 @@
       "thrust_speed_percent": 0
     },
     "drone_bay": {
-      "cost": [{ "item": "core:iron_plate", "count": 12 }, { "item": "core:titanium_plate", "count": 8 }, { "item": "core:nickel_plate", "count": 8 }],
+      "cost": [{ "item": "core:iron_plate", "count": 16 }, { "item": "core:iron_ingot", "count": 16 }],
       "hp": 150,
       "allows": [],
       "hold_capacity": 0,
       "thrust_speed_percent": 0,
       "drone_range_cells": 60,
-      "drone_interval_ticks": 90,
+      "drone_interval_ticks": 36,
       "power_use": 20
+    },
+    "shield": {
+      "cost": [{ "item": "core:circuit", "count": 12 }, { "item": "core:titanium_alloy", "count": 12 }, { "item": "core:iron_plate", "count": 16 }],
+      "hp": 250,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0,
+      "power_use": 25,
+      "shield_percent": 30,
+      "shield_stack_percent": 10,
+      "shield_max_percent": 60
+    },
+    "sensor": {
+      "cost": [{ "item": "core:circuit", "count": 8 }, { "item": "core:silicon", "count": 10 }, { "item": "core:iron_plate", "count": 12 }],
+      "hp": 120,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0,
+      "power_use": 10,
+      "sensor_range_cells": 120
+    },
+    "reactor_mk2": {
+      "cost": [{ "item": "core:circuit", "count": 20 }, { "item": "core:titanium_alloy", "count": 20 }, { "item": "core:iron_plate", "count": 20 }],
+      "hp": 180,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0,
+      "power_output": 250,
+      "burn_interval_ticks": 900,
+      "emergency_power": 15
     }
   },
   "structure_templates": {

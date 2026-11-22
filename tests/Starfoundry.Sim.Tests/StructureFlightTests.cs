@@ -222,11 +222,11 @@ public class StructureFlightTests
         int s = Ship(w, cargos: 0);
         Assert.Equal(0, w.Network.HoldCapacity(0));
         w.Network.AddStructureModuleUnchecked(s, 10, 0, 0, ModuleKind.Cargo);
-        Assert.Equal(60, w.Network.HoldCapacity(0));
+        Assert.Equal(100, w.Network.HoldCapacity(0));
         w.Network.AddStructureModuleUnchecked(s, 11, 0, 0, ModuleKind.Cargo);
-        Assert.Equal(120, w.Network.HoldCapacity(0));
+        Assert.Equal(200, w.Network.HoldCapacity(0));
         w.Network.RemoveStructureModuleUnchecked(s, 10, 0, 0);
-        Assert.Equal(60, w.Network.HoldCapacity(0));
+        Assert.Equal(100, w.Network.HoldCapacity(0));
 
         // Legacy worlds and players without a ship keep the constant.
         Assert.Equal(PlayerRules.HoldCapacity, World(structures: false).Network.HoldCapacity(0));
@@ -237,8 +237,8 @@ public class StructureFlightTests
         Ship(full, cargos: 1);
         int dep = full.Network.AddDeposit(Ore, 1000, 0, 0, 0);
         Ok(full, new StartMining(dep));
-        full.Step(15 * 90);
-        Assert.Equal(60 * PlayerRules.MiningHoldLimitPercent / 100, full.Network.HoldTotal(0));
+        full.Step(15 * 120);
+        Assert.Equal(100 * PlayerRules.MiningHoldLimitPercent / 100, full.Network.HoldTotal(0));
 
         var none = World();
         Ship(none, cargos: 0);

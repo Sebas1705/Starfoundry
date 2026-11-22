@@ -2,11 +2,24 @@ namespace Starfoundry.Sim;
 
 public enum StructureKind { Ship, Station }
 
-public enum ModuleKind { Core, Cockpit, Engine, Reactor, Cargo, Workshop, Defence, Hull, DroneBay }
+public enum ModuleKind { Core, Cockpit, Engine, Reactor, Cargo, Workshop, Defence, Hull, DroneBay, Shield, Sensor, ReactorMk2 }
 
 /// <summary>Content ids of module kinds: the enum name in snake case (<c>DroneBay</c> is <c>drone_bay</c>).</summary>
 public static class ModuleKindIds
 {
+    /// <summary>True for the module kinds that burn fuel and make power: the reactor and the mark 2 reactor.</summary>
+    public static bool IsReactor(ModuleKind kind) => kind is ModuleKind.Reactor or ModuleKind.ReactorMk2;
+
+    /// <summary>The ability research must unlock before this kind can be placed in a campaign world, or null when it is free.</summary>
+    public static Ability? RequiredAbility(ModuleKind kind) => kind switch
+    {
+        ModuleKind.DroneBay => Ability.DroneBay,
+        ModuleKind.Shield => Ability.Shield,
+        ModuleKind.Sensor => Ability.Sensor,
+        ModuleKind.ReactorMk2 => Ability.ReactorMk2,
+        _ => null,
+    };
+
     public static string Id(ModuleKind kind)
     {
         var sb = new System.Text.StringBuilder();

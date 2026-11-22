@@ -87,7 +87,14 @@ public static class ResearchView
         foreach (int m in node.UnlockMachines) list.Add(new ResearchUnlock(ResearchUnlockKind.Machine, content.Machines[m].Id));
         foreach (int r in node.UnlockRecipes) list.Add(new ResearchUnlock(ResearchUnlockKind.Recipe, content.Recipes[r].Id));
         foreach (var b in node.UnlockBelts) list.Add(new ResearchUnlock(ResearchUnlockKind.Belt, "mk" + ((int)b + 1)));
-        foreach (var a in node.UnlockAbilities) list.Add(new ResearchUnlock(ResearchUnlockKind.Ability, a == Ability.Jump ? "jump" : "drone_bay"));
+        foreach (var a in node.UnlockAbilities) list.Add(new ResearchUnlock(ResearchUnlockKind.Ability, a switch
+        {
+            Ability.Jump => "jump",
+            Ability.Shield => "shield",
+            Ability.Sensor => "sensor",
+            Ability.ReactorMk2 => "reactor_mk2",
+            _ => "drone_bay",
+        }));
         foreach (var b in node.Bonuses) list.Add(new ResearchUnlock(ResearchUnlockKind.Bonus, BonusId(b.Kind), b.Percent));
         return list;
     }

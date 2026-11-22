@@ -77,9 +77,24 @@ public sealed partial class BeltNetwork
     public long AmmoFired { get; private set; }
 
     /// <summary>True when threats were switched on at creation and the content and the world can support them.</summary>
-    public bool ThreatActive => ThreatsEnabled && Content?.Threat is not null && Galaxy is not null;
+    public bool ThreatActive => ThreatsEnabled && Rules.ThreatsEnabled && Content?.Threat is not null && Galaxy is not null;
 
     public int EnemyCount => _enemies.Count;
+
+    /// <summary>Alert meter capacity with the world's wave interval applied (higher percent: slower waves).</summary>
+    private int AlertMaxNow => Math.Max(1, WorldRules.Scale(Content!.Threat!.AlertMax, Rules.WaveIntervalPercent));
+
+    /// <summary>Alert after a wave, scaled like <see cref="AlertMaxNow"/> so the whole time to the next wave scales.</summary>
+    private int AlertAfterWaveNow => Math.Min(AlertMaxNow - 1, WorldRules.Scale(Content!.Threat!.AlertAfterWave, Rules.WaveIntervalPercent));
+
+    /// <summary>First wave grace in ticks: the rules' seconds when set, else the content's value.</summary>
+    private int GraceTicksNow => Rules.FirstWaveGraceSeconds >= 0 ? Rules.FirstWaveGraceSeconds * Units.TicksPerSecond : Content!.Threat!.FirstWaveGraceTicks;
+
+    /// <summary>Hit points of an enemy type at spawn, with the world's enemy hp applied.</summary>
+    public int EnemyMaxHp(int type) => WorldRules.ScaleMin1(Content!.Enemies[type].Hp, Rules.EnemyHpPercent);
+
+    /// <summary>Damage of one shot of an enemy type, with the world's enemy damage applied.</summary>
+    public int EnemyShotDamage(int type) => WorldRules.ScaleMin1(Content!.Enemies[type].Damage, Rules.EnemyDamagePercent);
 
     /// <summary>Shots fired during the last tick (effects only).</summary>
     public IReadOnlyList<ShotEvent> Shots => _shots;
@@ -119,7 +134,7 @@ public sealed partial class BeltNetwork
     {
         if (!IsSystem(system) || _threat.Length == 0) throw new ArgumentOutOfRangeException(nameof(system));
         var t = _threat[system];
-        return new SystemThreatInfo(system, SystemSignature(system), t.Alert, Content?.Threat?.AlertMax ?? 0, t.Wave, t.Warning,
+        return new SystemThreatInfo(system, SystemSignature(system), t.Alert, Content?.Threat is null ? 0 : AlertMaxNow, t.Wave, t.Warning,
             _enemies.Count(e => e.System == system));
     }
 
@@ -247,21 +262,23 @@ public sealed partial class BeltNetwork
             bool active = t.Warning >= 0 || _enemies.Any(e => e.System == s);
             if (!active)
             {
-                bool graceOn = StructureRules && t.Wave == 0 && rules.FirstWaveGraceTicks > 0;
+                int graceTicks = GraceTicksNow;
+                int alertMax = AlertMaxNow;
+                bool graceOn = StructureRules && t.Wave == 0 && graceTicks > 0;
                 if (signature[s] > rules.SignatureThreshold)
                 {
-                    t.Alert = Math.Min(rules.AlertMax, t.Alert + (signature[s] - rules.SignatureThreshold));
-                    if (graceOn && t.Grace < rules.FirstWaveGraceTicks) t.Grace++;
+                    t.Alert = Math.Min(alertMax, t.Alert + (signature[s] - rules.SignatureThreshold));
+                    if (graceOn && t.Grace < graceTicks) t.Grace++;
                 }
                 else t.Alert = Math.Max(0, t.Alert - rules.DecayPerTick);
                 // Structure worlds: the first warning waits for the grace time, counted from when the system first got loud.
-                if (t.Alert >= rules.AlertMax && !(graceOn && t.Grace < rules.FirstWaveGraceTicks)) t.Warning = rules.WarningTicks;
+                if (t.Alert >= alertMax && !(graceOn && t.Grace < graceTicks)) t.Warning = rules.WarningTicks;
             }
             if (t.Warning > 0 && --t.Warning == 0)
             {
                 SpawnWave(s);
                 t.Warning = -1;
-                t.Alert = rules.AlertAfterWave;
+                t.Alert = AlertAfterWaveNow;
                 t.Wave++;
             }
         }
@@ -329,9 +346,9 @@ public sealed partial class BeltNetwork
                 {
                     e.Cooldown = def.IntervalTicks;
                     _shots.Add(new ShotEvent(ShotKind.Enemy, e.X, e.Y, e.Z, (int)tx, (int)ty, (int)tz));
-                    if (ship is not null) DamageShip(ship, def.Damage);
-                    else if (machine is not null) DamageMachine(machine, def.Damage);
-                    else DamageModule(modStructure, modKey, def.Damage);
+                    if (ship is not null) DamageShip(ship, EnemyShotDamage(e.Type));
+                    else if (machine is not null) DamageMachine(machine, EnemyShotDamage(e.Type));
+                    else DamageModule(modStructure, modKey, EnemyShotDamage(e.Type));
                 }
             }
         }
@@ -484,14 +501,13 @@ public sealed partial class BeltNetwork
         int spawned = 0;
         foreach (var spec in Content.Waves)
         {
-            int count = t.Wave < spec.FromWave ? 0 : spec.Base + spec.PerWave * (t.Wave - spec.FromWave);
+            int count = WorldRules.ScaleMin1(t.Wave < spec.FromWave ? 0 : spec.Base + spec.PerWave * (t.Wave - spec.FromWave), Rules.WaveSizePercent);
             for (int k = 0; k < count; k++)
             {
                 if (_enemies.Count >= rules.MaxEnemies) break;
-                var def = Content.Enemies[spec.Enemy];
                 _enemies.Add(new Enemy
                 {
-                    Id = _nextEnemyId++, Type = spec.Enemy, System = system, Hp = def.Hp,
+                    Id = _nextEnemyId++, Type = spec.Enemy, System = system, Hp = EnemyMaxHp(spec.Enemy),
                     X = (int)nodeX + rng.Next(-Units.CellUnits, Units.CellUnits),
                     Y = (int)nodeY + rng.Next(-Units.CellUnits, Units.CellUnits),
                     Z = (int)nodeZ + rng.Next(-Units.CellUnits, Units.CellUnits),
@@ -553,10 +569,10 @@ public sealed partial class BeltNetwork
         for (int s = 0; s < _threat.Length; s++)
         {
             var t = _threat[s];
-            if (t.Alert < 0 || t.Alert > rules.AlertMax) Fail($"system {s} alert {t.Alert} out of range");
+            if (t.Alert < 0 || t.Alert > AlertMaxNow) Fail($"system {s} alert {t.Alert} out of range");
             if (t.Warning < -1 || t.Warning > rules.WarningTicks) Fail($"system {s} warning {t.Warning} out of range");
             if (t.Wave < 0) Fail($"system {s} wave count is negative");
-            if (t.Grace < 0 || t.Grace > rules.FirstWaveGraceTicks || (t.Grace != 0 && !StructureRules)) Fail($"system {s} grace {t.Grace} out of range");
+            if (t.Grace < 0 || t.Grace > GraceTicksNow || (t.Grace != 0 && !StructureRules)) Fail($"system {s} grace {t.Grace} out of range");
         }
 
         int lastId = -1;
@@ -565,7 +581,7 @@ public sealed partial class BeltNetwork
             if (e.Id <= lastId) Fail("enemy ids are not increasing");
             lastId = e.Id;
             if (e.Type < 0 || e.Type >= Content.Enemies.Count) Fail($"enemy {e.Id} has an unknown type");
-            else if (e.Hp < 1 || e.Hp > Content.Enemies[e.Type].Hp) Fail($"enemy {e.Id} hit points {e.Hp} out of range");
+            else if (e.Hp < 1 || e.Hp > EnemyMaxHp(e.Type)) Fail($"enemy {e.Id} hit points {e.Hp} out of range");
             if (!IsSystem(e.System)) Fail($"enemy {e.Id} is in an unknown system");
             if (Math.Abs(e.X) > PlayerRules.WorldLimitUnits * 2L || Math.Abs(e.Y) > PlayerRules.WorldLimitUnits * 2L || Math.Abs(e.Z) > PlayerRules.WorldLimitUnits * 2L)
                 Fail($"enemy {e.Id} is far outside the world");

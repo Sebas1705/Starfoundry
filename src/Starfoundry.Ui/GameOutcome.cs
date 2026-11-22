@@ -2,13 +2,19 @@ using Starfoundry.Sim;
 
 namespace Starfoundry.Ui;
 
-/// <summary>The goal of a game: survive this many waves with a station standing. The player's default lives in <see cref="GameSettings"/>.</summary>
+/// <summary>The goal of a game: survive this many waves with a station standing and, in structure worlds, visit another system. The player's default lives in <see cref="GameSettings"/>.</summary>
 public sealed record GoalSettings(int WavesToWin = GoalSettings.DefaultWaves)
 {
     public const int MinWaves = 3, MaxWaves = 30, DefaultWaves = 10;
 
+    /// <summary>Jumps to complete in structure worlds: the player must reach a second system, which takes the jump drive research.</summary>
+    public const int JumpsToWin = 1;
+
     /// <summary>The goal from the player's settings (the wave count is clamped to its valid range).</summary>
     public static GoalSettings From(GameSettings settings) => new(Math.Clamp(settings.GoalWaves, MinWaves, MaxWaves));
+
+    /// <summary>The goal a world's rules ask for (<see cref="WorldRules.GoalWaves"/>).</summary>
+    public static GoalSettings From(WorldRules rules) => new(rules.GoalWaves);
 }
 
 /// <summary>Where a game stands: still going, won, or lost.</summary>
@@ -32,16 +38,22 @@ public sealed record OutcomeResult(OutcomeKind Kind, OutcomeReason Reason, Outco
 /// <summary>
 /// Decides whether a played game is won or lost and gathers the end-screen numbers. Lost: the ship's last cockpit fell (structure
 /// worlds only: the older worlds rebuild the ship, so they never lose). Won: the goal's number of waves was cleared with the ship
-/// alive and, in structure worlds, a station of the player standing. Pure logic over the simulation, tested without the engine.
+/// alive and, in structure worlds, a station of the player standing and a jump completed (which needs the jump drive research). Pure logic over the simulation, tested without the engine.
 /// </summary>
 public static class GameOutcome
 {
+    /// <summary>Evaluates against the goal in the world's own rules (<see cref="BeltNetwork.Rules"/>).</summary>
+    public static OutcomeResult Evaluate(BeltNetwork net, int player) => Evaluate(net, player, net.Rules);
+
+    /// <summary>Evaluates against the goal waves of <paramref name="rules"/>.</summary>
+    public static OutcomeResult Evaluate(BeltNetwork net, int player, WorldRules rules) => Evaluate(net, player, GoalSettings.From(rules));
+
     public static OutcomeResult Evaluate(BeltNetwork net, int player, GoalSettings goal)
     {
         var stats = Stats(net, player);
         if (net.StructureRules && net.ShipLost(player))
             return new OutcomeResult(OutcomeKind.Lost, OutcomeReason.ShipLost, stats);
-        if (net.HasPlayer(player) && ShipAlive(net, player) && stats.WavesSurvived >= goal.WavesToWin && HasBase(net, player))
+        if (net.HasPlayer(player) && ShipAlive(net, player) && stats.WavesSurvived >= goal.WavesToWin && HasBase(net, player) && HasExplored(net))
             return new OutcomeResult(OutcomeKind.Won, OutcomeReason.WavesSurvived, stats);
         return new OutcomeResult(OutcomeKind.Playing, OutcomeReason.None, stats);
     }
@@ -53,6 +65,12 @@ public static class GameOutcome
     /// <summary>True when the player owns a station (structure worlds); older worlds need no base.</summary>
     public static bool HasBase(BeltNetwork net, int player) =>
         !net.StructureRules || net.Structures().Any(s => s.Owner == player && s.Kind == StructureKind.Station);
+
+    /// <summary>True when the world has been left at least <see cref="GoalSettings.JumpsToWin"/> time(s) by the jump drive (structure worlds); older worlds need no jump.</summary>
+    public static bool HasExplored(BeltNetwork net) => !net.StructureRules || net.JumpsCompleted >= GoalSettings.JumpsToWin;
+
+    /// <summary>Jumps completed, capped at the goal (for the goal line).</summary>
+    public static int JumpsDone(BeltNetwork net) => Math.Min(net.JumpsCompleted, GoalSettings.JumpsToWin);
 
     private static bool ShipAlive(BeltNetwork net, int player) =>
         net.StructureRules ? !net.ShipLost(player) : net.GetPlayerInfo(player).RespawnRemaining == 0;

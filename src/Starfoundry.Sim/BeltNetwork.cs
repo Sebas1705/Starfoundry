@@ -38,9 +38,17 @@ public sealed partial class BeltNetwork
     /// and placing into the legacy world (structure 0) is refused. Part of the world's creation settings.</summary>
     public bool StructureRules { get; }
 
+    /// <summary>The world's rules (difficulty percentages and flags). Defaults equal the game before the rules existed.</summary>
+    public WorldRules Rules { get; }
+
+    /// <summary>Starting-item units that did not fit the starter hold and were left out at creation.</summary>
+    public int StartingItemsClamped { get; internal set; }
+
     public BeltNetwork(ContentDb? content = null, GameMode mode = GameMode.Sandbox, bool threats = false, bool stationRules = false,
-        bool structures = false)
+        bool structures = false, WorldRules? rules = null)
     {
+        Rules = rules ?? WorldRules.Default;
+        if (Rules.Validate() is { } problem) throw new ArgumentException("Invalid world rules: " + problem, nameof(rules));
         StructureRules = structures;
         Content = content;
         Mode = mode;
@@ -200,6 +208,7 @@ public sealed partial class BeltNetwork
         StepUnloaders();
         StepPlayers();
         StepDrones();
+        StepSensors();
         RecheckDrillLinks(); // structure moves are applied here, before the threat phase
         StepResearch();
         StepThreat();
@@ -268,6 +277,7 @@ public sealed partial class BeltNetwork
 
         Mix(Tick); Mix(Spawned); Mix(Consumed); Mix(Destroyed); Mix(_segs.Count);
         Mix(MachineInputsConsumed); Mix(MachineOutputsCreated); Mix((long)(Content?.Hash ?? 0)); Mix((int)Mode); Mix(ThreatsEnabled ? 1 : 0); if (StationRules) Mix(2); if (StructureRules) Mix(4);
+        if (!Rules.IsDefault) foreach (byte rb in Rules.Serialize()) Mix(rb); // default rules hash as before they existed
         MixMachines(Mix);
         MixEconomy(Mix);
         MixStation(Mix);
@@ -297,8 +307,9 @@ public sealed partial class BeltNetwork
     /// <summary>Deep copy of the whole state.</summary>
     public BeltNetwork Clone()
     {
-        var c = new BeltNetwork(Content, Mode, ThreatsEnabled, StationRules, StructureRules);
+        var c = new BeltNetwork(Content, Mode, ThreatsEnabled, StationRules, StructureRules, Rules);
         c.CopyFrom(this);
+        c.StartingItemsClamped = StartingItemsClamped;
         return c;
     }
 

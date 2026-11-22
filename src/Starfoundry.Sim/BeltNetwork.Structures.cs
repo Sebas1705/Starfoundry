@@ -327,8 +327,8 @@ public sealed partial class BeltNetwork
                 if (!Enum.IsDefined(kind)) Fail($"structure {id} module {m} has an unknown kind");
             foreach (var (m, rem) in s.BurnRemaining)
             {
-                if (!s.ModuleMap.TryGetValue(m, out var rk) || rk != ModuleKind.Reactor) Fail($"structure {id} burns a module {m} that is no reactor");
-                if (rem < 1 || rem > (Content?.Structures?.BurnIntervalTicks(ModuleKind.Reactor) ?? 0)) Fail($"structure {id} burn time {rem} out of range");
+                if (!s.ModuleMap.TryGetValue(m, out var rk) || !ModuleKindIds.IsReactor(rk)) Fail($"structure {id} burns a module {m} that is no reactor");
+                else if (rem < 1 || rem > (Content?.Structures?.BurnIntervalTicks(rk) ?? 0) * PowerRules.FuelCellBurnIntervals) Fail($"structure {id} burn time {rem} out of range");
             }
             foreach (var (m, hp) in s.ModuleDamage)
             {

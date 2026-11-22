@@ -1,0 +1,40 @@
+# 0024. Resource expansion: silicon, circuits, alloy, fuel cells, shields, sensors and a second reactor
+
+- Status: proposed
+- Date: 2026-11-22
+- Area: simulation, content, gameplay
+
+## Context
+Part C of the [modes and scenarios design](../superpowers/specs/2026-11-22-modes-and-scenarios-design.md). The structure campaign has six raw items and a thin tree above them: quartz is only a research cost, carbon only feeds engines, reactors and jumps, and nothing in the game uses a circuit-like intermediate. The modules a defended structure wants (something that absorbs damage, something that shows what is coming, a stronger reactor) do not exist. Every research cost must stay deliverable (ADR 0022), and legacy worlds and their golden checksums must not move.
+
+## Decision
+- **Four items**, appended after hydrogen so existing item indices do not move: `core:silicon`, `core:circuit`, `core:titanium_alloy`, `core:fuel_cell`.
+- **Four recipes**, all research-gated: `core:smelt_silicon` (smelter, 2 quartz -> 1 silicon, 5 s), `core:make_circuit` (assembler, 1 silicon + 1 nickel plate -> 1 circuit, 6 s), `core:make_alloy` (assembler, 1 titanium plate + 1 carbon -> 1 titanium alloy, 5 s), `core:make_fuel_cell` (hydrogen cracker, 2 hydrogen + 1 nickel plate -> 1 fuel cell, 8 s). The cracker already handles hydrogen, so no new machine exists.
+- **Five research nodes**: `silicon_processing` (needs advanced plating; 200 iron plate, 30 quartz, 20 nickel plate; unlocks `smelt_silicon`), `electronics` (needs silicon processing; 250 iron plate, 40 silicon, 20 titanium plate; unlocks `make_circuit` and `make_alloy`), `shielding` (needs electronics; 250 iron plate, 30 silicon, 20 titanium plate; ability `shield`), `sensors` (needs electronics; 250 iron plate, 30 silicon, 20 nickel plate; ability `sensor`), `advanced_power` (needs electronics; 300 iron plate, 30 silicon, 30 nickel plate; ability `reactor_mk2` and `make_fuel_cell`). New `Ability` values `Shield`, `Sensor`, `ReactorMk2` are appended; `ModuleKindIds.RequiredAbility` maps a module kind to its ability, and `PlaceModuleIn` returns `Reject.Locked` in campaign mode before the research (as for the drone bay). Sandbox needs no research.
+- **Three module kinds**, appended to `ModuleKind` (`Shield`, `Sensor`, `ReactorMk2`, content ids `shield`, `sensor`, `reactor_mk2`):
+
+  | Kind | Cost | hp | Numbers |
+  | --- | --- | --- | --- |
+  | Shield | 12 circuit, 12 titanium alloy, 16 iron plate | 250 | power use 25; absorbs 30 % of the damage to every other module, +10 % per further shield, 60 % at most |
+  | Sensor | 8 circuit, 10 silicon, 12 iron plate | 120 | power use 10; range 120 cells |
+  | Reactor Mk2 | 20 circuit, 20 titanium alloy, 20 iron plate | 180 | output 250, burn interval 900 ticks, emergency power 15 |
+
+  New content keys: `shield_percent`, `shield_stack_percent`, `shield_max_percent` (shield only), `sensor_range_cells` (sensor only), and `power_use` is now also allowed on the shield and the sensor. `ModuleKindDef` gets matching trailing fields.
+- **Shield rule.** In `DamageModule` (the one path for enemy attacks and `HitModule`) the damage is cut by `min(max, base + stack * (n - 1))` percent where `n` counts the shields of the structure other than the target; with no other shield nothing is absorbed, so a lone shield takes full damage and two protect each other. The absorbed part is rounded down and a hit is never reduced below 1. Shields only work while the structure satisfaction is at least 500 per mille (`ShieldSensorRules.MinSatisfaction`, the turret line). Shields and sensors always draw their `power_use` (`ModuleDemand`, added to the structure demand).
+- **Sensor rule.** Every 30 ticks (`SensorIntervalTicks`) each powered sensor reveals the hidden deposits whose centre is within `sensor_range_cells` of the sensor module centre, setting the same `Revealed` flag the scanner sets (no command, no cooldown). `BeltNetwork.NextWaveInfo(structure)` returns a `WaveForecast` (system, wave number from 1, enemy count by type, total, ticks to arrival, whether the warning runs) for the system of the structure, or null without a powered sensor or without threats. The composition follows the wave table the way `SpawnWave` reads it, including the cap on live enemies. Ticks to arrival is exact once the warning countdown runs, an estimate from the alert and the signature before that, and -1 when the system is quiet.
+- **Fuel cells.** `ContentDb.FuelCellItem` finds `core:fuel_cell`. When a reactor needs fuel the owner's hold is asked for a cell first and hydrogen second (`TakeFuel`); a cell keeps the reactor burning `FuelCellBurnIntervals` (6) burn intervals, a hydrogen one. `BurnRemaining` therefore ranges up to six intervals (validated). `PowerStatus` gets a trailing `FuelCellsInHold`.
+- **Reactor Mk2** burns fuel like a reactor (`ModuleKindIds.IsReactor`), counts as a reactor for the station-without-reactor check and for emergency power, and counts as a reactor for the last essential module rule: the last reactor of either kind cannot be removed.
+- **Optional kinds and compatibility.** The three new entries of `structures` are optional: content without them loads, hashes as it did before (undefined kinds are skipped by the hash) and refuses to place the kind (`Reject.KindNotAllowed`; `BuildCatalog` does not offer it). The content hash of `core.json` changes, replays and saves of earlier content do not carry over, and the golden checksum test (`Legacy_worlds_unchanged`) now strips the new items, recipes, research and module entries from its content, since items and research levels are part of the state hash.
+- **Game.** Procedural models for the three kinds in `ModuleModels` (ship and station variants): a plated module with an emitter pylon, a spinning halo and a faint translucent blue dome; a sensor tower with a dish that turns with a translucent green sweep; a bigger reactor with a cyan core inside two crossed rings. `StationView` animates them (field and sweep dim with power and stop below half power). The module tool lists the three kinds after the drone bay, with the lock note.
+
+## Consequences
+- Benefits: quartz, carbon and nickel plates get real uses, the tree is deeper (quartz -> silicon -> circuit), defence gets a sustain option (shields), information (sensors, next wave) and a power option (Mk2, fuel cells); every cost is deliverable (`StructureEconomyTests` still pass, and a scripted test runs quartz -> silicon -> circuit and titanium -> alloy through real ports and belts in a campaign structure world).
+- Costs: more content to balance (the structure bot does not use the new modules yet), a 30-tick sensor throttle that can reveal a deposit up to a second late, an arrival estimate in `NextWaveInfo` that follows the current threat rules and must be revisited when those change (for example the wave size or interval scaling of the world rules).
+- How it is checked: `ResourceExpansionTests` (recipes, research wiring, costs, gating, the real chain, fuel cells, Mk2, essential modules, optional content kinds, texts), `ShieldSensorTests` (absorption and stacking, power, a real wave, reveal range, forecast accuracy), the existing content analysis and golden checksum tests.
+- Not decided here: HUD for the forecast and for fuel cells (the strings `hud.nextWave` exist, nothing draws them yet), item models for the four new items, balance of the new costs against the structure bot, whether enemies should reveal themselves to sensors.
+
+## Alternatives considered
+- A new machine for fuel cells: rejected, the cracker already is the hydrogen machine.
+- Shields that protect themselves too: rejected, a single shield would then be strictly better than any other module for its hit points; leaving the lone shield exposed makes the second shield the first real upgrade.
+- Sensors that reveal on a command like the scanner: rejected, the point of the module is not having to press a key.
+- Requiring every module kind in `structures`: rejected for the new kinds, it would make older content unloadable and its golden checksums impossible to keep.

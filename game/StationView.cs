@@ -185,7 +185,13 @@ void fragment() {
                         Models.SetPower(node, 0.2f + 0.8f * sat / 1000f); // the flame and vents dim with the power
                         Models.Animate(node, _time, thrust);
                         break;
+                    case ModuleKind.Shield:
+                    case ModuleKind.Sensor:
+                        Models.SetPower(node, sat / 1000f); // the field and the sweep dim with the power and stop below half power
+                        Models.Animate(node, _time, sat >= ShieldSensorRules.MinSatisfaction);
+                        break;
                     case ModuleKind.Reactor:
+                    case ModuleKind.ReactorMk2:
                         Models.SetReactor(node, burning);
                         Models.SetPower(node, burning ? 1f : 0.1f); // vents go dark with the core
                         Models.Animate(node, _time, burning);

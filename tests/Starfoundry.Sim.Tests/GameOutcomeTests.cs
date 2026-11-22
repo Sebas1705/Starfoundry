@@ -80,8 +80,43 @@ public class GameOutcomeTests
         Assert.Equal(1, r.Stats.ModulesLost);
     }
 
+    /// <summary>Researches the jump drive, pays the carbon and jumps to a neighbour of home with sim commands.</summary>
+    private static void JumpOnce(SimWorld w)
+    {
+        w.Network.GrantResearch(C.ResearchIndex("core:jump_drive"));
+        w.Network.GiveItems(0, C.ItemIndex("core:carbon"), w.Network.JumpCost().Single().Count);
+        int next = w.Network.Galaxy!.Systems[w.Network.CurrentSystem(0)].Lanes[0];
+        w.Submit(0, new Jump(next));
+        w.Step();
+        Assert.True(w.LastResults.Single().Ok, "the jump was rejected");
+        w.Step(ExplorationRules.JumpChargeTicks);
+        Assert.Equal(next, w.Network.CurrentSystem(0));
+    }
+
     [Fact]
-    public void Clearing_the_waves_without_a_station_is_not_a_win_and_with_one_it_is()
+    public void A_jump_without_the_waves_or_the_station_is_not_a_win()
+    {
+        var (w, _) = ArmedShip();
+        w.Step(Tps);
+        JumpOnce(w);
+        Assert.Equal(OutcomeKind.Playing, GameOutcome.Evaluate(w.Network, 0, new GoalSettings(3)).Kind);
+        w.Network.ValidateInvariants();
+    }
+
+    [Fact]
+    public void Jumps_completed_survive_a_clone_and_change_the_checksum_only_when_non_zero()
+    {
+        var (w, _) = ArmedShip();
+        Assert.Equal(0, w.Network.JumpsCompleted);
+        ulong before = w.Checksum();
+        JumpOnce(w);
+        Assert.Equal(1, w.Network.JumpsCompleted);
+        Assert.Equal(1, w.Network.Clone().JumpsCompleted);
+        Assert.NotEqual(before, w.Checksum());
+    }
+
+    [Fact]
+    public void Clearing_the_waves_needs_a_station_and_a_jump_to_win()
     {
         var (w, _) = ArmedShip();
         w.Step(Tps);
@@ -91,8 +126,18 @@ public class GameOutcomeTests
         Assert.False(GameOutcome.HasBase(w.Network, 0));
         Assert.Equal(OutcomeKind.Playing, GameOutcome.Evaluate(w.Network, 0, goal).Kind);
 
+        // A station alone is not enough: the second system has not been visited.
         int station = w.Network.CreateStructure(0, StructureKind.Station, 0, 0, 30 * Units.CellUnits);
         w.Network.AddStructureModuleUnchecked(station, 0, 0, 0, ModuleKind.Core);
+        Assert.True(GameOutcome.HasBase(w.Network, 0));
+        Assert.False(GameOutcome.HasExplored(w.Network));
+        Assert.Equal(0, GameOutcome.JumpsDone(w.Network));
+        Assert.Equal(OutcomeKind.Playing, GameOutcome.Evaluate(w.Network, 0, goal).Kind);
+
+        JumpOnce(w);
+        Assert.Equal(1, w.Network.JumpsCompleted);
+        Assert.True(GameOutcome.HasExplored(w.Network));
+        Assert.Equal(1, GameOutcome.JumpsDone(w.Network));
         var r = GameOutcome.Evaluate(w.Network, 0, goal);
         Assert.Equal(OutcomeKind.Won, r.Kind);
         Assert.Equal(OutcomeReason.WavesSurvived, r.Reason);
@@ -100,6 +145,26 @@ public class GameOutcomeTests
         Assert.Equal(0, r.Stats.StationsLost);
         Assert.Equal(2, r.Stats.WavesSurvived);
         Assert.Equal(OutcomeKind.Playing, GameOutcome.Evaluate(w.Network, 0, new GoalSettings(3)).Kind);
+    }
+
+    [Fact]
+    public void The_goal_can_come_from_world_rules()
+    {
+        var (w, _) = ArmedShip();
+        w.Step(Tps);
+        ClearWaves(w, 2);
+        int station = w.Network.CreateStructure(0, StructureKind.Station, 0, 0, 30 * Units.CellUnits);
+        w.Network.AddStructureModuleUnchecked(station, 0, 0, 0, ModuleKind.Core);
+        JumpOnce(w); // winning also needs a completed jump
+
+        Assert.Equal(OutcomeKind.Won, GameOutcome.Evaluate(w.Network, 0, new WorldRules { GoalWaves = 2 }).Kind);
+        Assert.Equal(OutcomeKind.Won, GameOutcome.Evaluate(w.Network, 0, new WorldRules { GoalWaves = 1 }).Kind);
+        Assert.Equal(OutcomeKind.Playing, GameOutcome.Evaluate(w.Network, 0, WorldRules.Hard).Kind); // 12 waves
+        Assert.Equal(OutcomeKind.Playing, GameOutcome.Evaluate(w.Network, 0, new WorldRules { GoalWaves = 3 }).Kind);
+        // The world's own rules (default here: 10 waves) are used when none are passed.
+        Assert.Equal(OutcomeKind.Playing, GameOutcome.Evaluate(w.Network, 0).Kind);
+        Assert.Equal(8, GoalSettings.From(WorldRules.Relaxed).WavesToWin);
+        Assert.Equal(15, GoalSettings.From(WorldRules.Brutal).WavesToWin);
     }
 
     [Fact]

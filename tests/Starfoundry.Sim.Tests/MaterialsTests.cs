@@ -174,7 +174,9 @@ public class MaterialsTests
         Assert.Equal(0, Cost(ModuleKind.Engine, "core:titanium_plate")); // a ship that lost its only engine must be able to build one at home (StructureRecoveryTests)
         Assert.Equal(0, Cost(ModuleKind.Defence, "core:titanium_plate")); // turrets must be reachable before the quartz chain
         Assert.Equal(0, Cost(ModuleKind.Reactor, "core:nickel_plate")); // a reactor must be buildable without the nickel plate chain
-        Assert.True(Cost(ModuleKind.DroneBay, "core:nickel_plate") > 0);
+        Assert.Equal(0, Cost(ModuleKind.DroneBay, "core:nickel_plate")); // the drone bay is made of home items: automation must not wait for the second system
+        Assert.Equal(0, Cost(ModuleKind.DroneBay, "core:titanium_plate"));
+        Assert.True(Cost(ModuleKind.DroneBay, "core:iron_plate") > 0);
         foreach (var item in new[] { "core:titanium_plate", "core:nickel_plate", "core:titanium_ingot", "core:nickel_ingot", "core:quartz", "core:ice" })
             Assert.Equal(0, Cost(ModuleKind.Core, item));
     }
@@ -211,15 +213,15 @@ public class MaterialsTests
     [InlineData(1UL)]
     [InlineData(99UL)]
     [InlineData(20261120UL)]
-    public void HomeHasIronCarbonAndALittleThinIce(ulong seed)
+    public void HomeHasIronCarbonAndThinButDeepIce(ulong seed)
     {
         var g = Galaxy.Generate(C, seed);
         var ds = g.DepositsOf(0).Select(i => g.Deposits[i]).ToList();
         Assert.Equal(3, ds.Count);
-        Assert.Equal((C.ItemIndex("core:iron_ore"), 4000), (ds[0].Item, ds[0].Amount));
+        Assert.Equal((C.ItemIndex("core:iron_ore"), 12000), (ds[0].Item, ds[0].Amount));
         Assert.Equal((C.ItemIndex("core:carbon"), 1500), (ds[1].Item, ds[1].Amount));
         Assert.Equal(C.ItemIndex("core:ice"), ds[2].Item);
-        Assert.InRange(ds[2].Amount, 600, 800);
+        Assert.InRange(ds[2].Amount, 1500, 2000);
         Assert.InRange(ds[2].Density, 40, 70);
         Assert.Equal(100, ds[0].Density);
         Assert.Equal(100, ds[1].Density);

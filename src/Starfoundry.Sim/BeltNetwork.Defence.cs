@@ -163,6 +163,7 @@ public sealed partial class BeltNetwork
     private void DamageModule(int structure, (int Mx, int My, int Mz) key, int damage)
     {
         if (!_structures.TryGetValue(structure, out var s) || !s.ModuleMap.TryGetValue(key, out var kind) || damage <= 0) return;
+        damage = AfterShields(s, key, damage);
         int hp = (s.ModuleDamage.TryGetValue(key, out int cur) ? cur : ModuleMaxHp(kind)) - damage;
         if (hp > 0)
         {
