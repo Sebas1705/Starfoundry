@@ -82,6 +82,10 @@ public sealed record StopMining : Command;
 /// A released laser mines nothing and draws no power; the partial item is kept. Needs a mining order. <see cref="StartMining"/> pulls the trigger.</summary>
 public sealed record FireLaser(bool Firing) : Command;
 
+/// <summary>Switches the commanding player's ship boost on or off (ADR 0028): while on, the engines run at the content's boost percent of their speed.
+/// Rejected with <see cref="Reject.NotAllowedHere"/> when the content has no boost. Boost is switched off by a jump, a lost ship and the end of the world.</summary>
+public sealed record SetBoost(bool On) : Command;
+
 /// <summary>Sets what the commanding player's ship micro-refinery works on (-1 for nothing).</summary>
 public sealed record SetShipRecipe(int Recipe) : Command;
 

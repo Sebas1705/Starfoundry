@@ -131,9 +131,9 @@ public class DroneTests
         var w = World();
         int s = PowerTests.Ship(w, hydrogen: 3);
         int hidden = w.Network.AddDeposit(Ore, 100, 0, 0, 0, revealed: false);
-        int far = w.Network.AddDeposit(Ore, 100, 200, 0, 0);
-        int edge = w.Network.AddDeposit(Ore, 100, 59, 0, 0);
-        int near = w.Network.AddDeposit(Ore, 100, 61, 0, 0);
+        int far = w.Network.AddDeposit(Ore, 100, 300, 0, 0);
+        int edge = w.Network.AddDeposit(Ore, 100, 129, 0, 0); // the drone range is 130 cells (ADR 0028)
+        int near = w.Network.AddDeposit(Ore, 100, 131, 0, 0);
 
         Assert.Equal(Reject.NoDroneBay, Assign(w, s, edge).Reject);
         w.Network.AddStructureModuleUnchecked(s, 10, 0, 0, ModuleKind.DroneBay);

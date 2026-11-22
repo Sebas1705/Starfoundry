@@ -79,7 +79,7 @@ public sealed class SimWorld
     {
         rules ??= WorldRules.Default;
         if (rules.Validate(content) is { } problem) throw new ArgumentException("Invalid world rules: " + problem, nameof(rules));
-        var galaxy = Galaxy.Generate(content, seed);
+        var galaxy = Galaxy.Generate(content, seed, legacy: rules.LegacyGalaxy || !structures); // the wide galaxy is for structure worlds (ADR 0028)
         var net = new BeltNetwork(content, mode, threats, stationRules, structures, rules);
         foreach (var d in galaxy.Deposits)
             net.AddDeposit(d.Item, Math.Max(1, WorldRules.Scale(d.Amount, rules.DepositRichnessPercent)), d.X, d.Y, d.Z, revealed: d.System == 0, density: d.Density);
@@ -489,6 +489,11 @@ public sealed class SimWorld
             case StopMining:
                 if (Network.Content is null) return Reject.NoContent;
                 Network.StopMining(player);
+                return Reject.None;
+
+            case SetBoost sb:
+                if (Network.Content?.World is null) return Reject.NotAllowedHere;
+                Network.SetBoost(player, sb.On);
                 return Reject.None;
 
             case FireLaser fl:

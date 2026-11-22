@@ -1667,7 +1667,7 @@ public partial class Play
     /// </summary>
     private void UpdateShipControl()
     {
-        if (_demo) return;
+        if (_demo || _obsShotPath is not null) return; // the obstacle screenshots script their own flight
 
         // A jump or respawn clears the thrust in the simulation: send held keys again once the ship can move.
         if (Net.HasPlayer(Player) && _world.PendingCommands == 0)

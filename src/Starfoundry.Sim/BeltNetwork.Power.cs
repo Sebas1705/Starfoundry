@@ -161,6 +161,7 @@ public sealed partial class BeltNetwork
                 }
                 if (rem > 0) s.BurnRemaining[key] = rem; else s.BurnRemaining.Remove(key);
             }
+            if (WorldGen is not null && production > 0 && CloudEffectOf(s.Id).DrainPercent is > 0 and var drain) production = production * (100 - drain) / 100; // ion clouds (ADR 0028)
             s.PowerProduction = production;
             int others = demand.GetValueOrDefault(s.Id) + DroneDemand(s) + ModuleDemand(s);
             s.LaserDraw = hasReactor ? LaserDemand(s) : 0;

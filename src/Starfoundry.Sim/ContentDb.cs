@@ -190,9 +190,10 @@ public sealed record DepositSpec(int Item, int CountMin, int CountMax, int Amoun
 /// <param name="Guaranteed">If true and no system picked the archetype, the nearest eligible system (or the farthest one in a shallow galaxy) is given it.</param>
 public sealed record ArchetypeDef(
     int Index, string Id, int Weight, bool IsHome, int DistanceMin, int DistanceMax, DepositSpec[] Deposits,
-    int DepthMin = 0, int DepthMax = 0, bool Guaranteed = false)
+    int DepthMin = 0, int DepthMax = 0, bool Guaranteed = false, int WideDistanceMin = 0, int WideDistanceMax = 0)
 {
     public bool HasDepthLimit => DepthMin > 0 || DepthMax > 0;
+    public bool HasWide => WideDistanceMax > 0;
     public bool AllowedAt(int depth) => depth >= DepthMin && (DepthMax == 0 || depth <= DepthMax);
 }
 
@@ -248,6 +249,9 @@ public sealed class ContentDb
     public GalaxyRules? Galaxy { get; }
     public IReadOnlyList<ArchetypeDef> Archetypes { get; }
 
+    /// <summary>Wide-galaxy generation, obstacles, boost and collision rules (ADR 0028), or null: the legacy galaxy and no obstacles.</summary>
+    public WorldGenRules? World { get; }
+
     /// <summary>Items a jump costs, paid from the hold in campaign mode.</summary>
     public ItemStack[] JumpCost { get; }
 
@@ -279,8 +283,9 @@ public sealed class ContentDb
     private ContentDb(List<ItemDef> items, List<MachineDef> machines, List<RecipeDef> recipes, BeltDef?[] belts, List<ResearchDef> research,
         GalaxyRules? galaxy, List<ArchetypeDef> archetypes, ItemStack[] jumpCost,
         ThreatRules? threat, List<EnemyDef> enemies, List<WaveSpec> waves, ModuleRules? modules, StructureContent? structures,
-        StructureTemplate? starterShip, SortedDictionary<string, StructureTemplate> templates)
+        StructureTemplate? starterShip, SortedDictionary<string, StructureTemplate> templates, WorldGenRules? world = null)
     {
+        World = world;
         Modules = modules;
         Structures = structures;
         StarterShip = starterShip;
@@ -341,7 +346,7 @@ public sealed class ContentDb
         {
             var root = doc.RootElement;
             RequireObject(root, "content", "schema", "items", "machines", "recipes", "belts", "research", "galaxy", "archetypes", "jump_cost",
-                "threat", "enemies", "waves", "modules", "structures", "structure_templates");
+                "threat", "enemies", "waves", "modules", "structures", "structure_templates", "world");
             if (!root.TryGetProperty("schema", out var schema) || schema.ValueKind != JsonValueKind.Number || schema.GetInt32() != 1)
                 throw new InvalidDataException("Unsupported or missing content schema (expected 1).");
 
@@ -629,7 +634,7 @@ public sealed class ContentDb
                 var archetypeIds = new HashSet<string>();
                 foreach (var e in Array(root, "archetypes"))
                 {
-                    RequireObject(e, "archetype", "id", "weight", "home", "distance_cells", "deposits", "depth", "guaranteed");
+                    RequireObject(e, "archetype", "id", "weight", "home", "distance_cells", "deposits", "depth", "guaranteed", "wide_distance_cells");
                     string id = Id(e, "archetype");
                     if (!archetypeIds.Add(id)) throw new InvalidDataException($"Duplicate archetype '{id}'.");
                     if (!allIds.Add(id)) throw new InvalidDataException($"Id '{id}' is used twice across machines, recipes, belts, research and archetypes.");
@@ -666,7 +671,9 @@ public sealed class ContentDb
                         specs.Add(new DepositSpec(itemIndex, cmin, cmax, amin, amax, denMin, denMax));
                     }
                     if (specs.Count == 0 || specs.Count > 8) throw new InvalidDataException($"Archetype '{id}' needs 1 to 8 deposit specs.");
-                    archetypes.Add(new ArchetypeDef(archetypes.Count, id, weight, home, dmin, dmax, specs.ToArray(), depthMin, depthMax, guaranteed));
+                    int wmin = 0, wmax = 0;
+                    if (e.TryGetProperty("wide_distance_cells", out _)) (wmin, wmax) = Range(e, "wide_distance_cells", id, 1, 800);
+                    archetypes.Add(new ArchetypeDef(archetypes.Count, id, weight, home, dmin, dmax, specs.ToArray(), depthMin, depthMax, guaranteed, wmin, wmax));
                 }
             }
 
@@ -775,7 +782,9 @@ public sealed class ContentDb
             }
             else if (enemies.Count > 0 || waves.Count > 0) throw new InvalidDataException("Enemies and waves need a threat section.");
 
-            return new ContentDb(items, machines, recipes, belts, research, galaxy, archetypes, jumpCost, threat, enemies, waves, modules, structures, starterShip, templates);
+            WorldGenRules? world = null;
+            if (root.TryGetProperty("world", out var wj)) world = WorldGenRules.Load(wj, itemIds, galaxy, archetypes);
+            return new ContentDb(items, machines, recipes, belts, research, galaxy, archetypes, jumpCost, threat, enemies, waves, modules, structures, starterShip, templates, world);
         }
     }
 
@@ -998,6 +1007,13 @@ public sealed class ContentDb
         return new StructureTemplate(modules.ToArray(), machines.ToArray(), belts.ToArray(), hold);
     }
 
+    internal static int IntInternal(JsonElement e, string name, string owner, int min, int max) => Int(e, name, owner, min, max);
+    internal static (int Min, int Max) RangeInternal(JsonElement e, string name, string owner, int min, int max) => Range(e, name, owner, min, max);
+    internal static JsonElement.ArrayEnumerator ArrayInternal(JsonElement p, string name) => Array(p, name);
+    internal static void RequireObjectInternal(JsonElement e, string what, params string[] allowed) => RequireObject(e, what, allowed);
+    internal static string IdInternal(JsonElement e, string what) => Id(e, what);
+    internal static string StrInternal(JsonElement e, string name, string ctx) => Str(e, name, ctx);
+
     private static int Int(JsonElement e, string name, string owner, int min, int max)
     {
         if (!e.TryGetProperty(name, out var v) || v.ValueKind != JsonValueKind.Number || !v.TryGetInt32(out int n) || n < min || n > max)
@@ -1140,6 +1156,7 @@ public sealed class ContentDb
                 if (d.HasDensity) { Mix(d.DensityMin); Mix(d.DensityMax); } // absent for legacy content, which hashes as before
             }
             if (a.HasDepthLimit || a.Guaranteed) { Mix(a.DepthMin); Mix(a.DepthMax); Mix(a.Guaranteed ? 1 : 0); }
+            if (a.HasWide) { Mix(a.WideDistanceMin); Mix(a.WideDistanceMax); }
         }
         MixStacks(JumpCost);
         if (Modules is { } mo) { MixStacks(mo.CoreCost); MixStacks(mo.HullCost); Mix(mo.GrowthPercent); }
@@ -1193,6 +1210,7 @@ public sealed class ContentDb
         foreach (var e in Enemies) { MixStr(e.Id); Mix(e.Hp); Mix(e.Speed); Mix(e.Damage); Mix(e.RangeCells); Mix(e.IntervalTicks); }
         Mix(Waves.Count);
         foreach (var w in Waves) { Mix(w.Enemy); Mix(w.Base); Mix(w.PerWave); Mix(w.FromWave); }
+        World?.MixInto(Mix, MixStr);
         return h;
     }
 }

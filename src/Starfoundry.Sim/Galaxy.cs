@@ -28,7 +28,14 @@ public struct SplitMix64
 }
 
 /// <summary>A star system: an anchor position in cells, an archetype and lanes to other systems.</summary>
-public sealed record StarSystem(int Id, string Name, int X, int Y, int Z, int Archetype, int[] Lanes);
+public sealed record StarSystem(int Id, string Name, int X, int Y, int Z, int Archetype, int[] Lanes, int Star = 0);
+
+/// <summary>
+/// An obstacle the generator placed. Positions and radius are in units (240 per cell); the id is the index in <see cref="Galaxy.Obstacles"/>.
+/// A drifter moves along <paramref name="Axis"/> (0 x, 1 y, 2 z) between plus and minus <paramref name="Amplitude"/> units, starting at <paramref name="Phase"/>.
+/// A wreck holds <paramref name="LootCount"/> of item <paramref name="LootItem"/>. <paramref name="Seed"/> shapes the model.
+/// </summary>
+public sealed record GeneratedObstacle(int System, int Kind, int X, int Y, int Z, int Radius, int Seed, int Axis = 0, int Amplitude = 0, int Phase = 0, int LootItem = -1, int LootCount = 0);
 
 /// <summary>A deposit the generator created for a system; the world adds them in this order, so ids match indices.</summary>
 public sealed record GeneratedDeposit(int System, int Item, int Amount, int X, int Y, int Z, int Density = DepositRules.DefaultDensity);
@@ -44,12 +51,26 @@ public sealed class Galaxy
     public IReadOnlyList<StarSystem> Systems { get; }
     public IReadOnlyList<GeneratedDeposit> Deposits { get; }
 
-    private Galaxy(ulong seed, GalaxyRules rules, StarSystem[] systems, GeneratedDeposit[] deposits)
+    /// <summary>Obstacles of the wide galaxy (ADR 0028); empty for a legacy galaxy.</summary>
+    public IReadOnlyList<GeneratedObstacle> Obstacles { get; }
+
+    /// <summary>True when this galaxy was made by the wide generator (ADR 0028).</summary>
+    public bool Wide { get; }
+
+    private readonly int[][] _obstaclesBySystem;
+
+    /// <summary>Indices into <see cref="Obstacles"/> of the obstacles of a system.</summary>
+    public IReadOnlyList<int> ObstaclesOf(int system) => (uint)system < (uint)_obstaclesBySystem.Length ? _obstaclesBySystem[system] : Array.Empty<int>();
+
+    private Galaxy(ulong seed, GalaxyRules rules, StarSystem[] systems, GeneratedDeposit[] deposits, GeneratedObstacle[]? obstacles = null, bool wide = false)
     {
         Seed = seed;
         Rules = rules;
         Systems = systems;
         Deposits = deposits;
+        Obstacles = obstacles ?? Array.Empty<GeneratedObstacle>();
+        Wide = wide;
+        _obstaclesBySystem = Enumerable.Range(0, systems.Length).Select(s => Enumerable.Range(0, Obstacles.Count).Where(i => Obstacles[i].System == s).ToArray()).ToArray();
     }
 
     public bool HasLane(int a, int b) =>
@@ -77,9 +98,13 @@ public sealed class Galaxy
     private static readonly string[] Ends = { "ron", "tis", "dax", "lume", "vara", "phex", "nor", "sia", "kai", "reth" };
 
     /// <summary>Generates the galaxy for a seed. Pure and deterministic: the same content and seed give the same galaxy everywhere.</summary>
-    public static Galaxy Generate(ContentDb content, ulong seed)
+    public static Galaxy Generate(ContentDb content, ulong seed, bool legacy = false)
     {
         var rules = content.Galaxy ?? throw new InvalidOperationException("The content defines no galaxy.");
+        // The wide generator (ADR 0028) runs only for content that defines a 'world' section and worlds that are not legacy
+        // (WorldRules.LegacyGalaxy, set for logs older than version 10); everything else generates as it always did.
+        var wide = legacy ? null : content.World;
+        if (wide is not null) rules = rules with { SpacingCells = wide.SpacingCells, SystemRadiusCells = wide.SystemRadiusCells };
         var rng = new SplitMix64(seed ^ 0xA5A5_5A5A_1234_8765UL);
         int n = rules.SystemCount;
 
@@ -184,11 +209,14 @@ public sealed class Galaxy
 
         var systems = new StarSystem[n];
         var deposits = new List<GeneratedDeposit>();
+        var obstacles = new List<GeneratedObstacle>();
         for (int i = 0; i < n; i++)
         {
             var arch = content.Archetypes[archetype[i]];
             string name = $"{Starts[rng.Next(0, Starts.Length - 1)]}{Ends[rng.Next(0, Ends.Length - 1)]}-{i}";
-            systems[i] = new StarSystem(i, i == 0 ? "Home" : name, pos[i].X, pos[i].Y, pos[i].Z, arch.Index, lanes[i].OrderBy(x => x).ToArray());
+            int star = wide is null ? 0 : ObstacleGenerator.PickStar(wide, seed, i, depth[i]);
+            systems[i] = new StarSystem(i, i == 0 ? "Home" : name, pos[i].X, pos[i].Y, pos[i].Z, arch.Index, lanes[i].OrderBy(x => x).ToArray(), star);
+            int firstDeposit = deposits.Count;
 
             foreach (var spec in arch.Deposits)
             {
@@ -196,7 +224,16 @@ public sealed class Galaxy
                 for (int k = 0; k < count; k++)
                 {
                     int amount = rng.Next(spec.AmountMin, spec.AmountMax);
-                    int d = rng.Next(arch.DistanceMin, arch.DistanceMax);
+                    int dLo = arch.DistanceMin, dHi = arch.DistanceMax;
+                    if (wide is not null) (dLo, dHi) = arch.HasWide ? (arch.WideDistanceMin, arch.WideDistanceMax) : (arch.DistanceMin * 4, arch.DistanceMax * 4);
+                    int d = rng.Next(dLo, dHi);
+                    if (wide is not null && i != 0)
+                    {
+                        // Veins grow with the star's richness, the jumps from home and the distance from the anchor.
+                        long pct = (long)wide.StarTypes[star].RichnessPercent * (100 + wide.DepthRichnessPercent * depth[i]) / 100;
+                        pct = pct * (100 + (dHi > dLo ? wide.OuterRichnessPercent * (d - dLo) / (dHi - dLo) : 0)) / 100;
+                        amount = (int)Math.Max(1, (long)amount * pct / 100);
+                    }
                     int ox = rng.Next(-d, d);
                     int oz = ISqrt((long)d * d - (long)ox * ox) * (rng.Next(0, 1) == 0 ? -1 : 1);
                     int oy = rng.Next(-d / 4, d / 4);
@@ -204,9 +241,12 @@ public sealed class Galaxy
                     deposits.Add(new GeneratedDeposit(i, spec.Item, amount, pos[i].X + ox, pos[i].Y + oy, pos[i].Z + oz, density));
                 }
             }
+
+            if (wide is not null)
+                obstacles.AddRange(ObstacleGenerator.Generate(wide, seed, systems[i], depth[i], deposits.Skip(firstDeposit).Select(d => (d.X, d.Y, d.Z)).ToList()));
         }
 
-        return new Galaxy(seed, rules, systems, deposits.ToArray());
+        return new Galaxy(seed, rules, systems, deposits.ToArray(), obstacles.ToArray(), wide is not null);
     }
 
     private static long DistSq((int X, int Y, int Z) a, (int X, int Y, int Z) b)

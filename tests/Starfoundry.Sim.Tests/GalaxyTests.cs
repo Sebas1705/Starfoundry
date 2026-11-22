@@ -61,7 +61,7 @@ public class GalaxyTests
     [Fact]
     public void HomeSitsAtTheOriginWithTheStarterField()
     {
-        var g = Galaxy.Generate(C, 7);
+        var g = Galaxy.Generate(C, 7, legacy: true);
         var home = g.Systems[0];
         Assert.Equal("Home", home.Name);
         Assert.Equal((0, 0, 0), (home.X, home.Y, home.Z));
@@ -145,7 +145,7 @@ public class GalaxyTests
     {
         for (ulong seed = 0; seed < 60; seed++)
         {
-            var g = Galaxy.Generate(C, seed);
+            var g = Galaxy.Generate(C, seed, legacy: true);
             foreach (var system in g.Systems)
             {
                 var arch = C.Archetypes[system.Archetype];

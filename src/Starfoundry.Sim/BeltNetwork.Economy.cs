@@ -118,6 +118,12 @@ internal sealed class Player
     /// <summary>Structure worlds: the ship lost its last cockpit, so this player can no longer fly. Never set in legacy worlds.</summary>
     public bool ShipLost;
 
+    /// <summary>Boost is on (ADR 0028): the engines run at the content's boost percent. Mixed only when set.</summary>
+    public bool Boost;
+
+    /// <summary>How far the ship moved during the last tick, in units per axis. Derived each tick before it is used; never saved.</summary>
+    public int StepDx, StepDy, StepDz;
+
     public bool HasThrust => (ThrustX | ThrustY | ThrustZ) != 0;
 
     public void ClearThrust()
@@ -153,7 +159,7 @@ internal sealed class Player
     {
         var c = new Player(Id, Hold.Length)
         {
-            HoldTotal = HoldTotal, MiningDeposit = MiningDeposit, MineProgress = MineProgress, LaserReleased = LaserReleased, LaserCredit = LaserCredit,
+            HoldTotal = HoldTotal, MiningDeposit = MiningDeposit, MineProgress = MineProgress, LaserReleased = LaserReleased, LaserCredit = LaserCredit, Boost = Boost,
             ShipRecipe = ShipRecipe, ShipCrafting = ShipCrafting, ShipRemaining = ShipRemaining, ShipReserved = ShipReserved,
             X = X, Y = Y, Z = Z, MoveX = MoveX, MoveY = MoveY, MoveZ = MoveZ,
             ThrustX = ThrustX, ThrustY = ThrustY, ThrustZ = ThrustZ, ThrustRemX = ThrustRemX, ThrustRemY = ThrustRemY, ThrustRemZ = ThrustRemZ,
@@ -644,6 +650,7 @@ public sealed partial class BeltNetwork
         if (_players.Count == 0) return;
         foreach (var p in _players.Values)
         {
+            p.StepDx = p.StepDy = p.StepDz = 0;
             if (p.ScanCooldown > 0) p.ScanCooldown--;
             if (p.JumpRemaining > 0)
             {
@@ -651,7 +658,9 @@ public sealed partial class BeltNetwork
             }
             else if (p.RespawnRemaining == 0 && ((p.MoveX | p.MoveY | p.MoveZ) != 0 || p.HasThrust))
             {
+                int x0 = p.X, y0 = p.Y, z0 = p.Z;
                 MoveShip(p);
+                p.StepDx = p.X - x0; p.StepDy = p.Y - y0; p.StepDz = p.Z - z0;
                 DiscoverAt(p);
             }
 
@@ -892,6 +901,7 @@ public sealed partial class BeltNetwork
             if (p.ShipLost) mix(-77);
             if (p.LaserReleased) mix(-91); // mixed only when set and when non-zero: worlds that never touch the laser trigger hash as before
             if (p.LaserCredit != 0) mix(p.LaserCredit);
+            if (p.Boost) mix(-93);
             mix(p.ShipRecipe); mix(p.ShipCrafting ? 1 : 0); mix(p.ShipRemaining); mix(p.ShipReserved);
             foreach (int h in p.Hold) mix(h);
         }

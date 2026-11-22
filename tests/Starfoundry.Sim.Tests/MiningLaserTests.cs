@@ -152,7 +152,7 @@ public class MiningLaserTests
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, log, C.Hash, GameMode.Sandbox, Seed, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(9, bytes[4]);
+        Assert.Equal(10, bytes[4]);
         var back = CommandCodec.ReadLog(new MemoryStream(bytes));
         Assert.Equal(3, back.Count);
         Assert.Equal(log[1].Command, back[1].Command);
@@ -171,7 +171,8 @@ public class MiningLaserTests
             bytes[4] = version; // the layouts of versions 5 to 9 only differ in what the header may carry
             CommandCodec.ReadLog(new MemoryStream(bytes), out _, out _, out _, out _, out _, out _, out var rules);
             Assert.True(rules.LegacyLaser, $"version {version}");
-            Assert.True(rules.WithLegacyLaser(false).IsDefault);
+            Assert.True(rules.LegacyGalaxy, $"version {version}");
+            Assert.True(rules.WithLegacyLaser(false).WithLegacyGalaxy(false).IsDefault);
         }
         var current = new MemoryStream();
         CommandCodec.WriteLog(current, plain, C.Hash, GameMode.Sandbox, Seed, structures: true);
@@ -190,7 +191,7 @@ public class MiningLaserTests
     public void A_version_8_log_replays_as_recorded_without_the_power_draw()
     {
         // Recorded the way the previous version did it: no laser draw, hashed as default rules.
-        var legacy = new WorldRules().WithLegacyLaser(true);
+        var legacy = new WorldRules().WithLegacyLaser(true).WithLegacyGalaxy(true); // a version 8 log reads with both legacy flags
         var old = SimWorld.CreateGalaxy(TestContent.Core, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: legacy);
         int dep = HomeIron(old);
         var (x, y, z) = old.Network.DepositPosition(dep);
@@ -213,8 +214,10 @@ public class MiningLaserTests
 
         // A new world draws power for the same commands, so it is a different state.
         var fresh = SimWorld.CreateGalaxy(TestContent.Core, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true);
-        fresh.Network.SetStructureOrigin(fresh.Network.ShipStructure(0), x * (long)Cell, y * (long)Cell, z * (long)Cell);
-        fresh.Submit(0, new StartMining(dep));
+        int depFresh = HomeIron(fresh); // the wide galaxy puts the deposit somewhere else
+        var (fx, fy, fz) = fresh.Network.DepositPosition(depFresh);
+        fresh.Network.SetStructureOrigin(fresh.Network.ShipStructure(0), fx * (long)Cell, fy * (long)Cell, fz * (long)Cell);
+        fresh.Submit(0, new StartMining(depFresh));
         fresh.Step(600);
         Assert.Equal(old.Network.HoldCount(0, Ore), fresh.Network.HoldCount(0, Ore)); // the starter ship has power to spare: same ore
         Assert.NotEqual(old.Checksum(), fresh.Checksum());

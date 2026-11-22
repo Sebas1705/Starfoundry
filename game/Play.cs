@@ -139,7 +139,7 @@ public partial class Play : Node3D
         _droneShotPath = args.FirstOrDefault(a => a.StartsWith("--drone-shot="))?["--drone-shot=".Length..];
         _defenceShotPath = args.FirstOrDefault(a => a.StartsWith("--defence-shot="))?["--defence-shot=".Length..];
         _endShotPath = args.FirstOrDefault(a => a.StartsWith("--end-shot="))?["--end-shot=".Length..];
-        _structuresShot = _structuresShotPath is not null || _powerShotPath is not null || _droneShotPath is not null || _defenceShotPath is not null || _endShotPath is not null;
+        _structuresShot = _structuresShotPath is not null || _powerShotPath is not null || _droneShotPath is not null || _defenceShotPath is not null || _endShotPath is not null || args.Any(a => a.StartsWith("--obstacle-shot="));
         _walkShotPath = args.FirstOrDefault(a => a.StartsWith("--walk-shot="))?["--walk-shot=".Length..];
         _walkShot = _walkShotPath is not null;
         bool threats = !(args.Contains("--demo") || _exploreDemo) && _stressMachines == 0 && !((_structuresShot || _walkShot) && !args.Contains("--threats") && _defenceShotPath is null && _endShotPath is null);
@@ -196,6 +196,7 @@ public partial class Play : Node3D
         if (!_demo) Toast(L("toast.welcome"));
         if (_structuresShot) StructuresShotSetup(args);
         if (_defenceShotPath is not null) DefenceShotSetup();
+        if (args.Any(a => a.StartsWith("--obstacle-shot="))) ObstacleShotSetup(args);
         if (_endShotPath is not null) EndShotSetup(args);
         if (_goalsShotPath is not null) GoalsShotSetup(args);
         if (Launch.Mode == Launch.Intent.Continue && Launch.ContinueSave is { } slot)
@@ -551,7 +552,7 @@ void fragment() {
             _camera.LookAtFromPosition(mid + new Vector3(30f, 15f, 14f), mid);
             return;
         }
-        _camera.Position = shipPos + (ShipStruct >= 0 ? EyeLocal() : CockpitOffset);
+        _camera.Position = shipPos + (ShipStruct >= 0 ? EyeLocal() : CockpitOffset) + ShakeOffset();
         _camera.Rotation = new Vector3(_pitch, _yaw, 0f);
     }
 
@@ -829,7 +830,8 @@ void fragment() {
         float dist = (new Vector3(sys.X, sys.Y, sys.Z) - ship).Length();
         string status = Net.IsSystemVisited(s) ? L("map.visited") : L("map.known");
         string lane = cur >= 0 && g.HasLane(cur, s) ? L("map.lane") : "";
-        return $"{(s == _selectedSystem ? ">" : " ")}{(s == cur ? "*" : " ")} {sys.Name,-9} {Loc.Name("arch", _content.Archetypes[sys.Archetype].Id),-14} {dist.ToString("F0", Loc.Culture),5} {status,-9} {lane}";
+        string star = _content.World is { } wg && Net.IsSystemVisited(s) ? Loc.Name("star", wg.StarTypes[sys.Star].Id) : "";
+        return $"{(s == _selectedSystem ? ">" : " ")}{(s == cur ? "*" : " ")} {sys.Name,-9} {Loc.Name("arch", _content.Archetypes[sys.Archetype].Id),-14} {star,-16} {dist.ToString("F0", Loc.Culture),5} {status,-9} {lane}";
     }
 
     private void UpdateMap()
@@ -1049,6 +1051,7 @@ void fragment() {
             CollectResults();
             WatchThreat();
             WatchDefence();
+            WatchObstacles();
             AudioTick();
             if (_botDone) break;
         }
@@ -1130,6 +1133,7 @@ void fragment() {
         if (!Overview) _camera.Fov = SettingsStore.Current.Fov;
         UpdateBody((float)delta); // before the camera is placed by UpdateShip
         UpdateShip(alpha, (float)delta);
+        UpdateObstacles((float)delta);
         if (_walkShot) WalkShotFrame();
         if (!_structuresOn) _stationView.Sync(Net, Player, _cursorY);
         if (_structureDemo) StructureDemoTick();
@@ -1150,6 +1154,7 @@ void fragment() {
         LayoutShotFrame();
         KeysShotFrame();
         DefenceShotFrame();
+        ObstacleShotFrame();
         if (_shotCountdown > 0 && --_shotCountdown == 0 && _shotPath != null)
             GetViewport().GetTexture().GetImage().SavePng(_shotPath);
         if (_finishCountdown > 0 && --_finishCountdown == 0)

@@ -485,6 +485,19 @@ public sealed partial class BeltNetwork
         StructureVersion++;
     }
 
+    /// <summary>The mean position of the structures that hold machines in a system (units), or null when there are none.</summary>
+    private (long X, long Y, long Z)? WaveCentre(int system)
+    {
+        long sx = 0, sy = 0, sz = 0; int n = 0;
+        foreach (int id in StructuresWithMachines())
+        {
+            var s = _structures[id];
+            if (SystemOfStructure(s) != system) continue;
+            sx += s.OriginX; sy += s.OriginY; sz += s.OriginZ; n++;
+        }
+        return n == 0 ? null : (sx / n, sy / n, sz / n);
+    }
+
     private void SpawnWave(int system)
     {
         var rules = Content!.Threat!;
@@ -496,6 +509,11 @@ public sealed partial class BeltNetwork
         int ox = rng.Next(-d, d);
         int oz = (int)IntMath.ISqrt((long)d * d - (long)ox * ox) * (rng.Next(0, 1) == 0 ? -1 : 1);
         long nodeX = (anchor.X + (long)ox) * Units.CellUnits, nodeY = anchor.Y * (long)Units.CellUnits, nodeZ = (anchor.Z + (long)oz) * Units.CellUnits;
+        if (Galaxy.Wide && WaveCentre(system) is { } bc)
+        {
+            // In the wide galaxy the base can be far from the anchor, so the wave appears the usual distance from the base, not from the anchor.
+            nodeX = bc.X + (long)ox * Units.CellUnits; nodeY = bc.Y; nodeZ = bc.Z + (long)oz * Units.CellUnits;
+        }
 
         int spawned = 0;
         foreach (var spec in Content.Waves)
@@ -559,7 +577,8 @@ public sealed partial class BeltNetwork
         if (!ThreatActive)
         {
             if (_enemies.Count != 0) Fail("enemies exist while threats are inactive");
-            if (WavesSpawned != 0 || MachinesLost != 0 || WallsLost != 0 || AutoRepaired != 0 || ModulesLost != 0 || StationsLost != 0) Fail("threat counters changed while threats are inactive");
+            bool collisions = ObstacleCount > 0; // collisions and mines destroy modules without any threat (ADR 0028)
+            if (WavesSpawned != 0 || MachinesLost != 0 || WallsLost != 0 || AutoRepaired != 0 || (!collisions && (ModulesLost != 0 || StationsLost != 0))) Fail("threat counters changed while threats are inactive");
             return;
         }
 

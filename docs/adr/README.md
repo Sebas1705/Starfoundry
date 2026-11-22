@@ -31,6 +31,7 @@ One decision per file, `NNNN-slug.md`. An accepted ADR is never rewritten; add a
 | [0025](0025-scenarios-and-goals.md) | Scenarios are data files with goals, a story and an engine-free goals engine; the log header (version 8) carries the scenario id | proposed | 2026-11-22 |
 | [0026](0026-science-fields-and-research-expansion.md) | Three science fields, dedicated machines and 15 research nodes; harder Normal waves with the bulwark | proposed | 2026-11-22 |
 | [0027](0027-mining-laser-rules.md) | The mining laser is a simulation rule: a trigger command, a power draw served before the machines and `mining_rate` research; log version 9 | proposed | 2026-11-22 |
+| [0028](0028-world-generation-obstacles-and-collisions.md) | A wider galaxy with obstacles: seeded star types, rocks, mines, clouds, wrecks and debris, boost and collision damage; log version 10 | proposed | 2026-11-22 |
 
 ## Template
 ```markdown

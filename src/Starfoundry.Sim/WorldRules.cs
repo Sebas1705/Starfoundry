@@ -63,6 +63,12 @@ public sealed class WorldRules : IEquatable<WorldRules>
     /// </summary>
     public bool LegacyLaser { get; init; }
 
+    /// <summary>
+    /// True: the galaxy is generated as before ADR 0028 (close deposits, no obstacles, no star types). Logs older than version 10 read with this on, so
+    /// they replay as they were recorded; every new world leaves it off. Not a difficulty setting: it is not in the presets or the new-game screen.
+    /// </summary>
+    public bool LegacyGalaxy { get; init; }
+
     /// <summary>Waves to survive for the win (read by the outcome logic, not by the simulation).</summary>
     public int GoalWaves { get; init; } = 10;
 
@@ -116,9 +122,18 @@ public sealed class WorldRules : IEquatable<WorldRules>
     /// <summary>A copy with <see cref="LegacyLaser"/> set to <paramref name="legacy"/>.</summary>
     public WorldRules WithLegacyLaser(bool legacy) => new()
     {
+        LegacyGalaxy = LegacyGalaxy,
         EnemyDamagePercent = EnemyDamagePercent, EnemyHpPercent = EnemyHpPercent, WaveSizePercent = WaveSizePercent, WaveIntervalPercent = WaveIntervalPercent,
         FirstWaveGraceSeconds = FirstWaveGraceSeconds, DepositRichnessPercent = DepositRichnessPercent, PowerOutputPercent = PowerOutputPercent,
         GoalWaves = GoalWaves, ThreatsEnabled = ThreatsEnabled, FreeBuild = FreeBuild, LegacyLaser = legacy, StartingItems = _startingItems,
+    };
+
+    /// <summary>A copy with <see cref="LegacyGalaxy"/> set to <paramref name="legacy"/>.</summary>
+    public WorldRules WithLegacyGalaxy(bool legacy) => new()
+    {
+        EnemyDamagePercent = EnemyDamagePercent, EnemyHpPercent = EnemyHpPercent, WaveSizePercent = WaveSizePercent, WaveIntervalPercent = WaveIntervalPercent,
+        FirstWaveGraceSeconds = FirstWaveGraceSeconds, DepositRichnessPercent = DepositRichnessPercent, PowerOutputPercent = PowerOutputPercent,
+        GoalWaves = GoalWaves, ThreatsEnabled = ThreatsEnabled, FreeBuild = FreeBuild, LegacyLaser = LegacyLaser, LegacyGalaxy = legacy, StartingItems = _startingItems,
     };
 
     // ---- validation -----------------------------------------------------------------------------
@@ -159,6 +174,7 @@ public sealed class WorldRules : IEquatable<WorldRules>
         ThreatsEnabled = ThreatsEnabled,
         FreeBuild = FreeBuild,
         LegacyLaser = LegacyLaser,
+        LegacyGalaxy = LegacyGalaxy,
         StartingItems = _startingItems
             .Where(s => s.Item >= 0 && (content is null || s.Item < content.Items.Count) && s.Count >= 1)
             .Select(s => new ItemStack(s.Item, Math.Min(s.Count, MaxStackCount)))
@@ -177,7 +193,7 @@ public sealed class WorldRules : IEquatable<WorldRules>
 
     /// <summary>
     /// The stable binary form: a format byte, the eight integers (damage, hp, wave size, interval, grace, richness, power, goal), a
-    /// flags byte (bit 0 threats, bit 1 free build, bit 2 legacy laser), the stack count and the stacks (item, count). Little endian.
+    /// flags byte (bit 0 threats, bit 1 free build, bit 2 legacy laser, bit 3 legacy galaxy), the stack count and the stacks (item, count). Little endian.
     /// </summary>
     public byte[] Serialize()
     {
@@ -187,7 +203,7 @@ public sealed class WorldRules : IEquatable<WorldRules>
             w.Write(FormatVersion);
             w.Write(EnemyDamagePercent); w.Write(EnemyHpPercent); w.Write(WaveSizePercent); w.Write(WaveIntervalPercent);
             w.Write(FirstWaveGraceSeconds); w.Write(DepositRichnessPercent); w.Write(PowerOutputPercent); w.Write(GoalWaves);
-            w.Write((byte)((ThreatsEnabled ? 1 : 0) | (FreeBuild ? 2 : 0) | (LegacyLaser ? 4 : 0)));
+            w.Write((byte)((ThreatsEnabled ? 1 : 0) | (FreeBuild ? 2 : 0) | (LegacyLaser ? 4 : 0) | (LegacyGalaxy ? 8 : 0)));
             w.Write(_startingItems.Length);
             foreach (var s in _startingItems) { w.Write(s.Item); w.Write(s.Count); }
         }
@@ -207,7 +223,7 @@ public sealed class WorldRules : IEquatable<WorldRules>
             int damage = r.ReadInt32(), hp = r.ReadInt32(), size = r.ReadInt32(), interval = r.ReadInt32(), grace = r.ReadInt32(),
                 richness = r.ReadInt32(), power = r.ReadInt32(), goal = r.ReadInt32();
             byte flags = r.ReadByte();
-            if (flags > 7) throw new InvalidDataException($"Unknown world rules flags {flags}.");
+            if (flags > 15) throw new InvalidDataException($"Unknown world rules flags {flags}.");
             int count = r.ReadInt32();
             if (count < 0 || count > MaxStartingStacks) throw new InvalidDataException("Bad starting stack count.");
             var stacks = new ItemStack[count];
@@ -217,7 +233,7 @@ public sealed class WorldRules : IEquatable<WorldRules>
             {
                 EnemyDamagePercent = damage, EnemyHpPercent = hp, WaveSizePercent = size, WaveIntervalPercent = interval,
                 FirstWaveGraceSeconds = grace, DepositRichnessPercent = richness, PowerOutputPercent = power, GoalWaves = goal,
-                ThreatsEnabled = (flags & 1) != 0, FreeBuild = (flags & 2) != 0, LegacyLaser = (flags & 4) != 0, StartingItems = stacks,
+                ThreatsEnabled = (flags & 1) != 0, FreeBuild = (flags & 2) != 0, LegacyLaser = (flags & 4) != 0, LegacyGalaxy = (flags & 8) != 0, StartingItems = stacks,
             };
             if (rules.Validate() is { } problem) throw new InvalidDataException("Invalid world rules: " + problem + ".");
             return rules;
@@ -234,7 +250,7 @@ public sealed class WorldRules : IEquatable<WorldRules>
         other is not null && EnemyDamagePercent == other.EnemyDamagePercent && EnemyHpPercent == other.EnemyHpPercent
         && WaveSizePercent == other.WaveSizePercent && WaveIntervalPercent == other.WaveIntervalPercent
         && FirstWaveGraceSeconds == other.FirstWaveGraceSeconds && DepositRichnessPercent == other.DepositRichnessPercent
-        && PowerOutputPercent == other.PowerOutputPercent && ThreatsEnabled == other.ThreatsEnabled && FreeBuild == other.FreeBuild && LegacyLaser == other.LegacyLaser
+        && PowerOutputPercent == other.PowerOutputPercent && ThreatsEnabled == other.ThreatsEnabled && FreeBuild == other.FreeBuild && LegacyLaser == other.LegacyLaser && LegacyGalaxy == other.LegacyGalaxy
         && GoalWaves == other.GoalWaves && _startingItems.AsSpan().SequenceEqual(other._startingItems);
 
     public override bool Equals(object? obj) => Equals(obj as WorldRules);
@@ -243,7 +259,7 @@ public sealed class WorldRules : IEquatable<WorldRules>
     {
         var h = new HashCode();
         h.Add(EnemyDamagePercent); h.Add(EnemyHpPercent); h.Add(WaveSizePercent); h.Add(WaveIntervalPercent); h.Add(FirstWaveGraceSeconds);
-        h.Add(DepositRichnessPercent); h.Add(PowerOutputPercent); h.Add(ThreatsEnabled); h.Add(FreeBuild); h.Add(LegacyLaser); h.Add(GoalWaves);
+        h.Add(DepositRichnessPercent); h.Add(PowerOutputPercent); h.Add(ThreatsEnabled); h.Add(FreeBuild); h.Add(LegacyLaser); h.Add(LegacyGalaxy); h.Add(GoalWaves);
         foreach (var s in _startingItems) { h.Add(s.Item); h.Add(s.Count); }
         return h.ToHashCode();
     }

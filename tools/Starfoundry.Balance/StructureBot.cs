@@ -43,6 +43,7 @@ public sealed class StructureBotReport
         lines.Add("");
         lines.Add($"Emergency power: {EmergencySeconds} s.");
         if (TurretsAtWin > 0) lines.Add($"At the win: {TurretsAtWin} turrets standing, {ModulesLostAtWin} modules and {MachinesLostAtWin} machines lost so far.");
+        lines.Add($"Flying: {StructureBot.FlightSeconds:F0} s of game time.");
         lines.Add($"Outcome: {Outcome} ({Reason}) after {Clock(Seconds)}; waves survived {WavesSurvived}; modules lost {ModulesLost}; machines lost {MachinesLost}; mined by hand {MinedByHand}, by drones {MinedByDrones}.");
         if (End.Length > 0) lines.Add("End: " + End);
         if (Stuck.Count > 0)

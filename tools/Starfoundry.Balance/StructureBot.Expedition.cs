@@ -70,6 +70,24 @@ public sealed partial class StructureBot
         Say($"scan of system {here} ({_c.Archetypes[Net.Galaxy!.Systems[here].Archetype].Id}) revealed {r.RevealedDeposits.Count} deposits");
     }
 
+    /// <summary>
+    /// The scanner reaches 300 cells and the systems of the wide galaxy are 320 cells wide, so a deposit can rarely sit out of reach of the scan from
+    /// the anchor (the far veins of a system 240 cells out and a few cells up can). Flies a ring around the star (compass points, then the diagonals) and scans at each until a deposit of the item shows.
+    /// </summary>
+    private void Survey(int item, int system)
+    {
+        var a = Net.Galaxy!.Systems[system];
+        var ring = new (int X, int Z)[] { (150, 0), (-150, 0), (0, 150), (0, -150), (110, 110), (-110, -110), (110, -110), (-110, 110) };
+        foreach (var (rx, rz) in ring)
+        {
+            if (FindDeposit(item, system) >= 0 || CurrentSystem != system) return;
+            if (!FlyTo((a.X + (long)rx) * Cell, a.Y * (long)Cell + 6L * Cell, (a.Z + (long)rz) * Cell, 8L * Cell)) return;
+            for (int i = 0; i < 20 && Net.ScanCooldown(0) > 0; i++) Wait(1);
+            var r = Act(new Scan());
+            Say($"survey scan of system {system} at ({rx},{rz}) revealed {(r.Ok ? r.RevealedDeposits.Count : 0)} deposits");
+        }
+    }
+
     /// <summary>Scanned systems that hold a revealed deposit of an item, nearest to home by lane hops first.</summary>
     private List<int> SystemsWith(int item)
     {
