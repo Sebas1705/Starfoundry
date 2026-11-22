@@ -11,7 +11,7 @@ namespace Starfoundry.Game;
 /// </summary>
 public partial class MarkerLayer : Control
 {
-    public readonly record struct Item(string Text, Color Color, MarkerPlacement Place);
+    public readonly record struct Item(string Text, Color Color, MarkerPlacement Place, int Priority = 1);
 
     private const int FontSize = 13;
     private Item[] _items = Array.Empty<Item>();
@@ -28,45 +28,67 @@ public partial class MarkerLayer : Control
         QueueRedraw();
     }
 
+    /// <summary>Distance (cells) beyond which a marker that is not top priority starts to fade, and where it bottoms out.</summary>
+    private const float FadeNear = 160f, FadeFar = 700f, FadeFloor = 0.4f;
+    private const float LineHeight = FontSize + 5f;
+
     public override void _Draw()
     {
         var font = ThemeDB.FallbackFont;
         var shadow = new Color(0f, 0f, 0f, 0.75f);
-        foreach (var item in _items)
+        // Labels are placed most important first (then nearest); each takes the first free slot, stacking below (then above) the
+        // spot where it would sit, and when every slot is taken only its diamond or arrow is drawn.
+        var order = new List<Item>(_items);
+        order.Sort((a, b) => a.Priority != b.Priority ? b.Priority.CompareTo(a.Priority) : a.Place.Distance.CompareTo(b.Place.Distance));
+        var taken = new List<Rect2>();
+        foreach (var item in order)
         {
             var p = item.Place;
             var at = new Vector2(p.X, p.Y);
+            float fade = item.Priority >= 3 ? 1f : 1f - (1f - FadeFloor) * Math.Clamp((p.Distance - FadeNear) / (FadeFar - FadeNear), 0f, 1f);
+            var color = item.Color with { A = item.Color.A * fade };
+            var sh = shadow with { A = shadow.A * fade };
             float w = font.GetStringSize(item.Text, HorizontalAlignment.Left, -1, FontSize).X;
-            Vector2 textPos;
+            var candidates = new List<Vector2>();
             if (p.OnScreen)
             {
-                DrawPolygon(Diamond(at, 8f), new[] { shadow });
-                DrawPolygon(Diamond(at, 6f), new[] { item.Color });
-                textPos = new Vector2(at.X - w / 2f, at.Y + 24f);
+                DrawPolygon(Diamond(at, 8f), new[] { sh });
+                DrawPolygon(Diamond(at, 6f), new[] { color });
                 // The crosshair and the aim card beside it own the middle of the screen: a label that would land on them goes above
                 // its diamond, and when that is still in the way it is left out (the diamond stays).
                 var keepClear = new Rect2(Size.X / 2f - 60f, Size.Y / 2f - 34f, 540f, 190f);
                 bool Hits(Vector2 pos) => new Rect2(pos.X - 2f, pos.Y - FontSize, w + 4f, FontSize + 6f).Intersects(keepClear);
-                if (Hits(textPos))
-                {
-                    textPos = new Vector2(at.X - w / 2f, at.Y - 16f);
-                    if (Hits(textPos)) textPos = new Vector2(-10000f, -10000f);
-                }
+                float x = at.X - w / 2f;
+                foreach (float dy in new[] { 24f, 24f + LineHeight, 24f + 2 * LineHeight, -16f, -16f - LineHeight, -16f - 2 * LineHeight })
+                    if (!Hits(new Vector2(x, at.Y + dy))) candidates.Add(new Vector2(x, at.Y + dy));
             }
             else
             {
                 // Screen y grows down, the placement angle is counter-clockwise with up positive.
                 var d = new Vector2(MathF.Cos(p.AngleRadians), -MathF.Sin(p.AngleRadians));
                 var n = new Vector2(-d.Y, d.X);
-                DrawPolygon(new[] { at + d * 13f, at - d * 7f + n * 9f, at - d * 7f - n * 9f }, new[] { shadow });
-                DrawPolygon(new[] { at + d * 10f, at - d * 5f + n * 6.5f, at - d * 5f - n * 6.5f }, new[] { item.Color });
-                textPos = new Vector2(at.X - d.X * (w / 2f + 18f) - w / 2f, at.Y - d.Y * 20f + 5f);
+                DrawPolygon(new[] { at + d * 13f, at - d * 7f + n * 9f, at - d * 7f - n * 9f }, new[] { sh });
+                DrawPolygon(new[] { at + d * 10f, at - d * 5f + n * 6.5f, at - d * 5f - n * 6.5f }, new[] { color });
+                var basePos = new Vector2(at.X - d.X * (w / 2f + 18f) - w / 2f, at.Y - d.Y * 20f + 5f);
+                // Edge labels stack along the edge instead of sitting on top of each other.
+                foreach (float k in new[] { 0f, 1f, -1f, 2f, -2f, 3f, -3f })
+                    candidates.Add(basePos + new Vector2(0f, k * LineHeight));
             }
-            if (textPos.X < -5000f) continue; // label left out
-            textPos.X = Math.Clamp(textPos.X, 4f, Math.Max(4f, Size.X - w - 4f));
-            textPos.Y = Math.Clamp(textPos.Y, FontSize + 2f, Math.Max(FontSize + 2f, Size.Y - 6f));
-            DrawStringOutline(font, textPos, item.Text, HorizontalAlignment.Left, -1, FontSize, 4, shadow);
-            DrawString(font, textPos, item.Text, HorizontalAlignment.Left, -1, FontSize, item.Color);
+            Vector2? textPos = null;
+            foreach (var c in candidates)
+            {
+                var pos = new Vector2(Math.Clamp(c.X, 4f, Math.Max(4f, Size.X - w - 4f)), Math.Clamp(c.Y, FontSize + 2f, Math.Max(FontSize + 2f, Size.Y - 6f)));
+                var rect = new Rect2(pos.X - 3f, pos.Y - FontSize, w + 6f, LineHeight - 1f);
+                bool free = true;
+                foreach (var t in taken) if (t.Intersects(rect)) { free = false; break; }
+                if (!free) continue;
+                taken.Add(rect);
+                textPos = pos;
+                break;
+            }
+            if (textPos is not { } tp) continue; // label left out, the mark stays
+            DrawStringOutline(font, tp, item.Text, HorizontalAlignment.Left, -1, FontSize, 4, sh);
+            DrawString(font, tp, item.Text, HorizontalAlignment.Left, -1, FontSize, color);
         }
     }
 

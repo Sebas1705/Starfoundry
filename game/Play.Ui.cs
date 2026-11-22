@@ -264,6 +264,7 @@ public partial class Play
         _mapList = MakeText(13);
         _mapList.AddThemeColorOverride("font_outline_color", Colors.Black);
         _mapList.AddThemeConstantOverride("outline_size", 4);
+        _mapList.AddThemeStyleboxOverride("normal", new StyleBoxFlat { BgColor = new Color(0.02f, 0.03f, 0.06f, 0.7f), ContentMarginLeft = 6, ContentMarginRight = 6, ContentMarginTop = 3, ContentMarginBottom = 3 });
         _mapList.Visible = false;
         _uiRoot.AddChild(_mapList);
         _btnJump = MakeButton("", SendJump, minWidth: 150);
@@ -516,7 +517,7 @@ public partial class Play
         float bottom = Math.Max(24f, size.Y - textTop + 10f);
         var items = new List<MarkerLayer.Item>();
 
-        void Add(string label, Color color, Vector3 target, float hideBelow = 4f, string? distanceText = null)
+        void Add(string label, Color color, Vector3 target, float hideBelow = 4f, string? distanceText = null, int priority = 1)
         {
             var p = Markers.Place(V(target - eye), cam, size.X, size.Y, left, 58f, 24f, bottom, hideBelow);
             // A marker behind the steps panel is unreadable (and hides its text): slide it just below the panel.
@@ -530,13 +531,13 @@ public partial class Play
             if (_keyPanel.Visible && keys.HasPoint(new Vector2(p.X, p.Y))) p = p with { Y = keys.Position.Y - 6f };
             // Off screen the arrow also says how many degrees to turn (the same whichever way up the ship is).
             string turn = p.OnScreen ? "" : $"  {NavFrame.TurnDegrees(V(target - eye), cam):F0}°";
-            if (p.Visible && (color == EnemyMarkerColor || ShipHudContext)) items.Add(new MarkerLayer.Item($"{label}  {distanceText ?? L("mark.dist", p.Distance.ToString("F0", Loc.Culture))}{turn}", color, p));
+            if (p.Visible && (color == EnemyMarkerColor || ShipHudContext)) items.Add(new MarkerLayer.Item($"{label}  {distanceText ?? L("mark.dist", p.Distance.ToString("F0", Loc.Culture))}{turn}", color, p, color == EnemyMarkerColor ? 3 : priority));
         }
 
         if (Net.IsDeposit(_selectedDeposit) && Net.IsDepositRevealed(_selectedDeposit) && Net.DepositRemaining(_selectedDeposit) > 0)
         {
             var dp = Net.DepositPosition(_selectedDeposit);
-            Add($"{ItemName(Net.DepositItem(_selectedDeposit))} - {DensityText(_selectedDeposit)}{(DepositHasDrones(_selectedDeposit) ? " - " + L("mark.drones") : "")}", new Color(1f, 0.8f, 0.35f), new Vector3(dp.X, dp.Y, dp.Z), 6f);
+            Add($"{ItemName(Net.DepositItem(_selectedDeposit))} - {DensityText(_selectedDeposit)}{(DepositHasDrones(_selectedDeposit) ? " - " + L("mark.drones") : "")}", new Color(1f, 0.8f, 0.35f), new Vector3(dp.X, dp.Y, dp.Z), 6f, null, 2);
         }
 
         // Other deposits you know of nearby: a quiet mark each, the two nearest only (the chosen one above keeps its full label).
@@ -560,7 +561,7 @@ public partial class Play
             var to = gal.Systems[_selectedSystem];
             var dir = NavFrame.DirectionTo(new Vec3(from.X, from.Y, from.Z), new Vec3(to.X, to.Y, to.Z));
             float mapDistance = new Vector3(to.X - from.X, to.Y - from.Y, to.Z - from.Z).Length();
-            Add(L("mark.gate", to.Name), new Color(1f, 0.55f, 0.25f), eye + new Vector3(dir.X, dir.Y, dir.Z) * 900f, 4f, L("mark.gateDist", mapDistance.ToString("F0", Loc.Culture)));
+            Add(L("mark.gate", to.Name), new Color(1f, 0.55f, 0.25f), eye + new Vector3(dir.X, dir.Y, dir.Z) * 900f, 4f, L("mark.gateDist", mapDistance.ToString("F0", Loc.Culture)), 2);
         }
 
         int system = Net.CurrentSystem(Player);
@@ -574,7 +575,7 @@ public partial class Play
         }
         if (nearest is { } e) Add(Loc.Name("enemy", _content.Enemies[e.Type].Id), EnemyMarkerColor, new Vector3(e.X, e.Y, e.Z) / CellUnits, 3f);
 
-        if (_structuresOn) { StructureMarkers((l, c, t, h) => Add(l, c, t, h)); _markers.Set(items); return; }
+        if (_structuresOn) { StructureMarkers((l, c, t, h) => Add(l, c, t, h, null, l == L("mark.station") ? 2 : 1)); _markers.Set(items); return; }
 
         _baseTmp.Clear();
         foreach (int id in _machineIds)
@@ -589,7 +590,7 @@ public partial class Play
             _baseTmp.Clear();
             foreach (var (mx, my, mz, _) in Net.Modules(Player)) _baseTmp.Add(V(StationView.Centre(mx, my, mz)));
             var nearestModule = Markers.NearestCluster(_baseTmp, V(ShipPosition(0f)), 0.01f);
-            if (nearestModule is { } sm) Add(L("mark.station"), new Color(0.45f, 0.8f, 1f), new Vector3(sm.X, sm.Y, sm.Z), 10f);
+            if (nearestModule is { } sm) Add(L("mark.station"), new Color(0.45f, 0.8f, 1f), new Vector3(sm.X, sm.Y, sm.Z), 10f, null, 2);
             _markers.Set(items);
             return;
         }

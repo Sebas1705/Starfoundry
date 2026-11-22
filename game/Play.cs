@@ -810,6 +810,7 @@ void fragment() {
     // ---- exploration --------------------------------------------------------------------------------
 
     private MapPanel _map = null!;
+    private readonly bool _mapAllKnown = OS.GetCmdlineUserArgs().Contains("--map-all-known"); // a screenshot aid: the star map shows every system
     private Label _mapList = null!;
     private bool _mapOpen;
     private int _selectedSystem = -1;
@@ -851,7 +852,7 @@ void fragment() {
         if (!_mapOpen || Net.Galaxy is null) return;
         if (_selectedSystem < 0 || !Net.IsSystemKnown(_selectedSystem)) _selectedSystem = KnownSystems().FirstOrDefault();
         var nose = -_camera.GlobalTransform.Basis.Z;
-        _map.Show(Net.Galaxy, Net.IsSystemKnown, Net.IsSystemVisited, Net.CurrentSystem(Player), _selectedSystem, new System.Numerics.Vector3(nose.X, nose.Y, nose.Z));
+        _map.Show(Net.Galaxy, _mapAllKnown ? _ => true : Net.IsSystemKnown, Net.IsSystemVisited, Net.CurrentSystem(Player), _selectedSystem, new System.Numerics.Vector3(nose.X, nose.Y, nose.Z));
         _mapList.Text = L("map.title") + "\n" + string.Join("\n", KnownSystems().Select(SystemLine));
     }
 
