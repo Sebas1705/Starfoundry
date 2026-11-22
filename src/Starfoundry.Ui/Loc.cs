@@ -237,6 +237,8 @@ public static class Loc
         ["hud.speed"] = ("velocidad x{0}", "speed x{0}"),
         ["hud.paused"] = ("PAUSA", "PAUSED"),
         ["hud.ess.hull"] = ("Casco {0}/{1}", "Hull {0}/{1}"),
+        ["hud.card.ship"] = ("Nave", "Ship"),
+        ["hud.card.info"] = ("Información", "Info"),
         ["hud.ess.step"] = ("Paso: {0}", "Step: {0}"),
         ["hud.ess.more"] = ("H: más detalles", "H: more details"),
         ["btn.details"] = ("Detalles (H)", "Details (H)"),
@@ -978,6 +980,8 @@ public static class Loc
         ["key.stand"] = ("Levantarse", "Stand up"),
         ["key.sit"] = ("Sentarse", "Sit down"),
         ["key.help"] = ("Ayuda", "Help"),
+        ["key.info"] = ("Información", "Info"),
+        ["key.lang"] = ("Idioma", "Language"),
         ["key.walk"] = ("Caminar", "Walk"),
         ["key.run"] = ("Correr", "Run"),
         ["key.place"] = ("Colocar", "Place"),
@@ -1030,7 +1034,7 @@ public static class Loc
             "  Tab              soltar el ratón para usar los botones (clic en el juego para volver a mirar)\n\n" +
             "Nave\n" +
             "  W S   avanzar / retroceder hacia donde miras     A D   desplazarse a los lados     Espacio / C   subir / bajar\n" +
-            "  E   sentarte / levantarte del asiento del piloto (de pie: WASD camina, Mayús corre y no se vuela)\n  M   minar (vuela primero al yacimiento)      F   refinería       K   escanear       V   armas\n  Marcadores: yacimiento elegido, enemigo más cercano y tu base; en el borde de la pantalla señalan hacia dónde mirar\n\n" +
+            "  E   sentarte / levantarte del asiento del piloto (de pie: WASD camina, Mayús corre y no se vuela)\n  M   minar (vuela primero al yacimiento)      F   refinería       K   escanear       V   armas\n  Marcadores (sentado): yacimiento elegido, enemigo más cercano y tu base; en el borde de la pantalla señalan hacia dónde mirar\n\n" +
             "Construcción\n" +
             "  B   menú de construcción, anclado a la derecha (pestañas Logística, Producción, Defensa y Estructura, con coste, energía y qué hace cada cosa; flechas, Intro o clic eligen la herramienta; Re Pág / Av Pág cambian de pestaña; B o Esc lo cierran)       Esc   dejar de construir\n" +
             "  1-9, 0, Q   teclas rápidas de las primeras entradas (cintas, horno, ensamblador, laboratorio, depósito, torreta, muro, taller de reparación, puerto de carga; el panel de teclas las lista con su coste al pasar el ratón por la fila 1-0); los demás puertos solo están en el menú B\n" +
@@ -1043,7 +1047,7 @@ public static class Loc
             "  Clic en una máquina sin herramienta: ver su estado y cambiar su receta (Tab para usar sus botones).\n  Retroceso   reparar todas las máquinas dañadas a tu alcance (cuesta la mitad de su coste, en proporción al daño)\n\n" +
             "Otros\n" +
             "  T   panel de investigación (flechas e Intro eligen; ahí se ve qué necesita y qué desbloquea cada una)      G   mapa estelar (flechas y J para saltar)\n" +
-            "  P   pausa       + / -   velocidad       L   idioma       O   pasos       [ ]   cambiar yacimiento\n  H   más / menos detalles en el panel de estado       F6   guardar       F9   cargar (se guarda sola cada 5 minutos)       F11   pantalla completa",
+            "  P   pausa       + / -   velocidad       L   idioma       O   pasos       [ ]   cambiar yacimiento\n  H   panel de información (detalles de estado, objetivos y pasos, investigación y amenaza; si no, la pantalla solo muestra lo que apuntas)       F6   guardar       F9   cargar (se guarda sola cada 5 minutos)       F11   pantalla completa",
             "CONTROLS   (F1 to close)\n\n" +
             "Key panel (bottom right)\n" +
             "  Shows the keys that work right now and changes with what you do or aim at: flying, on foot, with a build tool, aiming at a machine or a deposit, with the map or a menu open and, during a wave, the weapons and the repair on top, in red.\n" +
@@ -1056,7 +1060,7 @@ public static class Loc
             "  Tab              free the mouse to use the buttons (click in the game to look again)\n\n" +
             "Ship\n" +
             "  W S   forward / back where you look     A D   strafe     Space / C   up / down\n" +
-            "  E   sit at / stand up from the pilot seat (standing: WASD walks, Shift runs, no flying)\n  M   mine (flies to the deposit first)      F   refinery       K   scan       V   weapons\n  Markers: the selected deposit, the nearest enemy and your base; at the screen edge they point where to look\n\n" +
+            "  E   sit at / stand up from the pilot seat (standing: WASD walks, Shift runs, no flying)\n  M   mine (flies to the deposit first)      F   refinery       K   scan       V   weapons\n  Markers (seated): the selected deposit, the nearest enemy and your base; at the screen edge they point where to look\n\n" +
             "Building\n" +
             "  B   build menu, docked at the right (tabs Logistics, Production, Defence and Structure, with cost, power and what each thing does; arrows, Enter or click pick the tool; PgUp / PgDn change tab; B or Esc close it)       Esc   stop building\n" +
             "  1-9, 0, Q   quick keys for the first entries (belts, smelter, assembler, lab, depot, turret, wall, repair bay, cargo port; the key panel lists them with their cost when you hover its 1-0 row); the other ports are only in the B menu\n" +
@@ -1069,6 +1073,6 @@ public static class Loc
             "  With no tool, click a machine: see its status and change its recipe (Tab to use its buttons).\n  Backspace   repair every damaged machine within reach (half the build cost, in proportion to the damage)\n\n" +
             "Other\n" +
             "  T   research panel (arrows and Enter choose; it shows what each one needs and unlocks)      G   star map (arrows and J to jump)\n" +
-            "  P   pause       + / -   speed       L   language       O   steps       [ ]   change deposit\n  H   more / fewer details in the status panel       F6   save       F9   load (it also saves itself every 5 minutes)       F11   fullscreen"),
+            "  P   pause       + / -   speed       L   language       O   steps       [ ]   change deposit\n  H   info panels (status details, goals and steps, research and threat; otherwise the screen only shows what you aim at)       F6   save       F9   load (it also saves itself every 5 minutes)       F11   fullscreen"),
     };
 }

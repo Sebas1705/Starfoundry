@@ -15,9 +15,9 @@ namespace Starfoundry.Game;
 /// </summary>
 public partial class KeyPanel : PanelContainer
 {
-    private static readonly Color PanelBg = new(0.04f, 0.06f, 0.1f, 0.88f);
-    private static readonly Color PanelEdge = new(0.35f, 0.45f, 0.65f, 0.75f);
-    private static readonly Color AlertEdge = new(0.9f, 0.35f, 0.3f, 0.9f);
+    private static readonly Color PanelBg = new(0.04f, 0.06f, 0.10f, 0.78f);
+    private static readonly Color PanelEdge = new(0.45f, 0.58f, 0.82f, 0.38f);
+    private static readonly Color AlertEdge = new(0.9f, 0.35f, 0.3f, 0.85f);
     private static readonly Color Muted = new(0.62f, 0.7f, 0.84f);
     private static readonly Color Gold = new(1f, 0.9f, 0.5f);
     private static readonly Color Dim = new(0.5f, 0.53f, 0.6f);
@@ -25,7 +25,8 @@ public partial class KeyPanel : PanelContainer
 
     private readonly VBoxContainer _root = new();
     private readonly List<Control> _capCells = new();
-    private string _signature = "";
+    private string _signature = "", _shown = "";
+    private static readonly bool Snap = Array.Exists(OS.GetCmdlineUserArgs(), a => a.Contains("-shot")); // headless screenshots run frames too fast for a fade
 
     /// <summary>A row was clicked: the engine key it stands for (a Godot <c>Key</c> name such as "B" or "Escape").</summary>
     public event Action<string>? KeyPressed;
@@ -59,7 +60,18 @@ public partial class KeyPanel : PanelContainer
         int rowGap = sizeClass == 0 ? 2 : 3;
         _root.AddThemeConstantOverride("separation", sizeClass == 0 ? 3 : 6);
         bool alert = groups.Any(g => g.TitleKey == "key.ctx.alert");
-        AddThemeStyleboxOverride("panel", UiKit.Box(PanelBg, alert ? AlertEdge : PanelEdge, 6, sizeClass == 0 ? 6f : 8f));
+        var card = UiKit.Box(PanelBg, alert ? AlertEdge : PanelEdge, 8, sizeClass == 0 ? 7f : 10f);
+        card.ContentMarginLeft = card.ContentMarginRight = sizeClass == 0 ? 10f : 13f;
+        card.ShadowColor = new Color(0f, 0f, 0f, 0.35f);
+        card.ShadowSize = 8;
+        AddThemeStyleboxOverride("panel", card);
+        string shown = string.Join("|", groups.Select(g => g.TitleKey + ":" + string.Join(",", g.Rows.Select(r => r.Id))));
+        if (IsInsideTree() && !Snap && shown != _shown && _shown.Length > 0) // another context eases in instead of popping (a tooltip refresh does not)
+        {
+            Modulate = new Color(1f, 1f, 1f, 0.35f);
+            CreateTween().TweenProperty(this, "modulate:a", 1f, 0.18);
+        }
+        _shown = shown;
 
         foreach (var group in groups)
         {

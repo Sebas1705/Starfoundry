@@ -18,8 +18,8 @@ public class KeyHintsTests
     {
         var s = Flying();
         Assert.Equal(HintContext.Flying, KeyHints.ContextOf(s));
-        Assert.Equal(new[] { "build", "research", "map", "scan", "mine", "refine", "weapons", "found", "module", "seat", "help" }, Ids(s));
-        Assert.Equal(new[] { "B", "T", "G", "K", "M", "F", "V", "I", "N", "E", "F1" }, Rows(s).Select(r => r.Caps[0]).ToArray());
+        Assert.Equal(new[] { "build", "research", "map", "scan", "mine", "refine", "weapons", "found", "module", "seat", "info", "help" }, Ids(s));
+        Assert.Equal(new[] { "B", "T", "G", "K", "M", "F", "V", "I", "N", "E", "H", "F1" }, Rows(s).Select(r => r.Caps[0]).ToArray());
         Assert.Equal("key.ctx.flying", KeyHints.For(s).Last().TitleKey);
     }
 
@@ -27,7 +27,7 @@ public class KeyHintsTests
     public void FlyingDropsWhatTheWorldDoesNotHave()
     {
         var s = Flying() with { HasGalaxy = false, StructuresOn = false, ModuleToolAvailable = false, CanWalk = false };
-        Assert.Equal(new[] { "build", "research", "scan", "mine", "refine", "weapons", "help" }, Ids(s));
+        Assert.Equal(new[] { "build", "research", "scan", "mine", "refine", "weapons", "info", "help" }, Ids(s));
     }
 
     [Fact]
@@ -71,7 +71,7 @@ public class KeyHintsTests
     {
         var s = Flying() with { Standing = true };
         Assert.Equal(HintContext.Walking, KeyHints.ContextOf(s));
-        Assert.Equal(new[] { "walk", "run", "seat", "build", "research", "found", "module", "help" }, Ids(s));
+        Assert.Equal(new[] { "walk", "run", "seat", "build", "research", "found", "module", "info", "help" }, Ids(s));
         Assert.Equal("WASD", Find(s, "walk").Caps[0]);
         Assert.Equal(KeyRowState.Info, Find(s, "walk").State);
         Assert.Equal(KeyRowState.Disabled, Find(s, "seat").State);
@@ -175,7 +175,7 @@ public class KeyHintsTests
         Assert.Equal(new[] { "choose", "pick", "tab", "close", "esc" }, Ids(busy with { BuildOpen = true }));
         Assert.Equal(HintContext.BuildMenu, KeyHints.ContextOf(busy with { BuildOpen = true, ResearchOpen = true }));
         Assert.Equal(new[] { "choose", "start", "close", "esc" }, Ids(busy with { ResearchOpen = true }));
-        Assert.Equal(new[] { "close", "esc" }, Ids(busy with { HelpOpen = true }));
+        Assert.Equal(new[] { "lang", "close", "esc" }, Ids(busy with { HelpOpen = true }));
         Assert.Equal(HintContext.Pause, KeyHints.ContextOf(busy with { PauseOpen = true, HelpOpen = true }));
         Assert.Equal("PgUp", Find(busy with { BuildOpen = true }, "tab").Caps[0]);
     }
@@ -246,7 +246,7 @@ public class KeyHintsTests
                         Assert.NotEmpty(cap);
                         if (cap.StartsWith('@')) Assert.True(Loc.Has("key.cap." + cap[1..]), cap);
                     }
-                    if (r.ActionKey is not null) Assert.Contains(r.ActionKey, new[] { "B", "T", "G", "K", "M", "F", "V", "I", "N", "E", "R", "Y", "J", "F1", "F7", "Escape", "Backspace" });
+                    if (r.ActionKey is not null) Assert.Contains(r.ActionKey, new[] { "B", "T", "G", "K", "M", "F", "V", "I", "N", "E", "H", "L", "R", "Y", "J", "F1", "F7", "Escape", "Backspace" });
                 }
             }
         }
@@ -269,5 +269,24 @@ public class KeyHintsTests
             }
         }
         finally { Loc.Lang = old; }
+    }
+
+    [Fact]
+    public void InfoRowIsOnTheShipAndFootContextsAndLightsWhileOpen()
+    {
+        foreach (var s in new[] { Flying(), Flying() with { Standing = true } })
+        {
+            Assert.Equal(KeyRowState.Normal, Find(s, "info").State);
+            Assert.Equal("H", Find(s, "info").ActionKey);
+            Assert.Equal(KeyRowState.Active, Find(s with { InfoOpen = true }, "info").State);
+        }
+    }
+
+    [Fact]
+    public void HelpOffersTheLanguageKey()
+    {
+        var s = Flying() with { HelpOpen = true };
+        Assert.Equal(new[] { "lang", "close", "esc" }, Ids(s));
+        Assert.Equal("L", Find(s, "lang").ActionKey);
     }
 }

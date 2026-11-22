@@ -83,6 +83,7 @@ public partial class Play
             BuildOpen = BuildOpen,
             ResearchOpen = ResearchOpen,
             MapOpen = _mapOpen,
+            InfoOpen = _detailsOpen,
             CanWalk = CanWalk,
             Standing = Standing,
             NearSeat = Standing && BodyMotion.InSeatReach(Sys(_body), Sys(SeatPosition)),
@@ -194,7 +195,7 @@ public partial class Play
     /// <c>--keys-shot=path</c>: the structures campaign at 1280x720 (or <c>--keys-size=1920x1080</c>) with the key panel in six contexts:
     /// <c>path.flying.png</c> (seated, nothing aimed), <c>path.build.png</c> (a machine tool in hand), <c>path.aim.png</c> (the crosshair on a
     /// machine), <c>path.walking.png</c> (standing), <c>path.map.png</c> (the star map) and <c>path.menu.png</c> (the build menu docked at the
-    /// right), then <c>path.research.png</c> (the research panel docked) and <c>path.help.png</c> (the F1 overlay). <c>--ui-lang=en</c> renders them
+    /// right), then <c>path.research.png</c> (the research panel docked), <c>path.help.png</c> (the F1 overlay) and <c>path.info.png</c> (seated with the info panels open, H). <c>--ui-lang=en</c> renders them
     /// in English. Seed fixed, nothing is saved.
     /// </summary>
     private void KeysShotFrame()
@@ -231,7 +232,10 @@ public partial class Play
             case 235: Shot("research"); break;
             case 236: ToggleResearchPanel(); _helpOpen = true; break;
             case 262: Shot("help"); break;
-            case 263: GetTree().Quit(); break;
+            case 263: _helpOpen = false; _tool = ToolMode.Pointer; _yaw = 0f; _pitch = 0.25f; _detailsOpen = true; break; // the info panels (H) while seated
+            case 295: Shot("info"); break;
+            case 296: _detailsOpen = false; break;
+            case 297: GetTree().Quit(); break;
         }
     }
 }

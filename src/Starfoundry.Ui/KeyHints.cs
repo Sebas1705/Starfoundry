@@ -71,6 +71,7 @@ public sealed record KeyState
     public bool BuildOpen { get; init; }
     public bool ResearchOpen { get; init; }
     public bool MapOpen { get; init; }
+    public bool InfoOpen { get; init; }
 
     // body
     public bool CanWalk { get; init; }
@@ -195,6 +196,7 @@ public static class KeyHints
         if (s.StructuresOn) yield return Row("found", "I", "found", "I");
         if (s.ModuleToolAvailable) yield return Row("module", "N", "module", "N");
         if (s.CanWalk) yield return Row("seat", "E", "stand", "E");
+        yield return Row("info", "H", "info", "H", Lit(s.InfoOpen));
         yield return Row("help", "F1", "help", "F1");
     }
 
@@ -208,6 +210,7 @@ public static class KeyHints
         yield return Row("research", "T", "research", "T", Lit(s.ResearchOpen));
         if (s.StructuresOn) yield return Row("found", "I", "found", "I");
         if (s.ModuleToolAvailable) yield return Row("module", "N", "module", "N");
+        yield return Row("info", "H", "info", "H", Lit(s.InfoOpen));
         yield return Row("help", "F1", "help", "F1");
     }
 
@@ -306,6 +309,7 @@ public static class KeyHints
 
     private static IEnumerable<KeyRow> HelpRows(KeyState s)
     {
+        yield return Row("lang", "L", "lang", "L");
         yield return Row("close", "F1", "close", "F1", KeyRowState.Active);
         yield return Row("esc", "Esc", "close", "Escape");
     }

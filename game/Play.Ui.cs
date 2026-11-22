@@ -71,6 +71,7 @@ public partial class Play
     private Button _btnMine = null!, _btnRefine = null!, _btnScan = null!, _btnMap = null!, _btnWeapons = null!, _btnResearch = null!;
     private Button _btnRepair = null!;
     private Label _seatPrompt = null!;
+    private PanelContainer _tooltipPanel = null!;
     private Button _btnJump = null!, _btnLang = null!, _btnHelp = null!, _btnObjectives = null!;
     private Button _inspPrev = null!, _inspNext = null!, _inspRemove = null!, _inspRepair = null!;
 
@@ -105,10 +106,20 @@ public partial class Play
     private static readonly Color PanelEdge = new(0.35f, 0.45f, 0.65f, 0.7f);
     private static readonly Color Accent = new(0.35f, 0.65f, 1f);
 
+    /// <summary>The one look of every HUD card: a soft dark glass with a thin cool edge, rounded corners and a faint shadow.</summary>
+    private static StyleBoxFlat HudCard(Color? edge = null)
+    {
+        var s = Box(new Color(0.04f, 0.06f, 0.10f, 0.74f), edge ?? new Color(0.45f, 0.58f, 0.82f, 0.38f), 8, 10f);
+        s.ContentMarginLeft = s.ContentMarginRight = 13f;
+        s.ShadowColor = new Color(0f, 0f, 0f, 0.35f);
+        s.ShadowSize = 8;
+        return s;
+    }
+
     private PanelContainer MakePanel(Control content)
     {
         var p = new PanelContainer();
-        p.AddThemeStyleboxOverride("panel", Box(PanelBg, PanelEdge));
+        p.AddThemeStyleboxOverride("panel", HudCard());
         p.AddChild(content);
         p.MouseFilter = Control.MouseFilterEnum.Stop;
         _uiRoot.AddChild(p);
@@ -151,6 +162,8 @@ public partial class Play
         // Status: the essentials (hull, alert, current step); H opens the full block.
         _statusLabel = MakeText(14);
         var statusBox = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        statusBox.AddThemeConstantOverride("separation", 4);
+        BuildShipCardHead(statusBox);
         statusBox.AddChild(_statusLabel);
         BuildPowerBox(statusBox);
         BuildDefenceUi(statusBox);
@@ -231,6 +244,7 @@ public partial class Play
         objButtons.AddChild(_btnDetails);
         objButtons.AddChild(_btnHelp);
         objButtons.AddChild(_btnLang);
+        objButtons.Visible = false; // everything it did has a key (H, O, F1, L) in the key panel or the help; the card stays plain
         obj.AddChild(objButtons);
         BuildGoalsUi(obj);
         obj.AddChild(_objectivesText);
@@ -285,9 +299,8 @@ public partial class Play
 
         // World tooltip, anchored just below and right of the crosshair.
         _tooltipLabel = MakeText(13);
-        _tooltipLabel.AddThemeColorOverride("font_outline_color", Colors.Black);
-        _tooltipLabel.AddThemeConstantOverride("outline_size", 5);
-        _uiRoot.AddChild(_tooltipLabel);
+        _tooltipPanel = MakePanel(_tooltipLabel);
+        _tooltipPanel.MouseFilter = Control.MouseFilterEnum.Ignore;
 
         // "E: sit" / "E: stand", centred just above the crosshair.
         _seatPrompt = MakeText(15, new Color(1f, 0.9f, 0.5f));
@@ -448,6 +461,7 @@ public partial class Play
         UpdateFlight();
         UpdateHelp();
         UpdatePanels();
+        _hudDt = dt;
         UpdateToasts();
         UpdateModeHint();
         LayoutUi(size);
@@ -500,11 +514,11 @@ public partial class Play
             var p = Markers.Place(V(target - eye), cam, size.X, size.Y, left, 58f, 24f, bottom, hideBelow);
             // A marker behind the steps panel is unreadable (and hides its text): slide it just below the panel.
             var steps = new Rect2(_objectivesPanel.Position - new Vector2(240f, 0f), _objectivesPanel.Size + new Vector2(240f + 14f, 8f));
-            if (_objectivesPanel.Visible && steps.HasPoint(new Vector2(p.X, p.Y))) p = p with { Y = steps.End.Y + 22f };
+            if (_objectivesPanel.Visible && _detailsOpen && steps.HasPoint(new Vector2(p.X, p.Y))) p = p with { Y = steps.End.Y + 22f };
             // The same for the key panel in the bottom right corner: the marker slides just above it.
             var keys = _keyRect.Grow(16f);
             if (_keyPanel.Visible && keys.HasPoint(new Vector2(p.X, p.Y))) p = p with { Y = keys.Position.Y - 6f };
-            if (p.Visible) items.Add(new MarkerLayer.Item($"{label}  {L("mark.dist", p.Distance.ToString("F0", Loc.Culture))}", color, p));
+            if (p.Visible && (color == EnemyMarkerColor || ShipHudContext)) items.Add(new MarkerLayer.Item($"{label}  {L("mark.dist", p.Distance.ToString("F0", Loc.Culture))}", color, p));
         }
 
         if (Net.IsDeposit(_selectedDeposit) && Net.IsDepositRevealed(_selectedDeposit) && Net.DepositRemaining(_selectedDeposit) > 0)
@@ -522,7 +536,7 @@ public partial class Play
             float d = (new Vector3(en.X, en.Y, en.Z) / CellUnits - eye).LengthSquared();
             if (d < best) { best = d; nearest = en; }
         }
-        if (nearest is { } e) Add(Loc.Name("enemy", _content.Enemies[e.Type].Id), new Color(1f, 0.35f, 0.3f), new Vector3(e.X, e.Y, e.Z) / CellUnits, 3f);
+        if (nearest is { } e) Add(Loc.Name("enemy", _content.Enemies[e.Type].Id), EnemyMarkerColor, new Vector3(e.X, e.Y, e.Z) / CellUnits, 3f);
 
         if (_structuresOn) { StructureMarkers(Add); _markers.Set(items); return; }
 
@@ -597,6 +611,7 @@ public partial class Play
         var p = Net.GetPlayerInfo(Player);
         _satCache.Clear(); // read again each frame by the machine models
         UpdatePowerHud();
+        UpdateHullRow(p);
 
         if (!_detailsOpen)
         {
@@ -665,24 +680,10 @@ public partial class Play
     private void UpdateEssentials(StringBuilder sb, PlayerInfo p)
     {
         var colour = Colors.White;
-        if (Net.ThreatActive)
-        {
-            int sys = Math.Max(0, Net.CurrentSystem(Player));
-            var th = Net.GetSystemThreat(sys);
-            string ship = p.RespawnRemaining > 0 ? L("hud.rebuilding", (p.RespawnRemaining / (float)Units.TicksPerSecond).ToString("F0", Loc.Culture))
-                : L("hud.ess.hull", p.Hull, Net.ShipMaxHull);
-            string state = th.WarningRemaining >= 0 ? L("hud.waveIncoming", th.Wave + 1, (th.WarningRemaining / (float)Units.TicksPerSecond).ToString("F0", Loc.Culture))
-                : th.Enemies > 0 ? L("hud.enemies", th.Enemies)
-                : L("hud.alert", 100 * th.Alert / Math.Max(1, th.AlertMax));
-            sb.Append(ship).Append("   |   ").Append(state).Append('\n');
-            if (th.WarningRemaining >= 0 || th.Enemies > 0 || p.RespawnRemaining > 0) colour = ToastThreatColor;
-            else if (HudFormat.Band(p.Hull, Net.ShipMaxHull) != HealthBand.Good) colour = WornColor;
-        }
+        // The hull has its own row in the card head and the wave its banner; the steps and goals live in the info panel (H).
         if (_stationRules) sb.Append(L("hud.modules", Net.ModuleCount(Player))).Append('\n');
         if (_structuresOn) StructureHud(sb, details: false);
         if (MiningPausedByLimit) { sb.Append(L("hud.miningPaused")).Append('\n'); if (colour == Colors.White) colour = WornColor; }
-        if (GuidedSteps && !_objectivesOpen && _objectives.Current is { } cur)
-            sb.Append(L("hud.ess.step", L(_objectives.States.First(s => s.Objective == cur).TitleKey))).Append('\n');
         if (_demo) sb.Append(L("hud.speed", _demoSpeed));
         else if (_speed != 1 || _paused) sb.Append(_paused ? L("hud.paused") : L("hud.speed", _speed));
         _statusLabel.Text = sb.ToString().TrimEnd('\n');
@@ -1167,7 +1168,7 @@ public partial class Play
             string name = ItemName(item);
             _modeHint.Text = L(item.IsStation ? "hint.foundStation" : item.IsModule && _structuresOn ? "hint.buildModuleKind" : item.IsModule ? "hint.buildModule" : item.IsBelt ? "hint.buildBelt" : "hint.buildMachine", name);
         }
-        else _modeHint.Text = L(Standing ? "hint.pointerWalk" : "hint.pointer");
+        else _modeHint.Text = ""; // nothing to say with the pointer: the key panel lists the keys
     }
 
     private void UpdateObjectivesPanel()
@@ -1276,7 +1277,7 @@ public partial class Play
         // The essentials are short and narrow; the full block (H) is wide but never runs under the steps panel.
         _statusLabel.CustomMinimumSize = new Vector2(_detailsOpen ? Math.Clamp(size.X - objMin.X - 60, 260, 760) : Math.Min(300f, Math.Max(180f, size.X * 0.22f)), 0);
         _statusLabel.Visible = _statusLabel.Text.Length > 0;
-        _statusPanel.Visible = _statusLabel.Visible || _powerBox.Visible || _integrityBox.Visible;
+        _statusPanel.Visible = _statusLabel.Visible || _powerBox.Visible || _integrityBox.Visible || _hullBox.Visible;
         _statusPanel.ResetSize();
         _statusPanel.Position = new Vector2(12, 10);
 
@@ -1319,7 +1320,7 @@ public partial class Play
 
         var objSize = _objectivesPanel.GetCombinedMinimumSize();
         _objectivesPanel.Position = new Vector2(size.X - objSize.X - 12, 10);
-        float y = _objectivesPanel.Position.Y + objSize.Y + 10;
+        float y = _detailsOpen && _objectivesPanel.Visible ? _objectivesPanel.Position.Y + objSize.Y + 10 : 10f; // the steps card is only there with the info panels open
         if (_mapOpen && Net.Galaxy is not null)
         {
             // The map shrinks (down to 160 px) so that the map, the system list and the Jump button all end above the key panel.
@@ -1344,8 +1345,8 @@ public partial class Play
         var fp = new Vector2((size.X - fs.X) / 2f, 8f);
         foreach (var other in new[] { _statusPanel, _objectivesPanel })
         {
-            if (!other.Visible) continue;
-            var o = new Rect2(other.Position, other.Size);
+            if (!other.Visible || (other == _objectivesPanel && !_detailsOpen) || other == _statusPanel) continue; // the status card in info mode hides the readout instead (ApplyHudContext)
+            var o =new Rect2(other.Position, other.Size);
             if (new Rect2(fp, fs).Intersects(o)) fp.Y = Math.Max(fp.Y, o.End.Y + 6f);
         }
         _flightPanel.Position = fp;
@@ -1363,9 +1364,10 @@ public partial class Play
         _crosshair.Visible = AimActive && !_demo;
         _crosshair.Position = (size - _crosshair.Size) / 2f;
         var centre = size / 2f;
-        _tooltipLabel.Visible = _tooltipLabel.Text.Length > 0 && !_demo && AimActive && !_helpOpen;
-        _tooltipLabel.ResetSize();
-        _tooltipLabel.Position = AvoidKeyPanel(new Vector2(Math.Clamp(centre.X + 24, 8, Math.Max(8, size.X - _tooltipLabel.Size.X - 8)), Math.Clamp(centre.Y + 24, 8, Math.Max(8, size.Y - _tooltipLabel.Size.Y - 8))), _tooltipLabel.Size);
+        _tooltipPanel.Visible = _tooltipLabel.Text.Length > 0 && !_demo && AimActive && !_helpOpen;
+        _tooltipPanel.ResetSize();
+        var tipSize = _tooltipPanel.GetCombinedMinimumSize();
+        _tooltipPanel.Position = AvoidKeyPanel(new Vector2(Math.Clamp(centre.X + 24, 8, Math.Max(8, size.X - tipSize.X - 8)), Math.Clamp(centre.Y + 24, 8, Math.Max(8, size.Y - tipSize.Y - 8))), tipSize);
 
         _seatPrompt.Text = SeatPromptText();
         _seatPrompt.Visible = _seatPrompt.Text.Length > 0 && AimActive && !_helpOpen;
@@ -1377,6 +1379,7 @@ public partial class Play
         _targetPanel.Position = AvoidKeyPanel(new Vector2(Math.Clamp(centre.X + 28, 8, Math.Max(8, size.X - ts.X - 8)), Math.Clamp(centre.Y + 28, 8, Math.Max(8, size.Y - ts.Y - barSize.Y - 14))), ts);
         _markers.Size = size;
         LayoutDefenceUi(size, centre);
+        ApplyHudContext(size);
     }
 
     // ---- selecting tools ------------------------------------------------------------------------------
