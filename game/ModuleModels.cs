@@ -571,7 +571,7 @@ public static class ModuleModels
                     }
                 }
             });
-        if (c.Ship) { ShipFins(c); } else StationRigging(c, roof);
+        if (c.Ship) { ShipFins(c); NavLights(c); } else StationRigging(c, roof);
         Beacon(c);
     }
 
@@ -583,6 +583,20 @@ public static class ModuleModels
         if (c.Ship && c.Kind == ModuleKind.Hull) return; // the ship's roof carries its spine stripe instead
         Models.Add(c.R, "Beacon", $"{c.K}.beacon", Models.Glow(c.Role, 2.2f), mb =>
             mb.At(default).Block(new(c.Ship ? 4f : 6.9f, y + (c.Kind == ModuleKind.Core ? 0.01f : 0.2f), c.Ship ? 4f : 1.1f), new(0.2f, 0.2f, 0.2f)));
+    }
+
+    /// <summary>Port (red) and starboard (green) running lights on the flanks of a ship cockpit and engine, pulsing with the other glows.</summary>
+    private static void NavLights(Cx c)
+    {
+        if (c.Kind != ModuleKind.Cockpit && c.Kind != ModuleKind.Engine) return;
+        foreach (bool port in new[] { true, false })
+        {
+            if (port ? c.Has(Left) : c.Has(Right)) continue;
+            var col = port ? new Color(1f, 0.15f, 0.12f) : new Color(0.2f, 1f, 0.35f);
+            float x = port ? -0.02f : W + 0.02f, z = c.Kind == ModuleKind.Cockpit ? 3.9f : 1.0f;
+            Models.Add(c.R, "GlowNav", $"{c.K}.nav.{port}", Models.Glow(col, 3.2f), mb =>
+                mb.At(default).Block(new(x, 2.55f, z), new(0.12f, 0.12f, 0.12f)));
+        }
     }
 
     private static void ShipFins(Cx c)
