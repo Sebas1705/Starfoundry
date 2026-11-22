@@ -101,6 +101,9 @@ public sealed class Structure
     /// <summary>Power the mining lasers of this ship asked for in the last power step (part of <see cref="PowerDemand"/>). The laser is served before the machines, see ADR 0027.</summary>
     internal int LaserDraw;
 
+    /// <summary>Ticks left in which this structure takes no further collision damage (ADR 0028). Mixed only when non-zero.</summary>
+    internal int ImpactCooldown;
+
     internal Structure(int id, StructureKind kind, int owner, long ox, long oy, long oz)
     {
         Id = id; Kind = kind; Owner = owner; OriginX = ox; OriginY = oy; OriginZ = oz;
@@ -114,7 +117,7 @@ public sealed class Structure
         c.ModuleDamage = new SortedDictionary<(int, int, int), int>(ModuleDamage);
         c.DroneDeposit = DroneDeposit;
         c.DroneProgress = new SortedDictionary<(int, int, int), int>(DroneProgress);
-        c.PowerProduction = PowerProduction; c.PowerDemand = PowerDemand; c.Satisfaction = Satisfaction; c.LaserDraw = LaserDraw;
+        c.PowerProduction = PowerProduction; c.PowerDemand = PowerDemand; c.Satisfaction = Satisfaction; c.LaserDraw = LaserDraw; c.ImpactCooldown = ImpactCooldown;
         return c;
     }
 }

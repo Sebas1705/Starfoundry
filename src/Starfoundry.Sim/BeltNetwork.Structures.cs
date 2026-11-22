@@ -128,6 +128,13 @@ public sealed partial class BeltNetwork
         }
 
         int percent = EnginePercent(s);
+        if (WorldGen is { } wg)
+        {
+            // Clouds slow the engines; boost multiplies them (ADR 0028). Both are stateless: computed from the positions of now.
+            if (p.Boost) percent = percent * wg.BoostPercent / 100;
+            int slow = CloudEffectOf(structure).SlowPercent;
+            if (slow > 0) percent = percent * (100 - slow) / 100;
+        }
         static int Advance(long numerator, ref int rem, int denominator)
         {
             long acc = numerator + rem;
@@ -301,6 +308,7 @@ public sealed partial class BeltNetwork
             foreach (var (m, kind) in s.ModuleMap) { mix(m.Mx); mix(m.My); mix(m.Mz); mix((int)kind); }
             if (!StructureRules) continue; // power state exists only under the structure rules
             mix(s.PowerProduction); mix(s.PowerDemand); mix(s.Satisfaction); mix(s.BurnRemaining.Count);
+            if (s.ImpactCooldown != 0) mix(-503 - s.ImpactCooldown);
             if (s.LaserDraw != 0) mix(s.LaserDraw); // only while a laser fires: other worlds hash as before
             foreach (var (m, rem) in s.BurnRemaining) { mix(m.Mx); mix(m.My); mix(m.Mz); mix(rem); }
             if (s.ModuleDamage.Count > 0) // undamaged structures hash as before module hit points existed

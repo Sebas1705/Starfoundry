@@ -28,25 +28,79 @@ public sealed partial class StructureBot
 
     private int _flying;
 
+    /// <summary>Seconds of game time the bot spent flying (all legs, boosted or not), for the report.</summary>
+    public static double FlightSeconds;
+
+    /// <summary>
+    /// The first obstacle that blocks the straight flight from a point to another, as a waypoint above it, or null. Solid rocks, mines and
+    /// drifting debris are avoided by flying over them (the world is flat, so up is always free); clouds and wrecks are not hazards.
+    /// </summary>
+    private (long X, long Y, long Z)? DetourOver(long fx, long fy, long fz, long tx, long ty, long tz)
+    {
+        if (Net.Galaxy is null || Net.ObstacleCount == 0) return null;
+        int sys = Net.CurrentSystem(0);
+        if (sys < 0) return null;
+        long sx = tx - fx, sy = ty - fy, sz = tz - fz;
+        long len2 = Math.Max(1, sx * sx + sy * sy + sz * sz);
+        int worst = -1; double worstT = 2;
+        long worstClear = 0;
+        foreach (int i in Net.Galaxy.ObstaclesOf(sys))
+        {
+            var o = Net.GetObstacle(i);
+            if (o.Gone || o.Behaviour is ObstacleBehaviour.Cloud or ObstacleBehaviour.Wreck) continue;
+            var def = _c.World!.Kinds[o.Kind];
+            long reach = o.Radius + (def.Behaviour == ObstacleBehaviour.Mine ? Math.Max(def.TriggerCells, def.BlastCells) * (long)Cell : 0) + 6L * Cell;
+            // Closest point of the segment to the obstacle, in the horizontal plane (the ship passes above, so height does not count here).
+            double t = Math.Clamp(((o.X - fx) * (double)sx + (o.Z - fz) * (double)sz) / Math.Max(1, (double)sx * sx + (double)sz * sz), 0, 1);
+            double cx = fx + sx * t - o.X, cz = fz + sz * t - o.Z, cy = fy + sy * t - o.Y;
+            double reachH = reach + 4L * Cell;
+            if (cx * cx + cz * cz > reachH * reachH) continue;
+            if (cy > reach) continue; // already flying above it
+            if (t < worstT) { worstT = t; worst = i; worstClear = reach; }
+        }
+        if (worst < 0) return null;
+        var w = Net.GetObstacle(worst);
+        return (w.X, w.Y + worstClear + 2L * Cell, w.Z);
+    }
+
     private bool FlyToCore(long tx, long ty, long tz, long tolUnits, int maxSeconds)
     {
+        // Legs: the straight line, or a hop over the first obstacle in the way (up to four hops per flight).
+        for (int hop = 0; hop < 4; hop++)
+        {
+            var q = Net.GetPlayerInfo(0);
+            if (DetourOver(q.X, q.Y, q.Z, tx, ty, tz) is not { } wp) break;
+            if (!FlyLeg(wp.X, wp.Y, wp.Z, 5L * Cell, maxSeconds)) return false;
+        }
+        return FlyLeg(tx, ty, tz, tolUnits, maxSeconds);
+    }
+
+    private bool FlyLeg(long tx, long ty, long tz, long tolUnits, int maxSeconds)
+    {
+        bool boosting = false;
         for (int i = 0; i < maxSeconds * 6; i++)
         {
             var p = Net.GetPlayerInfo(0);
             long dx = tx - p.X, dy = ty - p.Y, dz = tz - p.Z;
             long d2 = dx * dx + dy * dy + dz * dz;
-            if (d2 <= tolUnits * tolUnits) { Cmd(new SetThrust(0, 0, 0)); return true; }
-            if (!Net.CanFly(0)) { Stuck("the ship cannot fly (no cockpit/engine or lost)"); Cmd(new SetThrust(0, 0, 0)); return false; }
+            // Boost over long distances (as a player holding the key would); off well before the target so the stop is clean.
+            bool wantBoost = _c.World is not null && d2 > (long)30 * Cell * 30 * Cell;
+            if (wantBoost != boosting) { Cmd(new SetBoost(wantBoost)); boosting = wantBoost; }
+            if (d2 <= tolUnits * tolUnits) { Cmd(new SetThrust(0, 0, 0)); if (boosting) Cmd(new SetBoost(false)); return true; }
+            if (!Net.CanFly(0)) { Stuck("the ship cannot fly (no cockpit/engine or lost)"); Cmd(new SetThrust(0, 0, 0)); if (boosting) Cmd(new SetBoost(false)); return false; }
             long len = (long)Math.Sqrt(d2);
             // Slow down near the target so a step cannot overshoot the tolerance.
             long scale = Math.Min(1000, Math.Max(40, len * 1000 / (Cell * 6)));
+            if (boosting) scale = 1000;
             int sx = (int)(dx * scale / len), sy = (int)(dy * scale / len), sz = (int)(dz * scale / len);
             if (i % 120 == 0) Say($"flying: ship ({p.X},{p.Y},{p.Z}) -> ({tx},{ty},{tz}) thrust ({sx},{sy},{sz}) can fly {Net.CanFly(0)}");
             _w.Submit(0, new SetThrust(sx, sy, sz));
             _w.Step(5);
+            FlightSeconds += 5.0 / Tps;
             EverySecondIfDue(ref _flyTicks, 5);
         }
         Cmd(new SetThrust(0, 0, 0));
+        if (boosting) Cmd(new SetBoost(false));
         var q = Net.GetPlayerInfo(0);
         Stuck($"flying to the target took too long (ship {q.X / Cell},{q.Y / Cell},{q.Z / Cell} -> {tx / Cell},{ty / Cell},{tz / Cell}, speed {Net.ShipSpeedUnitsPerTick(0)} units/tick, satisfaction {Net.ShipPower(0).SatisfactionPermille})");
         return false;

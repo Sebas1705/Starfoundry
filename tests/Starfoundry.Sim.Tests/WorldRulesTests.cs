@@ -162,7 +162,7 @@ public class WorldRulesTests
         Assert.Throws<InvalidDataException>(() => WorldRules.Deserialize(badVersion));
         var badValue = (byte[])bytes.Clone(); badValue[1] = 1; badValue[2] = badValue[3] = badValue[4] = 0; // enemy damage 1
         Assert.Throws<InvalidDataException>(() => WorldRules.Deserialize(badValue));
-        var badFlags = (byte[])bytes.Clone(); badFlags[1 + 8 * 4] = 8;
+        var badFlags = (byte[])bytes.Clone(); badFlags[1 + 8 * 4] = 16;
         Assert.Throws<InvalidDataException>(() => WorldRules.Deserialize(badFlags));
     }
 
@@ -526,7 +526,7 @@ public class WorldRulesTests
         byte[] plain = LogBytes(log, null);
         byte[] normal = LogBytes(log, WorldRules.Normal);
         Assert.Equal(plain, normal); // default rules write no block
-        Assert.Equal(9, plain[4]); // version 9 added FireLaser; the rules block is unchanged
+        Assert.Equal(10, plain[4]); // version 10 added SetBoost and the wide galaxy; the rules block is unchanged
         Assert.Equal(0, plain[4 + 1 + 8 + 1 + 8] & 8);
 
         byte[] hard = LogBytes(log, WorldRules.Hard);
@@ -571,7 +571,8 @@ public class WorldRulesTests
             CommandCodec.ReadLog(ms, out ulong hash, out var mode, out ulong seed, out bool threats, out _, out _, out var rules);
             Assert.Equal((9UL, GameMode.Campaign, 3UL, true), (hash, mode, seed, threats));
             Assert.True(rules.LegacyLaser); // recorded before the laser drew power (ADR 0027)
-            Assert.True(rules.WithLegacyLaser(false).IsDefault);
+            Assert.True(rules.LegacyGalaxy); // and before the wide galaxy (ADR 0028)
+            Assert.True(rules.WithLegacyLaser(false).WithLegacyGalaxy(false).IsDefault);
         }
         // Older versions cannot carry the rules flag.
         using var bad = new MemoryStream();

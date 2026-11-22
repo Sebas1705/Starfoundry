@@ -714,6 +714,10 @@ public class StructureDefenceTests
         var da = root["research"]!.AsArray().First(r => r!["id"]!.GetValue<string>() == "core:drone_automation")!.AsObject();
         da["cost"] = System.Text.Json.Nodes.JsonNode.Parse("""[{"item":"core:iron_plate","count":150},{"item":"core:titanium_plate","count":20},{"item":"core:quartz","count":20}]""");
         da["requires"] = System.Text.Json.Nodes.JsonNode.Parse("""["core:logistics","core:advanced_plating"]""");
+        // And before the wide galaxy (ADR 0028): no world section (obstacles, star types, boost), no wide distances, and the drone bays reached 60 cells.
+        root.Remove("world");
+        foreach (var a in root["archetypes"]!.AsArray()) a!.AsObject().Remove("wide_distance_cells");
+        root["structures"]!["drone_bay"]!["drone_range_cells"] = 60;
         // And the home iron deposit held 4000.
         root["archetypes"]!.AsArray().First(a => a!["id"]!.GetValue<string>() == "core:home")!["deposits"]!.AsArray()
             .First(d => d!["item"]!.GetValue<string>() == "core:iron_ore")!["amount"] = System.Text.Json.Nodes.JsonNode.Parse("[4000,4000]");

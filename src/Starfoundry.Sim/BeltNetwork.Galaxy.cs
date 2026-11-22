@@ -6,6 +6,9 @@ public static class ExplorationRules
     /// <summary>The scanner reveals hidden deposits within this many cells of the ship.</summary>
     public const int ScanRangeCells = 80;
 
+    /// <summary>The scanner range in the wide galaxy (ADR 0028), where deposits lie farther from their anchor.</summary>
+    public const int WideScanRangeCells = 220;
+
     /// <summary>Ticks before the scanner can fire again (5 seconds).</summary>
     public const int ScanCooldownTicks = 150;
 
@@ -36,6 +39,7 @@ public sealed partial class BeltNetwork
         _known = new bool[galaxy.Systems.Count];
         _visited = new bool[galaxy.Systems.Count];
         MarkVisited(0);
+        InitObstacles();
         InitThreat();
         StructureVersion++;
     }
@@ -79,7 +83,7 @@ public sealed partial class BeltNetwork
         if (p.ScanCooldown > 0) throw new InvalidOperationException("The scanner is recharging.");
         p.ScanCooldown = ExplorationRules.ScanCooldownTicks;
 
-        long range = (long)ExplorationRules.ScanRangeCells * Units.CellUnits;
+        long range = (long)(Galaxy?.Wide == true ? ExplorationRules.WideScanRangeCells : ExplorationRules.ScanRangeCells) * Units.CellUnits;
         var revealed = new List<int>();
         foreach (var d in _deposits)
         {
@@ -125,6 +129,7 @@ public sealed partial class BeltNetwork
         if (current < 0) throw new InvalidOperationException("The ship is not in a system.");
         if (current == target || !galaxy.HasLane(current, target)) throw new InvalidOperationException("There is no lane to that system.");
         if (!_known[target]) throw new InvalidOperationException("The system is not known yet.");
+        p.Boost = false; // no boosting through a jump charge
         p.JumpTarget = target;
         p.JumpRemaining = ExplorationRules.JumpChargeTicks;
         p.ClearThrust();
@@ -164,6 +169,7 @@ public sealed partial class BeltNetwork
         _known = (bool[])other._known.Clone();
         _visited = (bool[])other._visited.Clone();
         JumpsCompleted = other.JumpsCompleted;
+        CopyObstaclesFrom(other);
     }
 
     private void MixGalaxy(Action<long> mix)
@@ -172,6 +178,7 @@ public sealed partial class BeltNetwork
         foreach (bool b in _known) mix(b ? 1 : 0);
         foreach (bool b in _visited) mix(b ? 1 : 0);
         if (JumpsCompleted != 0) mix(JumpsCompleted); // worlds that never jumped hash as before
+        MixObstacles(mix);
     }
 
     private void ValidateGalaxy()
@@ -194,6 +201,7 @@ public sealed partial class BeltNetwork
             }
         }
 
+        ValidateObstacles();
         foreach (var p in _players.Values)
         {
             if (p.ScanCooldown < 0 || p.ScanCooldown > ExplorationRules.ScanCooldownTicks) Fail($"player {p.Id} scan cooldown out of range");

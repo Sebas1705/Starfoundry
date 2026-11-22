@@ -1280,6 +1280,7 @@
         6,
         12
       ],
+      "wide_distance_cells": [36, 60],
       "deposits": [
         {
           "item": "core:iron_ore",
@@ -1331,6 +1332,7 @@
         12,
         45
       ],
+      "wide_distance_cells": [60, 170],
       "deposits": [
         {
           "item": "core:iron_ore",
@@ -1367,6 +1369,7 @@
         20,
         60
       ],
+      "wide_distance_cells": [100, 240],
       "deposits": [
         {
           "item": "core:iron_ore",
@@ -1399,6 +1402,7 @@
         10,
         40
       ],
+      "wide_distance_cells": [50, 160],
       "deposits": [
         {
           "item": "core:carbon",
@@ -1431,6 +1435,7 @@
         10,
         40
       ],
+      "wide_distance_cells": [50, 160],
       "depth": [
         1,
         2
@@ -1487,6 +1492,7 @@
         10,
         40
       ],
+      "wide_distance_cells": [50, 160],
       "depth": [
         1,
         2
@@ -1528,6 +1534,7 @@
         12,
         50
       ],
+      "wide_distance_cells": [60, 200],
       "depth": [
         3,
         32
@@ -1584,6 +1591,7 @@
         12,
         50
       ],
+      "wide_distance_cells": [60, 200],
       "depth": [
         3,
         32
@@ -1708,7 +1716,7 @@
       "allows": [],
       "hold_capacity": 0,
       "thrust_speed_percent": 0,
-      "drone_range_cells": 60,
+      "drone_range_cells": 130,
       "drone_interval_ticks": 36,
       "power_use": 20
     },
@@ -1961,5 +1969,43 @@
       "per_wave": 0,
       "from_wave": 8
     }
-  ]
+  ],
+  "world": {
+    "spacing_cells": 1800,
+    "system_radius_cells": 320,
+    "home_star": "core:yellow_dwarf",
+    "anchor_clear_cells": 70,
+    "deposit_clear_cells": 60,
+    "hazard_clear_cells": 80,
+    "depth_richness_percent": 15,
+    "outer_richness_percent": 40,
+    "boost_percent": 400,
+    "collision": { "safe_speed_units": 10, "reference_speed_units": 48, "cooldown_ticks": 60 },
+    "salvage": { "range_cells": 12, "ticks": 60 },
+    "star_types": [
+      { "id": "core:yellow_dwarf", "weight": 40, "richness_percent": 100, "asteroid_percent": 100, "hazard_percent": 100 },
+      { "id": "core:red_dwarf", "weight": 25, "richness_percent": 90, "asteroid_percent": 130, "hazard_percent": 80 },
+      { "id": "core:orange_star", "weight": 15, "richness_percent": 110, "asteroid_percent": 100, "hazard_percent": 100 },
+      { "id": "core:blue_giant", "weight": 10, "richness_percent": 130, "asteroid_percent": 70, "hazard_percent": 160, "min_depth": 1 },
+      { "id": "core:binary_star", "weight": 10, "richness_percent": 120, "asteroid_percent": 110, "hazard_percent": 130, "min_depth": 1 },
+      { "id": "core:pulsar", "weight": 5, "richness_percent": 160, "asteroid_percent": 50, "hazard_percent": 220, "min_depth": 2 }
+    ],
+    "obstacles": [
+      { "id": "core:asteroid_small", "behaviour": "solid", "weight": 6, "radius_tenths": [15, 35], "damage": 6 },
+      { "id": "core:asteroid_big", "behaviour": "solid", "weight": 2, "radius_tenths": [45, 90], "damage": 14 },
+      { "id": "core:floating_mine", "behaviour": "mine", "weight": 3, "radius_tenths": [10, 12], "damage": 90, "trigger_cells": 16, "fuse_ticks": 30, "blast_cells": 18 },
+      { "id": "core:unstable_crystal", "behaviour": "mine", "weight": 2, "radius_tenths": [12, 20], "damage": 45, "trigger_cells": 9, "fuse_ticks": 12, "blast_cells": 11 },
+      { "id": "core:ion_cloud", "behaviour": "cloud", "weight": 1, "radius_tenths": [250, 500], "drain_percent": 60 },
+      { "id": "core:gravity_cloud", "behaviour": "cloud", "weight": 1, "radius_tenths": [250, 550], "slow_percent": 55 },
+      { "id": "core:derelict_wreck", "behaviour": "wreck", "weight": 1, "radius_tenths": [25, 40],
+        "loot": [
+          { "item": "core:iron_plate", "count": [6, 14] },
+          { "item": "core:iron_ingot", "count": [10, 24] },
+          { "item": "core:carbon", "count": [3, 8] },
+          { "item": "core:ammo", "count": [8, 20] },
+          { "item": "core:ice", "count": [4, 12] }
+        ] },
+      { "id": "core:drifting_debris", "behaviour": "drifter", "weight": 1, "radius_tenths": [15, 30], "damage": 10, "drift_units_per_tick": 12 }
+    ]
+  }
 }

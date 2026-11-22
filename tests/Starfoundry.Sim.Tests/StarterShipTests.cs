@@ -189,7 +189,7 @@ public class StarterShipTests
         int dep = HomeIron(p);
         var (x, _, z) = p.Network.DepositPosition(dep);
         // Everything goes through commands: fly, mine by hand, let the factory make ingots, fly again and found a station.
-        ParkViaFlight(p, dep, x, z);
+        ParkViaFlight(p, dep, x, p.Network.DepositPosition(dep).Y, z);
         p.Submit(0, new StartMining(dep));
         p.Step(1500);
         p.Submit(0, new StopMining());
@@ -217,14 +217,15 @@ public class StarterShipTests
     }
 
     /// <summary>Flies the ship with commands to within mining range of a deposit, one axis after the other.</summary>
-    private static void ParkViaFlight(SimWorld w, int deposit, int dx, int dz)
+    private static void ParkViaFlight(SimWorld w, int deposit, int dx, int dy, int dz)
     {
         for (int i = 0; i < 4000 && !w.Network.InMineRange(0, deposit); i++)
         {
             var p = w.Network.GetPlayerInfo(0);
             int tx = Math.Abs(dx * Cell - p.X) > 100 ? Math.Sign(dx * Cell - p.X) : 0;
             int tz = Math.Abs(dz * Cell - p.Z) > 100 ? Math.Sign(dz * Cell - p.Z) : 0;
-            w.Submit(0, new SetMovement(tx, 0, tz));
+            int ty = Math.Abs(dy * Cell - p.Y) > 100 ? Math.Sign(dy * Cell - p.Y) : 0;
+            w.Submit(0, new SetMovement(tx, ty, tz));
             w.Step();
         }
         w.Submit(0, new SetMovement(0, 0, 0));
