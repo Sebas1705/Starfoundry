@@ -2,7 +2,7 @@ namespace Starfoundry.Sim;
 
 public enum StructureKind { Ship, Station }
 
-public enum ModuleKind { Core, Cockpit, Engine, Reactor, Cargo, Workshop, Defence, Hull, DroneBay, Shield, Sensor, ReactorMk2 }
+public enum ModuleKind { Core, Cockpit, Engine, Reactor, Cargo, Workshop, Defence, Hull, DroneBay, Shield, Sensor, ReactorMk2, Dock }
 
 /// <summary>Content ids of module kinds: the enum name in snake case (<c>DroneBay</c> is <c>drone_bay</c>).</summary>
 public static class ModuleKindIds
@@ -104,10 +104,26 @@ public sealed class Structure
     /// <summary>Ticks left in which this structure takes no further collision damage (ADR 0028). Mixed only when non-zero.</summary>
     internal int ImpactCooldown;
 
+    /// <summary>Ships only: the station this ship is docked at, or -1 (ADR 0028). While docked the ship is locked to the port pose and cannot thrust.</summary>
+    internal int DockedTo = -1;
+
+    /// <summary>Ships only, meaningful while docked: the ship's own port (module and face) and the station's port it is joined to.</summary>
+    internal (int Mx, int My, int Mz) DockShipModule, DockStationModule;
+    internal Dir DockShipFace, DockStationFace;
+
+    /// <summary>Stations only: the items kept in the station's stock by item index, or null while it never held anything. See ADR 0028.</summary>
+    internal int[]? Stock;
+
     internal Structure(int id, StructureKind kind, int owner, long ox, long oy, long oz)
     {
         Id = id; Kind = kind; Owner = owner; OriginX = ox; OriginY = oy; OriginZ = oz;
     }
+
+    /// <summary>True while this ship is docked at a station.</summary>
+    public bool IsDocked => DockedTo >= 0;
+
+    /// <summary>The station a ship is docked at, or -1.</summary>
+    public int DockedStation => DockedTo;
 
     internal Structure Clone()
     {
@@ -118,6 +134,9 @@ public sealed class Structure
         c.DroneDeposit = DroneDeposit;
         c.DroneProgress = new SortedDictionary<(int, int, int), int>(DroneProgress);
         c.PowerProduction = PowerProduction; c.PowerDemand = PowerDemand; c.Satisfaction = Satisfaction; c.LaserDraw = LaserDraw; c.ImpactCooldown = ImpactCooldown;
+        c.DockedTo = DockedTo; c.DockShipModule = DockShipModule; c.DockStationModule = DockStationModule;
+        c.DockShipFace = DockShipFace; c.DockStationFace = DockStationFace;
+        c.Stock = Stock is null ? null : (int[])Stock.Clone();
         return c;
     }
 }

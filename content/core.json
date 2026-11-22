@@ -1749,6 +1749,13 @@
       "power_output": 250,
       "burn_interval_ticks": 900,
       "emergency_power": 15
+    },
+    "dock": {
+      "cost": [{ "item": "core:iron_plate", "count": 10 }, { "item": "core:iron_ingot", "count": 8 }],
+      "hp": 200,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0
     }
   },
   "structure_templates": {

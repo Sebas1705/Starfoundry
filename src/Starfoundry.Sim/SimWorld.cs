@@ -461,6 +461,7 @@ public sealed class SimWorld
                 if (Network.JumpRemaining(player) > 0) return Reject.Busy;
                 int current = Network.CurrentSystem(player);
                 if (current < 0) return Reject.NotInASystem;
+                if (Network.IsDocked(player)) return Reject.Docked;
                 if (current == j.System) return Reject.InvalidArgument;
                 if (!galaxy.HasLane(current, j.System)) return Reject.NoLane;
                 if (!Network.IsSystemKnown(j.System)) return Reject.NotDiscovered;
@@ -476,12 +477,14 @@ public sealed class SimWorld
 
             case SetMovement mv:
                 if (mv.Dx is < -1 or > 1 || mv.Dy is < -1 or > 1 || mv.Dz is < -1 or > 1) return Reject.InvalidArgument;
-                if ((mv.Dx | mv.Dy | mv.Dz) != 0 && !Network.CanFly(player)) return Reject.NoCockpitOrEngine; // stopping is always allowed
+                if ((mv.Dx | mv.Dy | mv.Dz) != 0 && Network.IsDocked(player)) return Reject.Docked; // stopping is always allowed
+                if ((mv.Dx | mv.Dy | mv.Dz) != 0 && !Network.CanFly(player)) return Reject.NoCockpitOrEngine;
                 Network.SetMovement(player, mv.Dx, mv.Dy, mv.Dz);
                 return Reject.None;
 
             case SetThrust th:
                 if (!PlayerRules.ThrustInRange(th.Dx, th.Dy, th.Dz)) return Reject.InvalidArgument;
+                if ((th.Dx | th.Dy | th.Dz) != 0 && Network.IsDocked(player)) return Reject.Docked;
                 if ((th.Dx | th.Dy | th.Dz) != 0 && !Network.CanFly(player)) return Reject.NoCockpitOrEngine;
                 Network.SetThrust(player, th.Dx, th.Dy, th.Dz);
                 return Reject.None;
@@ -622,6 +625,29 @@ public sealed class SimWorld
 
             case FoundStation fs:
                 return FoundStationCore(player, fs);
+
+            case DockAt da:
+            {
+                var r = Network.CheckDock(player, da, out var candidate, out var pose);
+                if (r != Reject.None) return r;
+                Network.ApplyDock(player, da, candidate, pose);
+                return Reject.None;
+            }
+
+            case Undock:
+                if (!Network.StructureRules) return Reject.NotAllowedHere;
+                return Network.ApplyUndock(player) ? Reject.None : Reject.NotDocked;
+
+            case TransferItems ti:
+            {
+                if (!Network.StructureRules) return Reject.NotAllowedHere;
+                var content = Network.Content;
+                if (content is null) return Reject.NoContent;
+                if ((uint)ti.Item >= (uint)content.Items.Count) return Reject.InvalidArgument;
+                if (!Network.TryGetDock(player, out var dock)) return Reject.NotDocked;
+                if ((ti.ToStation ? Network.HoldCount(player, ti.Item) : Network.StockCount(dock.Station, ti.Item)) <= 0) return Reject.NotEnoughItems;
+                return Network.TransferItems(player, ti.Item, ti.Count, ti.ToStation) > 0 ? Reject.None : Reject.NoRoom;
+            }
 
             case AssignDrones ad:
             {
@@ -916,6 +942,7 @@ public sealed class SimWorld
         if (!StructureGrid.IsValidLocalModule(p.Mx, p.My, p.Mz)) return Reject.OutOfBounds;
         if (ModuleKindIds.RequiredAbility(p.Kind) is { } needed && Campaign && !Network.HasAbility(needed)) return Reject.Locked;
         if (s!.Modules.ContainsKey((p.Mx, p.My, p.Mz))) return Reject.Overlap;
+        if (Network.ModuleOverlapsDocked(p.Structure, p.Mx, p.My, p.Mz)) return Reject.Overlap; // a docked ship sits in that space
         if (s.Modules.Count > 0)
         {
             if (!Network.StructureModuleTouches(p.Structure, p.Mx, p.My, p.Mz)) return Reject.NotAdjacent;
@@ -946,6 +973,7 @@ public sealed class SimWorld
         var centre = ModuleCentre(s, r.Mx, r.My, r.Mz);
         if (!StructurePointInRange(player, s, centre.X, centre.Y, centre.Z)) return Reject.OutOfRange;
 
+        if (Network.IsDockPortInUse(r.Structure, r.Mx, r.My, r.Mz)) return Reject.ModuleOccupied; // undock first
         // The core anchors the structure: it can only go when it is the last module.
         if (kind == ModuleKind.Core && s.Modules.Count > 1) return Reject.ModuleOccupied;
         // The ship cannot do without its last cockpit, engine, reactor or cargo module (stations are unaffected).

@@ -155,6 +155,19 @@ public sealed record AssignDrones(int Structure, int Deposit) : Command;
 /// the hold has, discards every item of the kind. The item must exist and the hold must hold at least one.</summary>
 public sealed record DumpItems(int Item, int Count) : Command;
 
+/// <summary>Docks the commanding player's ship at a port of a station (ADR 0028): <see cref="Face"/> is the horizontal face (PosX, NegX, PosZ or NegZ)
+/// of the station module at (<see cref="Mx"/>, <see cref="My"/>, <see cref="Mz"/>) whose port the ship joins. The ship's own port is the free port on the opposite face
+/// that is nearest. The ship must be within <see cref="DockRules.RangeCells"/> of the port and slower than <see cref="DockRules.MaxSpeedUnitsPerTick"/>; it is then
+/// locked to the port pose until <see cref="Undock"/>. Needs structure rules.</summary>
+public sealed record DockAt(int Station, int Mx, int My, int Mz, Dir Face) : Command;
+
+/// <summary>Releases the commanding player's docked ship, which keeps its position and can thrust again.</summary>
+public sealed record Undock : Command;
+
+/// <summary>Moves items between the docked ship's hold and the stock of the station it is docked at (ADR 0028). <see cref="ToStation"/> unloads the hold into the
+/// stock, otherwise the stock is loaded into the hold. A <see cref="Count"/> of zero or less, or more than is available or fits, moves as many as possible.</summary>
+public sealed record TransferItems(int Item, int Count, bool ToStation) : Command;
+
 /// <summary>Several commands applied atomically: either all succeed or the world is left untouched.</summary>
 public sealed record Batch(Command[] Commands) : Command;
 
@@ -253,6 +266,24 @@ public enum Reject
 
     /// <summary>The module is the last cockpit, engine, reactor or cargo module of the player's ship, which the ship cannot do without.</summary>
     LastEssentialModule,
+
+    /// <summary>The ship is docked: it cannot thrust or jump until it undocks.</summary>
+    Docked,
+
+    /// <summary>The ship is not docked at a station.</summary>
+    NotDocked,
+
+    /// <summary>The station has no free port there, or the ship has no free port on the opposite face.</summary>
+    NoFreePort,
+
+    /// <summary>The ship is moving faster than <see cref="DockRules.MaxSpeedUnitsPerTick"/>: slow down before docking.</summary>
+    TooFast,
+
+    /// <summary>The hold or the station stock has no room for the items.</summary>
+    NoRoom,
+
+    /// <summary>The ship is already docked.</summary>
+    AlreadyDocked,
 }
 
 /// <summary>Outcome of one submitted command.</summary>

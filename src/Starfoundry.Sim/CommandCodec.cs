@@ -14,17 +14,18 @@ public static class CommandCodec
         TagConnectToMachine = 13, TagConnectFromMachine = 14, TagDisconnectMachine = 15,
         TagStartMining = 16, TagStopMining = 17, TagSetShipRecipe = 18, TagSetResearch = 19,
         TagLinkDeposit = 20, TagUnlinkDeposit = 21, TagSetMovement = 22, TagScan = 23, TagJump = 24, TagSetWeapons = 25, TagRepair = 26, TagSetThrust = 27, TagPlaceModule = 28, TagRemoveModule = 29,
-        TagPlaceMachineIn = 30, TagPlaceSegmentIn = 31, TagPlaceModuleIn = 32, TagRemoveModuleIn = 33, TagFoundStation = 34, TagAssignDrones = 35, TagDumpItems = 36, TagFireLaser = 37, TagSetBoost = 38;
+        TagPlaceMachineIn = 30, TagPlaceSegmentIn = 31, TagPlaceModuleIn = 32, TagRemoveModuleIn = 33, TagFoundStation = 34, TagAssignDrones = 35, TagDumpItems = 36, TagFireLaser = 37, TagSetBoost = 38, TagDockAt = 39, TagUndock = 40, TagTransferItems = 41;
 
     private static readonly byte[] Magic = Encoding.ASCII.GetBytes("SFCL");
 
     /// <summary>Version 2 added the content hash to the header, version 3 the game mode, version 4 the galaxy seed, version 5 the threat flag.</summary>
     /// Version 6 added the station-rules flag (bit 1); the structures flag (bit 2) uses a bit that version 6 left free,
     /// so logs written before it simply read as structures off and the version stays 6.
-    private const byte LogVersion = 10;
+    private const byte LogVersion = 11;
     /// Version 7 added the world rules block (flags bit 3, written only for non-default rules). Version 8 added the scenario id (flags bit 4).
     /// Version 10 added the SetBoost command (tag 38) and the wide galaxy with obstacles: logs of versions 5 to 9 read with <see cref="WorldRules.LegacyGalaxy"/> on (ADR 0028).
     /// Version 9 added the FireLaser command (tag 37) and the mining laser's power draw: logs of versions 5 to 8 read with <see cref="WorldRules.LegacyLaser"/> on, so they replay without it (ADR 0027).
+    /// Version 11 added the docking commands (tags 39 to 41, ADR 0029). They only act on state that older logs never create, so nothing is replayed differently; the reader refuses them in older logs.
     /// <summary>Version 5 headers carry no station-rules or structures flag; they still load, with both rules off.</summary>
     private const byte OldestLogVersion = 5;
 
@@ -56,7 +57,7 @@ public static class CommandCodec
                 or ConnectToMachine or ConnectFromMachine or DisconnectMachine
                 or StartMining or StopMining or SetShipRecipe or SetResearch or LinkDeposit or UnlinkDeposit or SetMovement or SetThrust
                 or Scan or Jump or SetWeapons or Repair or PlaceModule or RemoveModule
-                or PlaceMachineIn or PlaceSegmentIn or PlaceModuleIn or RemoveModuleIn or FoundStation or AssignDrones or DumpItems or FireLaser or SetBoost:
+                or PlaceMachineIn or PlaceSegmentIn or PlaceModuleIn or RemoveModuleIn or FoundStation or AssignDrones or DumpItems or FireLaser or SetBoost or DockAt or Undock or TransferItems:
                 return true;
             default:
                 return false;
@@ -187,6 +188,15 @@ public static class CommandCodec
             case DumpItems di:
                 w.Write(TagDumpItems); w.Write(di.Item); w.Write(di.Count);
                 break;
+            case DockAt da:
+                w.Write(TagDockAt); w.Write(da.Station); w.Write(da.Mx); w.Write(da.My); w.Write(da.Mz); w.Write((byte)da.Face);
+                break;
+            case Undock:
+                w.Write(TagUndock);
+                break;
+            case TransferItems ti:
+                w.Write(TagTransferItems); w.Write(ti.Item); w.Write(ti.Count); w.Write(ti.ToStation);
+                break;
             case Scan:
                 w.Write(TagScan);
                 break;
@@ -271,6 +281,14 @@ public static class CommandCodec
             case TagDumpItems: return new DumpItems(r.ReadInt32(), r.ReadInt32());
             case TagFireLaser: return new FireLaser(r.ReadBoolean());
             case TagSetBoost: return new SetBoost(r.ReadBoolean());
+            case TagDockAt:
+            {
+                int station = r.ReadInt32(), mx = r.ReadInt32(), my = r.ReadInt32(), mz = r.ReadInt32();
+                byte face = r.ReadByte();
+                return new DockAt(station, mx, my, mz, (Dir)face);
+            }
+            case TagUndock: return new Undock();
+            case TagTransferItems: return new TransferItems(r.ReadInt32(), r.ReadInt32(), r.ReadBoolean());
             case TagScan: return new Scan();
             case TagJump: return new Jump(r.ReadInt32());
             case TagSetWeapons: return new SetWeapons(r.ReadBoolean());
@@ -433,12 +451,14 @@ public static class CommandCodec
             var command = Read(r);
             if (version < 9 && HasFireLaser(command)) throw new InvalidDataException("A log older than version 9 cannot hold a FireLaser command.");
             if (version < 10 && HasBoost(command)) throw new InvalidDataException("A log older than version 10 cannot hold a SetBoost command.");
+            if (version < 11 && HasDocking(command)) throw new InvalidDataException("A log older than version 11 cannot hold a docking command.");
             log.Add(new LoggedCommand(tick, player, command));
         }
         return log;
     }
 
     private static bool HasBoost(Command c) => c is SetBoost || (c is Batch b && b.Commands.Any(HasBoost));
+    private static bool HasDocking(Command c) => c is DockAt or Undock or TransferItems || (c is Batch b && b.Commands.Any(HasDocking));
 
     private static bool HasFireLaser(Command c) => c is FireLaser || (c is Batch b && b.Commands.Any(HasFireLaser));
 }
