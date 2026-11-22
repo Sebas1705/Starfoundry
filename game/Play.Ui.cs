@@ -506,7 +506,10 @@ public partial class Play
         var cam = new CameraBasis(V(-basis.Z), V(basis.X), V(basis.Y), Mathf.DegToRad(_camera.Fov));
         var eye = _camera.GlobalPosition;
         float left = _actions.Visible ? _actions.Position.X + _actions.Size.X + 14f : 26f;
-        float bottom = Math.Max(24f, size.Y - _toolbar.Position.Y + 10f);
+        // Markers stay above the bottom strip and the notification lines.
+        float textTop = _toolbar.Position.Y;
+        if (_toastLabels[0].Visible) textTop = Math.Min(textTop, _toastBox.Position.Y);
+        float bottom = Math.Max(24f, size.Y - textTop + 10f);
         var items = new List<MarkerLayer.Item>();
 
         void Add(string label, Color color, Vector3 target, float hideBelow = 4f)
@@ -1168,7 +1171,20 @@ public partial class Play
             string name = ItemName(item);
             _modeHint.Text = L(item.IsStation ? "hint.foundStation" : item.IsModule && _structuresOn ? "hint.buildModuleKind" : item.IsModule ? "hint.buildModule" : item.IsBelt ? "hint.buildBelt" : "hint.buildMachine", name);
         }
+        else if (_laserOn && !Standing && _hover.Kind != HoverKind.Deposit && !PanelOpen())
+            _modeHint.Text = L("hint.laserNoAim", PlayerRules.MineRangeCells); // the laser is out but nothing is aimed at
+        else if (NewPlayerStepHint() is { } step) _modeHint.Text = L("hint.step", step);
         else _modeHint.Text = ""; // nothing to say with the pointer: the key panel lists the keys
+    }
+
+    /// <summary>
+    /// One line with the guided step in progress, for the first steps only (the goals and the full steps panel live under H now): a new
+    /// player always knows what to do next, and the line goes away by itself once the first steps are done.
+    /// </summary>
+    private string? NewPlayerStepHint()
+    {
+        if (!GuidedSteps || _detailsOpen || _helpOpen || Standing || _objectives.DoneCount >= 3 || ThreatNowHud() || _objectives.Current is not { } current) return null;
+        return L(_objectives.States.First(s => s.Objective == current).TitleKey);
     }
 
     private void UpdateObjectivesPanel()
@@ -1305,7 +1321,7 @@ public partial class Play
         _modeHint.HorizontalAlignment = HorizontalAlignment.Center;
         _modeHint.CustomMinimumSize = new Vector2(hintWidth, 0);
         _modeHint.ResetSize();
-        _modeHint.Position = new Vector2(12f + (freeRight - 12f - hintWidth) / 2f, _toolbar.Position.Y - 6 - _modeHint.Size.Y);
+        _modeHint.Position = new Vector2(12f + (freeRight - 12f - hintWidth) / 2f, _toolbar.Position.Y - 10 - _modeHint.Size.Y);
 
         // Notifications: up to three lines in a column above the hint, wrapped to a readable width and centred on the view.
         float toastWidth = Math.Clamp(size.X * 0.6f, 300f, 760f);
@@ -1367,7 +1383,7 @@ public partial class Play
         _tooltipPanel.Visible = _tooltipLabel.Text.Length > 0 && !_demo && AimActive && !_helpOpen;
         _tooltipPanel.ResetSize();
         var tipSize = _tooltipPanel.GetCombinedMinimumSize();
-        _tooltipPanel.Position = AvoidKeyPanel(new Vector2(Math.Clamp(centre.X + 24, 8, Math.Max(8, size.X - tipSize.X - 8)), Math.Clamp(centre.Y + 24, 8, Math.Max(8, size.Y - tipSize.Y - 8))), tipSize);
+        _tooltipPanel.Position = AvoidBottomText(AvoidKeyPanel(new Vector2(Math.Clamp(centre.X + 24, 8, Math.Max(8, size.X - tipSize.X - 8)), Math.Clamp(centre.Y + 24, 8, Math.Max(8, size.Y - tipSize.Y - 8))), tipSize), tipSize);
 
         _seatPrompt.Text = SeatPromptText();
         _seatPrompt.Visible = _seatPrompt.Text.Length > 0 && AimActive && !_helpOpen;
@@ -1376,7 +1392,7 @@ public partial class Play
 
         _targetPanel.ResetSize();
         var ts =_targetPanel.GetCombinedMinimumSize();
-        _targetPanel.Position = AvoidKeyPanel(new Vector2(Math.Clamp(centre.X + 28, 8, Math.Max(8, size.X - ts.X - 8)), Math.Clamp(centre.Y + 28, 8, Math.Max(8, size.Y - ts.Y - barSize.Y - 14))), ts);
+        _targetPanel.Position = AvoidBottomText(AvoidKeyPanel(new Vector2(Math.Clamp(centre.X + 28, 8, Math.Max(8, size.X - ts.X - 8)), Math.Clamp(centre.Y + 28, 8, Math.Max(8, size.Y - ts.Y - barSize.Y - 14))), ts), ts);
         _markers.Size = size;
         LayoutDefenceUi(size, centre);
         ApplyHudContext(size);

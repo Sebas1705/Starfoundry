@@ -120,34 +120,54 @@ public static class ModuleModels
         const float Top = 0.086f;
         var role = c.Role;
         var dim = new Color(role.R * 0.55f, role.G * 0.55f, role.B * 0.55f);
-        mb.At(default).C(Dark).Block(new(4, 0.04f, 4), new(7.9f, 0.08f, 7.9f));
-        mb.C(DeckCol).Block(new(4, 0.05f, 4), new(7.3f, 0.07f, 7.3f));
+        // A deck with a module below it has a stairwell: a square opening at the rear right with a coaming and a ladder going down.
+        bool hole = c.Has(Down) && c.Kind is ModuleKind.Hull or ModuleKind.Cargo or ModuleKind.Workshop or ModuleKind.DroneBay
+            or ModuleKind.Cockpit or ModuleKind.Engine or ModuleKind.Defence;
+        const float Hx0 = 5.4f, Hx1 = 7.0f, Hz0 = 1.0f, Hz1 = 2.6f;
+        void Blk(Vector3 ctr, Vector3 size)
+        {
+            if (!hole) { mb.Block(ctr, size); return; }
+            float x0 = ctr.X - size.X / 2, x1 = ctr.X + size.X / 2, z0 = ctr.Z - size.Z / 2, z1 = ctr.Z + size.Z / 2;
+            if (x1 <= Hx0 || x0 >= Hx1 || z1 <= Hz0 || z0 >= Hz1) { mb.Block(ctr, size); return; }
+            void Piece(float ax0, float ax1, float az0, float az1)
+            {
+                if (ax1 - ax0 < 0.004f || az1 - az0 < 0.004f) return;
+                mb.Block(new((ax0 + ax1) / 2, ctr.Y, (az0 + az1) / 2), new(ax1 - ax0, size.Y, az1 - az0));
+            }
+            float cx0 = MathF.Max(x0, Hx0), cx1 = MathF.Min(x1, Hx1);
+            Piece(x0, MathF.Min(x1, Hx0), z0, z1);
+            Piece(MathF.Max(x0, Hx1), x1, z0, z1);
+            Piece(cx0, cx1, z0, MathF.Min(z1, Hz0));
+            Piece(cx0, cx1, MathF.Max(z0, Hz1), z1);
+        }
+        mb.At(default); mb.C(Dark); Blk(new(4, 0.04f, 4), new(7.9f, 0.08f, 7.9f));
+        mb.C(DeckCol); Blk(new(4, 0.05f, 4), new(7.3f, 0.07f, 7.3f));
         // plate seams every two cells, in a slightly darker tone, so the floor reads as hard-surface plating
         mb.C(new Color(0.14f, 0.16f, 0.21f));
         for (int i = 1; i < 4; i++)
         {
-            mb.Block(new(i * 2f, Top - 0.004f, 4), new(0.05f, 0.01f, 7.3f));
-            mb.Block(new(4, Top - 0.004f, i * 2f), new(7.3f, 0.01f, 0.05f));
+            Blk(new(i * 2f, Top - 0.004f, 4), new(0.05f, 0.01f, 7.3f));
+            Blk(new(4, Top - 0.004f, i * 2f), new(7.3f, 0.01f, 0.05f));
         }
         // the border line: the structure's trim colour on a ship's or a station's deck
         mb.C(c.Acc);
         foreach (float s in new[] { -1f, 1f })
         {
-            mb.Block(new(4 + s * 3.5f, Top, 4), new(0.1f, 0.012f, 7.1f));
-            mb.Block(new(4, Top, 4 + s * 3.5f), new(7.1f, 0.012f, 0.1f));
+            Blk(new(4 + s * 3.5f, Top, 4), new(0.1f, 0.012f, 7.1f));
+            Blk(new(4, Top, 4 + s * 3.5f), new(7.1f, 0.012f, 0.1f));
         }
         switch (c.Kind)
         {
             case ModuleKind.Cockpit:
                 mb.C(dim);
-                foreach (float x in new[] { 2.3f, 5.7f }) mb.Block(new(x, Top, 4), new(0.08f, 0.012f, 6.4f));
-                mb.C(role).Block(new(4, Top, 4), new(0.12f, 0.014f, 6.4f));
+                foreach (float x in new[] { 2.3f, 5.7f }) Blk(new(x, Top, 4), new(0.08f, 0.012f, 6.4f));
+                mb.C(role); Blk(new(4, Top, 4), new(0.12f, 0.014f, 6.4f));
                 break;
             case ModuleKind.Engine:
                 mb.C(Dark);
-                for (int i = 0; i < 6; i++) mb.Block(new(4, Top, 0.9f + i * 0.9f), new(5.6f, 0.014f, 0.32f));
+                for (int i = 0; i < 6; i++) Blk(new(4, Top, 0.9f + i * 0.9f), new(5.6f, 0.014f, 0.32f));
                 mb.C(dim);
-                foreach (float x in new[] { 1.0f, 7.0f }) mb.Block(new(x, Top, 4), new(0.16f, 0.014f, 7f));
+                foreach (float x in new[] { 1.0f, 7.0f }) Blk(new(x, Top, 4), new(0.16f, 0.014f, 7f));
                 break;
             case ModuleKind.Reactor:
             case ModuleKind.ReactorMk2:
@@ -158,27 +178,27 @@ public static class ModuleModels
                 break;
             case ModuleKind.Cargo:
                 mb.C(role);
-                foreach (float x in new[] { 2.4f, 5.6f }) mb.Block(new(x, Top, 4), new(0.12f, 0.014f, 7f));
-                for (int i = 0; i < 4; i++) mb.Block(new(4, Top, 1.2f + i * 1.9f), new(3.1f, 0.014f, 0.1f));
+                foreach (float x in new[] { 2.4f, 5.6f }) Blk(new(x, Top, 4), new(0.12f, 0.014f, 7f));
+                for (int i = 0; i < 4; i++) Blk(new(4, Top, 1.2f + i * 1.9f), new(3.1f, 0.014f, 0.1f));
                 break;
             case ModuleKind.Workshop:
                 mb.C(role);
-                foreach (float x in new[] { 2.2f, 5.8f }) mb.Block(new(x, Top, 4), new(0.18f, 0.014f, 7f));
+                foreach (float x in new[] { 2.2f, 5.8f }) Blk(new(x, Top, 4), new(0.18f, 0.014f, 7f));
                 mb.C(Dark);
-                for (int i = 0; i < 7; i++) mb.Block(new(4, Top, 0.9f + i), new(3.4f, 0.014f, 0.3f));
+                for (int i = 0; i < 7; i++) Blk(new(4, Top, 0.9f + i), new(3.4f, 0.014f, 0.3f));
                 break;
             case ModuleKind.Defence:
                 mb.C(role);
                 for (int i = 0; i < 4; i++)
                     foreach (float s in new[] { -1f, 1f })
-                        mb.Block(new(4 + s * 3.15f, Top, 1.0f + i * 2.0f), new(0.5f, 0.014f, 0.5f));
+                        Blk(new(4 + s * 3.15f, Top, 1.0f + i * 2.0f), new(0.5f, 0.014f, 0.5f));
                 mb.C(dim).Prism(new(4, 0.07f, 4), 1.4f, 1.4f, 0.02f, 8);
                 break;
             case ModuleKind.DroneBay:
                 mb.C(role);
-                foreach (float x in new[] { 2.5f, 5.5f }) mb.Block(new(x, Top, 4), new(0.14f, 0.014f, 7f));
+                foreach (float x in new[] { 2.5f, 5.5f }) Blk(new(x, Top, 4), new(0.14f, 0.014f, 7f));
                 mb.C(dim);
-                for (int i = 0; i < 5; i++) mb.Block(new(4, Top, 1.0f + i * 1.5f), new(3.0f, 0.014f, 0.1f));
+                for (int i = 0; i < 5; i++) Blk(new(4, Top, 1.0f + i * 1.5f), new(3.0f, 0.014f, 0.1f));
                 break;
             case ModuleKind.Core:
                 mb.C(role).Prism(new(4, 0.07f, 4), 3.1f, 3.1f, 0.02f, 8, 22.5f);
@@ -196,9 +216,23 @@ public static class ModuleModels
                 mb.C(new Color(0.30f, 0.33f, 0.40f));
                 for (int i = 0; i < 4; i++)
                     for (int j = 0; j < 4; j++)
-                        mb.Block(new(1 + i * 2f, Top, 1 + j * 2f), new(0.14f, 0.014f, 0.14f));
+                        Blk(new(1 + i * 2f, Top, 1 + j * 2f), new(0.14f, 0.014f, 0.14f));
                 break;
         }
+        if (!hole) return;
+        // The coaming round the stairwell, a dark shaft wall on two sides and a ladder on the rear edge going down to the deck below.
+        const float Cw = 0.1f, Ch = 0.12f;
+        float hcx = (Hx0 + Hx1) / 2, hcz = (Hz0 + Hz1) / 2, hw = Hx1 - Hx0, hd = Hz1 - Hz0;
+        mb.C(Yellow);
+        mb.Block(new(hcx, Top + Ch / 2, Hz0 - Cw / 2), new(hw + 2 * Cw, Ch, Cw));
+        mb.Block(new(Hx0 - Cw / 2, Top + Ch / 2, hcz), new(Cw, Ch, hd));
+        mb.Block(new(Hx1 + Cw / 2, Top + Ch / 2, hcz), new(Cw, Ch, hd));
+        mb.Block(new(hcx, Top + Ch / 2, Hz1 + Cw / 2), new(hw + 2 * Cw, Ch, Cw));
+        mb.C(Steel);
+        foreach (float rx in new[] { hcx - 0.45f, hcx + 0.45f })
+            mb.Block(new(rx, -1.6f, Hz1 - 0.12f), new(0.07f, 3.6f + 0.9f, 0.07f)); // rails stand a little over the deck as handholds
+        for (int i = 0; i < 7; i++)
+            mb.Block(new(hcx, -3.4f + i * 0.52f, Hz1 - 0.12f), new(0.9f, 0.05f, 0.05f));
     });
 
     /// <summary>The opening of a doorway in a wall, and the lit sill on the floor across it.</summary>
@@ -491,8 +525,6 @@ public static class ModuleModels
                     mb.Block(P(4 + s * (w + 0.15f), 0.08f + jh / 2), S(0.3f, jh, 0.46f));
                 mb.Block(P(4, 0.08f + jh + 0.12f), S(2 * w + 0.6f, 0.24f, 0.46f));
                 mb.C(c.Role).Block(P(4, 0.08f + jh + 0.27f), S(2 * w + 0.6f, 0.06f, 0.5f));
-                foreach (float s in new[] { -1f, 1f })
-                    mb.Block(P(4 + s * (w + 0.15f), 0.08f + jh / 2, 0f), S(0.08f, jh, 0.5f));
                 mb.C(Dark).Block(P(4, 0.098f), S(2 * w, 0.01f, 0.5f)); // the sill
                 mb.C(c.Role).Block(P(4 + w - 0.05f, 0.1f), S(0.1f, 0.012f, 0.5f));
                 mb.Block(P(4 - w + 0.05f, 0.1f), S(0.1f, 0.012f, 0.5f));

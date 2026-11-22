@@ -322,6 +322,8 @@ public static class Loc
         ["toast.depositSelected"] = ("Yacimiento de {0} elegido. Saca el láser (M) y mantén el clic para minarlo.", "{0} deposit selected. Take out the laser (M) and hold the click to mine it."),
         ["toast.laserStowed"] = ("Láser guardado. Pulsa M para sacarlo.", "Laser stowed. Press M to take it out again."),
         ["toast.laserReady"] = ("Láser de minería listo: apunta a un yacimiento y mantén el clic izquierdo.", "Mining laser ready: aim at a deposit and hold the left click."),
+        ["hint.laserNoAim"] = ("Láser fuera: apunta a un yacimiento a menos de {0} celdas y mantén el clic. M lo guarda.", "Laser out: aim at a deposit within {0} cells and hold the click. M stows it."),
+        ["hint.step"] = ("Siguiente: {0}  (H: guía)", "Next: {0}  (H: guide)"),
         ["toast.laserTooFar"] = ("El yacimiento está fuera del alcance del láser ({0} celdas): acércate.", "The deposit is out of the laser's range ({0} cells): move closer."),
         ["toast.noDeposits"] = ("No conoces ningún yacimiento aquí. Escanea con K.", "No known deposits here. Scan with K."),
         ["toast.chooseSystem"] = ("Abre el mapa (G) y elige un sistema con las flechas.", "Open the map (G) and choose a system with the arrows."),

@@ -47,7 +47,11 @@ public partial class Play
         var centre = new Vector3(d.X, d.Y, d.Z);
         var ship = ShipPosition(0f);
         // The beam leaves a little below and ahead of the camera and ends on the rock's surface, facing the ship.
-        var from = Overview ? ship + Vector3.Up * 0.3f : AimOrigin() + AimDirection() * 0.8f + Vector3.Down * 0.35f;
+        // From the cockpit the emitter sits low and to the right of the view, so the beam reads as a line running to the rock instead of a dot.
+        var aim = AimDirection();
+        var right = aim.Cross(Vector3.Up);
+        right = right.LengthSquared() < 1e-4f ? Vector3.Right : right.Normalized();
+        var from = Overview ? ship + Vector3.Up * 0.3f : AimOrigin() + aim * 0.9f + Vector3.Down * 0.42f + right * 0.38f;
         float surface = 1.2f * DepositView.RockScale(Net.DepositInitial(dep));
         var toShip = (ship - centre).Normalized();
         var to = centre + toShip * surface;
@@ -55,7 +59,7 @@ public partial class Play
         if (length < 0.05f) return;
 
         float pulse = 0.75f + 0.25f * MathF.Sin((float)_animTime * 38f);
-        foreach (var (node, width) in new[] { (_laserCore!, 0.05f), (_laserHalo!, 0.16f) })
+        foreach (var (node, width) in new[] { (_laserCore!, 0.07f), (_laserHalo!, 0.22f) })
         {
             node.Visible = true;
             node.LookAtFromPosition((from + to) / 2f, to);
