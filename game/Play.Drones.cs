@@ -210,8 +210,7 @@ public partial class Play
 
             var dp = Net.DepositPosition(status.Deposit);
             var target = new Vector3(dp.X, dp.Y, dp.Z);
-            var origin = root.Position;
-            var first = origin + flock.Bays[0];
+            var first = root.Transform * flock.Bays[0];
 
             // the beam from the first bay to the deposit
             var span = target - first;
@@ -226,7 +225,7 @@ public partial class Play
             float period = 4f + 2f * length / 9f; // seconds for a round trip: longer for far deposits
             for (int j = 0; j < n; j++)
             {
-                var start = origin + flock.Bays[j % flock.Bays.Length];
+                var start = root.Transform * flock.Bays[j % flock.Bays.Length];
                 float u = _droneClock / period + j / (float)n;
                 u -= MathF.Floor(u);
                 float angle = j * (Mathf.Tau / n) + _droneClock * 1.3f;

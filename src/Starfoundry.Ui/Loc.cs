@@ -193,8 +193,8 @@ public static class Loc
         ["tip.enemy"] = ("Enemigo: {0}  (vida {1})", "Enemy: {0}  (HP {1})"),
 
         // ---- hints under the bar ----
-        ["hint.pointer"] = ("Ratón: mirar   WASD: volar   Espacio/C: subir/bajar   Tab: soltar el ratón (para pulsar las teclas de abajo a la derecha)",
-                            "Mouse: look   WASD: fly   Space/C: up/down   Tab: free the mouse (to click the keys at the bottom right)"),
+        ["hint.pointer"] = ("Ratón: pilotar   WASD: volar   Espacio/C: subir/bajar   Z/X: alabeo   Tab: soltar el ratón (para pulsar las teclas de abajo a la derecha)",
+                            "Mouse: steer   WASD: fly   Space/C: up/down   Z/X: roll   Tab: free the mouse (to click the keys at the bottom right)"),
         ["hint.pointerWalk"] = ("Ratón: mirar   WASD: caminar   Mayús: correr   Tab: soltar el ratón (para pulsar las teclas de abajo a la derecha)",
                                 "Mouse: look   WASD: walk   Shift: run   Tab: free the mouse (to click the keys at the bottom right)"),
         ["hint.sit"] = ("E: sentarse", "E: sit"),
@@ -977,6 +977,13 @@ public static class Loc
         ["key.cap.hold"] = ("Mantén clic", "Hold click"),
         ["key.mineFire"] = ("Disparar láser a un yacimiento", "Fire the laser at a deposit"),
         ["key.boost"] = ("Impulso (más velocidad)", "Boost (faster)"),
+        ["key.roll"] = ("Alabeo (también flechas)", "Roll (arrows too)"),
+        ["key.look"] = ("Mirar dentro de la nave", "Look inside the ship"),
+        ["key.mapRotate"] = ("Girar el mapa 3D", "Rotate the 3D map"),
+        ["key.cap.drag"] = ("Arrastrar", "Drag"),
+        ["hud.frame"] = ("Marco galáctico", "Galactic frame"),
+        ["mark.gate"] = ("Puerta: {0}", "Gate: {0}"),
+        ["mark.gateDist"] = ("{0} uds. de mapa", "{0} map units"),
 
         // ---- obstacles, boost and collisions (ADR 0028) ----
         ["obstacle.core:asteroid_small"] = ("asteroide pequeño", "small asteroid"),
@@ -1090,14 +1097,14 @@ public static class Loc
             "  Muestra las teclas que sirven ahora mismo y cambia según lo que haces o apuntas: volando, a pie, con una herramienta de construcción, apuntando a una máquina o a un yacimiento, con el mapa o un menú abierto y, en oleada, las armas y la reparación arriba, en rojo.\n" +
             "  Con el ratón suelto (Tab) puedes hacer clic en una fila para pulsar esa tecla; las filas atenuadas dicen por qué no se pueden usar (pasa el ratón por encima).\n\n" +
             "Ratón\n" +
-            "  Mover el ratón   mirar (la vista es la cabina de la nave); la mirilla del centro es tu puntería\n" +
+            "  Mover el ratón   pilotar: gira la nave sobre sus propios ejes (cabeceo y guiñada, sin límite ni horizonte; en el espacio no hay arriba). Con una herramienta de construcción, de pie o con Alt pulsado mira por dentro de la nave. La mirilla del centro es tu puntería\n" +
             "  Clic izquierdo   inspeccionar lo que apuntas o elegir un yacimiento\n" +
             "                   construyendo: apunta al suelo y coloca (cintas: clic al inicio y clic al final, o arrastra)\n" +
             "  Clic derecho     demoler lo que apuntas (se devuelve el coste)\n" +
             "  Tab              soltar el ratón para usar los botones (clic en el juego para volver a mirar)\n\n" +
             "Nave\n" +
-            "  W S   avanzar / retroceder hacia donde miras     A D   desplazarse a los lados     Espacio / C   subir / bajar\n" +
-            "  E   sentarte / levantarte del asiento del piloto (de pie: WASD camina, Mayús corre y no se vuela)\n  M   minar (vuela primero al yacimiento)      F   refinería       K   escanear       V   armas\n  Marcadores (sentado): yacimiento elegido, enemigo más cercano y tu base; en el borde de la pantalla señalan hacia dónde mirar\n\n" +
+            "  W S   avanzar / retroceder por el eje de la nave     A D   desplazarse a los lados     Espacio / C   hacia el techo / hacia el suelo de la nave     Z X (o flechas)   alabeo\n" +
+            "  E   sentarte / levantarte del asiento del piloto (de pie: WASD camina, Mayús corre y no se vuela)\n  M   minar (vuela primero al yacimiento)      F   refinería       K   escanear       V   armas\n  Marcadores (sentado): yacimiento elegido y los más cercanos, enemigo más cercano, estación y puertos, y la puerta hacia el sistema elegido en el mapa; llevan distancia y, en el borde de la pantalla, una flecha y los grados que hay que girar\n  Marco galáctico (arriba, centro): los ejes fijos X, Y, Z de la galaxia vistos desde tu nave; no es un horizonte\n\n" +
             "Construcción\n" +
             "  B   menú de construcción, anclado a la derecha (pestañas Logística, Producción, Defensa y Estructura, con coste, energía y qué hace cada cosa; flechas, Intro o clic eligen la herramienta; Re Pág / Av Pág cambian de pestaña; B o Esc lo cierran)       Esc   dejar de construir\n" +
             "  1-9, 0, Q   teclas rápidas de las primeras entradas (cintas, horno, ensamblador, laboratorio, depósito, torreta, muro, taller de reparación, puerto de carga; el panel de teclas las lista con su coste al pasar el ratón por la fila 1-0); los demás puertos solo están en el menú B\n" +
@@ -1110,21 +1117,21 @@ public static class Loc
             "  Ctrl+Supr   tirar al espacio la mayor pila de mineral sobrante de la bodega (carbono, cuarzo, titanio, níquel; hielo si hay 20 de hidrógeno); no toca el hierro, el hidrógeno ni el carbono del salto\n" +
             "  Clic en una máquina sin herramienta: ver su estado y cambiar su receta (Tab para usar sus botones).\n  Retroceso   reparar todas las máquinas dañadas a tu alcance (cuesta la mitad de su coste, en proporción al daño)\n\n" +
             "Otros\n" +
-            "  T   panel de investigación (flechas e Intro eligen; ahí se ve qué necesita y qué desbloquea cada una)      G   mapa estelar (flechas y J para saltar)\n" +
+            "  T   panel de investigación (flechas e Intro eligen; ahí se ve qué necesita y qué desbloquea cada una)      G   mapa estelar 3D (flechas arriba/abajo eligen, izquierda/derecha o arrastrar lo giran, J salta)\n" +
             "  P   pausa       + / -   velocidad       L   idioma       O   pasos       [ ]   cambiar yacimiento\n  H   panel de información (detalles de estado, objetivos y pasos, investigación y amenaza; si no, la pantalla solo muestra lo que apuntas)       F6   guardar       F9   cargar (se guarda sola cada 5 minutos)       F11   pantalla completa",
             "CONTROLS   (F1 to close)\n\n" +
             "Key panel (bottom right)\n" +
             "  Shows the keys that work right now and changes with what you do or aim at: flying, on foot, with a build tool, aiming at a machine or a deposit, with the map or a menu open and, during a wave, the weapons and the repair on top, in red.\n" +
             "  With the mouse free (Tab) you can click a row to press that key; dimmed rows say why they cannot be used (hover them).\n\n" +
             "Mouse\n" +
-            "  Move the mouse   look (the view is the ship's cockpit); the centre crosshair is your aim\n" +
+            "  Move the mouse   pilot: turns the ship about its own axes (pitch and yaw, no limit, no horizon; there is no up in space). With a build tool in hand, standing, or with Alt held you look around inside the ship. The centre crosshair is your aim\n" +
             "  Left click       inspect what you aim at or pick a deposit\n" +
             "                   building: aim at the ground and place (belts: click the start and click the end, or drag)\n" +
             "  Right click      demolish what you aim at (the cost is refunded)\n" +
             "  Tab              free the mouse to use the buttons (click in the game to look again)\n\n" +
             "Ship\n" +
-            "  W S   forward / back where you look     A D   strafe     Space / C   up / down\n" +
-            "  E   sit at / stand up from the pilot seat (standing: WASD walks, Shift runs, no flying)\n  M   mine (flies to the deposit first)      F   refinery       K   scan       V   weapons\n  Markers (seated): the selected deposit, the nearest enemy and your base; at the screen edge they point where to look\n\n" +
+            "  W S   forward / back along the ship's axis     A D   strafe     Space / C   toward the ship's roof / floor     Z X (or arrows)   roll\n" +
+            "  E   sit at / stand up from the pilot seat (standing: WASD walks, Shift runs, no flying)\n  M   mine (flies to the deposit first)      F   refinery       K   scan       V   weapons\n  Markers (seated): the selected deposit and the nearest ones, the nearest enemy, stations and ports, and the gate toward the system chosen on the map; they carry the distance and, at the screen edge, an arrow and the degrees to turn\n  Galactic frame (top centre): the fixed X, Y, Z axes of the galaxy as seen from your ship; it is not a horizon\n\n" +
             "Building\n" +
             "  B   build menu, docked at the right (tabs Logistics, Production, Defence and Structure, with cost, power and what each thing does; arrows, Enter or click pick the tool; PgUp / PgDn change tab; B or Esc close it)       Esc   stop building\n" +
             "  1-9, 0, Q   quick keys for the first entries (belts, smelter, assembler, lab, depot, turret, wall, repair bay, cargo port; the key panel lists them with their cost when you hover its 1-0 row); the other ports are only in the B menu\n" +
@@ -1137,7 +1144,7 @@ public static class Loc
             "  Ctrl+Delete   dump the largest stack of spare ore from the hold into space (carbon, quartz, titanium, nickel; ice while you hold 20 hydrogen); it never touches iron, hydrogen or the jump carbon\n" +
             "  With no tool, click a machine: see its status and change its recipe (Tab to use its buttons).\n  Backspace   repair every damaged machine within reach (half the build cost, in proportion to the damage)\n\n" +
             "Other\n" +
-            "  T   research panel (arrows and Enter choose; it shows what each one needs and unlocks)      G   star map (arrows and J to jump)\n" +
+            "  T   research panel (arrows and Enter choose; it shows what each one needs and unlocks)      G   3D star map (up/down arrows choose, left/right or drag rotate it, J jumps)\n" +
             "  P   pause       + / -   speed       L   language       O   steps       [ ]   change deposit\n  H   info panels (status details, goals and steps, research and threat; otherwise the screen only shows what you aim at)       F6   save       F9   load (it also saves itself every 5 minutes)       F11   fullscreen"),
     };
 }

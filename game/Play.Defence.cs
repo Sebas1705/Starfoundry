@@ -183,7 +183,7 @@ void fragment() {
             if (st is null || !st.Modules.TryGetValue((k.Mx, k.My, k.Mz), out var kind)) continue;
             int max = Net.ModuleMaxHp(kind), hp = Net.ModuleHp(k.S, k.Mx, k.My, k.Mz);
             if (max <= 0 || hp >= max) continue;
-            var world = StructOrigin(k.S) + StationView.Centre(k.Mx, k.My, k.Mz) + new Vector3(0f, StationGrid.ModuleY / 2f, 0f);
+            var world = StructToWorld(k.S, StationView.Centre(k.Mx, k.My, k.Mz) + new Vector3(0f, StationGrid.ModuleY / 2f, 0f));
             if (_camera.IsPositionBehind(world)) continue;
             var screen = _camera.UnprojectPosition(world);
             bars.Add(new ModuleBarLayer.Item(screen, $"{KindName(kind)} {hp}/{max}", hp / (float)max, HpColor(hp / (float)max)));

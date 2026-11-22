@@ -37,7 +37,10 @@ public partial class Play : Node3D
 
     // Rendering
     private Camera3D _camera = null!;
-    // First person: the camera sits in the cockpit and looks along yaw/pitch (radians). Yaw 0 looks along -Z; the start faces +X.
+    // First person: the camera sits in the cockpit. Free flight (see Play.Flight.cs): the ship's attitude is a full 6-DOF rotation turned about
+    // its own axes (_shipQuat, no up, no pitch limit), and the head look below is relative to the ship: yaw/pitch (radians) with yaw 0 along the
+    // ship's nose (-Z). While piloting the head rests on the nose; with a build tool in hand, Alt held or standing it turns upright in the ship's
+    // frame (its own floor), clamped like the old cockpit view.
     private float _yaw = -MathF.PI / 2f, _pitch = -0.3f;
     // Only the scripted modes (--demo, --stress) use an overview camera that follows the base from above; normal play never does.
     private float _overviewDistance = DefaultDistance;
@@ -142,9 +145,11 @@ public partial class Play : Node3D
         _structuresShot = _structuresShotPath is not null || _powerShotPath is not null || _droneShotPath is not null || _defenceShotPath is not null || _endShotPath is not null || args.Any(a => a.StartsWith("--obstacle-shot="));
         _walkShotPath = args.FirstOrDefault(a => a.StartsWith("--walk-shot="))?["--walk-shot=".Length..];
         _walkShot = _walkShotPath is not null;
+        _flightShotPath = args.FirstOrDefault(a => a.StartsWith("--flight-shot="))?["--flight-shot=".Length..];
+        _flightShot = _flightShotPath is not null;
         _dockShotPath = args.FirstOrDefault(a => a.StartsWith("--dock-shot="))?["--dock-shot=".Length..];
         _dockShot = _dockShotPath is not null;
-        bool threats = !(args.Contains("--demo") || _exploreDemo) && _stressMachines == 0 && !((_structuresShot || _walkShot || _dockShot) && !args.Contains("--threats") && _defenceShotPath is null && _endShotPath is null);
+        bool threats = !(args.Contains("--demo") || _exploreDemo) && _stressMachines == 0 && !((_structuresShot || _walkShot || _dockShot || _flightShot) && !args.Contains("--threats") && _defenceShotPath is null && _endShotPath is null);
         _stationDemo = args.Contains("--station-demo");
         // --station-demo: a sandbox world with the station rules on and a scripted station, for screenshots of the build rules.
         _gameMode = _exploreDemo || _threatDemo || _stressMachines > 0 || (_stationDemo && !args.Contains("--station-campaign")) || args.Contains("--structure-demo")
@@ -472,7 +477,7 @@ void fragment() {
         UpdateStructurePower();
         int ship = ShipStruct;
         if (ship < 0 || !Net.HasPlayer(Player)) return;
-        if (_stationView.StructureRoot(ship) is { } root) root.Position = ShipPosition(_demo ? 0f : alpha);
+        if (_stationView.StructureRoot(ship) is { } root) root.Transform = ShipRootTransform(ShipPosition(_demo ? 0f : alpha)); // turned about the pilot seat
         var pi = Net.GetPlayerInfo(Player);
         bool thrusting = Net.CanFly(Player) && (pi.MoveX | pi.MoveY | pi.MoveZ | pi.ThrustX | pi.ThrustY | pi.ThrustZ) != 0;
         // Throttle (analog thrust, 1024 = full) sets the flame size; a keyboard move is full thrust.
@@ -507,6 +512,9 @@ void fragment() {
         float layerWorldY = _cursorY + (ShipStruct >= 0 ? pos.Y : 0f);
         float floorY = layerWorldY + 0.02f;
         float dy = Math.Abs(pos.Y - (layerWorldY + 0.5f));
+        // Free flight: a flat ring on a world plane would be a horizon, so the range rings exist only in the scripted overview camera.
+        // In the cockpit the ranges are read from the distance on the markers and the tooltips.
+        _buildRange.Visible = _mineRange.Visible = Overview;
         foreach (var (disc, radius) in new[] { (_buildRange, (float)PlayerRules.BuildRangeCells), (_mineRange, (float)PlayerRules.MineRangeCells) })
         {
             float r = MathF.Sqrt(MathF.Max(0.01f, radius * radius - dy * dy)) / radius;
@@ -534,10 +542,7 @@ void fragment() {
     private MeshInstance3D _buildRange = null!, _mineRange = null!;
     private float _shipYaw;
 
-    /// <summary>Unit view direction from the cockpit yaw and pitch (Godot convention: yaw 0 looks along -Z).</summary>
-    private Vector3 CockpitForward() =>
-        new(-MathF.Sin(_yaw) * MathF.Cos(_pitch), MathF.Sin(_pitch), -MathF.Cos(_yaw) * MathF.Cos(_pitch));
-
+    /// <summary>The head's right-hand side on the ship's floor plane, in the ship's frame (walking; the head is upright in the ship's own frame).</summary>
     private Vector3 CockpitRight() => new(MathF.Cos(_yaw), 0f, -MathF.Sin(_yaw));
 
     private void PlaceCamera(Vector3 shipPos)
@@ -557,8 +562,8 @@ void fragment() {
             _camera.LookAtFromPosition(mid + new Vector3(30f, 15f, 14f), mid);
             return;
         }
-        _camera.Position = shipPos + (ShipStruct >= 0 ? EyeLocal() : CockpitOffset) + ShakeOffset();
-        _camera.Rotation = new Vector3(_pitch, _yaw, 0f);
+        var eye = ShipStruct >= 0 ? ShipRootTransform(shipPos) * EyeLocal() : shipPos + CockpitOffset;
+        _camera.Transform = new Transform3D(CameraWorldBasis(), eye + ShakeOffset());
     }
 
     private static string Nice(string id) => id[(id.IndexOf(':') + 1)..].Replace('_', ' ');
@@ -845,7 +850,8 @@ void fragment() {
         _mapList.Visible = _mapOpen;
         if (!_mapOpen || Net.Galaxy is null) return;
         if (_selectedSystem < 0 || !Net.IsSystemKnown(_selectedSystem)) _selectedSystem = KnownSystems().FirstOrDefault();
-        _map.Show(Net.Galaxy, Net.IsSystemKnown, Net.IsSystemVisited, Net.CurrentSystem(Player), _selectedSystem);
+        var nose = -_camera.GlobalTransform.Basis.Z;
+        _map.Show(Net.Galaxy, Net.IsSystemKnown, Net.IsSystemVisited, Net.CurrentSystem(Player), _selectedSystem, new System.Numerics.Vector3(nose.X, nose.Y, nose.Z));
         _mapList.Text = L("map.title") + "\n" + string.Join("\n", KnownSystems().Select(SystemLine));
     }
 
@@ -1130,6 +1136,7 @@ void fragment() {
     public override void _Process(double delta)
     {
         float alpha = (float)Engine.GetPhysicsInterpolationFraction();
+        UpdateAttitude((float)delta); // free flight: roll, the settle onto a port, the head back to the nose
         UpdateDock((float)delta); // the docking guidance and the settling slide: before anything reads the ship position
         UpdateStructureRoots(alpha); // first: the machine and item nodes are children of these roots
         DrawItems(alpha);
@@ -1143,6 +1150,7 @@ void fragment() {
         UpdateShip(alpha, (float)delta);
         UpdateObstacles((float)delta);
         if (_walkShot) WalkShotFrame();
+        if (_flightShot) FlightShotFrame();
         if (_dockShot) DockShotFrame();
         if (!_structuresOn) _stationView.Sync(Net, Player, _cursorY);
         if (_structureDemo) StructureDemoTick();

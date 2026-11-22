@@ -220,6 +220,8 @@ public static class KeyHints
         if (s.StructuresOn) yield return Row("found", "I", "found", "I");
         if (s.ModuleToolAvailable) yield return Row("module", "N", "module", "N");
         if (s.BoostAvailable) yield return Row("boost", "Shift", "boost", state: s.Boosting ? KeyRowState.Active : KeyRowState.Info);
+        yield return new KeyRow("roll", new[] { "Z", "X" }, "key.roll", KeyRowState.Info); // free flight: roll the ship about its own axis (the arrow keys too)
+        yield return new KeyRow("look", new[] { "Alt" }, "key.look", KeyRowState.Info); // free flight: hold to look around inside the ship instead of steering
         if (s.CanWalk) yield return Row("seat", "E", "stand", "E");
         yield return Row("info", "H", "info", "H", Lit(s.InfoOpen));
         yield return Row("help", "F1", "help", "F1");
@@ -327,6 +329,7 @@ public static class KeyHints
     private static IEnumerable<KeyRow> StarMapRows(KeyState s)
     {
         yield return Row("choose", "@arrows", "choose", state: KeyRowState.Info);
+        yield return new KeyRow("rotate", new[] { "@drag" }, "key.mapRotate", KeyRowState.Info); // the 3D map: drag or Left and Right to rotate, the wheel zooms, Home resets
         string jump = s.JumpCost.Length > 0 ? "jumpCost" : "jump";
         object[]? args = s.JumpCost.Length > 0 ? new object[] { s.JumpCost } : null;
         if (!s.JumpUnlocked) yield return new KeyRow("jump", new[] { "J" }, "key.jump", KeyRowState.Disabled, null, "key.why.jumpLocked");
