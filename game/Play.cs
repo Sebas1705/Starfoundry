@@ -559,7 +559,7 @@ void fragment() {
 
     private void RebuildGeometry()
     {
-        if (_structuresOn) _stationView.SyncStructures(Net); // makes sure every structure has its root before children are added
+        if (_structuresOn || _structureDemo) _stationView.SyncStructures(Net); // makes sure every structure has its root before children are added
         foreach (var old in _geos.Values)
         {
             old.Slabs?.QueueFree();
@@ -646,6 +646,7 @@ void fragment() {
             _machineModels[id] = model;
         }
 
+        BuildSupports();
         _structureVersion = Net.StructureVersion;
     }
 

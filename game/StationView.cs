@@ -96,6 +96,7 @@ void fragment() {
     {
         public Node3D Root = null!;
         public readonly Dictionary<(int Mx, int My, int Mz), (ModuleKind Kind, Node3D Node)> Modules = new();
+        public readonly Dictionary<(int Mx, int My, int Mz), int> Masks = new();
     }
 
     private readonly Dictionary<int, StructRoot> _structs = new();
@@ -148,19 +149,25 @@ void fragment() {
             sr.Root.Position = OriginCells(net, st.Id);
             if (!rebuild) continue;
             bool ship = st.Kind == StructureKind.Ship;
+            // A module is rebuilt when its kind or its set of neighbours changes: the sides that touch another module get doorways, the others hull.
+            bool Has(int x, int y, int z) => st.Modules.ContainsKey((x, y, z));
             foreach (var key in sr.Modules.Keys.ToList())
-                if (!st.Modules.TryGetValue(key, out var k) || k != sr.Modules[key].Kind)
+                if (!st.Modules.TryGetValue(key, out var k) || k != sr.Modules[key].Kind
+                    || sr.Masks[key] != ModuleModels.NeighbourMask(Has, key.Mx, key.My, key.Mz))
                 {
                     sr.Modules[key].Node.QueueFree();
                     sr.Modules.Remove(key);
+                    sr.Masks.Remove(key);
                 }
             foreach (var (key, kind) in st.Modules)
             {
                 if (sr.Modules.ContainsKey(key)) continue;
-                var node = ModuleModels.Build(kind, ship, st.Id);
+                int mask = ModuleModels.NeighbourMask(Has, key.Mx, key.My, key.Mz);
+                var node = ModuleModels.Build(kind, ship, st.Id, mask);
                 node.Position = new Vector3(key.Mx * StationGrid.ModuleX, key.My * StationGrid.ModuleY, key.Mz * StationGrid.ModuleZ);
                 sr.Root.AddChild(node);
                 sr.Modules[key] = (kind, node);
+                sr.Masks[key] = mask;
             }
         }
         foreach (int id in _structs.Keys.Where(i => !alive.Contains(i)).ToList())

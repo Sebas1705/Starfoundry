@@ -414,12 +414,13 @@ public static class Models
 
     private static readonly Dictionary<string, ArrayMesh> MeshCache = new();
 
-    private static ArrayMesh GetMesh(string key, Material mat, Action<Mb> build)
+    private static ArrayMesh? GetMesh(string key, Material mat, Action<Mb> build)
     {
         if (!MeshCache.TryGetValue(key, out var mesh))
         {
             var mb = new Mb();
             build(mb);
+            if (mb.Tris == 0) return null; // nothing to draw (a part that only exists on some sides of a module)
             mesh = mb.ToMesh(mat);
             mesh.ResourceName = key;
             MeshCache[key] = mesh;
@@ -429,8 +430,10 @@ public static class Models
 
     internal static MeshInstance3D Add(Node3D parent, string name, string key, Material mat, Action<Mb> build, Vector3 pos = default, Vector3 rotDeg = default)
     {
-        var mi = new MeshInstance3D { Name = name, Mesh = GetMesh(key, mat, build), Position = pos, RotationDegrees = rotDeg };
-        parent.AddChild(mi);
+        var mesh = GetMesh(key, mat, build);
+        var mi = new MeshInstance3D { Name = name, Mesh = mesh, Position = pos, RotationDegrees = rotDeg };
+        if (mesh is not null) parent.AddChild(mi);
+        else mi.QueueFree(); // an empty part is not added; the caller still gets a valid, detached-then-freed node
         return mi;
     }
 
