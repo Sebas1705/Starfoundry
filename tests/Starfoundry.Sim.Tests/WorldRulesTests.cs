@@ -162,7 +162,7 @@ public class WorldRulesTests
         Assert.Throws<InvalidDataException>(() => WorldRules.Deserialize(badVersion));
         var badValue = (byte[])bytes.Clone(); badValue[1] = 1; badValue[2] = badValue[3] = badValue[4] = 0; // enemy damage 1
         Assert.Throws<InvalidDataException>(() => WorldRules.Deserialize(badValue));
-        var badFlags = (byte[])bytes.Clone(); badFlags[1 + 8 * 4] = 32;
+        var badFlags = (byte[])bytes.Clone(); badFlags[1 + 8 * 4] = 64;
         Assert.Throws<InvalidDataException>(() => WorldRules.Deserialize(badFlags));
     }
 

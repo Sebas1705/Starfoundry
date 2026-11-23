@@ -25,16 +25,13 @@ Log version 14; `WorldRules.LegacyHardpoints` (flags bit 16) is on for older log
 ## Measured: the scripted player
 `StructureBot` (`dotnet run --project tools/Starfoundry.Balance -- --structures --seed N --difficulty D`, 6 s per action), minutes to the win. The bot now founds its station 16 cells ahead of the ship. Before: main at a51f2f5.
 
-| Run | Before (main) | After |
+| Run (seed 20261121) | Main with the construction rules (#68) | With hardpoints |
 | --- | --- | --- |
-| Normal, seed 20261121 | 45:21 | 46:54 |
-| Normal, seed 777 | 44:16 | 44:18 |
-| Relaxed (8 waves), seed 20261121 | 41:11 | 46:21 |
-| Relaxed, seed 777 | 44:25 | 41:36 |
-| Hard (12 waves), seed 20261121 | 44:42 | 48:33 |
-| Hard, seed 777 | 47:49 | 46:21 |
+| Normal | 61:00 | 66:08 |
+| Relaxed | 59:43 | 59:46 |
+| Hard | 66:58 | 64:44 |
 
-All six runs win with no module and no machine lost. The wave clock decides the win, but the two extra modules and the station founded 8 cells further away move the base's geometry, so single runs shift by up to a few minutes either way (the Relaxed and Hard "before" figures are from [difficulty](difficulty.md), measured earlier than the Normal ones). The first version of this change, with the station still founded 8 cells ahead, overlapped the nose module, delayed the station and lost the ship at wave 10; the bot's founding offset is the only bot change.
+All three win with no module and no machine lost. Normal is 5 minutes later because the jump drive research finished later (63:37 against 56:59); Relaxed is level and Hard is faster, so most of it is the shift of the base's geometry (the station is founded 16 cells ahead, past the nose laser) and the laser's 5 power while mining. Starter ship: the workbench ship plus the nose laser (0,0,-1) and the top gun (0,1,0); the hull module at (0,0,1) is untouched.
 
 ## Checked by tests
 `HardpointTests`, `ShipDesignerTests` (see the ADR), the existing suite with its hand-built ships given a laser module (or the legacy rules where they measure the implicit gun) and the golden checksums unchanged.
