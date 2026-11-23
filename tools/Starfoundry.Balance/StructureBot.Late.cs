@@ -16,17 +16,15 @@ public sealed partial class StructureBot
     {
         MoreCargoUpTo(4);
         Goal("prepare the first expedition");
-        // One expedition brings everything the three metal nodes need: ore for the two smelting researches (40 each), the same again for
-        // the ingots of advanced plating, and its quartz. (Two trips cost the laboratories about twenty minutes of standing still.)
+        // One expedition: the jump itself (the win needs a second system) and the ore of the two metal smelting nodes (40 each) and quartz.
         if (!Expedition("titanium ore, nickel ore and quartz", ("core:titanium_ore", 100), ("core:nickel_ore", 100), ("core:quartz", 32)))
             Stuck("the expedition did not bring everything");
-        // Back home with the win in reach: now the plate supply (drones mine the iron, ore is no longer the limit).
-        StationLabs();
         ResearchNow("core:titanium_smelting", TiRaw);
         ResearchNow("core:nickel_smelting", NiRaw);
         Reinforce();
-        // (Drone automation is researched and its bays built before the jump drive, see ResearchPlan.)
-        // The nodes that cost only plates and carbon come next, at home, one after the other.
+        // After the win the plan keeps researching what the lab bay's single raw feed (or none) can supply: the plate-only nodes and the carbon ones.
+        // The metal and quartz chains (titanium, nickel, advanced plating, the science tier) need lab faces the floor layout does not have; they are
+        // not played (docs/prototypes/structure-bot.md).
         FetchCarbon(80, "carbon for advanced logistics");
         ResearchNow("core:advanced_logistics", new Feed(FeedKind.Raw, "core:carbon_unloader"));
         foreach (var id in new[] { "core:turret_calibration", "core:reinforced_plating", "core:rapid_loader", "core:ship_cannon", "core:ship_armor", "core:field_repair", "core:overclock", "core:alloy_refinement", "core:nanite_repair" })
@@ -34,9 +32,6 @@ public sealed partial class StructureBot
             ResearchNow(id);
             Reinforce();
         }
-        // Last: advanced plating (the ingot ore and quartz of the expedition are still in the hold).
-        ResearchNow("core:advanced_plating", TiIngots, NiIngots, QuartzRaw);
-        if (Science) PlayScience();
         LaserResearch();
     }
 
@@ -62,17 +57,22 @@ public sealed partial class StructureBot
     private void StationLabs()
     {
         if (_stationLabsBuilt || _station < 0 || !Net.StructureExists(_station) || StationLabLines <= 0) return;
+        // (A station lab needs a bay of its own: not part of the default plan, see StationLabLines.)
         _stationLabsBuilt = true;
         Goal("more laboratories on the station: a reactor and plate lines");
         FetchCarbon(18, "carbon for two more station reactors");
         foreach (var (x, y, z) in new[] { (-1, 0, 0), (-1, -1, 0) })
             if (Need(new[] { new ItemStack(Item("core:carbon"), 8) }, "carbon for a station reactor")) PlaceModule(_station, x, y, z, ModuleKind.Reactor);
-        var (ox, oy, oz) = Origin(1, 0, 0);
-        for (int i = 0; i < StationLabLines; i++) PlateLine(_station, ox, oy, oz, 3 + 2 * i, "core:research_lab", out _);
+        for (int i = 0; i < StationLabLines; i++)
+        {
+            var (bx, by, bz) = Origin(3 + i, 0, 0);
+            if (PlaceModule(_station, 3 + i, 0, 0, ModuleKind.Workshop) < 0) break;
+            PlateLine(_station, bx, by, bz, 4, "core:research_lab", out _);
+        }
     }
 
     /// <summary>Plate lines with a laboratory each that the bot builds on the station workshop once drones mine the iron.</summary>
-    public int StationLabLines { get; init; } = 2;
+    public int StationLabLines { get; init; } = 1;
 
     private void MoreCargoUpTo(int total)
     {

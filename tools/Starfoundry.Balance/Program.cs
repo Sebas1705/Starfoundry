@@ -70,7 +70,6 @@ if (args.Contains("--structures"))
         ActionDelaySeconds = args.Any(a => a.StartsWith("--delay=")) ? delay : 6,
         Trace = args.Contains("--trace") ? Console.Out : null,
         ContinueAfterVictory = args.Contains("--continue") || args.Contains("--science"),
-        Science = args.Contains("--science"),
     };
     var sReport = bot.Run(sMinutes * 60);
     Console.WriteLine($"Structure campaign run: seed {sSeed}, difficulty {difficulty}, goal {bot.GoalWaves} waves, action delay {bot.ActionDelaySeconds} s\n");

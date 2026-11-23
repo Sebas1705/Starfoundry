@@ -497,7 +497,7 @@
           "count": 1
         }
       ],
-      "time_s": 2
+      "time_s": 1
     },
     {
       "id": "core:mine_ice",
@@ -700,7 +700,7 @@
       "machine": "core:micro_refinery",
       "inputs": [{ "item": "core:iron_ingot", "count": 2 }],
       "outputs": [{ "item": "core:iron_plate", "count": 1 }],
-      "time_s": 2
+      "time_s": 1
     },
     {
       "id": "core:ship_ammo",
