@@ -1,6 +1,7 @@
 using System;
 using Godot;
 using Starfoundry.Sim;
+using Starfoundry.Ui;
 
 namespace Starfoundry.Game;
 
@@ -48,7 +49,7 @@ public static partial class ModuleModels
 
     private static void MiningLaserModel(Cx c, bool mk2)
     {
-        const float roof = 1.5f;
+        const float roof = HullProfile.MiningRoof;
         Skin(c, roof, nose: false, tail: false, detail: true, collars: false);
         Frame(c, roof);
         var glow = mk2 ? LaserCyan : LaserLime;
@@ -88,7 +89,7 @@ public static partial class ModuleModels
 
     private static void GunModel(Cx c, bool mk2)
     {
-        const float roof = 1.2f;
+        const float roof = HullProfile.GunRoof;
         Skin(c, roof, nose: false, tail: false, detail: true, collars: false);
         Frame(c, roof);
         var spots = mk2 ? new[] { new Vector3(2.5f, roof, 4f), new Vector3(5.5f, roof, 4f) } : new[] { new Vector3(4f, roof, 4f) };
@@ -104,7 +105,7 @@ public static partial class ModuleModels
 
     private static void ShipyardModel(Cx c)
     {
-        const float roof = 3.2f;
+        const float roof = HullProfile.ShipyardRoof;
         Skin(c, roof, nose: false, tail: false, detail: true, collars: true);
         Frame(c, roof);
         // a gantry: two pylons and a cross beam over the cradle, a crane arm with a hook, and a lit cradle on the deck

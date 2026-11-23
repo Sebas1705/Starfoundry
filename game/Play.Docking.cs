@@ -243,13 +243,26 @@ public partial class Play
     /// </summary>
     private BodyBox[] DockedBodyVolumes(out BodyBox[] stationOnly)
     {
-        var ship = BodyMotion.Volumes(Net.GetStructure(ShipStruct).Modules.Keys, StationGrid.ModuleX, StationGrid.ModuleY, StationGrid.ModuleZ);
+        var ship = ShellVolumes(ShipStruct);
         stationOnly = Array.Empty<BodyBox>();
         if (!Net.TryGetDock(Player, out var d) || !Net.StructureExists(d.Station)) return ship;
         var off = StationView.OriginCells(Net, d.Station) - StationView.OriginCells(Net, ShipStruct);
-        stationOnly = BodyMotion.Volumes(Net.GetStructure(d.Station).Modules.Keys, StationGrid.ModuleX, StationGrid.ModuleY, StationGrid.ModuleZ)
-            .Select(b => new BodyBox(b.MinX + off.X, b.MinY + off.Y, b.MinZ + off.Z, b.MaxX + off.X, b.MaxY + off.Y, b.MaxZ + off.Z)).ToArray();
+        stationOnly = ShellVolumes(d.Station)
+            .Select(b => b with { MinX = b.MinX + off.X, MinY = b.MinY + off.Y, MinZ = b.MinZ + off.Z, MaxX = b.MaxX + off.X, MaxY = b.MaxY + off.Y, MaxZ = b.MaxZ + off.Z }).ToArray();
         return ship.Concat(stationOnly).ToArray();
+    }
+
+    /// <summary>
+    /// The walkable boxes of a structure, each with the shell the model draws round it (its neighbour and docking mask, the same one
+    /// <see cref="StationView"/> builds the module from), so the body is held inside the drawn hull: its chamfers, nose, door frames and walls.
+    /// </summary>
+    private BodyBox[] ShellVolumes(int structure)
+    {
+        var st = Net.GetStructure(structure);
+        var dock = StationView.DockBits(Net, st);
+        bool Has(int x, int y, int z) => st.Modules.ContainsKey((x, y, z));
+        int Mask((int Mx, int My, int Mz) k) => ModuleModels.NeighbourMask(Has, k.Mx, k.My, k.Mz) | dock.GetValueOrDefault(k);
+        return BodyMotion.Volumes(st.Modules, Mask, st.Kind == StructureKind.Ship);
     }
 
     private static bool PointInBoxes(BodyBox[] boxes, Vector3 p)
