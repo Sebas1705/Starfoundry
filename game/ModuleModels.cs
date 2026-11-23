@@ -12,9 +12,8 @@ namespace Starfoundry.Game;
 ///
 /// The <c>ship</c> flag chooses the outer shell language: a ship is streamlined (white octagonal plating, a tapered nose at
 /// the cockpit, a tapered tail at the engines, blue trim), a station is boxy (grey slab panels, a heavy corner frame, docking
-/// collars on the four sides, orange trim). The shells are single-sided: they show from outside and vanish when the camera
-/// is inside the module, so the player looks through the hull at the stars and the deck; the frame beams and the deck stay
-/// visible from inside. The workshop and the defence deck have no roof, so what stands on them stays in view.
+/// collars on the four sides, orange trim). The ship shells carry an inner liner and the station shells are closed slabs, so a structure is opaque from inside too. Space shows only through glass: the cockpit canopy, the gun deck roof and the viewports
+/// of crew, workshop, cargo and cockpit modules (see <see cref="Viewports"/>). The planar-mapped materials put every texture on the module grid.
 ///
 /// Parts reuse <see cref="Models"/>' meshes cache, materials and mesh builder, so every module of a kind shares its meshes.
 /// Node names the game can drive: "GlowEngine" (flame of an engine nozzle, pulsed by <see cref="Models.Animate"/>, a flame
