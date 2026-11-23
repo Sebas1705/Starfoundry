@@ -54,7 +54,7 @@ public class WorldRulesTests
             r.WaveIntervalPercent, r.FirstWaveGraceSeconds, r.DepositRichnessPercent, r.PowerOutputPercent, r.GoalWaves);
         Assert.Equal((70, 80, 70, 130, 600, 150, 110, 8), V(WorldRules.Relaxed));
         Assert.Equal((100, 100, 100, 100, -1, 100, 100, 10), V(WorldRules.Normal));
-        Assert.Equal((130, 130, 130, 80, 300, 80, 100, 12), V(WorldRules.Hard));
+        Assert.Equal((120, 120, 120, 80, 300, 80, 100, 13), V(WorldRules.Hard));
         Assert.Equal((170, 170, 170, 65, 120, 60, 90, 15), V(WorldRules.Brutal));
         foreach (var (id, rules) in WorldRules.Presets)
         {
@@ -254,7 +254,7 @@ public class WorldRulesTests
         var hard = AfterWaves(WorldRules.Hard, 4);
         var relaxed = AfterWaves(WorldRules.Relaxed, 4);
         foreach (var e in normal) Assert.Equal(C.Enemies[e.Type].Hp, e.Hp);
-        foreach (var e in hard.Network.Enemies()) Assert.Equal(WorldRules.ScaleMin1(C.Enemies[e.Type].Hp, 130), e.Hp);
+        foreach (var e in hard.Network.Enemies()) Assert.Equal(WorldRules.ScaleMin1(C.Enemies[e.Type].Hp, 120), e.Hp);
         foreach (var e in relaxed.Network.Enemies()) Assert.Equal(WorldRules.ScaleMin1(C.Enemies[e.Type].Hp, 80), e.Hp);
         Assert.Contains(hard.Network.Enemies(), e => e.Hp > C.Enemies[e.Type].Hp);
         hard.ValidateInvariants();

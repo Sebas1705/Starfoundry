@@ -25,7 +25,7 @@ Can difficulty be a small bundle of integer numbers stored with the game, and do
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Relaxed | 70 | 80 | 70 | 130 | 600 s | 150 | 110 | 8 |
 | Normal | 100 | 100 | 100 | 100 | content (480 s) | 100 | 100 | 10 |
-| Hard | 130 | 130 | 130 | 80 | 300 s | 80 | 100 | 12 |
+| Hard | 120 | 120 | 120 | 80 | 300 s | 80 | 100 | 13 |
 | Brutal | 170 | 170 | 170 | 65 | 120 s | 60 | 90 | 15 |
 
 Each preset also has `ThreatsEnabled` true, `FreeBuild` false and no starting items.
@@ -111,3 +111,15 @@ First wave warning on the main seed: Relaxed 20:12, Normal 18:59, Hard 17:50, Br
 - The spread between the presets is only 2 to 3 minutes. It comes from the presets, not from the content: Hard has two more waves to survive, but its waves come 20 percent faster, which cancels most of it (the same was true before ADR 0031: 47:00 against 48:13). If Hard should land at about 55 the lever is the preset (13 goal waves puts it near 54), not the content; this was not changed because the presets are a rule table that the docs, the tests and the new-game screen quote.
 - Brutal is still lost on every seed, at wave 9 or 10 of 15 (it was wave 3 to 8 before the rebalance, wave 10 to 11 in the first measurement of this document).
 - Hard on seed 777 lost the ship before the rebalance (minute 58) and wins now.
+
+## Hard raised to 13 waves (2026-11-23)
+
+Owner decision: Hard sat only 2-3 minutes behind Normal. Hard now needs 13 waves and scales enemies by 120 percent (damage, hit points and wave size) instead of 130. With 13 waves and 130 percent the bot lost two of three seeds at wave 13 (ship lost at about minute 53); 120 percent keeps Hard winnable by the bot. StructureBot, 6 s per action:
+
+| Seed | Hard (13 waves, 120%) |
+| --- | --- |
+| 20261121 | Win 52:21 |
+| 20261120 | Win 54:18 |
+| 777 | Win 53:06 |
+
+Normal stays at about 49 minutes, so Hard is now 3-5 minutes longer and one wave harder.
