@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using Godot;
 using Starfoundry.Sim;
+using Starfoundry.Ui;
 
 namespace Starfoundry.Game;
 
@@ -31,9 +32,9 @@ public static partial class ModuleModels
     private static StandardMaterial3D ModuleHull() => Materials.ModuleHull();
     private static StandardMaterial3D ModuleStruct() => Materials.ModuleStruct();
 
-    private const float Roof = 3.88f;     // top of a full-height shell
-    private const float StationFace = 0.14f; // a station shell stands this far inside the module box, between the frame beams
-    private const float LowRoof = 3.0f;  // top of a shell that carries something on its roof (cupola, reactor drum, core pillar)
+    private const float Roof = HullProfile.Roof;     // top of a full-height shell
+    private const float StationFace = HullProfile.StationFace; // a station shell stands this far inside the module box, between the frame beams
+    private const float LowRoof = HullProfile.LowRoof;  // top of a shell that carries something on its roof (cupola, reactor drum, core pillar)
 
     private static readonly Color Dark = new(0.12f, 0.14f, 0.19f);
     private static readonly Color DeckCol = new(0.19f, 0.21f, 0.27f);
@@ -58,14 +59,14 @@ public static partial class ModuleModels
     }
 
     /// <summary>Neighbour bits of a module: which of its six sides touch another module of the same structure.</summary>
-    public const int Left = 1, Right = 2, Front = 4, Rear = 8, Up = 16, Down = 32;
+    public const int Left = HullProfile.Left, Right = HullProfile.Right, Front = HullProfile.Front, Rear = HullProfile.Rear, Up = HullProfile.Up, Down = HullProfile.Down;
 
     /// <summary>
     /// Docking bits of a module's mask (ADR 0029), above the neighbour bits: a free docking port opens on this side (guide lights round the
     /// collar), and a ship is docked on this side (an airlock; the matching neighbour bit is set too, so the wall is a doorway).
     /// </summary>
-    public const int PortLeft = 64, PortRight = 128, PortFront = 256, PortRear = 512;
-    public const int DockedLeft = 1024, DockedRight = 2048, DockedFront = 4096, DockedRear = 8192;
+    public const int PortLeft = HullProfile.PortLeft, PortRight = HullProfile.PortRight, PortFront = HullProfile.PortFront, PortRear = HullProfile.PortRear;
+    public const int DockedLeft = HullProfile.DockedLeft, DockedRight = HullProfile.DockedRight, DockedFront = HullProfile.DockedFront, DockedRear = HullProfile.DockedRear;
 
     /// <summary>The mask bits for a port face: (neighbour, free-port, docked). The faces are PosX = right, NegX = left, PosZ = rear and NegZ = front.</summary>
     public static (int Neighbour, int Port, int Docked) PortBits(Dir face) => face switch
@@ -169,7 +170,7 @@ public static partial class ModuleModels
         }
         // A ship cockpit's nose tapers: its floor is trimmed at the start of the full section and a tapered plate (below) follows the nose.
         bool noseDeck = c.Ship && c.Kind == ModuleKind.Cockpit && !c.Has(Front);
-        const float NoseEnd = 3.4f;
+        const float NoseEnd = HullProfile.NoseEnd;
         // A ship's floor ends where the lower chamfer of the hull begins (a sloped wall meets the floor a unit in from the side).
         float xl = c.Ship && !(c.Has(Left) || c.Has(Down)) ? 1.1f : 0f, xr = c.Ship && !(c.Has(Right) || c.Has(Down)) ? W - 1.1f : W;
         void Blk(Vector3 ctr, Vector3 size)
@@ -294,27 +295,18 @@ public static partial class ModuleModels
     });
 
     /// <summary>The opening of a doorway in a wall, and the lit sill on the floor across it.</summary>
-    private const float DoorHalf = 1.8f, DoorHeight = 2.7f, ShipDoorHeight = 3.1f;
+    private const float DoorHalf = HullProfile.DoorHalf, DoorHeight = 2.7f, ShipDoorHeight = 3.1f;
 
     /// <summary>The cross-section of a ship hull in the XY plane, scaled about a point low in the section.</summary>
-    private static Vector2[] Oct(float roofY, float scale, int mask = 0, float pivotFrac = 0.35f)
+    private static Vector2[] Oct(float roofY, float scale, int mask = 0, float pivotFrac = HullProfile.DefaultPivot)
     {
-        float x0 = 0.05f, x1 = W - 0.05f, y0 = 0.08f, ch = MathF.Min(1.0f, (roofY - y0) * 0.3f);
-        // A side that touches another module is squared off (no chamfer), so two modules side by side or stacked meet flush.
-        float bl = (mask & (Left | Down)) != 0 ? 0f : ch, br = (mask & (Right | Down)) != 0 ? 0f : ch;
-        float tl = (mask & (Left | Up)) != 0 ? 0f : ch, tr = (mask & (Right | Up)) != 0 ? 0f : ch;
-        var p = new[]
-        {
-            new Vector2(x0 + bl, y0), new Vector2(x1 - br, y0), new Vector2(x1, y0 + br), new Vector2(x1, roofY - tr),
-            new Vector2(x1 - tr, roofY), new Vector2(x0 + tl, roofY), new Vector2(x0, roofY - tl), new Vector2(x0, y0 + bl),
-        };
-        var pivot = new Vector2(4f, y0 + (roofY - y0) * pivotFrac);
-        for (int i = 0; i < p.Length; i++) p[i] = pivot + (p[i] - pivot) * scale;
-        return p;
+        // The one definition of the section lives in HullProfile, shared with the walking body's collision (see Starfoundry.Ui).
+        var p = HullProfile.Octagon(roofY, scale, mask, pivotFrac);
+        return p.Select(v => new Vector2(v.X, v.Y)).ToArray();
     }
 
     private static readonly Color Liner = new(0.70f, 0.74f, 0.82f);
-    private const float LinerInset = 0.1f;
+    private const float LinerInset = HullProfile.LinerInset;
 
     /// <summary>The edges of the section that carry a canopy: the two upper chamfers and the top (roof glass), and the upper sides too round a nose.</summary>
     private const int NoseGlassEdges = (1 << 2) | RoofEdges | (1 << 6);
@@ -455,7 +447,7 @@ public static partial class ModuleModels
                 var full = Oct(roofY, 1f, c.M);
                 int skip = (c.Has(Right) ? 1 << 2 : 0) | (c.Has(Left) ? 1 << 6 : 0) | (c.Has(Up) ? 1 << 4 : 0) | (c.Has(Down) ? 1 : 0);
                 if (glassRoof) skip |= RoofEdges; // the roof is a separate glass part, see-through from inside
-                float a = nose ? 3.4f : 0.05f, b = tail ? 5.0f : D - 0.05f;
+                float a = nose ? HullProfile.NoseEnd : HullProfile.NoseStart, b = tail ? HullProfile.TailStart : D - HullProfile.NoseStart;
                 bool wallR = wins.Length > 0 && !c.Has(Right), wallL = wins.Length > 0 && !c.Has(Left);
                 if (wallR) skip |= 1 << 2;
                 if (wallL) skip |= 1 << 6;
@@ -463,9 +455,9 @@ public static partial class ModuleModels
                 // exposed ends of the tube are closed by a bulkhead; ends that touch another module stay open
                 bool capFront = !nose && !c.Has(Front), capRear = !tail && !c.Has(Rear) && !openRear;
                 bool wrap = nose && glassRoof; // a canopy round the nose: glass over the upper half and the tip
-                if (nose) Loft(mb, Oct(roofY, 0.28f, c.M, 0f), 0.05f, full, a, true, false, wrap ? skip | NoseGlassEdges : skip, true, wrap ? NoseGlassEdges : 0);
+                if (nose) Loft(mb, Oct(roofY, HullProfile.NoseTipScale, c.M, 0f), 0.05f, full, a, true, false, wrap ? skip | NoseGlassEdges : skip, true, wrap ? NoseGlassEdges : 0);
                 Loft(mb, full, a, full, b, capFront, capRear, skip, true);
-                if (tail) Loft(mb, full, b, Oct(roofY, 0.8f, c.M), 6.1f, false, true, skip, true);
+                if (tail) Loft(mb, full, b, Oct(roofY, HullProfile.TailScale, c.M), HullProfile.TailEnd, false, true, skip, true);
                 if (wallR) SideWall(mb, WallSlab(c, false).Mid, 0.12f, a, b, full[2].Y, full[3].Y, wins);
                 if (wallL) SideWall(mb, WallSlab(c, true).Mid, 0.12f, a, b, full[7].Y, full[6].Y, wins);
                 float zc = (a + b) / 2, len = b - a;
@@ -629,8 +621,8 @@ public static partial class ModuleModels
             {
                 // The frame follows the lofted hull: sections at (z, scale), so a nose or tail does not leave the frame floating in the air.
                 var secs = new System.Collections.Generic.List<(float Z, float S)>();
-                if (nose) { secs.Add((0.07f, 0.28f)); secs.Add((3.4f, 1f)); } else secs.Add((0.07f, 1f));
-                if (tail) { secs.Add((5.0f, 1f)); secs.Add((6.1f, 0.8f)); } else secs.Add((D - 0.07f, 1f));
+                if (nose) { secs.Add((0.07f, HullProfile.NoseTipScale)); secs.Add((HullProfile.NoseEnd, 1f)); } else secs.Add((0.07f, 1f));
+                if (tail) { secs.Add((HullProfile.TailStart, 1f)); secs.Add((HullProfile.TailEnd, HullProfile.TailScale)); } else secs.Add((D - 0.07f, 1f));
                 // A canopy frame (cockpit): the beams and rings that border glass are dark mullions, the rest stay plating-coloured.
                 bool Glass(int mask, int i) => canopy && (((mask >> i) & 1) != 0 || ((mask >> ((i + 7) % 8)) & 1) != 0);
                 mb.C(Panel);
@@ -884,7 +876,7 @@ public static partial class ModuleModels
         if (c.Kind is ModuleKind.Workshop or ModuleKind.Defence or ModuleKind.DroneBay) { Beacon(c); return; } // open decks have no flank to decorate
         float roof = c.Kind switch
         {
-            ModuleKind.Shield => 1.2f, ModuleKind.Sensor => 2.2f,
+            ModuleKind.Shield => HullProfile.ShieldRoof, ModuleKind.Sensor => HullProfile.SensorRoof,
             ModuleKind.Reactor or ModuleKind.ReactorMk2 or ModuleKind.Core => c.Ship ? Roof : LowRoof,
             ModuleKind.Cockpit => c.Ship ? Roof : LowRoof,
             _ => Roof,
@@ -1007,7 +999,7 @@ public static partial class ModuleModels
     private const int RoofEdges = (1 << 3) | (1 << 4) | (1 << 5);
 
     /// <summary>The scale of the nose section at depth z (the nose runs from 0.28 at the tip, z = 0.05, to 1 at z = 3.4) and the half width of its flat belly.</summary>
-    private static float NoseScale(float z) => 0.28f + 0.72f * (z - 0.05f) / 3.35f;
+    private static float NoseScale(float z) => HullProfile.NoseScale(z);
     private static float NoseHalf(float z) => 2.9f * NoseScale(z);
 
     /// <summary>
@@ -1020,10 +1012,10 @@ public static partial class ModuleModels
         {
             mb.At(default);
             var full = Oct(roof, 1f, c.M);
-            float a = nose ? 3.4f : 0.05f;
+            float a = nose ? HullProfile.NoseEnd : HullProfile.NoseStart;
             if (nose)
             {
-                var tip = Oct(roof, 0.28f, c.M, 0f);
+                var tip = Oct(roof, HullProfile.NoseTipScale, c.M, 0f);
                 Loft(mb, tip, 0.05f, full, a, false, false, ~NoseGlassEdges & 0xFF);
                 var ctr = Vector2.Zero;
                 foreach (var p in tip) ctr += p;
@@ -1061,7 +1053,7 @@ public static partial class ModuleModels
             {
                 foreach (float z in new[] { 1.2f, 2.3f }) Ring(z, NoseScale(z), 0f, NoseGlassEdges);
                 Ring(3.4f, 1f, 0.35f, NoseGlassEdges);
-                var tipTop = Oct(roof, 0.28f, c.M, 0f)[4].Y;
+                var tipTop = Oct(roof, HullProfile.NoseTipScale, c.M, 0f)[4].Y;
                 mb.Beam(new(4, tipTop, 0.07f), new(4, top, 3.4f), 0.14f);
                 mb.Beam(new(4, top, 3.4f), new(4, top, D - 0.07f), 0.14f);
             }
@@ -1532,7 +1524,7 @@ public static partial class ModuleModels
     /// </summary>
     private static void Shield(Cx c)
     {
-        const float roof = 1.2f;
+        const float roof = HullProfile.ShieldRoof;
         Skin(c, roof, detail: true, collars: false);
         Frame(c, roof);
         Models.Add(c.R, "Pylon", $"{c.K}.pylon", ModuleHull(), mb =>
@@ -1570,7 +1562,7 @@ public static partial class ModuleModels
     /// </summary>
     private static void Sensor(Cx c)
     {
-        const float roof = 2.2f;
+        const float roof = HullProfile.SensorRoof;
         Skin(c, roof, detail: true, collars: false);
         Frame(c, roof);
         Models.Add(c.R, "Mast", $"{c.K}.mast", ModuleStruct(), mb =>

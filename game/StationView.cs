@@ -188,7 +188,7 @@ void fragment() {
     /// The docking bits of every port-bearing module of a structure: the free-port bit on a station's open ports (guide lights), and for
     /// a joined port the docked bit plus the neighbour bit (so the wall becomes a doorway) on the station module and on the ship module.
     /// </summary>
-    private static Dictionary<(int Mx, int My, int Mz), int> DockBits(BeltNetwork net, Structure st)
+    internal static Dictionary<(int Mx, int My, int Mz), int> DockBits(BeltNetwork net, Structure st)
     {
         var bits = new Dictionary<(int, int, int), int>();
         void Or((int, int, int) key, int v) => bits[key] = bits.GetValueOrDefault(key) | v;
