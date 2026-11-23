@@ -76,3 +76,6 @@ What changed for a player:
 - **Levels.** Level 1 asks for 60 ore and 10 plates (the workbench) and a station. Levels 2 and 3 keep a pre-built bay and factory on their ships and station; the siege station has its defence module beside the bay and the ammo belts run across the seam into it.
 
 Checks: `ConstructionRulesTests`, the golden checksum tests on legacy worlds (the older structure tests run against `tests/Starfoundry.Sim.Tests/legacy/core_pre0031.json`, the content before this change, which carries `floor_building: false`), the structure bot (see [structure bot](structure-bot.md#construction-rules-adr-0031)) and the headless screenshots `--hud-shot`, `--structures-shot`, `--ui-shot` and `--walk-shot` (which now also saves `path.bay.png`, a bay floor with the belt tool in hand, `path.belt.png`, the card of an aimed belt, and `path.wall.png`).
+
+### The workbench in the ship (2026-11-23)
+The workbench of ADR 0031 has a model and a crosshair card: see [the ship workbench model](materials.md#the-ship-workbench-model-2026-11-23). It is client-only, in the first hull module of the ship (a cargo module when there is no hull), and changes nothing in the simulation, the logs or the checksums.

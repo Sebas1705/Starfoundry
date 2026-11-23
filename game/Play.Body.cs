@@ -133,6 +133,7 @@ public partial class Play
     {
         if (!CanWalk) return;
         _walkShotFrame++;
+        if (_walkShotFrame >= 251 && StoryOpen) CloseStory(); // a scenario opens its briefing first
         void Save(string p) { GetViewport().GetTexture().GetImage().SavePng(p); GD.Print("SHOT saved " + p); }
         switch (_walkShotFrame)
         {
@@ -185,6 +186,27 @@ public partial class Play
                 break;
             case 250:
                 Save(_walkShotPath + ".wall.png");
+                break;
+            case 251: // the workbench (ADR 0031): plates, standing in the hull module and aiming at the bench with no tool in hand
+                if (OS.GetCmdlineUserArgs().Contains("--ui-lang=en")) Loc.Lang = Language.En;
+                _tool = ToolMode.Pointer;
+                Net.GiveItems(Player, _content.ItemIndex("core:iron_ingot"), 20);
+                Net.GiveItems(Player, _content.ItemIndex("core:iron_ore"), 20);
+                Send(new SetShipRecipe(_content.RecipeIndex("core:ship_press")));
+                if (BenchBox() is { } bb) // stand in the aisle beside the bench, wherever the ship put it, and face it
+                {
+                    float sign = _benchSpot!.Value.Wall == BenchWall.Left ? 1f : -1f;
+                    var centre = bb.Min + bb.Size / 2f;
+                    _body = new Vector3(centre.X + sign * 2.9f, bb.Min.Y, centre.Z + 1.9f);
+                    _yaw = MathF.Atan2(sign * 2.9f, 1.9f); _pitch = -0.2f;
+                }
+                break;
+            case 300: Save(_walkShotPath + ".bench.png"); break;
+            case 301: Send(new SetShipRecipe(_content.RecipeIndex("core:ship_smelt"))); break;
+            case 340: Save(_walkShotPath + ".bench.ingot.png"); break;
+            case 341: Send(new SetShipRecipe(-1)); break; // bench off: lamps dark, card says Off
+            case 360:
+                Save(_walkShotPath + ".bench.off.png");
                 GetTree().Quit();
                 break;
         }

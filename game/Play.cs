@@ -1159,6 +1159,7 @@ void fragment() {
         SyncAttitude(); // ADR 0030: the simulation learns the ship attitude
         UpdateDock((float)delta); // the docking guidance and the settling slide: before anything reads the ship position
         UpdateStructureRoots(alpha); // first: the machine and item nodes are children of these roots
+        UpdateWorkbench(); // the ship's workbench model, its animation and its card (Play.Workbench.cs)
         DrawItems(alpha);
         _animTime += delta;
         UpdateMachines();
