@@ -229,7 +229,7 @@ public class ScenarioTests
         var w = SimWorld.CreateScenario(C, Catalog, "02_cold_fuel");
         Assert.Equal(6, w.Network.HoldCount(0, C.ItemIndex("core:hydrogen")));
         Assert.Equal(20, w.Network.HoldCount(0, C.ItemIndex("core:iron_plate")));
-        Assert.Equal(30, w.Network.HoldCount(0, C.ItemIndex("core:iron_ingot")));
+        Assert.Equal(60, w.Network.HoldCount(0, C.ItemIndex("core:iron_ingot")));
     }
 
     [Fact]
