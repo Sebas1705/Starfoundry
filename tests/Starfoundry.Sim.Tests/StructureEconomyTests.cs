@@ -179,7 +179,7 @@ public class StructureEconomyTests
     /// <summary>The core content without a starter ship, with advanced plating costing only quartz so the test follows one loop.</summary>
     private static ContentDb QuartzOnly()
     {
-        var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", "core.json")))!.AsObject();
+        var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(TestContent.LegacyPath))!.AsObject();
         root.Remove("structure_templates");
         foreach (var n in root["research"]!.AsArray())
             if (n!["id"]!.GetValue<string>() == "core:advanced_plating")

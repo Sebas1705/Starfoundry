@@ -170,7 +170,7 @@ public class OrientedCollisionTests
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, new List<LoggedCommand> { new(0, 0, new Batch(new Command[] { new SetAttitude(11585, 0, 0, 11585) })) }, C.Hash, GameMode.Sandbox, Seed, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(12, bytes[4]);
+        Assert.Equal(13, bytes[4]);
         Assert.Single(CommandCodec.ReadLog(new MemoryStream(bytes)));
         foreach (byte old in new byte[] { 5, 8, 10, 11 })
         {

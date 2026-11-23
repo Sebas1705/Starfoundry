@@ -87,7 +87,7 @@ public class ScenarioTests
         Assert.Equal(6, C.Templates["cold_ship"].Hold.Single().Count);
         Assert.Equal(new[] { ModuleKind.Core }, C.Templates["blank_station"].Modules.Select(m => m.Kind));
         // The same content without them hashes differently, and a content with only the starter ship is unaffected by the loop.
-        var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", "core.json")))!.AsObject();
+        var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(TestContent.LegacyPath))!.AsObject();
         root["structure_templates"]!.AsObject().Remove("blank_station");
         Assert.NotEqual(C.Hash, ContentDb.FromJson(root.ToJsonString()).Hash);
     }
@@ -302,7 +302,7 @@ public class ScenarioTests
         Ok(w, new SetMovement(1, 0, 0));
         byte[] plain = LogBytes(w, null);
         byte[] scen = LogBytes(w, def);
-        Assert.Equal(12, scen[4]);
+        Assert.Equal(13, scen[4]);
         const int flagsAt = 4 + 1 + 8 + 1 + 8;
         Assert.Equal(0, plain[flagsAt] & 16);
         Assert.Equal(16, scen[flagsAt] & 16);

@@ -1,0 +1,2019 @@
+{
+  "floor_building": false,
+  "schema": 1,
+  "items": [
+    {
+      "id": "core:iron_ore"
+    },
+    {
+      "id": "core:iron_ingot"
+    },
+    {
+      "id": "core:iron_plate"
+    },
+    {
+      "id": "core:carbon"
+    },
+    {
+      "id": "core:ammo"
+    },
+    {
+      "id": "core:ice"
+    },
+    {
+      "id": "core:titanium_ore"
+    },
+    {
+      "id": "core:titanium_ingot"
+    },
+    {
+      "id": "core:nickel_ore"
+    },
+    {
+      "id": "core:nickel_ingot"
+    },
+    {
+      "id": "core:quartz"
+    },
+    {
+      "id": "core:titanium_plate"
+    },
+    {
+      "id": "core:nickel_plate"
+    },
+    {
+      "id": "core:hydrogen"
+    },
+    {
+      "id": "core:silicon"
+    },
+    {
+      "id": "core:circuit"
+    },
+    {
+      "id": "core:titanium_alloy"
+    },
+    {
+      "id": "core:fuel_cell"
+    },
+    {
+      "id": "core:science_engineering"
+    },
+    {
+      "id": "core:science_biology"
+    },
+    {
+      "id": "core:science_physics"
+    },
+    {
+      "id": "core:biomass"
+    }
+  ],
+  "machines": [
+    {
+      "id": "core:extractor",
+      "sandbox_only": true,
+      "hp": 80,
+      "signature": 2
+    },
+    {
+      "id": "core:drill",
+      "role": "drill",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 10
+        }
+      ],
+      "hp": 80,
+      "signature": 2
+    },
+    {
+      "id": "core:smelter",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 14
+        }
+      ],
+      "hp": 100,
+      "signature": 3,
+      "power_use": 10
+    },
+    {
+      "id": "core:assembler",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 20
+        }
+      ],
+      "hp": 100,
+      "signature": 3,
+      "power_use": 15
+    },
+    {
+      "id": "core:research_lab",
+      "role": "lab",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 16
+        },
+        {
+          "item": "core:iron_plate",
+          "count": 8
+        }
+      ],
+      "hp": 120,
+      "signature": 4,
+      "power_use": 20
+    },
+    {
+      "id": "core:depot",
+      "role": "depot",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 8
+        }
+      ],
+      "hp": 80,
+      "signature": 1,
+      "power_use": 1
+    },
+    {
+      "id": "core:turret",
+      "role": "turret",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 14
+        },
+        {
+          "item": "core:iron_plate",
+          "count": 6
+        }
+      ],
+      "hp": 120,
+      "signature": 0,
+      "power_use": 5,
+      "turret": {
+        "range_cells": 18,
+        "damage": 12,
+        "interval_ticks": 15,
+        "ammo_item": "core:ammo",
+        "ammo_cap": 60
+      }
+    },
+    {
+      "id": "core:wall",
+      "role": "wall",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 12
+        },
+        {
+          "item": "core:iron_plate",
+          "count": 4
+        }
+      ],
+      "hp": 400,
+      "signature": 0
+    },
+    {
+      "id": "core:repair_bay",
+      "role": "repairer",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 14
+        },
+        {
+          "item": "core:iron_plate",
+          "count": 6
+        }
+      ],
+      "hp": 120,
+      "signature": 1,
+      "power_use": 10,
+      "repairer": {
+        "range_cells": 14,
+        "heal": 20,
+        "interval_ticks": 30,
+        "item": "core:iron_ingot",
+        "item_cap": 20
+      }
+    },
+    {
+      "id": "core:unloader",
+      "role": "unloader",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 12
+        }
+      ],
+      "hp": 80,
+      "signature": 1,
+      "power_use": 2,
+      "unloader": {
+        "item": "core:iron_ingot",
+        "interval_ticks": 30,
+        "reserve": 10
+      }
+    },
+    {
+      "id": "core:micro_refinery",
+      "role": "ship"
+    },
+    {
+      "id": "core:ore_unloader",
+      "role": "unloader",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 12
+        }
+      ],
+      "hp": 80,
+      "signature": 1,
+      "power_use": 2,
+      "unloader": {
+        "item": "core:iron_ore",
+        "interval_ticks": 30,
+        "reserve": 0
+      }
+    },
+    {
+      "id": "core:titanium_ore_unloader",
+      "role": "unloader",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 12
+        }
+      ],
+      "hp": 80,
+      "signature": 1,
+      "power_use": 2,
+      "unloader": {
+        "item": "core:titanium_ore",
+        "interval_ticks": 30,
+        "reserve": 0
+      }
+    },
+    {
+      "id": "core:nickel_ore_unloader",
+      "role": "unloader",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 12
+        }
+      ],
+      "hp": 80,
+      "signature": 1,
+      "power_use": 2,
+      "unloader": {
+        "item": "core:nickel_ore",
+        "interval_ticks": 30,
+        "reserve": 0
+      }
+    },
+    {
+      "id": "core:hydrogen_cracker",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 20
+        },
+        {
+          "item": "core:iron_ingot",
+          "count": 10
+        }
+      ],
+      "hp": 100,
+      "signature": 2,
+      "power_use": 12
+    },
+    {
+      "id": "core:ice_unloader",
+      "role": "unloader",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 12
+        }
+      ],
+      "hp": 80,
+      "signature": 1,
+      "power_use": 2,
+      "unloader": {
+        "item": "core:ice",
+        "interval_ticks": 30,
+        "reserve": 0
+      }
+    },
+    {
+      "id": "core:quartz_unloader",
+      "role": "unloader",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 12
+        }
+      ],
+      "hp": 80,
+      "signature": 1,
+      "power_use": 2,
+      "unloader": {
+        "item": "core:quartz",
+        "interval_ticks": 30,
+        "reserve": 0
+      }
+    },
+    {
+      "id": "core:carbon_unloader",
+      "role": "unloader",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 12
+        }
+      ],
+      "hp": 80,
+      "signature": 1,
+      "power_use": 2,
+      "unloader": {
+        "item": "core:carbon",
+        "interval_ticks": 30,
+        "reserve": 0
+      }
+    },
+    {
+      "id": "core:engineering_bench",
+      "cost": [
+        { "item": "core:iron_ingot", "count": 20 },
+        { "item": "core:iron_plate", "count": 12 }
+      ],
+      "hp": 100,
+      "signature": 3,
+      "power_use": 15
+    },
+    {
+      "id": "core:physics_lab",
+      "cost": [
+        { "item": "core:iron_ingot", "count": 24 },
+        { "item": "core:iron_plate", "count": 16 }
+      ],
+      "hp": 100,
+      "signature": 3,
+      "power_use": 18
+    },
+    {
+      "id": "core:greenhouse",
+      "cost": [
+        { "item": "core:iron_ingot", "count": 16 },
+        { "item": "core:iron_plate", "count": 12 }
+      ],
+      "hp": 90,
+      "signature": 2,
+      "power_use": 12
+    }
+  ],
+  "recipes": [
+    {
+      "id": "core:mine_iron",
+      "machine": "core:extractor",
+      "inputs": [],
+      "outputs": [
+        {
+          "item": "core:iron_ore",
+          "count": 1
+        }
+      ],
+      "time_s": 1
+    },
+    {
+      "id": "core:mine_carbon",
+      "machine": "core:extractor",
+      "inputs": [],
+      "outputs": [
+        {
+          "item": "core:carbon",
+          "count": 1
+        }
+      ],
+      "time_s": 1
+    },
+    {
+      "id": "core:drill_iron",
+      "machine": "core:drill",
+      "inputs": [],
+      "outputs": [
+        {
+          "item": "core:iron_ore",
+          "count": 1
+        }
+      ],
+      "time_s": 2
+    },
+    {
+      "id": "core:drill_carbon",
+      "machine": "core:drill",
+      "inputs": [],
+      "outputs": [
+        {
+          "item": "core:carbon",
+          "count": 1
+        }
+      ],
+      "time_s": 2
+    },
+    {
+      "id": "core:smelt_iron",
+      "machine": "core:smelter",
+      "inputs": [
+        {
+          "item": "core:iron_ore",
+          "count": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "core:iron_ingot",
+          "count": 1
+        }
+      ],
+      "time_s": 2
+    },
+    {
+      "id": "core:iron_plate",
+      "machine": "core:assembler",
+      "inputs": [
+        {
+          "item": "core:iron_ingot",
+          "count": 2
+        }
+      ],
+      "outputs": [
+        {
+          "item": "core:iron_plate",
+          "count": 1
+        }
+      ],
+      "time_s": 2
+    },
+    {
+      "id": "core:make_ammo",
+      "machine": "core:assembler",
+      "inputs": [
+        {
+          "item": "core:iron_ingot",
+          "count": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "core:ammo",
+          "count": 4
+        }
+      ],
+      "time_s": 1
+    },
+    {
+      "id": "core:ship_smelt",
+      "machine": "core:micro_refinery",
+      "inputs": [
+        {
+          "item": "core:iron_ore",
+          "count": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "core:iron_ingot",
+          "count": 1
+        }
+      ],
+      "time_s": 2
+    },
+    {
+      "id": "core:mine_ice",
+      "machine": "core:extractor",
+      "inputs": [],
+      "outputs": [
+        {
+          "item": "core:ice",
+          "count": 1
+        }
+      ],
+      "time_s": 1
+    },
+    {
+      "id": "core:mine_titanium",
+      "machine": "core:extractor",
+      "inputs": [],
+      "outputs": [
+        {
+          "item": "core:titanium_ore",
+          "count": 1
+        }
+      ],
+      "time_s": 1
+    },
+    {
+      "id": "core:mine_nickel",
+      "machine": "core:extractor",
+      "inputs": [],
+      "outputs": [
+        {
+          "item": "core:nickel_ore",
+          "count": 1
+        }
+      ],
+      "time_s": 1
+    },
+    {
+      "id": "core:mine_quartz",
+      "machine": "core:extractor",
+      "inputs": [],
+      "outputs": [
+        {
+          "item": "core:quartz",
+          "count": 1
+        }
+      ],
+      "time_s": 1
+    },
+    {
+      "id": "core:smelt_titanium",
+      "machine": "core:smelter",
+      "inputs": [
+        {
+          "item": "core:titanium_ore",
+          "count": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "core:titanium_ingot",
+          "count": 1
+        }
+      ],
+      "time_s": 4
+    },
+    {
+      "id": "core:smelt_nickel",
+      "machine": "core:smelter",
+      "inputs": [
+        {
+          "item": "core:nickel_ore",
+          "count": 1
+        }
+      ],
+      "outputs": [
+        {
+          "item": "core:nickel_ingot",
+          "count": 1
+        }
+      ],
+      "time_s": 3
+    },
+    {
+      "id": "core:titanium_plate",
+      "machine": "core:assembler",
+      "inputs": [
+        {
+          "item": "core:titanium_ingot",
+          "count": 2
+        }
+      ],
+      "outputs": [
+        {
+          "item": "core:titanium_plate",
+          "count": 1
+        }
+      ],
+      "time_s": 3
+    },
+    {
+      "id": "core:nickel_plate",
+      "machine": "core:assembler",
+      "inputs": [
+        {
+          "item": "core:nickel_ingot",
+          "count": 2
+        }
+      ],
+      "outputs": [
+        {
+          "item": "core:nickel_plate",
+          "count": 1
+        }
+      ],
+      "time_s": 3
+    },
+    {
+      "id": "core:crack_ice",
+      "machine": "core:hydrogen_cracker",
+      "inputs": [
+        {
+          "item": "core:ice",
+          "count": 2
+        }
+      ],
+      "outputs": [
+        {
+          "item": "core:hydrogen",
+          "count": 1
+        }
+      ],
+      "time_s": 4
+    },
+    {
+      "id": "core:smelt_silicon",
+      "machine": "core:smelter",
+      "inputs": [{ "item": "core:quartz", "count": 2 }],
+      "outputs": [{ "item": "core:silicon", "count": 1 }],
+      "time_s": 5
+    },
+    {
+      "id": "core:make_circuit",
+      "machine": "core:assembler",
+      "inputs": [{ "item": "core:silicon", "count": 1 }, { "item": "core:nickel_plate", "count": 1 }],
+      "outputs": [{ "item": "core:circuit", "count": 1 }],
+      "time_s": 6
+    },
+    {
+      "id": "core:make_alloy",
+      "machine": "core:assembler",
+      "inputs": [{ "item": "core:titanium_plate", "count": 1 }, { "item": "core:carbon", "count": 1 }],
+      "outputs": [{ "item": "core:titanium_alloy", "count": 1 }],
+      "time_s": 5
+    },
+    {
+      "id": "core:make_fuel_cell",
+      "machine": "core:hydrogen_cracker",
+      "inputs": [{ "item": "core:hydrogen", "count": 2 }, { "item": "core:nickel_plate", "count": 1 }],
+      "outputs": [{ "item": "core:fuel_cell", "count": 1 }],
+      "time_s": 8
+    },
+    {
+      "id": "core:make_engineering_science",
+      "machine": "core:engineering_bench",
+      "inputs": [{ "item": "core:iron_plate", "count": 2 }, { "item": "core:circuit", "count": 1 }],
+      "outputs": [{ "item": "core:science_engineering", "count": 1 }],
+      "time_s": 6
+    },
+    {
+      "id": "core:make_physics_science",
+      "machine": "core:physics_lab",
+      "inputs": [{ "item": "core:silicon", "count": 1 }, { "item": "core:nickel_plate", "count": 1 }],
+      "outputs": [{ "item": "core:science_physics", "count": 1 }],
+      "time_s": 8
+    },
+    {
+      "id": "core:grow_biomass",
+      "machine": "core:greenhouse",
+      "inputs": [{ "item": "core:ice", "count": 2 }, { "item": "core:carbon", "count": 1 }],
+      "outputs": [{ "item": "core:biomass", "count": 1 }],
+      "time_s": 10
+    },
+    {
+      "id": "core:make_biology_science",
+      "machine": "core:greenhouse",
+      "inputs": [{ "item": "core:biomass", "count": 1 }, { "item": "core:iron_plate", "count": 1 }],
+      "outputs": [{ "item": "core:science_biology", "count": 1 }],
+      "time_s": 6
+    },
+    {
+      "id": "core:biomass_to_hydrogen",
+      "machine": "core:hydrogen_cracker",
+      "inputs": [{ "item": "core:biomass", "count": 1 }],
+      "outputs": [{ "item": "core:hydrogen", "count": 2 }],
+      "time_s": 6
+    }
+  ],
+  "belts": [
+    {
+      "id": "core:belt_mk1",
+      "tier": "mk1",
+      "cost_per_cell": [
+        {
+          "item": "core:iron_ingot",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "core:belt_mk2",
+      "tier": "mk2",
+      "cost_per_cell": [
+        {
+          "item": "core:iron_plate",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "core:belt_mk3",
+      "tier": "mk3",
+      "cost_per_cell": [
+        {
+          "item": "core:iron_plate",
+          "count": 2
+        }
+      ]
+    }
+  ],
+  "research": [
+    {
+      "id": "core:logistics",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 90
+        }
+      ],
+      "requires": [],
+      "unlocks": [
+        "core:belt_mk2"
+      ]
+    },
+    {
+      "id": "core:carbon_drilling",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 60
+        }
+      ],
+      "requires": [],
+      "unlocks": [
+        "core:drill_carbon"
+      ],
+      "bonuses": [
+        {
+          "kind": "machine_hp",
+          "percent": 20
+        }
+      ]
+    },
+    {
+      "id": "core:advanced_logistics",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 300
+        },
+        {
+          "item": "core:carbon",
+          "count": 75
+        }
+      ],
+      "requires": [
+        "core:logistics",
+        "core:carbon_drilling"
+      ],
+      "unlocks": [
+        "core:belt_mk3"
+      ]
+    },
+    {
+      "id": "core:jump_drive",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 225
+        },
+        {
+          "item": "core:carbon",
+          "count": 75
+        }
+      ],
+      "requires": [
+        "core:logistics",
+        "core:carbon_drilling"
+      ],
+      "unlocks": [
+        "core:unloader",
+        "core:ore_unloader"
+      ],
+      "abilities": [
+        "jump"
+      ]
+    },
+    {
+      "id": "core:turret_calibration",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 150
+        }
+      ],
+      "requires": [
+        "core:logistics"
+      ],
+      "unlocks": [],
+      "bonuses": [
+        {
+          "kind": "turret_damage",
+          "percent": 25
+        }
+      ]
+    },
+    {
+      "id": "core:reinforced_plating",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 200
+        }
+      ],
+      "requires": [
+        "core:logistics"
+      ],
+      "unlocks": [],
+      "bonuses": [
+        {
+          "kind": "machine_hp",
+          "percent": 50
+        }
+      ]
+    },
+    {
+      "id": "core:rapid_loader",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 250
+        }
+      ],
+      "requires": [
+        "core:turret_calibration"
+      ],
+      "unlocks": [],
+      "bonuses": [
+        {
+          "kind": "turret_rate",
+          "percent": 25
+        }
+      ]
+    },
+    {
+      "id": "core:field_repair",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 250
+        }
+      ],
+      "requires": [
+        "core:reinforced_plating"
+      ],
+      "unlocks": [],
+      "bonuses": [
+        {
+          "kind": "repair_heal",
+          "percent": 100
+        }
+      ]
+    },
+    {
+      "id": "core:ship_armor",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 200
+        }
+      ],
+      "requires": [
+        "core:reinforced_plating"
+      ],
+      "unlocks": [],
+      "bonuses": [
+        {
+          "kind": "ship_hull",
+          "percent": 50
+        }
+      ]
+    },
+    {
+      "id": "core:ship_cannon",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 250
+        }
+      ],
+      "requires": [
+        "core:turret_calibration"
+      ],
+      "unlocks": [],
+      "bonuses": [
+        {
+          "kind": "ship_damage",
+          "percent": 50
+        }
+      ]
+    },
+    {
+      "id": "core:overclock",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 300
+        }
+      ],
+      "requires": [
+        "core:turret_calibration"
+      ],
+      "unlocks": [],
+      "bonuses": [
+        {
+          "kind": "turret_damage",
+          "percent": 8
+        }
+      ],
+      "repeatable": {
+        "max_levels": 8,
+        "cost_growth_percent": 35
+      }
+    },
+    {
+      "id": "core:alloy_refinement",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 300
+        }
+      ],
+      "requires": [
+        "core:reinforced_plating"
+      ],
+      "unlocks": [],
+      "bonuses": [
+        {
+          "kind": "machine_hp",
+          "percent": 10
+        }
+      ],
+      "repeatable": {
+        "max_levels": 8,
+        "cost_growth_percent": 35
+      }
+    },
+    {
+      "id": "core:nanite_repair",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 300
+        }
+      ],
+      "requires": [
+        "core:field_repair"
+      ],
+      "unlocks": [],
+      "bonuses": [
+        {
+          "kind": "repair_heal",
+          "percent": 25
+        }
+      ],
+      "repeatable": {
+        "max_levels": 6,
+        "cost_growth_percent": 35
+      }
+    },
+    {
+      "id": "core:titanium_smelting",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 150
+        },
+        {
+          "item": "core:titanium_ore",
+          "count": 40
+        }
+      ],
+      "requires": [
+        "core:logistics"
+      ],
+      "unlocks": [
+        "core:smelt_titanium",
+        "core:titanium_ore_unloader"
+      ]
+    },
+    {
+      "id": "core:nickel_smelting",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 150
+        },
+        {
+          "item": "core:nickel_ore",
+          "count": 40
+        }
+      ],
+      "requires": [
+        "core:logistics"
+      ],
+      "unlocks": [
+        "core:smelt_nickel",
+        "core:nickel_ore_unloader"
+      ]
+    },
+    {
+      "id": "core:advanced_plating",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 150
+        },
+        {
+          "item": "core:titanium_ingot",
+          "count": 40
+        },
+        {
+          "item": "core:nickel_ingot",
+          "count": 40
+        },
+        {
+          "item": "core:quartz",
+          "count": 30
+        }
+      ],
+      "requires": [
+        "core:titanium_smelting",
+        "core:nickel_smelting"
+      ],
+      "unlocks": [
+        "core:titanium_plate",
+        "core:nickel_plate"
+      ]
+    },
+    {
+      "id": "core:drone_automation",
+      "cost": [
+        {
+          "item": "core:iron_plate",
+          "count": 150
+        },
+        {
+          "item": "core:carbon",
+          "count": 20
+        }
+      ],
+      "requires": [
+        "core:logistics",
+        "core:carbon_drilling"
+      ],
+      "unlocks": [],
+      "abilities": [
+        "drone_bay"
+      ]
+    },
+    {
+      "id": "core:silicon_processing",
+      "cost": [
+        { "item": "core:iron_plate", "count": 200 },
+        { "item": "core:quartz", "count": 30 },
+        { "item": "core:nickel_plate", "count": 20 }
+      ],
+      "requires": ["core:advanced_plating"],
+      "unlocks": ["core:smelt_silicon"]
+    },
+    {
+      "id": "core:electronics",
+      "cost": [
+        { "item": "core:iron_plate", "count": 250 },
+        { "item": "core:silicon", "count": 40 },
+        { "item": "core:titanium_plate", "count": 20 }
+      ],
+      "requires": ["core:silicon_processing"],
+      "unlocks": ["core:make_circuit", "core:make_alloy"]
+    },
+    {
+      "id": "core:shielding",
+      "cost": [
+        { "item": "core:iron_plate", "count": 250 },
+        { "item": "core:silicon", "count": 30 },
+        { "item": "core:titanium_plate", "count": 20 }
+      ],
+      "requires": ["core:electronics"],
+      "unlocks": [],
+      "abilities": ["shield"]
+    },
+    {
+      "id": "core:sensors",
+      "cost": [
+        { "item": "core:iron_plate", "count": 250 },
+        { "item": "core:silicon", "count": 30 },
+        { "item": "core:nickel_plate", "count": 20 }
+      ],
+      "requires": ["core:electronics"],
+      "unlocks": [],
+      "abilities": ["sensor"]
+    },
+    {
+      "id": "core:advanced_power",
+      "cost": [
+        { "item": "core:iron_plate", "count": 300 },
+        { "item": "core:silicon", "count": 30 },
+        { "item": "core:nickel_plate", "count": 30 }
+      ],
+      "requires": ["core:electronics"],
+      "unlocks": ["core:make_fuel_cell"],
+      "abilities": ["reactor_mk2"]
+    },
+    {
+      "id": "core:structural_plating",
+      "field": "engineering",
+      "cost": [{ "item": "core:science_engineering", "count": 10 }, { "item": "core:iron_plate", "count": 100 }],
+      "requires": ["core:electronics"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "module_hp", "percent": 25 }]
+    },
+    {
+      "id": "core:alloy_hulls",
+      "field": "engineering",
+      "cost": [{ "item": "core:science_engineering", "count": 15 }, { "item": "core:iron_plate", "count": 120 }],
+      "requires": ["core:structural_plating", "core:ship_armor"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "ship_hull", "percent": 30 }]
+    },
+    {
+      "id": "core:repair_drones",
+      "field": "engineering",
+      "cost": [{ "item": "core:science_engineering", "count": 20 }, { "item": "core:iron_plate", "count": 150 }],
+      "requires": ["core:alloy_hulls", "core:field_repair"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "repair_heal", "percent": 50 }]
+    },
+    {
+      "id": "core:automated_turrets",
+      "field": "engineering",
+      "cost": [{ "item": "core:science_engineering", "count": 25 }, { "item": "core:iron_plate", "count": 150 }],
+      "requires": ["core:repair_drones", "core:turret_calibration"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "turret_rate", "percent": 15 }]
+    },
+    {
+      "id": "core:cargo_expansion",
+      "field": "engineering",
+      "cost": [{ "item": "core:science_engineering", "count": 30 }, { "item": "core:iron_plate", "count": 200 }],
+      "requires": ["core:automated_turrets"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "hold_capacity", "percent": 50 }]
+    },
+    {
+      "id": "core:algae_fuel",
+      "field": "biology",
+      "cost": [{ "item": "core:science_biology", "count": 10 }, { "item": "core:iron_plate", "count": 100 }],
+      "requires": ["core:advanced_plating"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "fuel_burn", "percent": 25 }]
+    },
+    {
+      "id": "core:closed_loop",
+      "field": "biology",
+      "cost": [{ "item": "core:science_biology", "count": 15 }, { "item": "core:iron_plate", "count": 120 }],
+      "requires": ["core:algae_fuel"],
+      "unlocks": ["core:biomass_to_hydrogen"]
+    },
+    {
+      "id": "core:medical_bay",
+      "field": "biology",
+      "cost": [{ "item": "core:science_biology", "count": 20 }, { "item": "core:iron_plate", "count": 150 }],
+      "requires": ["core:closed_loop", "core:field_repair"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "repair_heal", "percent": 25 }, { "kind": "ship_hull", "percent": 20 }]
+    },
+    {
+      "id": "core:bio_sensors",
+      "field": "biology",
+      "cost": [{ "item": "core:science_biology", "count": 25 }, { "item": "core:iron_plate", "count": 150 }],
+      "requires": ["core:medical_bay", "core:sensors"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "sensor_range", "percent": 50 }]
+    },
+    {
+      "id": "core:symbiotic_drones",
+      "field": "biology",
+      "cost": [{ "item": "core:science_biology", "count": 30 }, { "item": "core:iron_plate", "count": 200 }],
+      "requires": ["core:bio_sensors", "core:drone_automation"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "drone_rate", "percent": 30 }]
+    },
+    {
+      "id": "core:field_theory",
+      "field": "physics",
+      "cost": [{ "item": "core:science_physics", "count": 10 }, { "item": "core:iron_plate", "count": 100 }],
+      "requires": ["core:shielding"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "shield_absorb", "percent": 10 }]
+    },
+    {
+      "id": "core:efficient_reactors",
+      "field": "physics",
+      "cost": [{ "item": "core:science_physics", "count": 15 }, { "item": "core:iron_plate", "count": 120 }],
+      "requires": ["core:field_theory", "core:advanced_power"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "power_output", "percent": 15 }]
+    },
+    {
+      "id": "core:long_range_jump",
+      "field": "physics",
+      "cost": [{ "item": "core:science_physics", "count": 20 }, { "item": "core:iron_plate", "count": 150 }],
+      "requires": ["core:efficient_reactors", "core:jump_drive"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "jump_discount", "percent": 1 }]
+    },
+    {
+      "id": "core:targeting_lasers",
+      "field": "physics",
+      "cost": [{ "item": "core:science_physics", "count": 25 }, { "item": "core:iron_plate", "count": 150 }],
+      "requires": ["core:long_range_jump", "core:turret_calibration"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "turret_damage", "percent": 20 }]
+    },
+    {
+      "id": "core:quantum_sensors",
+      "field": "physics",
+      "cost": [{ "item": "core:science_physics", "count": 30 }, { "item": "core:iron_plate", "count": 200 }],
+      "requires": ["core:targeting_lasers", "core:sensors"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "sensor_range", "percent": 50 }]
+    },
+    {
+      "id": "core:laser_focusing",
+      "cost": [{ "item": "core:iron_plate", "count": 60 }],
+      "requires": ["core:logistics"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "mining_rate", "percent": 25 }]
+    },
+    {
+      "id": "core:beam_collimator",
+      "cost": [{ "item": "core:iron_plate", "count": 100 }, { "item": "core:carbon", "count": 20 }],
+      "requires": ["core:laser_focusing", "core:carbon_drilling"],
+      "unlocks": [],
+      "bonuses": [{ "kind": "mining_rate", "percent": 40 }]
+    }
+  ],
+  "galaxy": {
+    "system_count": 12,
+    "spacing_cells": 800,
+    "lanes_per_system": 2,
+    "system_radius_cells": 150
+  },
+  "archetypes": [
+    {
+      "id": "core:home",
+      "home": true,
+      "weight": 0,
+      "distance_cells": [
+        6,
+        12
+      ],
+      "wide_distance_cells": [36, 60],
+      "deposits": [
+        {
+          "item": "core:iron_ore",
+          "count": [
+            1,
+            1
+          ],
+          "amount": [
+            12000,
+            12000
+          ]
+        },
+        {
+          "item": "core:carbon",
+          "count": [
+            1,
+            1
+          ],
+          "amount": [
+            1500,
+            1500
+          ]
+        },
+        {
+          "item": "core:ice",
+          "count": [
+            1,
+            1
+          ],
+          "amount": [
+            1500,
+            2000
+          ],
+          "density": [
+            40,
+            70
+          ]
+        }
+      ]
+    },
+    {
+      "id": "core:dense_belt",
+      "weight": 2,
+      "depth": [
+        0,
+        2
+      ],
+      "distance_cells": [
+        12,
+        45
+      ],
+      "wide_distance_cells": [60, 170],
+      "deposits": [
+        {
+          "item": "core:iron_ore",
+          "count": [
+            3,
+            5
+          ],
+          "amount": [
+            600,
+            1200
+          ]
+        },
+        {
+          "item": "core:carbon",
+          "count": [
+            1,
+            2
+          ],
+          "amount": [
+            300,
+            700
+          ]
+        }
+      ]
+    },
+    {
+      "id": "core:sparse_belt",
+      "weight": 2,
+      "depth": [
+        3,
+        32
+      ],
+      "distance_cells": [
+        20,
+        60
+      ],
+      "wide_distance_cells": [100, 240],
+      "deposits": [
+        {
+          "item": "core:iron_ore",
+          "count": [
+            1,
+            2
+          ],
+          "amount": [
+            1500,
+            2500
+          ]
+        },
+        {
+          "item": "core:carbon",
+          "count": [
+            1,
+            1
+          ],
+          "amount": [
+            800,
+            1200
+          ]
+        }
+      ]
+    },
+    {
+      "id": "core:carbon_rich",
+      "weight": 2,
+      "distance_cells": [
+        10,
+        40
+      ],
+      "wide_distance_cells": [50, 160],
+      "deposits": [
+        {
+          "item": "core:carbon",
+          "count": [
+            3,
+            4
+          ],
+          "amount": [
+            700,
+            1400
+          ]
+        },
+        {
+          "item": "core:iron_ore",
+          "count": [
+            1,
+            1
+          ],
+          "amount": [
+            500,
+            900
+          ]
+        }
+      ]
+    },
+    {
+      "id": "core:nickel_field",
+      "weight": 5,
+      "distance_cells": [
+        10,
+        40
+      ],
+      "wide_distance_cells": [50, 160],
+      "depth": [
+        1,
+        2
+      ],
+      "guaranteed": true,
+      "deposits": [
+        {
+          "item": "core:nickel_ore",
+          "count": [
+            2,
+            3
+          ],
+          "amount": [
+            500,
+            1100
+          ],
+          "density": [
+            60,
+            140
+          ]
+        },
+        {
+          "item": "core:iron_ore",
+          "count": [
+            1,
+            1
+          ],
+          "amount": [
+            400,
+            800
+          ]
+        },
+        {
+          "item": "core:carbon",
+          "count": [
+            1,
+            1
+          ],
+          "amount": [
+            200,
+            400
+          ],
+          "density": [
+            80,
+            120
+          ]
+        }
+      ]
+    },
+    {
+      "id": "core:ice_field",
+      "weight": 5,
+      "distance_cells": [
+        10,
+        40
+      ],
+      "wide_distance_cells": [50, 160],
+      "depth": [
+        1,
+        2
+      ],
+      "guaranteed": true,
+      "deposits": [
+        {
+          "item": "core:ice",
+          "count": [
+            2,
+            3
+          ],
+          "amount": [
+            500,
+            1200
+          ],
+          "density": [
+            80,
+            160
+          ]
+        },
+        {
+          "item": "core:carbon",
+          "count": [
+            1,
+            1
+          ],
+          "amount": [
+            300,
+            600
+          ]
+        }
+      ]
+    },
+    {
+      "id": "core:titanium_vein",
+      "weight": 5,
+      "distance_cells": [
+        12,
+        50
+      ],
+      "wide_distance_cells": [60, 200],
+      "depth": [
+        3,
+        32
+      ],
+      "guaranteed": true,
+      "deposits": [
+        {
+          "item": "core:titanium_ore",
+          "count": [
+            2,
+            3
+          ],
+          "amount": [
+            400,
+            1000
+          ],
+          "density": [
+            50,
+            150
+          ]
+        },
+        {
+          "item": "core:iron_ore",
+          "count": [
+            1,
+            1
+          ],
+          "amount": [
+            400,
+            800
+          ]
+        },
+        {
+          "item": "core:carbon",
+          "count": [
+            1,
+            1
+          ],
+          "amount": [
+            200,
+            400
+          ],
+          "density": [
+            80,
+            120
+          ]
+        }
+      ]
+    },
+    {
+      "id": "core:quartz_geode",
+      "weight": 5,
+      "distance_cells": [
+        12,
+        50
+      ],
+      "wide_distance_cells": [60, 200],
+      "depth": [
+        3,
+        32
+      ],
+      "guaranteed": true,
+      "deposits": [
+        {
+          "item": "core:quartz",
+          "count": [
+            2,
+            3
+          ],
+          "amount": [
+            300,
+            900
+          ],
+          "density": [
+            40,
+            120
+          ]
+        },
+        {
+          "item": "core:carbon",
+          "count": [
+            1,
+            1
+          ],
+          "amount": [
+            300,
+            600
+          ]
+        }
+      ]
+    }
+  ],
+  "jump_cost": [
+    {
+      "item": "core:carbon",
+      "count": 5
+    }
+  ],
+  "modules": {
+    "core_cost": [
+      {
+        "item": "core:iron_ingot",
+        "count": 36
+      }
+    ],
+    "hull_cost": [
+      {
+        "item": "core:iron_ingot",
+        "count": 24
+      }
+    ],
+    "growth_percent": 25
+  },
+  "structures": {
+    "core": {
+      "cost": [{ "item": "core:iron_ingot", "count": 16 }, { "item": "core:iron_plate", "count": 12 }],
+      "hp": 300,
+      "allows": ["crafter", "lab", "depot", "unloader", "repairer", "belt"],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0
+    },
+    "cockpit": {
+      "cost": [{ "item": "core:iron_plate", "count": 12 }],
+      "hp": 150,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0
+    },
+    "engine": {
+      "cost": [{ "item": "core:iron_plate", "count": 20 }, { "item": "core:carbon", "count": 4 }],
+      "hp": 200,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 100
+    },
+    "reactor": {
+      "cost": [{ "item": "core:iron_plate", "count": 16 }, { "item": "core:carbon", "count": 8 }],
+      "hp": 150,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0,
+      "power_output": 100,
+      "burn_interval_ticks": 900,
+      "emergency_power": 15
+    },
+    "cargo": {
+      "cost": [{ "item": "core:iron_ingot", "count": 20 }],
+      "hp": 200,
+      "allows": [],
+      "hold_capacity": 100,
+      "thrust_speed_percent": 0
+    },
+    "workshop": {
+      "cost": [{ "item": "core:iron_ingot", "count": 24 }],
+      "hp": 200,
+      "allows": ["crafter", "lab", "depot", "unloader", "repairer", "belt"],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0
+    },
+    "defence": {
+      "cost": [{ "item": "core:iron_plate", "count": 16 }, { "item": "core:iron_ingot", "count": 16 }],
+      "hp": 400,
+      "allows": ["turret", "wall"],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0,
+      "defence_bonus_percent": 10,
+      "regen_hp": 5
+    },
+    "hull": {
+      "cost": [{ "item": "core:iron_ingot", "count": 12 }],
+      "hp": 120,
+      "allows": ["belt"],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0
+    },
+    "drone_bay": {
+      "cost": [{ "item": "core:iron_plate", "count": 16 }, { "item": "core:iron_ingot", "count": 16 }],
+      "hp": 150,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0,
+      "drone_range_cells": 130,
+      "drone_interval_ticks": 36,
+      "power_use": 20
+    },
+    "shield": {
+      "cost": [{ "item": "core:circuit", "count": 12 }, { "item": "core:titanium_alloy", "count": 12 }, { "item": "core:iron_plate", "count": 16 }],
+      "hp": 250,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0,
+      "power_use": 25,
+      "shield_percent": 30,
+      "shield_stack_percent": 10,
+      "shield_max_percent": 60
+    },
+    "sensor": {
+      "cost": [{ "item": "core:circuit", "count": 8 }, { "item": "core:silicon", "count": 10 }, { "item": "core:iron_plate", "count": 12 }],
+      "hp": 120,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0,
+      "power_use": 10,
+      "sensor_range_cells": 120
+    },
+    "reactor_mk2": {
+      "cost": [{ "item": "core:circuit", "count": 20 }, { "item": "core:titanium_alloy", "count": 20 }, { "item": "core:iron_plate", "count": 20 }],
+      "hp": 180,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0,
+      "power_output": 250,
+      "burn_interval_ticks": 900,
+      "emergency_power": 15
+    },
+    "dock": {
+      "cost": [{ "item": "core:iron_plate", "count": 10 }, { "item": "core:iron_ingot", "count": 8 }],
+      "hp": 200,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0
+    }
+  },
+  "structure_templates": {
+    "starter_ship": {
+      "modules": [
+        { "at": [0, 0, 0], "kind": "cockpit" },
+        { "at": [0, 0, 1], "kind": "workshop" },
+        { "at": [0, 0, 2], "kind": "cargo" },
+        { "at": [0, 0, 3], "kind": "reactor" },
+        { "at": [0, 0, 4], "kind": "engine" }
+      ],
+      "hold": [{ "item": "core:hydrogen", "count": 20 }],
+      "machines": [
+        { "id": "ore_port", "machine": "core:ore_unloader", "at": [0, 1, 9] },
+        { "id": "smelter", "machine": "core:smelter", "at": [3, 1, 9], "recipe": "core:smelt_iron" },
+        { "id": "assembler", "machine": "core:assembler", "at": [3, 1, 11], "recipe": "core:iron_plate" },
+        { "id": "depot", "machine": "core:depot", "at": [7, 1, 10] }
+      ],
+      "belts": [
+        { "at": [1, 1, 9], "dir": "+x", "length": 2, "tier": "mk1", "from": "ore_port", "to": "smelter" },
+        { "at": [4, 1, 9], "dir": "+x", "length": 4, "tier": "mk1", "from": "smelter", "to": "depot" },
+        { "at": [3, 1, 10], "dir": "+z", "length": 1, "tier": "mk1", "from": "smelter", "to": "assembler" },
+        { "at": [4, 1, 11], "dir": "+x", "length": 4, "tier": "mk1", "from": "assembler", "to": "depot" }
+      ]
+    },
+    "siege_station": {
+      "modules": [
+        { "at": [0, 0, 0], "kind": "core" },
+        { "at": [0, 0, 1], "kind": "workshop" },
+        { "at": [0, 1, 1], "kind": "defence" },
+        { "at": [1, 0, 1], "kind": "reactor" }
+      ],
+      "hold": [],
+      "machines": [
+        { "id": "ore_port", "machine": "core:ore_unloader", "at": [0, 1, 8] },
+        { "id": "smelter", "machine": "core:smelter", "at": [3, 1, 8], "recipe": "core:smelt_iron" },
+        { "id": "depot", "machine": "core:depot", "at": [7, 1, 8] },
+        { "id": "ammo_port", "machine": "core:unloader", "at": [0, 3, 8] },
+        { "id": "ammo_assembler", "machine": "core:assembler", "at": [2, 3, 8], "recipe": "core:make_ammo" }
+      ],
+      "belts": [
+        { "at": [1, 1, 8], "dir": "+x", "length": 2, "tier": "mk1", "from": "ore_port", "to": "smelter" },
+        { "at": [4, 1, 8], "dir": "+x", "length": 3, "tier": "mk1", "from": "smelter", "to": "depot" },
+        { "at": [1, 3, 8], "dir": "+x", "length": 1, "tier": "mk1", "from": "ammo_port", "to": "ammo_assembler" },
+        { "at": [3, 3, 8], "dir": "+x", "length": 3, "tier": "mk1", "from": "ammo_assembler", "to": null },
+        { "at": [2, 3, 9], "dir": "+x", "length": 4, "tier": "mk1", "from": "ammo_assembler", "to": null }
+      ]
+    },
+    "cold_ship": {
+      "modules": [
+        { "at": [0, 0, 0], "kind": "cockpit" },
+        { "at": [0, 0, 1], "kind": "workshop" },
+        { "at": [0, 0, 2], "kind": "cargo" },
+        { "at": [0, 0, 3], "kind": "reactor" },
+        { "at": [0, 0, 4], "kind": "engine" }
+      ],
+      "hold": [{ "item": "core:hydrogen", "count": 6 }],
+      "machines": [
+        { "id": "ore_port", "machine": "core:ore_unloader", "at": [0, 1, 9] },
+        { "id": "smelter", "machine": "core:smelter", "at": [3, 1, 9], "recipe": "core:smelt_iron" },
+        { "id": "assembler", "machine": "core:assembler", "at": [3, 1, 11], "recipe": "core:iron_plate" },
+        { "id": "depot", "machine": "core:depot", "at": [7, 1, 10] }
+      ],
+      "belts": [
+        { "at": [1, 1, 9], "dir": "+x", "length": 2, "tier": "mk1", "from": "ore_port", "to": "smelter" },
+        { "at": [4, 1, 9], "dir": "+x", "length": 4, "tier": "mk1", "from": "smelter", "to": "depot" },
+        { "at": [3, 1, 10], "dir": "+z", "length": 1, "tier": "mk1", "from": "smelter", "to": "assembler" },
+        { "at": [4, 1, 11], "dir": "+x", "length": 4, "tier": "mk1", "from": "assembler", "to": "depot" }
+      ]
+    },
+    "siege_ship": {
+      "modules": [
+        { "at": [0, 0, 0], "kind": "cockpit" },
+        { "at": [0, 0, 1], "kind": "workshop" },
+        { "at": [0, 0, 2], "kind": "cargo" },
+        { "at": [0, 0, 3], "kind": "reactor" },
+        { "at": [0, 0, 4], "kind": "engine" },
+        { "at": [-1, 0, 0], "kind": "cargo" },
+        { "at": [-1, 0, 1], "kind": "cargo" },
+        { "at": [-1, 0, 2], "kind": "cargo" },
+        { "at": [-1, 0, 3], "kind": "cargo" },
+        { "at": [-1, 0, 4], "kind": "cargo" },
+        { "at": [1, 0, 2], "kind": "cargo" },
+        { "at": [1, 0, 3], "kind": "cargo" }
+      ],
+      "hold": [{ "item": "core:hydrogen", "count": 20 }],
+      "machines": [
+        { "id": "ore_port", "machine": "core:ore_unloader", "at": [0, 1, 9] },
+        { "id": "smelter", "machine": "core:smelter", "at": [3, 1, 9], "recipe": "core:smelt_iron" },
+        { "id": "assembler", "machine": "core:assembler", "at": [3, 1, 11], "recipe": "core:iron_plate" },
+        { "id": "depot", "machine": "core:depot", "at": [7, 1, 10] }
+      ],
+      "belts": [
+        { "at": [1, 1, 9], "dir": "+x", "length": 2, "tier": "mk1", "from": "ore_port", "to": "smelter" },
+        { "at": [4, 1, 9], "dir": "+x", "length": 4, "tier": "mk1", "from": "smelter", "to": "depot" },
+        { "at": [3, 1, 10], "dir": "+z", "length": 1, "tier": "mk1", "from": "smelter", "to": "assembler" },
+        { "at": [4, 1, 11], "dir": "+x", "length": 4, "tier": "mk1", "from": "assembler", "to": "depot" }
+      ]
+    },
+    "blank_station": {
+      "modules": [
+        { "at": [0, 0, 0], "kind": "core" }
+      ],
+      "hold": [],
+      "machines": [],
+      "belts": []
+    }
+  },
+  "threat": {
+    "alert_max": 216000,
+    "signature_threshold": 8,
+    "decay_per_tick": 1,
+    "alert_after_wave": 48000,
+    "warning_seconds": 30,
+    "node_distance_cells": 70,
+    "max_enemies": 60,
+    "ship_hull": 100,
+    "ship_weapon": {
+      "range_cells": 25,
+      "damage": 6,
+      "interval_ticks": 10
+    },
+    "respawn_seconds": 5,
+    "module_regen_seconds": 10,
+    "first_wave_grace_seconds": 480,
+    "structure_ship_damage_percent": 150
+  },
+  "enemies": [
+    {
+      "id": "core:scout",
+      "hp": 20,
+      "speed": 24,
+      "damage": 4,
+      "range_cells": 3,
+      "interval_ticks": 20
+    },
+    {
+      "id": "core:striker",
+      "hp": 60,
+      "speed": 18,
+      "damage": 12,
+      "range_cells": 4,
+      "interval_ticks": 30
+    },
+    {
+      "id": "core:brute",
+      "hp": 300,
+      "speed": 10,
+      "damage": 30,
+      "range_cells": 5,
+      "interval_ticks": 40
+    },
+    {
+      "id": "core:bulwark",
+      "hp": 600,
+      "speed": 8,
+      "damage": 14,
+      "range_cells": 5,
+      "interval_ticks": 30
+    }
+  ],
+  "waves": [
+    {
+      "enemy": "core:scout",
+      "base": 2,
+      "per_wave": 1
+    },
+    {
+      "enemy": "core:striker",
+      "base": 0,
+      "per_wave": 1
+    },
+    {
+      "enemy": "core:brute",
+      "base": 1,
+      "per_wave": 0,
+      "from_wave": 3
+    },
+    {
+      "enemy": "core:brute",
+      "base": 1,
+      "per_wave": 0,
+      "from_wave": 7
+    },
+    {
+      "enemy": "core:brute",
+      "base": 1,
+      "per_wave": 0,
+      "from_wave": 11
+    },
+    {
+      "enemy": "core:scout",
+      "base": 2,
+      "per_wave": 0,
+      "from_wave": 3
+    },
+    {
+      "enemy": "core:striker",
+      "base": 1,
+      "per_wave": 0,
+      "from_wave": 3
+    },
+    {
+      "enemy": "core:striker",
+      "base": 1,
+      "per_wave": 1,
+      "from_wave": 7
+    },
+    {
+      "enemy": "core:bulwark",
+      "base": 1,
+      "per_wave": 0,
+      "from_wave": 4
+    },
+    {
+      "enemy": "core:bulwark",
+      "base": 1,
+      "per_wave": 0,
+      "from_wave": 8
+    }
+  ],
+  "world": {
+    "spacing_cells": 1800,
+    "system_radius_cells": 320,
+    "home_star": "core:yellow_dwarf",
+    "anchor_clear_cells": 70,
+    "deposit_clear_cells": 60,
+    "hazard_clear_cells": 80,
+    "depth_richness_percent": 15,
+    "outer_richness_percent": 40,
+    "boost_percent": 400,
+    "collision": { "safe_speed_units": 10, "reference_speed_units": 48, "cooldown_ticks": 60 },
+    "salvage": { "range_cells": 12, "ticks": 60 },
+    "star_types": [
+      { "id": "core:yellow_dwarf", "weight": 40, "richness_percent": 100, "asteroid_percent": 100, "hazard_percent": 100 },
+      { "id": "core:red_dwarf", "weight": 25, "richness_percent": 90, "asteroid_percent": 130, "hazard_percent": 80 },
+      { "id": "core:orange_star", "weight": 15, "richness_percent": 110, "asteroid_percent": 100, "hazard_percent": 100 },
+      { "id": "core:blue_giant", "weight": 10, "richness_percent": 130, "asteroid_percent": 70, "hazard_percent": 160, "min_depth": 1 },
+      { "id": "core:binary_star", "weight": 10, "richness_percent": 120, "asteroid_percent": 110, "hazard_percent": 130, "min_depth": 1 },
+      { "id": "core:pulsar", "weight": 5, "richness_percent": 160, "asteroid_percent": 50, "hazard_percent": 220, "min_depth": 2 }
+    ],
+    "obstacles": [
+      { "id": "core:asteroid_small", "behaviour": "solid", "weight": 6, "radius_tenths": [15, 35], "damage": 6 },
+      { "id": "core:asteroid_big", "behaviour": "solid", "weight": 2, "radius_tenths": [45, 90], "damage": 14 },
+      { "id": "core:floating_mine", "behaviour": "mine", "weight": 3, "radius_tenths": [10, 12], "damage": 90, "trigger_cells": 16, "fuse_ticks": 30, "blast_cells": 18 },
+      { "id": "core:unstable_crystal", "behaviour": "mine", "weight": 2, "radius_tenths": [12, 20], "damage": 45, "trigger_cells": 9, "fuse_ticks": 12, "blast_cells": 11 },
+      { "id": "core:ion_cloud", "behaviour": "cloud", "weight": 1, "radius_tenths": [250, 500], "drain_percent": 60 },
+      { "id": "core:gravity_cloud", "behaviour": "cloud", "weight": 1, "radius_tenths": [250, 550], "slow_percent": 55 },
+      { "id": "core:derelict_wreck", "behaviour": "wreck", "weight": 1, "radius_tenths": [25, 40],
+        "loot": [
+          { "item": "core:iron_plate", "count": [6, 14] },
+          { "item": "core:iron_ingot", "count": [10, 24] },
+          { "item": "core:carbon", "count": [3, 8] },
+          { "item": "core:ammo", "count": [8, 20] },
+          { "item": "core:ice", "count": [4, 12] }
+        ] },
+      { "id": "core:drifting_debris", "behaviour": "drifter", "weight": 1, "radius_tenths": [15, 30], "damage": 10, "drift_units_per_tick": 12 }
+    ]
+  }
+}

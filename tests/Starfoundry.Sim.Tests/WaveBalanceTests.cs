@@ -86,7 +86,7 @@ public class WaveBalanceTests
     /// <summary>The core content (no starter ship) with a change applied to its JSON, for comparisons against the shipped numbers.</summary>
     private static ContentDb Variant(Action<System.Text.Json.Nodes.JsonObject> change)
     {
-        var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", "core.json")))!.AsObject();
+        var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(TestContent.LegacyPath))!.AsObject();
         root.Remove("structure_templates");
         change(root);
         return ContentDb.FromJson(root.ToJsonString());

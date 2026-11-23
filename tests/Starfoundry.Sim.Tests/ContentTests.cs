@@ -5,18 +5,32 @@ namespace Starfoundry.Sim.Tests;
 
 internal static class TestContent
 {
+    /// <summary>
+    /// The content as it was before the floor-building rule (ADR 0031; <c>floor_building</c> false): the starter ship has its workshop and factory and
+    /// machines go anywhere in a module that allows them. The older structure tests run against it; <see cref="CoreFloor"/> is the shipped content.
+    /// </summary>
+    public static readonly string LegacyPath = Path.Combine(AppContext.BaseDirectory, "content", "legacy", "core_pre0031.json");
+
     public static readonly ContentDb Core =
+        ContentDb.FromFile(Path.Combine(AppContext.BaseDirectory, "content", "legacy", "core_pre0031.json"));
+
+    /// <summary>The shipped content: floor building, a fabrication bay to build, the workbench start.</summary>
+    public static readonly ContentDb CoreFloor =
         ContentDb.FromFile(Path.Combine(AppContext.BaseDirectory, "content", "core.json"));
 
     /// <summary>Every scenario file of <c>content/scenarios</c>, loaded against <see cref="Core"/>.</summary>
     public static readonly ScenarioCatalog Scenarios =
         ScenarioCatalog.FromDirectory(Core, Path.Combine(AppContext.BaseDirectory, "content", "scenarios"));
 
+    /// <summary>The scenario files loaded against the shipped content (<see cref="CoreFloor"/>).</summary>
+    public static readonly ScenarioCatalog ScenariosFloor =
+        ScenarioCatalog.FromDirectory(CoreFloor, Path.Combine(AppContext.BaseDirectory, "content", "scenarios"));
+
     /// <summary>
     /// The core content with the wave table as it was before the Normal-mode hardening (no bulwark, waves 3 to 10 about 30 percent
     /// smaller): the legacy balance-bot tests measure the pacing of the old campaign against it.
     /// </summary>
-    public static readonly ContentDb CoreClassicWaves = ContentDb.FromJson(ClassicWavesJson(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", "core.json"))));
+    public static readonly ContentDb CoreClassicWaves = ContentDb.FromJson(ClassicWavesJson(File.ReadAllText(TestContent.LegacyPath)));
 
     /// <summary>Removes the bulwark and the wave entries added after the first five (the original table).</summary>
     public static string ClassicWavesJson(string json)
@@ -52,7 +66,7 @@ internal static class TestContent
 
     private static string RemoveStarterShip()
     {
-        var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", "core.json")))!.AsObject();
+        var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(TestContent.LegacyPath))!.AsObject();
         root.Remove("structure_templates");
         return root.ToJsonString();
     }

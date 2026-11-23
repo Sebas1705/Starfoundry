@@ -559,7 +559,7 @@ public class DockingTests
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, log, C.Hash, GameMode.Sandbox, Seed, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(12, bytes[4]);
+        Assert.Equal(13, bytes[4]);
         Assert.Equal(log, CommandCodec.ReadLog(new MemoryStream(bytes)));
 
         // Older logs cannot hold them: the reader refuses, even inside a batch.
@@ -590,7 +590,7 @@ public class DockingTests
     [Fact]
     public void Content_without_the_dock_module_cannot_place_it_and_still_loads()
     {
-        var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", "core.json")))!.AsObject();
+        var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(TestContent.LegacyPath))!.AsObject();
         root["structures"]!.AsObject().Remove("dock");
         var content = ContentDb.FromJson(root.ToJsonString());
         Assert.False(content.Structures!.IsDefined(ModuleKind.Dock));

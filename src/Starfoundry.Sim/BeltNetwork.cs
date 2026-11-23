@@ -41,6 +41,9 @@ public sealed partial class BeltNetwork
     /// <summary>The world's rules (difficulty percentages and flags). Defaults equal the game before the rules existed.</summary>
     public WorldRules Rules { get; }
 
+    /// <summary>True when machines and belts may stand at any layer of a module that allows them: <see cref="WorldRules.LegacyBuilding"/> or content that predates ADR 0031.</summary>
+    public bool FreeBuilding => Rules.LegacyBuilding || !(Content?.FloorBuilding ?? true);
+
     /// <summary>Starting-item units that did not fit the starter hold and were left out at creation.</summary>
     public int StartingItemsClamped { get; internal set; }
 

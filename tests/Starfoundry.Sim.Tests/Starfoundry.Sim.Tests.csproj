@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <None Include="..\..\content\core.json" Link="content\core.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="legacy\core_pre0031.json" Link="content\legacy\core_pre0031.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\content\scenarios\*.json" Link="content\scenarios\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

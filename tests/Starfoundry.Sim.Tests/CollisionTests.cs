@@ -92,7 +92,7 @@ public class CollisionTests
     [Fact]
     public void Boost_is_refused_without_world_rules_and_stops_with_a_jump_or_a_lost_ship()
     {
-        var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", "core.json")))!.AsObject();
+        var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(TestContent.LegacyPath))!.AsObject();
         root.Remove("world"); root.Remove("structure_templates");
         var none = SimWorld.CreateGalaxy(ContentDb.FromJson(root.ToJsonString()), GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true);
         none.Submit(0, new SetBoost(true));
@@ -130,7 +130,7 @@ public class CollisionTests
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, new List<LoggedCommand> { new(0, 0, new Batch(new Command[] { new SetBoost(true) })) }, C.Hash, GameMode.Sandbox, Seed, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(12, bytes[4]);
+        Assert.Equal(13, bytes[4]);
         Assert.Single(CommandCodec.ReadLog(new MemoryStream(bytes)));
         bytes[4] = 9;
         Assert.Throws<InvalidDataException>(() => CommandCodec.ReadLog(new MemoryStream(bytes)));

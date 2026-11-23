@@ -198,7 +198,7 @@ public class ShieldSensorTests
     /// <summary>The core content with enemies that never get to shoot, so several waves can be watched.</summary>
     private static ContentDb Harmless()
     {
-        var root = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", "core.json")))!.AsObject();
+        var root = JsonNode.Parse(File.ReadAllText(TestContent.LegacyPath))!.AsObject();
         root.Remove("structure_templates");
         foreach (var e in root["enemies"]!.AsArray()) { e!["interval_ticks"] = 600; e["damage"] = 1; }
         // Mix the wave table so several types and the from_wave rule show up in the first waves.

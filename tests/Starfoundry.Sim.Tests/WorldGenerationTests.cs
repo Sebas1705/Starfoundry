@@ -15,7 +15,7 @@ public class WorldGenerationTests
 
     private static ContentDb WithoutWorld()
     {
-        var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", "core.json")))!.AsObject();
+        var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(TestContent.LegacyPath))!.AsObject();
         root.Remove("world");
         return ContentDb.FromJson(root.ToJsonString());
     }
@@ -74,7 +74,7 @@ public class WorldGenerationTests
     public void The_world_section_is_part_of_the_content_hash_and_is_validated()
     {
         Assert.NotEqual(WithoutWorld().Hash, C.Hash);
-        string json = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", "core.json"));
+        string json = File.ReadAllText(TestContent.LegacyPath);
         void Bad(string from, string to) => Assert.Throws<InvalidDataException>(() => ContentDb.FromJson(json.Replace(from, to)));
         Bad("\"home_star\": \"core:yellow_dwarf\"", "\"home_star\": \"core:nope\"");
         Bad("\"safe_speed_units\": 10", "\"safe_speed_units\": 60");
