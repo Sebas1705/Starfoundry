@@ -5,18 +5,20 @@ using System.IO;
 using System.Linq;
 using Godot;
 using Starfoundry.Sim;
+using Starfoundry.Ui;
 
 namespace Starfoundry.Game;
 
 /// <summary>
 /// Review scene for the procedural models. Run with user args after "--":
 /// --shot=path.png (save a screenshot after --frames=N frames and quit), --export-models=dir (write .glb files and quit),
-/// --focus=machines|machines2|belts|units|all|modules|ship-demo|station-demo (machines2 = the cracker, greenhouse, bench, physics lab, refinery and ports; belts = belt tiers and every item shape), --state=work|idle|off (machine lamps), --variant=N, --at=x,y,z (look-at point), --angle=deg, --pitch=deg, --dist=units, --fov=deg. Without --angle the camera orbits slowly.
+/// --focus=machines|machines2|belts|units|all|modules|ship-demo|station-demo|workbench (workbench = the ship workbench in a hull module, --bench=ingot|plate|ammo|off, --wall=right, --module=Hull|Cargo|Workshop|Cockpit; machines2 = the cracker, greenhouse, bench, physics lab, refinery and ports; belts = belt tiers and every item shape), --state=work|idle|off (machine lamps), --variant=N, --at=x,y,z (look-at point), --angle=deg, --pitch=deg, --dist=units, --fov=deg. Without --angle the camera orbits slowly.
 /// </summary>
 public partial class Gallery : Node3D
 {
     private readonly List<Node3D> _animated = new();
     private readonly List<Node3D> _turrets = new();
+    private readonly List<(Node3D Node, BenchKind Kind)> _benches = new();
     private MeshInstance3D _marker = null!;
     private Camera3D _cam = null!;
     private double _time;
@@ -82,6 +84,7 @@ public partial class Gallery : Node3D
             case "ship-demo": _focusPoint = new Vector3(4f, 2f, 20f); defDist = 40f; break;
             case "station-demo": _focusPoint = new Vector3(12f, 3f, 8f); defDist = 40f; break;
             case "ships": _focusPoint = new Vector3(-3.1f, 0.15f, -4.6f); defDist = 6f; break;
+            case "workbench": _focusPoint = new Vector3(1.7f, 0.7f, 1.6f); defDist = 6.5f; break;
             case "materials": _focusPoint = new Vector3(15f, 1f, 2f); defDist = 40f; break;
             case "deposits": _focusPoint = new Vector3(14.4f, 0.6f, 19f); defDist = 66f; break;
             case "units": _focusPoint = new Vector3(2.6f, 0.3f, -6.3f); defDist = 11f; break;
@@ -95,6 +98,7 @@ public partial class Gallery : Node3D
         else if (focus == "deposits") BuildDepositGallery();
         else if (focus == "materials") BuildMaterialGallery();
         else if (focus == "belts") BuildBeltGallery();
+        else if (focus == "workbench") BuildWorkbenchGallery(Arg("--bench") ?? "plate", Arg("--wall") == "right", Enum.TryParse<ModuleKind>(Arg("--module"), true, out var mk) ? mk : ModuleKind.Hull);
         else BuildModels();
     }
 
@@ -256,6 +260,26 @@ public partial class Gallery : Node3D
         }
     }
 
+    /// <summary>
+    /// --focus=workbench: the ship's workbench in a hull module of a small ship (cockpit in front, cargo behind, so the doorways are open).
+    /// --bench=ingot|plate|ammo|off picks the recipe, --state=work|idle sets whether it crafts, --wall=right mirrors it, --at and --angle move the camera.
+    /// </summary>
+    private void BuildWorkbenchGallery(string recipe, bool right, ModuleKind host)
+    {
+        (ModuleKind, int)[] row = { (ModuleKind.Cockpit, -1), (host, 0), (ModuleKind.Cargo, 1) };
+        bool Has(int x, int y, int z) => y == 0 && x == 0 && z is >= -1 and <= 1;
+        foreach (var (kind, z) in row)
+        {
+            var m = ModuleModels.Build(kind, true, 0, ModuleModels.NeighbourMask(Has, 0, 0, z));
+            m.Position = new Vector3(0, 0, z * 8f);
+            AddChild(m);
+        }
+        var bench = Models.Workbench(right);
+        if (host == ModuleKind.Cargo) bench.Position = new Vector3(right ? -WorkbenchSpot.CargoInset : WorkbenchSpot.CargoInset, 0f, 0f);
+        AddChild(bench);
+        _benches.Add((bench, recipe switch { "ingot" => BenchKind.Ingot, "plate" => BenchKind.Plate, "ammo" => BenchKind.Ammo, _ => BenchKind.Off }));
+    }
+
     private void BuildScene()
     {
         AddChild(new WorldEnvironment
@@ -376,6 +400,7 @@ public partial class Gallery : Node3D
             Models.SetPower(m, _state == "off" ? 0.1f : 1f);
             Models.Animate(m, _time, _state == "work");
         }
+        foreach (var (b, kind) in _benches) Models.AnimateBench(b, _time, kind, _state == "work" && kind != BenchKind.Off);
         var target = new Vector3(MathF.Cos((float)_time * 0.8f) * 4.5f, 1.4f + MathF.Sin((float)_time * 0.6f) * 0.8f, MathF.Sin((float)_time * 0.8f) * 3f + 1f);
         _marker.Position = target;
         foreach (var t in _turrets) Models.Aim(t, target);
