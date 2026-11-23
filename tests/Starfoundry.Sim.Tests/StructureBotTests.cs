@@ -31,23 +31,23 @@ public class StructureBotTests
         // Each milestone: its measured minute (seed 20261121, 6 s per action) and a generous bound.
         var bounds = new (string Name, double MaxMinutes)[]
         {
-            ("Hand mining the home iron deposit", 1),         // measured 0:01
-            ("First iron ingot in the hold", 1),              // 0:10
-            ("First iron plate in the hold", 2),              // 0:19
+            ("Hand mining the home iron deposit", 1),         // measured 0:05
+            ("First iron ingot in the hold", 1),              // 0:08
+            ("First iron plate in the hold", 2),              // 0:40
             ("Fabrication bay built", 6),                    // 2:12 (the workbench makes the ingots and plates, ADR 0031)
             ("Factory running: first delivery from a depot", 10), // 5:13
-            ("Station founded", 14),                          // 8:44
-            ("Hydrogen cracker built", 12),                   // 5:21
-            ("Hydrogen loop: first hydrogen made from ice", 15), // 6:05
-            ("First defence module built", 20),               // 8:59
-            ("First turret built", 22),                       // 10:01
-            ("First turret loaded with ammo", 24),            // 10:15
-            ("Station powered with machines running", 32),    // 23:18
-            ("Laboratory built", 38),                         // 26:41
-            ("First repair bay built", 40),                   // 32:26
-            ("First research finished", 40),                  // 20:03
-            ("Wave 1 warning", 30),                           // 15:26
-            ("Wave 1 survived", 32),                          // 16:08
+            ("Station founded", 14),                          // 8:20
+            ("Hydrogen cracker built", 12),                   // 5:47
+            ("Hydrogen loop: first hydrogen made from ice", 15), // 6:28
+            ("First defence module built", 18),               // 10:04
+            ("First turret built", 20),                       // 11:52
+            ("First turret loaded with ammo", 22),            // 12:16
+            ("Station powered with machines running", 26),    // 15:28
+            ("Laboratory built", 30),                         // 19:04
+            ("First repair bay built", 32),                   // 20:58
+            ("First research finished", 38),                  // 30:43 (27:34 with no waves: Between() builds the defence while the first node researches)
+            ("Wave 1 warning", 26),                           // 18:59 (the alert meter fills with the factory noise; 24:31 with the 2 s smelter)
+            ("Wave 1 survived", 28),                          // 19:41
         };
         foreach (var (name, max) in bounds)
         {
@@ -67,7 +67,7 @@ public class StructureBotTests
         Assert.Equal(OutcomeKind.Won, r.Outcome);
         Assert.Equal(OutcomeReason.WavesSurvived, r.Reason);
         Assert.True(r.WavesSurvived >= GoalSettings.DefaultWaves, $"only {r.WavesSurvived} waves survived");
-        Assert.InRange(r.Seconds / Minute, 38, 75); // measured about 61 (42 to 44 before ADR 0031: the workbench start and later machines make the waves come later)
+        Assert.InRange(r.Seconds / Minute, 38, 60); // measured 48:47 (66:08 after ADR 0031 with the 2 s smelter; 42 to 44 before it): the wave clock decides, the research keeps up
         // The waves come on their own clock: about three minutes apart once the base is loud.
         Assert.True(r.Has("Wave 10 survived"));
         // The win needs the research path: the jump drive was researched and a second system visited before it.
@@ -86,7 +86,7 @@ public class StructureBotTests
     {
         var r = Play(seed);
         Assert.True(r.Outcome == OutcomeKind.Won, "seed " + seed + ": " + r.Format());
-        Assert.InRange(r.Seconds / Minute, 38, 75); // measured about 61 (the workbench start moved it from 42-44)
+        Assert.InRange(r.Seconds / Minute, 38, 60); // measured 46:38 (seed 1), 47:36 (2), 48:59 (20261120): the wave clock decides
     }
 
     [Theory]
@@ -97,7 +97,7 @@ public class StructureBotTests
         var r = Play(delay: delay);
         Assert.True(r.Outcome == OutcomeKind.Won, $"delay {delay}: " + r.Format());
         // The wave clock decides, not the player: even a player 30 s per action behind wins within the same hour or so.
-        Assert.InRange(r.Seconds / Minute, 38, 115); // 30 s: 93
+        Assert.InRange(r.Seconds / Minute, 38, 105); // 0 s: 48:10, 15 s: 59:22, 30 s: 88:16
     }
 
     [Fact]
@@ -113,26 +113,44 @@ public class StructureBotTests
             "Scanned another system", "Researched titanium_smelting", "Researched nickel_smelting",
         })
             Assert.True(r.Has(name), $"'{name}' never happened");
-        Assert.True(Min(r, "Researched jump_drive") <= 75, $"the jump drive came at minute {Min(r, "Researched jump_drive"):F1}");
-        Assert.True(Min(r, "Researched nickel_smelting") <= 100, $"nickel smelting came at minute {Min(r, "Researched nickel_smelting"):F1}");
+        Assert.True(Min(r, "Researched jump_drive") <= 60, $"the jump drive came at minute {Min(r, "Researched jump_drive"):F1}"); // measured 46:13
+        Assert.True(Min(r, "Researched nickel_smelting") <= 90, $"nickel smelting came at minute {Min(r, "Researched nickel_smelting"):F1}"); // 69:42: the expedition waits for the win, and the waves reach the base by about minute 70
     }
 
     [Fact]
     public void Bot_researches_the_whole_tree_with_drones_when_left_alone()
     {
-        // No waves: the economy alone. The metal and quartz chains of the old stacked layout are not played any more (a lab bay has one raw feed face, ADR 0031), so the 15 other nodes take about 2 hours.
-        var r = Play(continueAfterWin: true, minutes: 170, threats: false);
+        // No waves: the economy alone. Measured (seed 20261121): the last of the 17 nodes (advanced plating, with three feeds on the two free faces of the lab, included) at about minute 95, the first drone at 35.
+        var r = Play(continueAfterWin: true, minutes: 140, threats: false);
         _out.WriteLine(r.Format());
-        // The electronics branch (silicon, circuits, shields, sensors, Mk2 power) is not part of the bot's plan.
-        var planned = TestContent.CoreFloor.Research.Where(n => n.Field == ResearchField.Basic && !n.Id.StartsWith("core:silicon_") && n.Id is not ("core:electronics" or "core:shielding" or "core:sensors" or "core:advanced_power" or "core:advanced_plating")).ToList();
+        // The electronics branch (silicon, circuits, shields, sensors, Mk2 power) is only part of the science mode (see the next test).
+        var planned = TestContent.CoreFloor.Research.Where(n => n.Field == ResearchField.Basic && !n.Id.StartsWith("core:silicon_") && n.Id is not ("core:electronics" or "core:shielding" or "core:sensors" or "core:advanced_power")).ToList();
         foreach (var node in planned)
             Assert.True(r.Has("Researched " + node.Id.Replace("core:", "")), $"'{node.Id}' was never researched");
         double last = planned.Max(n => Min(r, "Researched " + n.Id.Replace("core:", "")));
-        Assert.True(last <= 165, $"the last node came at minute {last:F1}");
-        Assert.True(Min(r, "First drone bay built") <= 60, $"the first drone bay came at minute {Min(r, "First drone bay built"):F1}");
+        Assert.True(last <= 120, $"the last node came at minute {last:F1}");
+        Assert.True(Min(r, "First drone bay built") <= 45, $"the first drone bay came at minute {Min(r, "First drone bay built"):F1}");
         Assert.True(r.MinedByDrones > 2000, $"drones mined only {r.MinedByDrones}");
         // Hydrogen holds: the ice deposit of home (1500 to 2000) lasts, so no reactor ran dry for more than a few minutes in two hours.
         Assert.True(r.EmergencySeconds < 600, $"{r.EmergencySeconds} s on emergency power");
+    }
+
+    [Fact]
+    public void Bot_in_science_mode_builds_the_three_chains_and_researches_the_whole_extended_tree()
+    {
+        // Left alone (no waves) on rich deposits: the tier needs more ore than the home system holds. Measured on seed 20261121: complete at about
+        // minute 378 (345 on the stacked layout of ADR 0026: the wings are now one or two fabrication bays of the station each, ADR 0031); the bound is generous.
+        var rules = new WorldRules { DepositRichnessPercent = 400 };
+        var bot = new StructureBot(TestContent.CoreFloor, Seed, threats: false, rules: rules) { ContinueAfterVictory = true, Science = true };
+        var r = bot.Run(520 * 60);
+        _out.WriteLine(r.Format());
+        foreach (var node in TestContent.CoreFloor.Research.Where(n => n.Field != ResearchField.Basic))
+            Assert.True(r.Has("Researched " + node.Id.Replace("core:", "")), $"'{node.Id}' was never researched");
+        foreach (var name in new[] { "silicon_processing", "electronics", "shielding", "sensors", "advanced_power", "advanced_plating" })
+            Assert.True(r.Has("Researched " + name), $"'{name}' was never researched");
+        Assert.True(r.Has("Science tier complete"));
+        Assert.True(r.At("Science tier complete") / Minute <= 480, "the science tier took too long");
+        Assert.True(bot.World.Network.ResearchItemsUsed > 0);
     }
 
     [Fact]

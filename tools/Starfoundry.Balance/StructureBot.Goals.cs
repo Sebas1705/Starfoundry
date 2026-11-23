@@ -196,7 +196,8 @@ public sealed partial class StructureBot
     private void ManageStock()
     {
         int ingots = Have("core:iron_ingot"), plates = Have("core:iron_plate");
-        if (!_smeltersOff && ingots >= 70 || _smeltersOff && ingots <= 36)
+        // The starter smelter also feeds the plate assembler that builds need plates from: it stays on while plates are short.
+        if (!_smeltersOff && ingots >= 70 && plates >= 30 || _smeltersOff && (ingots <= 36 || plates < 20))
         {
             _smeltersOff = !_smeltersOff;
             foreach (int s in _ingotSmelters)
@@ -435,44 +436,86 @@ public sealed partial class StructureBot
 
     // ---- research ----------------------------------------------------------------------------------------
 
-    private readonly List<(bool Machine, int Id)> _feedParts = new();
+    /// <summary>One feed of the laboratory: the faces it occupies and the parts it is made of, so it can come down when the lab has what it wanted.</summary>
+    private sealed class ActiveFeed
+    {
+        public Feed Feed = null!;
+        public int Face;
+        public readonly List<(bool Machine, int Id)> Parts = new();
+    }
 
-    /// <summary>Lab input faces: rows of the lab workshop whose belts end beside the lab at (7,3,1).</summary>
-    private static readonly int[] FeedRows = { 1 };
+    private readonly List<ActiveFeed> _activeFeeds = new();
+
+    /// <summary>
+    /// Lab input faces: the lab stands at (7, 2) of its bay, the plate line comes in from (7, 3); a belt along row 1 ends at (7, 1) and one along
+    /// row 2 at (6, 2), both beside the lab. Two feeds at once; a research with more feeds builds the rest as the first ones are satisfied.
+    /// </summary>
+    private static readonly int[] FeedRows = { 1, 2 };
 
     private (int X, int Y, int Z) LabOrigin => Origin(W2.X, W2.Y, W2.Z);
 
-    private void ClearFeeds()
+    private void ClearFeed(ActiveFeed f)
     {
-        foreach (var (isMachine, id) in _feedParts)
+        foreach (var (isMachine, id) in f.Parts)
         {
             if (isMachine) { if (Net.IsMachineAlive(id)) Cmd(new RemoveMachine(id)); }
             else if (Net.IsAlive(id)) Cmd(new RemoveSegment(id));
         }
-        _feedParts.Clear();
+        f.Parts.Clear();
+        _activeFeeds.Remove(f);
     }
 
-    /// <summary>A raw item port feeding the lab: port at x3 of a row of the lab workshop (y=3), a belt along the row into the lab.</summary>
-    private bool FeedRaw(int row, string port)
+    private void ClearFeeds()
+    {
+        foreach (var f in _activeFeeds.ToArray()) ClearFeed(f);
+    }
+
+    /// <summary>Builds a feed on a face of the lab bay, tracking everything it placed. Returns the feed or null.</summary>
+    private ActiveFeed? BuildFeed(Feed f, int row)
     {
         var (ox, oy, oz) = LabOrigin;
-        int p = PlaceMachine(_ship, ox + 3, oy, oz + row, port);
-        if (p < 0) return false;
-        _feedParts.Add((true, p));
-        int b = Link(_ship, p, ox + 4, oy, oz + row, Dir.PosX, 4, _lab);
-        if (b >= 0) _feedParts.Add((false, b));
-        return b >= 0;
+        int machines0 = Net.MachineIdLimit, segments0 = Net.SegmentIdLimit;
+        int endX = row == 1 ? 7 : 6; // the last belt cell stands beside the lab
+        bool built;
+        switch (f.Kind)
+        {
+            case FeedKind.Raw:
+            {
+                int p = PlaceMachine(_ship, ox + 3, oy, oz + row, f.Port);
+                built = p >= 0 && Link(_ship, p, ox + 4, oy, oz + row, Dir.PosX, endX - 4 + 1, _lab) >= 0;
+                break;
+            }
+            case FeedKind.Ingots:
+            {
+                var (s, belt) = SmelterRow(_ship, ox, oy, oz, 0, row, endX, f.Smelt!, f.Port);
+                built = s >= 0 && !Failed(Cmd(new ConnectToMachine(belt, _lab)), "ConnectToMachine");
+                break;
+            }
+            default: // plates: port, smelter, assembler, then the belt that ends beside the lab
+            {
+                var (s, belt) = SmelterRow(_ship, ox, oy, oz, 0, row, 4, f.Smelt!, f.Port);
+                int a = s < 0 ? -1 : PlaceMachine(_ship, ox + 5, oy, oz + row, "core:assembler", f.Plate);
+                built = a >= 0 && !Failed(Cmd(new ConnectToMachine(belt, a)), "ConnectToMachine")
+                    && Link(_ship, a, ox + 6, oy, oz + row, Dir.PosX, endX - 6 + 1, _lab) >= 0;
+                break;
+            }
+        }
+        var active = new ActiveFeed { Feed = f, Face = row };
+        // Everything the feed made comes down with it (the inner belts and the row's port were not tracked one by one).
+        for (int mid = machines0; mid < Net.MachineIdLimit; mid++)
+            if (Net.IsMachineAlive(mid)) active.Parts.Add((true, mid));
+        for (int sid = segments0; sid < Net.SegmentIdLimit; sid++)
+            if (Net.IsAlive(sid)) active.Parts.Add((false, sid));
+        _activeFeeds.Add(active);
+        if (built) return active;
+        ClearFeed(active);
+        return null;
     }
-
-    // The lab bay has one free face for a raw feed (the plate line takes another): the ingot and plate feeds of the old stacked layout have no floor
-    // equivalent, so the plan only researches what one raw feed (or none) can supply. See docs/prototypes/structure-bot.md.
-    private bool FeedIngots(int row, string port, string recipe) { Stuck("an ingot feed needs a second lab face: not on the floor layout"); return false; }
-
-    private bool FeedPlates(int row, string port, string smelt, string plate) { Stuck("a plate feed needs a second lab face: not on the floor layout"); return false; }
 
     private enum FeedKind { Raw, Ingots, Plates }
 
-    private sealed record Feed(FeedKind Kind, string Port, string? Smelt = null, string? Plate = null);
+    /// <summary>A lab feed: <paramref name="Delivers"/> is the research item it brings (so the bot knows when the lab has enough of it).</summary>
+    private sealed record Feed(FeedKind Kind, string Port, string Delivers, string? Smelt = null, string? Plate = null);
 
     private bool ResearchNow(string id, params Feed[] feeds)
     {
@@ -481,30 +524,36 @@ public sealed partial class StructureBot
         Goal("research " + id);
         if (!WaitUntil(() => Net.CanResearch(node), 60)) { Stuck($"cannot research {id}: requirements missing"); return false; }
         if (_lab < 0) { Stuck($"cannot research {id}: no laboratory"); return false; }
-        int row = 0;
-        foreach (var f in feeds)
+        var pending = new Queue<Feed>(feeds);
+        bool Satisfied(Feed f)
         {
-            if (row >= FeedRows.Length) { Stuck($"cannot research {id}: the lab bay has room for {FeedRows.Length} feed(s)"); ClearFeeds(); return false; }
-            int r = FeedRows[row++];
-            int machines0 = Net.MachineIdLimit, segments0 = Net.SegmentIdLimit;
-            bool built = f.Kind switch
-            {
-                FeedKind.Raw => FeedRaw(r, f.Port),
-                FeedKind.Ingots => FeedIngots(r, f.Port, f.Smelt!),
-                _ => FeedPlates(r == 1 ? 2 : r, f.Port, f.Smelt!, f.Plate!),
-            };
-            // Everything the feed made comes down with it (the inner belts and the row's port were not tracked one by one).
-            for (int mid = machines0; mid < Net.MachineIdLimit; mid++)
-                if (Net.IsMachineAlive(mid) && !_feedParts.Contains((true, mid))) _feedParts.Add((true, mid));
-            for (int sid = segments0; sid < Net.SegmentIdLimit; sid++)
-                if (Net.IsAlive(sid) && !_feedParts.Contains((false, sid))) _feedParts.Add((false, sid));
-            if (!built) { Stuck($"could not build the lab feed ({f.Port}) for {id}"); ClearFeeds(); return false; }
+            int item = Item(f.Delivers);
+            foreach (var c in Net.ResearchCost(node))
+                if (c.Item == item) return Net.ResearchProgress(node, item) >= c.Count;
+            return true;
         }
+        // Build what the faces take: the feeds that have the lab's attention first, the rest as faces free up.
+        bool FillFaces()
+        {
+            while (pending.Count > 0 && _activeFeeds.Count < FeedRows.Length)
+            {
+                int face = FeedRows.First(r => _activeFeeds.All(a => a.Face != r));
+                var f = pending.Dequeue();
+                if (Satisfied(f)) continue;
+                if (BuildFeed(f, face) is null) { Stuck($"could not build the lab feed ({f.Port}) for {id}"); return false; }
+            }
+            return true;
+        }
+        if (!FillFaces()) { ClearFeeds(); return false; }
         if (Failed(Act(new SetResearch(node)), "SetResearch " + id)) { ClearFeeds(); return false; }
         int lastTotal = -1, lastChange = NowSeconds;
         bool ok = WaitUntil(() =>
         {
             Between();
+            // A feed whose item the lab has all of comes down; the next waiting feed takes its face.
+            foreach (var a in _activeFeeds.ToArray())
+                if (Satisfied(a.Feed)) ClearFeed(a);
+            if (pending.Count > 0) FillFaces();
             int total = Net.ResearchCost(node).Sum(c => Net.ResearchProgress(node, c.Item));
             if (total != lastTotal) { lastTotal = total; lastChange = NowSeconds; }
             else if (NowSeconds - lastChange > 150 && !Net.IsResearched(node))
@@ -568,11 +617,11 @@ public sealed partial class StructureBot
         StationDefence();
         // Automation costs plates and carbon only and its bays iron: do it first, it raises the ore the plates are made of.
         FetchCarbon(26, "carbon for drone automation");
-        ResearchNow("core:drone_automation", new Feed(FeedKind.Raw, "core:carbon_unloader"));
+        ResearchNow("core:drone_automation", CarbonRaw);
         BuildDrones();
         MoreCargoUpTo(4);
         FetchCarbon(80, "carbon for the jump drive");
-        ResearchNow("core:jump_drive", new Feed(FeedKind.Raw, "core:carbon_unloader"));
+        ResearchNow("core:jump_drive", CarbonRaw);
         Reinforce();
         PlayRemainder();
     }

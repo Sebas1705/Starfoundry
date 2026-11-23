@@ -313,7 +313,7 @@ public sealed partial class StructureBot
     /// Two smelter rows (z = <paramref name="zA"/> and <paramref name="zA"/> + 1) feeding one plate assembler at x7, whose output goes one cell up the
     /// column into a machine at (7, zA - 2): a laboratory or a depot. 0.5 plates a second at best.
     /// </summary>
-    private int PlateLine(int st, int ox, int oy, int oz, int zA, string sink, out int sinkId)
+    private int PlateLine(int st, int ox, int oy, int oz, int zA, string sink, out int sinkId, string? sinkRecipe = null)
     {
         sinkId = -1;
         int asm = PlaceMachine(st, ox + 7, oy, oz + zA, "core:assembler", "core:iron_plate");
@@ -322,7 +322,7 @@ public sealed partial class StructureBot
         if (s1 < 0 || Failed(Cmd(new ConnectToMachine(b1, asm)), "ConnectToMachine")) return -1;
         var (s2, b2) = SmelterRow(st, ox, oy, oz, 0, zA + 1, 7);
         if (s2 < 0 || Failed(Cmd(new ConnectToMachine(b2, asm)), "ConnectToMachine")) return -1;
-        sinkId = PlaceMachine(st, ox + 7, oy, oz + zA - 2, sink);
+        sinkId = PlaceMachine(st, ox + 7, oy, oz + zA - 2, sink, sinkRecipe);
         if (sinkId < 0) return -1;
         if (Link(st, asm, ox + 7, oy, oz + zA - 1, Dir.NegZ, 1, sinkId) < 0) return -1;
         return asm;

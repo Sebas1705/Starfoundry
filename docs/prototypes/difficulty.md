@@ -83,3 +83,31 @@ Same bot, delay (6 s) and seeds, on the build with docking ([docking](docking.md
 
 ## Not measured
 Custom rule combinations, `FreeBuild` and `StartingItems` with the bot, and play by a person. The New Game screen that picks a preset is part D of the design.
+
+## Rebalance after the construction rework (2026-11-23)
+After ADR 0031 and ADR 0032 the bot won Normal at 66:08, Relaxed at 59:46 and Hard at 64:44 (seed 20261121). Iron smelting was changed from 2 s to 1 s, nothing else in the content or the presets ([structure-bot](structure-bot.md#rebalance-after-the-construction-rework-2026-11-23) has the analysis and the variants that were tried), and the bot got the changes listed there (first jump before the expedition, lab feeds, station labs, science wings). Same bot, delay 6 s.
+
+Before (content as after ADR 0032, the bot of that time):
+
+| Preset (goal) | Seed 20261121 | Seed 20261120 | Seed 777 |
+| --- | --- | --- | --- |
+| Relaxed (8) | Win 59:46 | Win 55:09 | Win 54:17 |
+| Normal (10) | Win 66:08 | Win 57:54 | Win 56:34 |
+| Hard (12) | Win 64:44 | Win 61:31 | Lost 58:09 (ship lost) |
+| Brutal (15) | Lost 46:53 (3 waves) | Lost 49:17 (8 waves) | Lost 48:31 (8 waves) |
+
+After:
+
+| Preset (goal) | Seed 20261121 | Seed 20261120 | Seed 777 |
+| --- | --- | --- | --- |
+| Relaxed (8) | Win 46:18 | Win 46:57 | Win 46:28 |
+| Normal (10) | Win 48:45 | Win 48:59 | Win 48:53 |
+| Hard (12) | Win 50:40 | Win 51:36 | Win 50:36 |
+| Brutal (15) | Lost 47:45 (10 waves) | Lost 48:11 (10 waves) | Lost 42:46 (9 waves) |
+
+First wave warning on the main seed: Relaxed 20:12, Normal 18:59, Hard 17:50, Brutal 16:56. Jump drive researched: Relaxed 44:35, Normal 46:13, Hard 46:52 on the main seed (41:35 to 46:52 on all seeds).
+
+- Every preset but Brutal wins on every seed; the win time is the wave clock (about three minutes a wave once the base is loud) with the jump drive research just ahead of it, as it was before ADR 0031. Normal sits at 48:45 to 48:59 (aim: about 50), Relaxed at 46:18 to 46:57 (aim: about 45), Hard at 50:36 to 51:36 (aim: about 55).
+- The spread between the presets is only 2 to 3 minutes. It comes from the presets, not from the content: Hard has two more waves to survive, but its waves come 20 percent faster, which cancels most of it (the same was true before ADR 0031: 47:00 against 48:13). If Hard should land at about 55 the lever is the preset (13 goal waves puts it near 54), not the content; this was not changed because the presets are a rule table that the docs, the tests and the new-game screen quote.
+- Brutal is still lost on every seed, at wave 9 or 10 of 15 (it was wave 3 to 8 before the rebalance, wave 10 to 11 in the first measurement of this document).
+- Hard on seed 777 lost the ship before the rebalance (minute 58) and wins now.
