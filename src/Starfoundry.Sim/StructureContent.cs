@@ -20,10 +20,11 @@ namespace Starfoundry.Sim;
 /// <param name="ShieldStackPercent">Percent each further shield adds (shield only; 0 otherwise).</param>
 /// <param name="ShieldMaxPercent">Cap of the summed absorption (shield only; 0 otherwise).</param>
 /// <param name="SensorRangeCells">How far from the sensor deposits are revealed automatically, in cells (sensor only; 0 otherwise).</param>
+/// <param name="BuildableFloor">Whether machines and belts may be built on the floor of a module of this kind (ADR 0031). Content that does not say defaults to: the kind allows something.</param>
 public sealed record ModuleKindDef(
     ModuleKind Kind, ItemStack[] Cost, int Hp, MachineRole[] AllowedRoles, bool AllowsBelts, int HoldCapacity, int ThrustSpeedPercent,
     int PowerOutput = 0, int BurnIntervalTicks = 0, int DroneRangeCells = 0, int DroneIntervalTicks = 0, int PowerUse = 0, int DefenceBonusPercent = 0, int EmergencyPower = 0, int RegenHp = 1,
-    int ShieldPercent = 0, int ShieldStackPercent = 0, int ShieldMaxPercent = 0, int SensorRangeCells = 0);
+    int ShieldPercent = 0, int ShieldStackPercent = 0, int ShieldMaxPercent = 0, int SensorRangeCells = 0, bool BuildableFloor = false);
 
 /// <summary>The module kinds of ships and stations, from the <c>structures</c> section of the content.</summary>
 public sealed class StructureContent
@@ -49,6 +50,23 @@ public sealed class StructureContent
     public bool AllowsRole(ModuleKind kind, MachineRole role) => System.Array.IndexOf(_kinds[(int)kind].AllowedRoles, role) >= 0;
 
     public bool AllowsBelts(ModuleKind kind) => _kinds[(int)kind].AllowsBelts;
+
+    /// <summary>True for the kinds whose floor machines and belts may be built on (the fabrication bay, a station core, the defence module for turrets and walls).</summary>
+    public bool IsBuildable(ModuleKind kind) => _kinds[(int)kind].BuildableFloor;
+
+    /// <summary>
+    /// Whether a machine of <paramref name="role"/> (or a belt cell when <paramref name="isBelt"/>) may stand at local layer <paramref name="y"/> of a module of
+    /// <paramref name="kind"/> (ADR 0031): <see cref="Reject.KindNotAllowed"/> when the kind does not allow it (or is not buildable at all) and
+    /// <see cref="Reject.NotOnFloor"/> when it is not at the floor level of the module. With <paramref name="legacy"/> (<see cref="WorldRules.LegacyBuilding"/>) only
+    /// the kind's allowed list counts, as before the rule.
+    /// </summary>
+    public Reject CellProblem(ModuleKind kind, int y, bool isBelt, MachineRole role, bool legacy)
+    {
+        if (!(isBelt ? AllowsBelts(kind) : AllowsRole(kind, role))) return Reject.KindNotAllowed;
+        if (legacy) return Reject.None;
+        if (!IsBuildable(kind)) return Reject.KindNotAllowed;
+        return StationGrid.IsFloorLayer(y) ? Reject.None : Reject.NotOnFloor;
+    }
 
     public ItemStack[] ModuleCost(ModuleKind kind) => _kinds[(int)kind].Cost;
 

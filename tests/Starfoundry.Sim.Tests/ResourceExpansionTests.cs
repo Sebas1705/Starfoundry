@@ -106,7 +106,7 @@ public class ResourceExpansionTests
     [Fact]
     public void Content_without_the_new_module_kinds_still_loads_and_cannot_place_them()
     {
-        var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", "core.json")))!.AsObject();
+        var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(TestContent.LegacyPath))!.AsObject();
         root.Remove("structure_templates");
         foreach (var kind in new[] { "shield", "sensor", "reactor_mk2", "dock" }) root["structures"]!.AsObject().Remove(kind);
         var old = ContentDb.FromJson(root.ToJsonString());

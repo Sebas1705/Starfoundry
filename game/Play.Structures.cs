@@ -69,11 +69,11 @@ public partial class Play
 
         if (args.Contains("--demo-machines"))
         {
-            // Machines in the ship's workshop: a smelter on the deck and an assembler and a belt on the second layer (they must stand on posts).
+            // Machines in the ship's workshop: a smelter, an assembler and a belt, all on the floor layer (ADR 0031).
             int x0 = sx * StationGrid.ModuleX, z0 = StationGrid.ModuleZ;
             net.AddMachine(x0 + 1, 0, z0 + 2, _content.MachineIndex("core:smelter"), _content.RecipeIndex("core:smelt_iron"), structure: _demoShip);
-            net.AddMachine(x0 + 5, 2, z0 + 2, _content.MachineIndex("core:assembler"), _content.RecipeIndex("core:iron_plate"), structure: _demoShip);
-            net.AddSegment(x0 + 2, 2, z0 + 5, 1, 0, 0, 4, BeltTier.Mk1, _demoShip);
+            net.AddMachine(x0 + 5, 0, z0 + 4, _content.MachineIndex("core:assembler"), _content.RecipeIndex("core:iron_plate"), structure: _demoShip);
+            net.AddSegment(x0 + 2, 0, z0 + 6, 1, 0, 0, 4, BeltTier.Mk1, _demoShip);
         }
 
         string focus = args.FirstOrDefault(a => a.StartsWith("--demo-focus="))?["--demo-focus=".Length..] ?? "both";

@@ -375,7 +375,7 @@ public class MachineTests
         Assert.Equal(w.Checksum(), SimWorld.Replay(back, w.Tick, content: C).Checksum());
 
         // Replaying against different content must not be mistaken for the same state.
-        var other = ContentDb.FromJson(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", "core.json"))
+        var other = ContentDb.FromJson(File.ReadAllText(TestContent.LegacyPath)
             .Replace("\"time_s\": 2", "\"time_s\": 3"));
         Assert.NotEqual(C.Hash, other.Hash);
         Assert.NotEqual(w.Checksum(), SimWorld.Replay(back, w.Tick, content: other).Checksum());

@@ -5,13 +5,19 @@ namespace Starfoundry.Balance;
 /// <summary>The plan: named goals in order, each guarded by "can I afford it / is it unlocked".</summary>
 public sealed partial class StructureBot
 {
-    // Module plan (module grid coordinates of the ship; the starter ship stands at (0,0,0..4)).
-    private static readonly (int X, int Y, int Z) W1 = (0, 0, 1);        // starter workshop
-    private static readonly (int X, int Y, int Z) D1 = (0, 1, 1);        // ship defence module, on top of the starter workshop
-    private static readonly (int X, int Y, int Z) W2 = (1, 0, 0);        // laboratory workshop
-    private static readonly (int X, int Y, int Z) C2 = (-1, 0, 0);       // second cargo module
-    private static readonly (int X, int Y, int Z) R2 = (-1, 0, -1);      // second reactor
-    private static readonly (int X, int Y, int Z) B1 = (1, 0, 1);        // ship drone bay
+    // Module plan (module grid coordinates; the starter ship stands at (0,0,0..4): cockpit, hull, cargo, reactor, engine). Bays are beside the hull,
+    // defence modules beside their bay so the ammo belts cross the seam on the floor (ADR 0031).
+    private static readonly (int X, int Y, int Z) F1 = (1, 0, 1);        // the ship's first fabrication bay (the factory)
+    private static readonly (int X, int Y, int Z) D1 = (2, 0, 1);        // ship defence module, beside F1
+    private static readonly (int X, int Y, int Z) W2 = (-1, 0, 1);       // laboratory bay
+    private static readonly (int X, int Y, int Z) W3 = (-1, 0, 2);       // second laboratory bay
+    private static readonly (int X, int Y, int Z) R2 = (-1, 0, 4);       // second reactor
+    private static readonly (int X, int Y, int Z) B1 = (1, 0, 2);        // ship drone bay
+    private static readonly (int X, int Y, int Z) S1 = (1, 0, 0);        // the station's bay, beside the core
+    private static readonly (int X, int Y, int Z) SD = (2, 0, 0);        // the station's defence module, beside S1
+
+    /// <summary>The ship's first bay: where the template put it (levels 2 and 3) or the one the bot builds.</summary>
+    private (int X, int Y, int Z) ShipBay => Net.GetStructure(_ship).Modules.TryGetValue((0, 0, 1), out var k) && k == ModuleKind.Workshop ? (0, 0, 1) : F1;
 
     private int _iceDeposit = -1;
     private bool _iceLoopBuilt;
@@ -39,10 +45,10 @@ public sealed partial class StructureBot
     private void PlayCampaign()
     {
         MineIron();
+        BuildBay();
+        HydrogenLoop();
         FoundStation();
         MoreCargo(2);
-        HydrogenLoop();
-        IngotLines(1);
         FetchCarbon(26, "carbon for the two reactors");
         ShipDefence();
         StationPower();
@@ -63,8 +69,45 @@ public sealed partial class StructureBot
         var p = Net.GetPlayerInfo(0);
         _homeMine = (p.X, p.Y, p.Z);
         Milestone("Hand mining the home iron deposit");
+        Cmd(new SetShipRecipe(Recipe("core:ship_smelt"))); // the workbench makes ingots from the hold's ore, slowly
         WaitUntil(() => Net.HoldCount(0, Item("core:iron_plate")) > 0, 300);
     }
+
+    /// <summary>
+    /// The first minutes of the new start (ADR 0031): the workbench makes the ingots and plates a fabrication bay costs, the bay goes beside the hull,
+    /// and its starter factory (ore port, smelter, assembler, depot) takes over. Until then <see cref="BenchPolicy"/> picks the workbench recipe.
+    /// </summary>
+    private void BuildBay()
+    {
+        Goal("1b workbench: ingots and plates, then a fabrication bay and its starter factory");
+        if (PlaceModule(_ship, F1.X, F1.Y, F1.Z, ModuleKind.Workshop) < 0) return;
+        Milestone("Fabrication bay built");
+        var (ox, oy, oz) = Origin(F1.X, F1.Y, F1.Z);
+        if (!StarterFactory(_ship, ox, oy, oz)) return;
+        WaitUntil(() => Net.DepotDelivered > 0, 240);
+        _factoryUp = true;
+        Cmd(new SetShipRecipe(-1)); // the factory makes ingots and plates now
+        Milestone("Factory running: first delivery from a depot");
+    }
+
+    private bool _benchPressing;
+
+    /// <summary>The workbench makes one thing at a time: plates while there are ingots to press and plates are short, otherwise ingots.</summary>
+    private void BenchPolicy()
+    {
+        if (_factoryUp || !Net.HasPlayer(0)) return;
+        int ingots = Have("core:iron_ingot"), plates = Have("core:iron_plate"), ore = Have("core:iron_ore");
+        bool wantPlates = plates < BenchPlateTarget && (_benchPressing ? ingots >= 2 : ingots >= 16);
+        _benchPressing = wantPlates;
+        int want = wantPlates ? Recipe("core:ship_press") : ore > 0 && ingots < BenchIngotTarget ? Recipe("core:ship_smelt") : -1;
+        if (Net.GetPlayerInfo(0).ShipRecipe != want) Cmd(new SetShipRecipe(want));
+    }
+
+    /// <summary>Plates the workbench keeps in the hold before the factory runs (a bay needs 8, a station core 12).</summary>
+    public int BenchPlateTarget { get; init; } = 12;
+
+    /// <summary>Ingots the workbench keeps in the hold before the factory runs.</summary>
+    public int BenchIngotTarget { get; init; } = 60;
 
     /// <summary>Hand-mines another deposit until the hold has enough of its item, then goes back to the iron deposit (at home).</summary>
     private bool Gather(int item, int count, string why, int system = 0, Func<bool>? enough = null)
@@ -215,29 +258,22 @@ public sealed partial class StructureBot
     private void StationPower()
     {
         if (_station < 0) return;
-        Goal("2b station: workshop module and reactor module (and hydrogen in the hold)");
-        PlaceModule(_station, 1, 0, 0, ModuleKind.Workshop);
+        Goal("2b station: fabrication bay and reactor module (and hydrogen in the hold)");
+        PlaceModule(_station, S1.X, S1.Y, S1.Z, ModuleKind.Workshop);
         if (!Need(new[] { new ItemStack(Item("core:carbon"), 8) }, "carbon for the station reactor")) return;
         PlaceModule(_station, 0, -1, 0, ModuleKind.Reactor);
         // Something to power: an ingot line in the new workshop.
-        var (ox, oy, oz) = Origin(1, 0, 0);
-        IngotLine(_station, ox, oy, oz, 1, 1);
+        var (ox, oy, oz) = Origin(S1.X, S1.Y, S1.Z);
+        IngotLine(_station, ox, oy, oz, 0, 1);
     }
 
     // ---- 3: ingots and the ice loop ---------------------------------------------------------------------
 
-    private void IngotLines(int count)
-    {
-        Goal($"more ingots: {count} ingot line(s) in the starter workshop");
-        var (ox, oy, oz) = Origin(W1.X, W1.Y, W1.Z);
-        for (int i = 0; i < count; i++) IngotLine(_ship, ox, oy, oz, 1, 5 + i);
-    }
-
     private void HydrogenLoop()
     {
         Goal("3 hydrogen: ice port + cracker wired into the depot, then ice by hand");
-        var (ox, oy, oz) = Origin(W1.X, W1.Y, W1.Z);
-        if (!IceLoop(_ship, ox, oy, oz)) return;
+        var (ox, oy, oz) = Origin(ShipBay.X, ShipBay.Y, ShipBay.Z);
+        if (!IceLoop(_ship, ox, oy, oz, ShipBay == F1 ? 3 : 5)) return;
         _iceLoopBuilt = true;
         _iceDeposit = FindDeposit(Item("core:ice"), 0);
         Refuel(); // hand-mines ice for the cracker and goes back to the iron
@@ -275,7 +311,7 @@ public sealed partial class StructureBot
 
     // ---- hold, defence, power ---------------------------------------------------------------------------
 
-    private static readonly (int X, int Y, int Z)[] CargoSpots = { C2, (-1, 0, 1), (-1, 1, 0), (-1, 1, 1) };
+    private static readonly (int X, int Y, int Z)[] CargoSpots = { (1, 0, 3), (1, 0, 4), (-1, 0, 3), (-1, 0, 0) };
 
     /// <summary>Extra cargo modules (60 hold each): the depots' stock, hydrogen and hand-mined ore fill the starter hold's 45 usable slots.</summary>
     private void MoreCargo(int count)
@@ -294,7 +330,7 @@ public sealed partial class StructureBot
     /// <summary>Walls in a defence module draw the enemies' fire (they attack the nearest wall first) to where the turrets reach.</summary>
     private void Walls(int st, int ox, int oy, int oz, int count)
     {
-        var cells = new (int X, int Y, int Z)[] { (1, 2, 1), (1, 2, 6), (6, 2, 1), (6, 2, 6) };
+        var cells = new (int X, int Y, int Z)[] { (1, 0, 0), (6, 0, 0), (1, 0, 2), (6, 0, 2) };
         for (int i = 0; i < Math.Min(count, cells.Length); i++)
             PlaceMachine(st, ox + cells[i].X, oy + cells[i].Y, oz + cells[i].Z, "core:wall");
     }
@@ -303,8 +339,8 @@ public sealed partial class StructureBot
     {
         Goal("5 ship defence: defence module, an ammo battery of two turrets, walls, weapons on");
         if (PlaceModule(_ship, D1.X, D1.Y, D1.Z, ModuleKind.Defence) < 0) return;
-        var (ox, oy, oz) = Origin(W1.X, W1.Y, W1.Z);
-        _shipBatteries += AmmoBattery(_ship, ox, oy, oz, 5).Count > 0 ? 1 : 0;
+        var (ox, oy, oz) = Origin(F1.X, F1.Y, F1.Z);
+        _shipBatteries += AmmoBattery(_ship, ox, oy, oz, 4).Count > 0 ? 1 : 0;
         Cmd(new SetWeapons(true));
         var (dx, dy, dz) = Origin(D1.X, D1.Y, D1.Z);
         Walls(_ship, dx, dy, dz, 2);
@@ -317,12 +353,12 @@ public sealed partial class StructureBot
         if (_station < 0 || _stationDefenceStarted) return;
         _stationDefenceStarted = true;
         Goal("5b station defence: defence module, battery, walls and a repair bay");
-        if (PlaceModule(_station, 0, 1, 0, ModuleKind.Defence) < 0) return;
-        var (ox, oy, oz) = Origin(0, 0, 0);
-        _stationBatteries += AmmoBattery(_station, ox, oy, oz, 5).Count > 0 ? 1 : 0;
-        var (dx, dy, dz) = Origin(0, 1, 0);
+        if (PlaceModule(_station, SD.X, SD.Y, SD.Z, ModuleKind.Defence) < 0) return;
+        var (ox, oy, oz) = Origin(S1.X, S1.Y, S1.Z);
+        _stationBatteries += AmmoBattery(_station, ox, oy, oz, 4).Count > 0 ? 1 : 0;
+        var (dx, dy, dz) = Origin(SD.X, SD.Y, SD.Z);
         Walls(_station, dx, dy, dz, 2);
-        RepairBay(_station, ox, oy, oz, 2, 2);
+        RepairBay(_station, ox, oy, oz, 3);
     }
 
 
@@ -362,7 +398,7 @@ public sealed partial class StructureBot
     {
         long waves = Net.WavesSpawned;
         // No third reactor: each burns 2 hydrogen a minute (4 ice) and the home ice is finite, so a ship at 83 percent power is the cheaper choice.
-        if (_stationBatteries < 1 && _station >= 0 && Net.Structures().Any(s => s.Id == _station && s.Modules.ContainsKey((0, 0, 0))) && waves >= 0 && _shipBatteries >= 1)
+        if (_stationBatteries < 1 && _station >= 0 && Net.Structures().Any(s => s.Id == _station && s.Modules.ContainsKey(S1)) && waves >= 0 && _shipBatteries >= 1)
         {
             if (Net.HoldCount(0, Item("core:iron_plate")) >= 14) StationDefence();
         }
@@ -370,20 +406,20 @@ public sealed partial class StructureBot
         {
             _shipRepair = true;
             Goal("a repair bay for the ship's modules");
-            var (ox, oy, oz) = Origin(W1.X, W1.Y, W1.Z);
-            RepairBay(_ship, ox, oy, oz, 2, 5);
+            var (ox, oy, oz) = Origin(W2.X, W2.Y, W2.Z);
+            RepairBay(_ship, ox, oy, oz, 7);
         }
         if (waves >= 2 && _shipBatteries == 1 && _stationBatteries >= 1)
         {
             Goal("more defence: second ship battery");
-            var (ox, oy, oz) = Origin(W1.X, W1.Y, W1.Z);
-            _shipBatteries += AmmoBattery(_ship, ox, oy, oz, 2).Count > 0 ? 1 : 0;
+            var (ox, oy, oz) = Origin(F1.X, F1.Y, F1.Z);
+            _shipBatteries += AmmoBattery(_ship, ox, oy, oz, 6).Count > 0 ? 1 : 0;
         }
         if (waves >= 2 && _stationBatteries == 1 && _shipBatteries >= 2)
         {
             Goal("more defence: second station battery");
-            var (ox, oy, oz) = Origin(0, 0, 0);
-            _stationBatteries += AmmoBattery(_station, ox, oy, oz, 1).Count > 0 ? 1 : 0;
+            var (ox, oy, oz) = Origin(S1.X, S1.Y, S1.Z);
+            _stationBatteries += AmmoBattery(_station, ox, oy, oz, 6).Count > 0 ? 1 : 0;
         }
     }
 
@@ -391,10 +427,10 @@ public sealed partial class StructureBot
 
     private void Laboratory()
     {
-        Goal("4 laboratory: workshop module, plate line and lab");
+        Goal("4 laboratory: fabrication bay, plate line and lab");
         if (PlaceModule(_ship, W2.X, W2.Y, W2.Z, ModuleKind.Workshop) < 0) return;
         var (ox, oy, oz) = Origin(W2.X, W2.Y, W2.Z);
-        PlateLine(_ship, ox, oy, oz, 1, "core:research_lab", out _lab);
+        PlateLine(_ship, ox, oy, oz, 4, "core:research_lab", out _lab);
     }
 
     // ---- research ----------------------------------------------------------------------------------------
@@ -402,7 +438,7 @@ public sealed partial class StructureBot
     private readonly List<(bool Machine, int Id)> _feedParts = new();
 
     /// <summary>Lab input faces: rows of the lab workshop whose belts end beside the lab at (7,3,1).</summary>
-    private static readonly int[] FeedRows = { 1, 2, 0 };
+    private static readonly int[] FeedRows = { 1 };
 
     private (int X, int Y, int Z) LabOrigin => Origin(W2.X, W2.Y, W2.Z);
 
@@ -420,45 +456,19 @@ public sealed partial class StructureBot
     private bool FeedRaw(int row, string port)
     {
         var (ox, oy, oz) = LabOrigin;
-        int end = row == 1 ? 6 : 7;
-        int p = PlaceMachine(_ship, ox + 3, oy + 3, oz + row, port);
+        int p = PlaceMachine(_ship, ox + 3, oy, oz + row, port);
         if (p < 0) return false;
         _feedParts.Add((true, p));
-        int b = Link(_ship, p, ox + 4, oy + 3, oz + row, Dir.PosX, end - 4 + 1, _lab);
+        int b = Link(_ship, p, ox + 4, oy, oz + row, Dir.PosX, 4, _lab);
         if (b >= 0) _feedParts.Add((false, b));
         return b >= 0;
     }
 
-    /// <summary>A port, a smelter and a belt into the lab, for ingots of a new metal.</summary>
-    private bool FeedIngots(int row, string port, string recipe)
-    {
-        var (ox, oy, oz) = LabOrigin;
-        int end = row == 1 ? 6 : 7;
-        var (s, belt) = SmelterRow(_ship, ox, oy, oz, 3, row, end, recipe, port);
-        if (s < 0) return false;
-        _feedParts.Add((true, s));
-        _feedParts.Add((false, belt));
-        // The port of the row is part of the feed too (taking the feed down leaves its cell free for the next one).
-        for (int id = 0; id < Net.MachineIdLimit; id++)
-            if (Net.IsMachineAlive(id) && Net.GetMachineInfo(id) is var mi && mi.Structure == _ship && mi.X == ox && mi.Y == oy + 3 && mi.Z == oz + row) _feedParts.Add((true, id));
-        return !Failed(Cmd(new ConnectToMachine(belt, _lab)), "ConnectToMachine");
-    }
+    // The lab bay has one free face for a raw feed (the plate line takes another): the ingot and plate feeds of the old stacked layout have no floor
+    // equivalent, so the plan only researches what one raw feed (or none) can supply. See docs/prototypes/structure-bot.md.
+    private bool FeedIngots(int row, string port, string recipe) { Stuck("an ingot feed needs a second lab face: not on the floor layout"); return false; }
 
-    /// <summary>Port, smelter, plate assembler and a belt into the lab (row 2 or 0): plates of a new metal.</summary>
-    private bool FeedPlates(int row, string port, string smelt, string plate)
-    {
-        var (ox, oy, oz) = LabOrigin;
-        int p = PlaceMachine(_ship, ox, oy + 3, oz + row, port);
-        int s = PlaceMachine(_ship, ox + 3, oy + 3, oz + row, "core:smelter", smelt);
-        int a = PlaceMachine(_ship, ox + 5, oy + 3, oz + row, "core:assembler", plate);
-        if (p < 0 || s < 0 || a < 0) return false;
-        _feedParts.Add((true, p)); _feedParts.Add((true, s)); _feedParts.Add((true, a));
-        int b1 = Link(_ship, p, ox + 1, oy + 3, oz + row, Dir.PosX, 2, s);
-        int b2 = Link(_ship, s, ox + 4, oy + 3, oz + row, Dir.PosX, 1, a);
-        int b3 = Link(_ship, a, ox + 6, oy + 3, oz + row, Dir.PosX, 2, _lab);
-        foreach (int b in new[] { b1, b2, b3 }) if (b >= 0) _feedParts.Add((false, b));
-        return b1 >= 0 && b2 >= 0 && b3 >= 0;
-    }
+    private bool FeedPlates(int row, string port, string smelt, string plate) { Stuck("a plate feed needs a second lab face: not on the floor layout"); return false; }
 
     private enum FeedKind { Raw, Ingots, Plates }
 
@@ -474,6 +484,7 @@ public sealed partial class StructureBot
         int row = 0;
         foreach (var f in feeds)
         {
+            if (row >= FeedRows.Length) { Stuck($"cannot research {id}: the lab bay has room for {FeedRows.Length} feed(s)"); ClearFeeds(); return false; }
             int r = FeedRows[row++];
             int machines0 = Net.MachineIdLimit, segments0 = Net.SegmentIdLimit;
             bool built = f.Kind switch
@@ -526,7 +537,7 @@ public sealed partial class StructureBot
             };
             if (need <= 0 || Have(raw) >= need * perItem) continue;
             Stuck($"research {_c.Research[node].Id} stalled {need} {id} short while the hold has {Have(raw)} {raw}: something else spent it; mining more");
-            if (Science && raw is "core:quartz" or "core:nickel_ore" or "core:titanium_ore" && !_inExpedition && Net.HasAbility(Ability.Jump))
+            if (raw is "core:quartz" or "core:nickel_ore" or "core:titanium_ore" && !_inExpedition && Net.HasAbility(Ability.Jump))
             {
                 // Not at home: one more trip (the smelters and belts hold some of what was brought).
                 Expedition($"{raw} the stalled research still needs", (raw, Have(raw) + need * perItem + 30));
@@ -544,7 +555,8 @@ public sealed partial class StructureBot
         if (_lab2Built) return;
         _lab2Built = true;
         Goal("a second laboratory with its own plate line");
-        var (ox, oy, oz) = LabOrigin;
+        if (PlaceModule(_ship, W3.X, W3.Y, W3.Z, ModuleKind.Workshop) < 0) return;
+        var (ox, oy, oz) = Origin(W3.X, W3.Y, W3.Z);
         PlateLine(_ship, ox, oy, oz, 4, "core:research_lab", out _);
     }
 

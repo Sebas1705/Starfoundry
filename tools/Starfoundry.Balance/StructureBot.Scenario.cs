@@ -78,22 +78,22 @@ public sealed partial class StructureBot
     {
         _station = Net.Structures().First(s => s.Kind == StructureKind.Station && s.Owner == 0).Id;
         Goal("siege: turrets on the pre-built ammo belts");
-        // The template's two ammo belts end below the defence module; a turret above each end takes the belt.
-        foreach (var (x, z, len) in new[] { (3, 8, 3), (2, 9, 4) })
+        // The template's two ammo belts run along the floor into the defence module beside the workshop; a turret at each end takes the belt.
+        foreach (var (x, z, len) in new[] { (3, 11, 9), (2, 12, 10) })
         {
-            int belt = SegmentAt(_station, x, 3, z);
-            if (belt < 0) { Stuck($"the template ammo belt at ({x},3,{z}) is missing"); continue; }
-            int turret = PlaceMachine(_station, x + len - 1, 4, z, "core:turret");
+            int belt = SegmentAt(_station, x, 0, z);
+            if (belt < 0) { Stuck($"the template ammo belt at ({x},0,{z}) is missing"); continue; }
+            int turret = PlaceMachine(_station, x + len, 0, z, "core:turret");
             if (turret >= 0) Failed(Cmd(new ConnectToMachine(belt, turret)), "ConnectToMachine");
         }
         Cmd(new SetWeapons(true));
-        var (dx, dy, dz) = Origin(0, 1, 1);
+        var (dx, dy, dz) = Origin(1, 0, 1);
         Goal("siege: walls to draw the fire");
         Walls(_station, dx, dy, dz, 2);
         Goal("siege: a second ammo battery with two turrets");
-        _stationBatteries += AmmoBattery(_station, 0, 0, 8, 2).Count > 0 ? 1 : 0;
+        _stationBatteries += AmmoBattery(_station, 0, 0, 8, 5).Count > 0 ? 1 : 0;
         Goal("siege: a repair bay");
-        RepairBay(_station, 0, 0, 8, 2, 4);
+        RepairBay(_station, 0, 0, 8, 2);
         Goal("siege: hold the line");
     }
 }

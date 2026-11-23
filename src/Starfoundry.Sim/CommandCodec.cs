@@ -21,12 +21,13 @@ public static class CommandCodec
     /// <summary>Version 2 added the content hash to the header, version 3 the game mode, version 4 the galaxy seed, version 5 the threat flag.</summary>
     /// Version 6 added the station-rules flag (bit 1); the structures flag (bit 2) uses a bit that version 6 left free,
     /// so logs written before it simply read as structures off and the version stays 6.
-    private const byte LogVersion = 12;
+    private const byte LogVersion = 13;
     /// Version 7 added the world rules block (flags bit 3, written only for non-default rules). Version 8 added the scenario id (flags bit 4).
     /// Version 10 added the SetBoost command (tag 38) and the wide galaxy with obstacles: logs of versions 5 to 9 read with <see cref="WorldRules.LegacyGalaxy"/> on (ADR 0028).
     /// Version 9 added the FireLaser command (tag 37) and the mining laser's power draw: logs of versions 5 to 8 read with <see cref="WorldRules.LegacyLaser"/> on, so they replay without it (ADR 0027).
     /// Version 11 added the docking commands (tags 39 to 41, ADR 0029). They only act on state that older logs never create, so nothing is replayed differently; the reader refuses them in older logs.
     /// Version 12 added the SetAttitude command (tag 42, ADR 0030). Logs of older versions never carry it, so they replay with every ship level, exactly as recorded; the reader refuses it in them.
+    /// Version 13 added no command: it changes where machines and belts may be built (the floor of a fabrication bay, ADR 0031). Logs of versions 5 to 12 read with <see cref="WorldRules.LegacyBuilding"/> on, so they replay with free building as recorded.
     /// <summary>Version 5 headers carry no station-rules or structures flag; they still load, with both rules off.</summary>
     private const byte OldestLogVersion = 5;
 
@@ -437,6 +438,7 @@ public static class CommandCodec
         }
         if (version < 9) rules = rules.WithLegacyLaser(true); // older logs were recorded before the laser drew power
         if (version < 10) rules = rules.WithLegacyGalaxy(true); // and before the wide galaxy (ADR 0028)
+        if (version < 13) rules = rules.WithLegacyBuilding(true); // and before building on the floor of a bay only (ADR 0031)
         scenarioId = null;
         if ((flags & 16) != 0)
         {

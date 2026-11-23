@@ -6,14 +6,14 @@
   "name_en": "Cold Fuel",
   "description_es": "Seis unidades de hidrógeno y un reactor hambriento: fabrica combustible y da energía a una estación.",
   "description_en": "Six units of hydrogen and a hungry reactor: make fuel and power a station.",
-  "briefing_es": "El reactor quema hidrógeno y solo nos quedan seis unidades: unos tres minutos. Sin reactor no hay energía, y sin energía el taller se arrastra. Fabrica un craqueador, mina hielo y mantén las luces encendidas. Luego, dale a una estación su propio reactor.",
-  "briefing_en": "The reactor burns hydrogen and we have six units left: about three minutes. No reactor, no power; no power, the workshop crawls. Build a cracker, mine ice and keep the lights on. Then give a station a reactor of its own.",
+  "briefing_es": "El reactor quema hidrógeno y solo nos quedan seis unidades: unos tres minutos. Sin reactor no hay energía, y sin energía la bahía se arrastra. Fabrica un craqueador, mina hielo y mantén las luces encendidas. Luego, dale a una estación su propio reactor.",
+  "briefing_en": "The reactor burns hydrogen and we have six units left: about three minutes. No reactor, no power; no power, the bay crawls. Build a cracker, mine ice and keep the lights on. Then give a station a reactor of its own.",
   "rules": { "preset": "relaxed", "threats_enabled": false },
   "start": {
     "structures": [ { "template": "cold_ship" } ],
     "starting_items": [
       { "item": "core:iron_plate", "count": 20 },
-      { "item": "core:iron_ingot", "count": 30 }
+      { "item": "core:iron_ingot", "count": 60 }
     ],
     "seed": 20261121
   },
@@ -33,8 +33,8 @@
   },
   "story": [
     { "trigger": "start",
-      "text_es": "Seis de hidrógeno. El reactor se come uno cada treinta segundos. Hay un craqueador en tus bolsillos: coloca el puerto de hielo y el craqueador en el taller, y mina hielo.",
-      "text_en": "Six hydrogen. The reactor eats one every thirty seconds. There is a cracker's worth of plates in the hold: put an ice port and a cracker in the workshop, and mine ice." },
+      "text_es": "Seis de hidrógeno. El reactor se come uno cada treinta segundos. Hay un craqueador en tus bolsillos: coloca el puerto de hielo y el craqueador en el suelo de la bahía, y mina hielo.",
+      "text_en": "Six hydrogen. The reactor eats one every thirty seconds. There is a cracker's worth of plates in the hold: put an ice port and a cracker on the bay floor, and mine ice." },
     { "trigger": "time:120",
       "text_es": "Queda cerca de un minuto de combustible. Después, el reactor solo gotea energía. Craquea hielo ya.",
       "text_en": "About a minute of fuel left. After that the reactor only trickles power. Crack some ice now." },

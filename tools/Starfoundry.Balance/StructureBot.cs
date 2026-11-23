@@ -272,6 +272,7 @@ public sealed partial class StructureBot
         bool paused = _orePaused && _mineTarget == _homeDeposit;
         if (_mineTarget >= 0 && !paused && Net.InMineRange(0, _mineTarget) && Net.MiningDeposit(0) != _mineTarget && Net.DepositRemaining(_mineTarget) > 0)
             Cmd(new StartMining(_mineTarget));
+        BenchPolicy();
         HoldHygiene();
         ManageStock();
         ManageDrones();

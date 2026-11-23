@@ -41,6 +41,9 @@ public sealed partial class BeltNetwork
     /// <summary>The world's rules (difficulty percentages and flags). Defaults equal the game before the rules existed.</summary>
     public WorldRules Rules { get; }
 
+    /// <summary>True when machines and belts may stand at any layer of a module that allows them: <see cref="WorldRules.LegacyBuilding"/> or content that predates ADR 0031.</summary>
+    public bool FreeBuilding => Rules.LegacyBuilding || !(Content?.FloorBuilding ?? true);
+
     /// <summary>Starting-item units that did not fit the starter hold and were left out at creation.</summary>
     public int StartingItemsClamped { get; internal set; }
 
@@ -279,7 +282,7 @@ public sealed partial class BeltNetwork
 
         Mix(Tick); Mix(Spawned); Mix(Consumed); Mix(Destroyed); Mix(_segs.Count);
         Mix(MachineInputsConsumed); Mix(MachineOutputsCreated); Mix((long)(Content?.Hash ?? 0)); Mix((int)Mode); Mix(ThreatsEnabled ? 1 : 0); if (StationRules) Mix(2); if (StructureRules) Mix(4);
-        { var hashed = Rules.LegacyLaser || Rules.LegacyGalaxy ? Rules.WithLegacyLaser(false).WithLegacyGalaxy(false) : Rules; // the legacy flags alone (logs older than versions 9 and 10) hash as default rules
+        { var hashed = Rules.LegacyLaser || Rules.LegacyGalaxy || Rules.LegacyBuilding ? Rules.WithoutLegacyFlags() : Rules; // the legacy flags alone (logs older than versions 9, 10 and 13) hash as default rules
             if (!hashed.IsDefault) foreach (byte rb in hashed.Serialize()) Mix(rb); } // default rules hash as before they existed
         MixMachines(Mix);
         MixEconomy(Mix);

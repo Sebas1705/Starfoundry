@@ -11,7 +11,7 @@ public class StructureObjectivesTests
 
     private static readonly Objective[] StructuresOrder =
     {
-        Objective.Fly, Objective.Mine, Objective.WatchFactory, Objective.FoundStation, Objective.MakeFuel, Objective.AddModule,
+        Objective.Fly, Objective.Mine, Objective.Refine, Objective.FabBay, Objective.WatchFactory, Objective.FoundStation, Objective.MakeFuel, Objective.AddModule,
         Objective.Research, Objective.Scan, Objective.Defend, Objective.Automate, Objective.Expand,
     };
 
@@ -48,15 +48,35 @@ public class StructureObjectivesTests
     }
 
     [Fact]
-    public void Watch_factory_completes_on_the_first_plate_in_the_hold()
+    public void Watch_factory_completes_when_a_machine_delivers_not_when_the_workbench_does()
     {
         var w = World();
         var t = Tracker();
         t.Update(w.Network, 0);
         Assert.False(t.IsDone(Objective.WatchFactory));
-        w.Network.GiveItems(0, C.ItemIndex("core:iron_plate"), 1);
+        w.Network.GiveItems(0, C.ItemIndex("core:iron_plate"), 1); // a plate from the workbench is not the factory
         t.Update(w.Network, 0);
-        Assert.True(t.IsDone(Objective.WatchFactory));
+        Assert.False(t.IsDone(Objective.WatchFactory));
+        // The pre-0031 starter ship has a working factory: ore through its port, smelter and assembler into the depot.
+        var old = SimWorld.CreateGalaxy(TestContent.Core, GameMode.Campaign, Seed, threats: false, stationRules: false, structures: true);
+        old.Network.EnsurePlayer(0);
+        var t2 = new ObjectiveTracker(TestContent.Core, structures: true);
+        old.Network.GiveItems(0, TestContent.Core.ItemIndex("core:iron_ore"), 30);
+        for (int i = 0; i < 300 && !t2.IsDone(Objective.WatchFactory); i++) { old.Step(60); t2.Update(old.Network, 0); }
+        Assert.True(t2.IsDone(Objective.WatchFactory));
+    }
+
+    [Fact]
+    public void Fab_bay_step_completes_with_a_buildable_bay_and_the_shipped_starter_ship_has_none()
+    {
+        var floor = SimWorld.CreateGalaxy(TestContent.CoreFloor, GameMode.Campaign, 20261121UL, threats: false, stationRules: false, structures: true);
+        floor.Network.EnsurePlayer(0);
+        var t = new ObjectiveTracker(TestContent.CoreFloor, structures: true);
+        t.Update(floor.Network, 0);
+        Assert.False(t.IsDone(Objective.FabBay));
+        floor.Network.AddStructureModuleUnchecked(floor.Network.ShipStructure(0), 1, 0, 1, ModuleKind.Workshop);
+        t.Update(floor.Network, 0);
+        Assert.True(t.IsDone(Objective.FabBay));
     }
 
     [Fact]

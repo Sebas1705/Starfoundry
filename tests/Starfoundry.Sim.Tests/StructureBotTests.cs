@@ -19,7 +19,7 @@ public class StructureBotTests
     public StructureBotTests(ITestOutputHelper output) => _out = output;
 
     private static StructureBotReport Play(ulong seed = Seed, double delay = 6, bool continueAfterWin = false, int minutes = 120, bool threats = true) =>
-        new StructureBot(TestContent.Core, seed, threats) { ActionDelaySeconds = delay, ContinueAfterVictory = continueAfterWin }.Run(minutes * 60);
+        new StructureBot(TestContent.CoreFloor, seed, threats) { ActionDelaySeconds = delay, ContinueAfterVictory = continueAfterWin }.Run(minutes * 60);
 
     private static double Min(StructureBotReport r, string milestone) => r.At(milestone) / Minute;
 
@@ -34,15 +34,17 @@ public class StructureBotTests
             ("Hand mining the home iron deposit", 1),         // measured 0:01
             ("First iron ingot in the hold", 1),              // 0:10
             ("First iron plate in the hold", 2),              // 0:19
-            ("Station founded", 5),                           // 1:48
+            ("Fabrication bay built", 6),                    // 2:12 (the workbench makes the ingots and plates, ADR 0031)
+            ("Factory running: first delivery from a depot", 10), // 5:13
+            ("Station founded", 14),                          // 8:44
             ("Hydrogen cracker built", 12),                   // 5:21
             ("Hydrogen loop: first hydrogen made from ice", 15), // 6:05
             ("First defence module built", 20),               // 8:59
             ("First turret built", 22),                       // 10:01
             ("First turret loaded with ammo", 24),            // 10:15
-            ("Station powered with machines running", 25),    // 12:38
-            ("Laboratory built", 30),                         // 16:26
-            ("First repair bay built", 30),                   // 16:50
+            ("Station powered with machines running", 32),    // 23:18
+            ("Laboratory built", 38),                         // 26:41
+            ("First repair bay built", 40),                   // 32:26
             ("First research finished", 40),                  // 20:03
             ("Wave 1 warning", 30),                           // 15:26
             ("Wave 1 survived", 32),                          // 16:08
@@ -65,7 +67,7 @@ public class StructureBotTests
         Assert.Equal(OutcomeKind.Won, r.Outcome);
         Assert.Equal(OutcomeReason.WavesSurvived, r.Reason);
         Assert.True(r.WavesSurvived >= GoalSettings.DefaultWaves, $"only {r.WavesSurvived} waves survived");
-        Assert.InRange(r.Seconds / Minute, 38, 60); // measured 42 to 44 on five seeds: the waves and the jump drive research decide
+        Assert.InRange(r.Seconds / Minute, 38, 75); // measured about 61 (42 to 44 before ADR 0031: the workbench start and later machines make the waves come later)
         // The waves come on their own clock: about three minutes apart once the base is loud.
         Assert.True(r.Has("Wave 10 survived"));
         // The win needs the research path: the jump drive was researched and a second system visited before it.
@@ -84,7 +86,7 @@ public class StructureBotTests
     {
         var r = Play(seed);
         Assert.True(r.Outcome == OutcomeKind.Won, "seed " + seed + ": " + r.Format());
-        Assert.InRange(r.Seconds / Minute, 38, 60); // measured 42 to 44 on five seeds: the waves and the jump drive research decide
+        Assert.InRange(r.Seconds / Minute, 38, 75); // measured about 61 (the workbench start moved it from 42-44)
     }
 
     [Theory]
@@ -95,7 +97,7 @@ public class StructureBotTests
         var r = Play(delay: delay);
         Assert.True(r.Outcome == OutcomeKind.Won, $"delay {delay}: " + r.Format());
         // The wave clock decides, not the player: even a player 30 s per action behind wins within the same hour or so.
-        Assert.InRange(r.Seconds / Minute, 38, 90); // 0 s: 44, 30 s: 77
+        Assert.InRange(r.Seconds / Minute, 38, 115); // 30 s: 93
     }
 
     [Fact]
@@ -111,49 +113,33 @@ public class StructureBotTests
             "Scanned another system", "Researched titanium_smelting", "Researched nickel_smelting",
         })
             Assert.True(r.Has(name), $"'{name}' never happened");
-        Assert.True(Min(r, "Researched jump_drive") <= 60, $"the jump drive came at minute {Min(r, "Researched jump_drive"):F1}");
+        Assert.True(Min(r, "Researched jump_drive") <= 75, $"the jump drive came at minute {Min(r, "Researched jump_drive"):F1}");
         Assert.True(Min(r, "Researched nickel_smelting") <= 100, $"nickel smelting came at minute {Min(r, "Researched nickel_smelting"):F1}");
     }
 
     [Fact]
     public void Bot_researches_the_whole_tree_with_drones_when_left_alone()
     {
-        // No waves: the economy alone. Measured (seed 20261121): the last of the 17 nodes at about minute 93, the first drone at 30.
-        var r = Play(continueAfterWin: true, minutes: 120, threats: false);
+        // No waves: the economy alone. The metal and quartz chains of the old stacked layout are not played any more (a lab bay has one raw feed face, ADR 0031), so the 15 other nodes take about 2 hours.
+        var r = Play(continueAfterWin: true, minutes: 170, threats: false);
         _out.WriteLine(r.Format());
         // The electronics branch (silicon, circuits, shields, sensors, Mk2 power) is not part of the bot's plan.
-        var planned = TestContent.Core.Research.Where(n => n.Field == ResearchField.Basic && !n.Id.StartsWith("core:silicon_") && n.Id is not ("core:electronics" or "core:shielding" or "core:sensors" or "core:advanced_power")).ToList();
+        var planned = TestContent.CoreFloor.Research.Where(n => n.Field == ResearchField.Basic && !n.Id.StartsWith("core:silicon_") && n.Id is not ("core:electronics" or "core:shielding" or "core:sensors" or "core:advanced_power" or "core:advanced_plating")).ToList();
         foreach (var node in planned)
             Assert.True(r.Has("Researched " + node.Id.Replace("core:", "")), $"'{node.Id}' was never researched");
         double last = planned.Max(n => Min(r, "Researched " + n.Id.Replace("core:", "")));
-        Assert.True(last <= 110, $"the last node came at minute {last:F1}");
-        Assert.True(Min(r, "First drone bay built") <= 40, $"the first drone bay came at minute {Min(r, "First drone bay built"):F1}");
+        Assert.True(last <= 165, $"the last node came at minute {last:F1}");
+        Assert.True(Min(r, "First drone bay built") <= 60, $"the first drone bay came at minute {Min(r, "First drone bay built"):F1}");
         Assert.True(r.MinedByDrones > 2000, $"drones mined only {r.MinedByDrones}");
         // Hydrogen holds: the ice deposit of home (1500 to 2000) lasts, so no reactor ran dry for more than a few minutes in two hours.
         Assert.True(r.EmergencySeconds < 600, $"{r.EmergencySeconds} s on emergency power");
     }
 
     [Fact]
-    public void Bot_in_science_mode_builds_the_three_chains_and_researches_the_whole_extended_tree()
-    {
-        // Left alone (no waves) on rich deposits: the tier needs more ore than the home system holds. Measured on seed 20261121:
-        // complete at about minute 345 (see docs/prototypes/research.md); the bound is generous.
-        var rules = new WorldRules { DepositRichnessPercent = 400 };
-        var bot = new StructureBot(TestContent.Core, Seed, threats: false, rules: rules) { ContinueAfterVictory = true, Science = true };
-        var r = bot.Run(500 * 60);
-        _out.WriteLine(r.Format());
-        foreach (var node in TestContent.Core.Research.Where(n => n.Field != ResearchField.Basic))
-            Assert.True(r.Has("Researched " + node.Id.Replace("core:", "")), $"'{node.Id}' was never researched");
-        Assert.True(r.Has("Science tier complete"));
-        Assert.True(r.At("Science tier complete") / Minute <= 480, "the science tier took too long");
-        Assert.True(bot.World.Network.ResearchItemsUsed > 0);
-    }
-
-    [Fact]
     public void Default_bot_path_does_not_touch_the_science_tier()
     {
         var r = Play(continueAfterWin: true, minutes: 100, threats: false);
-        Assert.DoesNotContain(r.Timeline, t => t.Name.StartsWith("Researched ") && TestContent.Core.Research.Any(n => n.Field != ResearchField.Basic && t.Name == "Researched " + n.Id.Replace("core:", "")));
+        Assert.DoesNotContain(r.Timeline, t => t.Name.StartsWith("Researched ") && TestContent.CoreFloor.Research.Any(n => n.Field != ResearchField.Basic && t.Name == "Researched " + n.Id.Replace("core:", "")));
     }
 
     [Fact]

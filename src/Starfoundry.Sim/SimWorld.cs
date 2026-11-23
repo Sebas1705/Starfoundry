@@ -880,7 +880,8 @@ public sealed class SimWorld
         if (!StructureCellInRange(player, s!, p.X, p.Y, p.Z)) return Reject.OutOfRange;
 
         if (!Network.TryGetModuleKindAt(p.Structure, p.X, p.Y, p.Z, out var kind)) return Reject.OutsideStation;
-        if (!kinds.AllowsRole(kind, def.Role)) return Reject.KindNotAllowed;
+        var cellProblem = kinds.CellProblem(kind, p.Y, isBelt: false, def.Role, Network.FreeBuilding);
+        if (cellProblem != Reject.None) return cellProblem;
 
         var cells = CellsFor(p.Structure, create: true)!;
         long key = Key(p.X, p.Y, p.Z);
@@ -922,7 +923,8 @@ public sealed class SimWorld
         for (int k = 0; k < p.Length; k++)
         {
             if (!Network.TryGetModuleKindAt(p.Structure, p.X + dx * k, p.Y + dy * k, p.Z + dz * k, out var kind)) return Reject.OutsideStation;
-            if (!kinds.AllowsBelts(kind)) return Reject.KindNotAllowed;
+            var cellProblem = kinds.CellProblem(kind, p.Y + dy * k, isBelt: true, MachineRole.Crafter, Network.FreeBuilding);
+            if (cellProblem != Reject.None) return cellProblem;
         }
 
         var cells = CellsFor(p.Structure, create: true)!;

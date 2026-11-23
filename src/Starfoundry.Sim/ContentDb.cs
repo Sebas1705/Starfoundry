@@ -250,6 +250,9 @@ public sealed class ContentDb
     public IReadOnlyList<ArchetypeDef> Archetypes { get; }
 
     /// <summary>Wide-galaxy generation, obstacles, boost and collision rules (ADR 0028), or null: the legacy galaxy and no obstacles.</summary>
+    /// <summary>False for content that predates the floor-building rule (ADR 0031): worlds made with it build anywhere in a module that allows it, like <see cref="WorldRules.LegacyBuilding"/>. Absent means true.</summary>
+    public bool FloorBuilding { get; }
+
     public WorldGenRules? World { get; }
 
     /// <summary>Items a jump costs, paid from the hold in campaign mode.</summary>
@@ -283,8 +286,9 @@ public sealed class ContentDb
     private ContentDb(List<ItemDef> items, List<MachineDef> machines, List<RecipeDef> recipes, BeltDef?[] belts, List<ResearchDef> research,
         GalaxyRules? galaxy, List<ArchetypeDef> archetypes, ItemStack[] jumpCost,
         ThreatRules? threat, List<EnemyDef> enemies, List<WaveSpec> waves, ModuleRules? modules, StructureContent? structures,
-        StructureTemplate? starterShip, SortedDictionary<string, StructureTemplate> templates, WorldGenRules? world = null)
+        StructureTemplate? starterShip, SortedDictionary<string, StructureTemplate> templates, WorldGenRules? world = null, bool floorBuilding = true)
     {
+        FloorBuilding = floorBuilding;
         World = world;
         Modules = modules;
         Structures = structures;
@@ -346,7 +350,7 @@ public sealed class ContentDb
         {
             var root = doc.RootElement;
             RequireObject(root, "content", "schema", "items", "machines", "recipes", "belts", "research", "galaxy", "archetypes", "jump_cost",
-                "threat", "enemies", "waves", "modules", "structures", "structure_templates", "world");
+                "threat", "enemies", "waves", "modules", "structures", "structure_templates", "world", "floor_building");
             if (!root.TryGetProperty("schema", out var schema) || schema.ValueKind != JsonValueKind.Number || schema.GetInt32() != 1)
                 throw new InvalidDataException("Unsupported or missing content schema (expected 1).");
 
@@ -727,6 +731,8 @@ public sealed class ContentDb
             }
 
             StructureContent? structures = null;
+            bool floorBuilding = true;
+            if (root.TryGetProperty("floor_building", out var fb)) floorBuilding = fb.ValueKind is JsonValueKind.True ? true : fb.ValueKind is JsonValueKind.False ? false : throw new InvalidDataException("'floor_building' must be true or false.");
             if (root.TryGetProperty("structures", out var st)) structures = LoadStructures(st, itemIds);
 
             StructureTemplate? starterShip = null;
@@ -740,7 +746,7 @@ public sealed class ContentDb
                     if (tn.Length == 0 || tn.Any(c => !(char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '_')))
                         throw new InvalidDataException($"Invalid structure template id '{tn}' (lower case letters, digits and underscores).");
                     if (structures is null) throw new InvalidDataException("'structure_templates' needs a 'structures' section.");
-                    templates.Add(tn, LoadTemplate(prop.Value, "structure_templates." + tn, structures, machines, recipes, beltIds, itemIds));
+                    templates.Add(tn, LoadTemplate(prop.Value, "structure_templates." + tn, structures, machines, recipes, beltIds, itemIds, floorBuilding));
                 }
                 templates.TryGetValue("starter_ship", out starterShip);
             }
@@ -784,7 +790,7 @@ public sealed class ContentDb
 
             WorldGenRules? world = null;
             if (root.TryGetProperty("world", out var wj)) world = WorldGenRules.Load(wj, itemIds, galaxy, archetypes);
-            return new ContentDb(items, machines, recipes, belts, research, galaxy, archetypes, jumpCost, threat, enemies, waves, modules, structures, starterShip, templates, world);
+            return new ContentDb(items, machines, recipes, belts, research, galaxy, archetypes, jumpCost, threat, enemies, waves, modules, structures, starterShip, templates, world, floorBuilding);
         }
     }
 
@@ -806,7 +812,7 @@ public sealed class ContentDb
             string owner = "structures." + names[i];
             RequireObject(k, owner, "cost", "hp", "allows", "hold_capacity", "thrust_speed_percent", "power_output", "burn_interval_ticks",
                 "drone_range_cells", "drone_interval_ticks", "power_use", "defence_bonus_percent", "emergency_power", "regen_hp",
-                "shield_percent", "shield_stack_percent", "shield_max_percent", "sensor_range_cells");
+                "shield_percent", "shield_stack_percent", "shield_max_percent", "sensor_range_cells", "buildable");
             var kindValue = (ModuleKind)i;
             bool isReactor = ModuleKindIds.IsReactor(kindValue);
             bool isBay = kindValue == ModuleKind.DroneBay;
@@ -864,12 +870,19 @@ public sealed class ContentDb
                 if (roles.Contains(role)) throw new InvalidDataException($"'allows' in {owner} lists '{s}' twice.");
                 roles.Add(role);
             }
+            bool buildable = roles.Count > 0 || belts;
+            if (k.TryGetProperty("buildable", out var bj))
+            {
+                if (bj.ValueKind is not (JsonValueKind.True or JsonValueKind.False)) throw new InvalidDataException($"'buildable' in {owner} must be true or false.");
+                buildable = bj.GetBoolean();
+                if (buildable && roles.Count == 0 && !belts) throw new InvalidDataException($"{owner} is buildable but allows nothing.");
+            }
             kinds[i] = new ModuleKindDef((ModuleKind)i,
                 Stacks(k, "cost", owner, itemIds, allowEmpty: false, max: MaxCostStack),
                 Int(k, "hp", owner, 1, 100_000), roles.ToArray(), belts,
                 Int(k, "hold_capacity", owner, 0, 100_000), Int(k, "thrust_speed_percent", owner, 0, 10_000), powerOutput, burnInterval, droneRange, droneInterval, bayPower, defenceBonus, emergency,
                 k.TryGetProperty("regen_hp", out _) ? Int(k, "regen_hp", owner, 1, 1000) : 1,
-                shieldPercent, shieldStack, shieldMax, sensorRange);
+                shieldPercent, shieldStack, shieldMax, sensorRange, buildable);
         }
         return new StructureContent(kinds);
     }
@@ -892,7 +905,7 @@ public sealed class ContentDb
     /// <summary>Loads and validates a pre-built structure: modules face-connected, machines and belts inside modules that allow them,
     /// no two things in one cell, belts wired to machines they touch.</summary>
     private static StructureTemplate LoadTemplate(JsonElement t, string owner, StructureContent kinds, List<MachineDef> machineDefs,
-        List<RecipeDef> recipeDefs, Dictionary<string, BeltTier> beltIds, Dictionary<string, int> itemIds)
+        List<RecipeDef> recipeDefs, Dictionary<string, BeltTier> beltIds, Dictionary<string, int> itemIds, bool floorBuilding)
     {
         RequireObject(t, owner, "modules", "machines", "belts", "hold");
         var kindNames = Enum.GetValues<ModuleKind>().ToDictionary(ModuleKindIds.Id);
@@ -946,8 +959,8 @@ public sealed class ContentDb
                 if (recipeDefs[recipe].Machine != type) throw new InvalidDataException($"{owner} gives '{name}' the recipe '{rid}' of another machine.");
             }
             var at = Cell(e, "at", owner);
-            if (!InModule(at[0], at[1], at[2], out var kind) || !kinds.AllowsRole(kind, role))
-                throw new InvalidDataException($"Machine '{name}' of {owner} is not inside a module that allows it.");
+            if (!InModule(at[0], at[1], at[2], out var kind) || kinds.CellProblem(kind, at[1], false, role, legacy: !floorBuilding) != Reject.None)
+                throw new InvalidDataException($"Machine '{name}' of {owner} is not on the floor of a module that allows it.");
             if (!cells.Add((at[0], at[1], at[2]))) throw new InvalidDataException($"{owner} puts two things in the cell of '{name}'.");
             machines.Add(new TemplateMachine(name, at[0], at[1], at[2], type, recipe));
         }
@@ -975,8 +988,8 @@ public sealed class ContentDb
             {
                 int x = at[0] + dx * k, y = at[1] + dy * k, z = at[2] + dz * k;
                 if (!StructureGrid.InLocalBounds(x) || !StructureGrid.InLocalBounds(y) || !StructureGrid.InLocalBounds(z)
-                    || !InModule(x, y, z, out var kind) || !kinds.AllowsBelts(kind))
-                    throw new InvalidDataException($"A belt of {owner} is not inside modules that allow belts.");
+                    || !InModule(x, y, z, out var kind) || kinds.CellProblem(kind, y, true, MachineRole.Crafter, legacy: !floorBuilding) != Reject.None)
+                    throw new InvalidDataException($"A belt of {owner} is not on the floor of modules that allow belts.");
                 if (!cells.Add((x, y, z))) throw new InvalidDataException($"{owner} puts two things in one belt cell.");
             }
             int lx = at[0] + dx * (length - 1), ly = at[1] + dy * (length - 1), lz = at[2] + dz * (length - 1);
@@ -1175,6 +1188,7 @@ public sealed class ContentDb
                 if (k.Kind is ModuleKind.Shield or ModuleKind.Sensor) { Mix(k.PowerUse); Mix(k.ShieldPercent); Mix(k.ShieldStackPercent); Mix(k.ShieldMaxPercent); Mix(k.SensorRangeCells); }
                 if (k.Kind == ModuleKind.Defence && k.DefenceBonusPercent != 10) Mix(k.DefenceBonusPercent); // 10 is the default
                 if (k.RegenHp != 1) Mix(k.RegenHp); // 1 is the default
+                if (k.BuildableFloor != (k.AllowedRoles.Length > 0 || k.AllowsBelts)) Mix(k.BuildableFloor ? 7 : 8); // the default is: it allows something
             }
         }
         else Mix(-1);

@@ -260,6 +260,8 @@ public sealed partial class StructureBot
     }
 
     // ---- layouts ---------------------------------------------------------------------------------------
+    // Everything stands on the floor layer (y = the module's floor) of a fabrication bay or a station core (ADR 0031): a plane of 8 by 8 cells,
+    // x along the rows of belts. A defence module beside a bay (at module x + 1) gets the ammo belts across the seam.
 
     /// <summary>One smelter row, ore port to a smelter to the belt that leaves it: port x0, belt x1-2, smelter x3, belt x4 to <paramref name="endX"/>.
     /// The caller connects the last belt to its consumer. Returns (smelter, last belt) or (-1, -1).</summary>
@@ -274,7 +276,7 @@ public sealed partial class StructureBot
         return (s, outBelt);
     }
 
-    /// <summary>Ore port, smelter, depot on one row of a module: 0.5 ingots a second into the hold.</summary>
+    /// <summary>Ore port, smelter, depot on one row of a bay: 0.5 ingots a second into the hold.</summary>
     private bool IngotLine(int st, int ox, int oy, int oz, int y, int z)
     {
         var (s, belt) = SmelterRow(st, ox, oy, oz, y, z, 6);
@@ -284,69 +286,88 @@ public sealed partial class StructureBot
         return depot >= 0 && !Failed(Cmd(new ConnectToMachine(belt, depot)), "ConnectToMachine");
     }
 
+    private int _starterDepot = -1;
+    private bool _factoryUp;
+
     /// <summary>
-    /// Two smelter rows (z and z+1, at y = oy+1) feeding one plate assembler at x7, whose output climbs one cell into a machine at (7, 3, z):
-    /// a laboratory or a depot. 0.5 plates a second at best.
+    /// The first factory of a bay (rows 0 to 2): ore port, smelter, depot and a plate assembler. The smelter feeds the depot along row 0 and the
+    /// assembler through one belt; the assembler's plates reach the same depot along row 2.
     /// </summary>
-    private int PlateLine(int st, int ox, int oy, int oz, int z, string sink, out int sinkId)
+    private bool StarterFactory(int st, int ox, int oy, int oz)
+    {
+        int port = PlaceMachine(st, ox, oy, oz, "core:ore_unloader");
+        int smelter = PlaceMachine(st, ox + 3, oy, oz, "core:smelter", "core:smelt_iron");
+        int depot = PlaceMachine(st, ox + 7, oy, oz + 1, "core:depot");
+        int asm = PlaceMachine(st, ox + 3, oy, oz + 2, "core:assembler", "core:iron_plate");
+        if (port < 0 || smelter < 0 || depot < 0 || asm < 0) return false;
+        _ingotSmelters.Add(smelter);
+        _starterAssembler = asm;
+        _starterDepot = depot;
+        return Link(st, port, ox + 1, oy, oz, Dir.PosX, 2, smelter) >= 0
+            && Link(st, smelter, ox + 4, oy, oz, Dir.PosX, 4, depot) >= 0
+            && Link(st, smelter, ox + 3, oy, oz + 1, Dir.PosZ, 1, asm) >= 0
+            && Link(st, asm, ox + 4, oy, oz + 2, Dir.PosX, 4, depot) >= 0;
+    }
+
+    /// <summary>
+    /// Two smelter rows (z = <paramref name="zA"/> and <paramref name="zA"/> + 1) feeding one plate assembler at x7, whose output goes one cell up the
+    /// column into a machine at (7, zA - 2): a laboratory or a depot. 0.5 plates a second at best.
+    /// </summary>
+    private int PlateLine(int st, int ox, int oy, int oz, int zA, string sink, out int sinkId)
     {
         sinkId = -1;
-        int asm = PlaceMachine(st, ox + 7, oy + 1, oz + z, "core:assembler", "core:iron_plate");
+        int asm = PlaceMachine(st, ox + 7, oy, oz + zA, "core:assembler", "core:iron_plate");
         if (asm < 0) return -1;
-        var (s1, b1) = SmelterRow(st, ox, oy, oz, 1, z, 6);
+        var (s1, b1) = SmelterRow(st, ox, oy, oz, 0, zA, 6);
         if (s1 < 0 || Failed(Cmd(new ConnectToMachine(b1, asm)), "ConnectToMachine")) return -1;
-        var (s2, b2) = SmelterRow(st, ox, oy, oz, 1, z + 1, 7);
+        var (s2, b2) = SmelterRow(st, ox, oy, oz, 0, zA + 1, 7);
         if (s2 < 0 || Failed(Cmd(new ConnectToMachine(b2, asm)), "ConnectToMachine")) return -1;
-        sinkId = PlaceMachine(st, ox + 7, oy + 3, oz + z, sink);
+        sinkId = PlaceMachine(st, ox + 7, oy, oz + zA - 2, sink);
         if (sinkId < 0) return -1;
-        if (Link(st, asm, ox + 7, oy + 2, oz + z, Dir.PosY, 1, sinkId) < 0) return -1;
+        if (Link(st, asm, ox + 7, oy, oz + zA - 1, Dir.NegZ, 1, sinkId) < 0) return -1;
         return asm;
     }
 
     /// <summary>
-    /// An ammo battery on the top layer (y=3) of a workshop or core module under a defence module (at my+1): an ingot port, an assembler
-    /// making ammo, and two belts into two turrets standing in the defence module above. Returns the turret ids.
+    /// An ammo battery on the floor of a bay with a defence module beside it (module x + 1): an ingot port, an assembler making ammo, and two belts
+    /// along rows z and z + 1 that run across the seam into two turrets standing on the defence floor. Returns the turret ids.
     /// </summary>
     private List<int> AmmoBattery(int st, int ox, int oy, int oz, int z, int turrets = 2)
     {
         var made = new List<int>();
-        int port = PlaceMachine(st, ox, oy + 3, oz + z, "core:unloader");
-        int asm = PlaceMachine(st, ox + 2, oy + 3, oz + z, "core:assembler", "core:make_ammo");
+        int port = PlaceMachine(st, ox, oy, oz + z, "core:unloader");
+        int asm = PlaceMachine(st, ox + 2, oy, oz + z, "core:assembler", "core:make_ammo");
         if (port < 0 || asm < 0) return made;
-        if (Link(st, port, ox + 1, oy + 3, oz + z, Dir.PosX, 1, asm) < 0) return made;
-        int t1 = PlaceMachine(st, ox + 5, oy + 4, oz + z, "core:turret");
+        if (Link(st, port, ox + 1, oy, oz + z, Dir.PosX, 1, asm) < 0) return made;
+        int t1 = PlaceMachine(st, ox + 10, oy, oz + z, "core:turret");
         if (t1 < 0) return made;
-        if (Link(st, asm, ox + 3, oy + 3, oz + z, Dir.PosX, 3, t1) < 0) return made;
+        if (Link(st, asm, ox + 3, oy, oz + z, Dir.PosX, 7, t1) < 0) return made;
         made.Add(t1);
         if (turrets < 2) return made;
-        int t2 = PlaceMachine(st, ox + 5, oy + 4, oz + z + 1, "core:turret");
+        int t2 = PlaceMachine(st, ox + 10, oy, oz + z + 1, "core:turret");
         if (t2 < 0) return made;
-        if (Link(st, asm, ox + 2, oy + 3, oz + z + 1, Dir.PosX, 4, t2) < 0) return made;
+        if (Link(st, asm, ox + 2, oy, oz + z + 1, Dir.PosX, 8, t2) < 0) return made;
         made.Add(t2);
         return made;
     }
 
-    /// <summary>An ingot port feeding a repair bay on the layer y: port x0, belt x1-2, bay x3.</summary>
-    private int RepairBay(int st, int ox, int oy, int oz, int y, int z)
+    /// <summary>An ingot port feeding a repair bay on row z: port x0, belt x1-2, bay x3.</summary>
+    private int RepairBay(int st, int ox, int oy, int oz, int z)
     {
-        int port = PlaceMachine(st, ox, oy + y, oz + z, "core:unloader");
-        int bay = PlaceMachine(st, ox + 3, oy + y, oz + z, "core:repair_bay");
+        int port = PlaceMachine(st, ox, oy, oz + z, "core:unloader");
+        int bay = PlaceMachine(st, ox + 3, oy, oz + z, "core:repair_bay");
         if (port < 0 || bay < 0) return -1;
-        return Link(st, port, ox + 1, oy + y, oz + z, Dir.PosX, 2, bay) < 0 ? -1 : bay;
+        return Link(st, port, ox + 1, oy, oz + z, Dir.PosX, 2, bay) < 0 ? -1 : bay;
     }
 
-    /// <summary>The ice loop of the ship's workshop: ice port, belt, cracker, belt into the starter depot, so hydrogen reaches the hold.</summary>
-    private bool IceLoop(int st, int ox, int oy, int oz)
+    /// <summary>The ice loop of a bay: ice port, belt, cracker and a belt into a depot of its own on row <paramref name="row"/>, so hydrogen reaches the hold.</summary>
+    private bool IceLoop(int st, int ox, int oy, int oz, int row = 3)
     {
-        // The starter depot stands at local (7,1,2) of the starter workshop; a belt along x at y=2 ends right above it.
-        int depot = -1;
-        for (int id = 0; id < Net.MachineIdLimit; id++)
-            if (Net.IsMachineAlive(id) && Net.GetMachineInfo(id).Structure == st && _c.Machines[Net.GetMachineInfo(id).Type].Role == MachineRole.Depot) depot = id;
-        if (depot < 0) { Stuck("no depot to deliver hydrogen into"); return false; }
-        int port = PlaceMachine(st, ox, oy + 2, oz + 2, "core:ice_unloader");
-        int cracker = PlaceMachine(st, ox + 3, oy + 2, oz + 2, "core:hydrogen_cracker", "core:crack_ice");
-        if (port < 0 || cracker < 0) return false;
-        if (Link(st, port, ox + 1, oy + 2, oz + 2, Dir.PosX, 2, cracker) < 0) return false;
-        return Link(st, cracker, ox + 4, oy + 2, oz + 2, Dir.PosX, 4, depot) >= 0;
+        int port = PlaceMachine(st, ox, oy, oz + row, "core:ice_unloader");
+        int cracker = PlaceMachine(st, ox + 3, oy, oz + row, "core:hydrogen_cracker", "core:crack_ice");
+        int depot = PlaceMachine(st, ox + 7, oy, oz + row, "core:depot");
+        if (port < 0 || cracker < 0 || depot < 0) return false;
+        if (Link(st, port, ox + 1, oy, oz + row, Dir.PosX, 2, cracker) < 0) return false;
+        return Link(st, cracker, ox + 4, oy, oz + row, Dir.PosX, 3, depot) >= 0;
     }
 }

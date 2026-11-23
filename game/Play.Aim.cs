@@ -53,6 +53,8 @@ public partial class Play
             return new Cell(0, (int)MathF.Floor(hit.X), _cursorY, (int)MathF.Floor(hit.Z));
         }
 
+        if (FloorRule) return CellUnderAimFloor();
+
         Cell? inside = null, outside = null;
         float insideT = float.MaxValue, outsideT = float.MaxValue;
         bool outsideIsShip = false;
@@ -77,6 +79,57 @@ public partial class Play
         }
         return inside ?? outside;
     }
+
+    /// <summary>True under the floor-building rule (ADR 0031): machines and belts go on the floor of buildable modules, there are no layers to move.</summary>
+    private bool FloorRule => _structuresOn && !Net.FreeBuilding;
+
+    /// <summary>The layer the build plane starts on: the floor in a floor-rule world, the old workshop layer otherwise.</summary>
+    private int DefaultLayer => FloorRule ? 0 : DefaultStructureLayer;
+
+    /// <summary>
+    /// The floor cell under the crosshair (floor rule): the ray is taken into each structure's frame and meets the floor plane of each module; the
+    /// nearest hit inside a buildable module wins, otherwise the nearest hit on any module floor of the ship (or of a structure) so the ghost can say
+    /// why the place is refused. Null when no module floor is aimed at.
+    /// </summary>
+    private Cell? CellUnderAimFloor()
+    {
+        Cell? buildable = null, other = null;
+        float buildableT = float.MaxValue, otherT = float.MaxValue;
+        bool otherIsShip = false;
+        int ship = ShipStruct;
+        var kinds = _content.Structures;
+        foreach (var st in Net.Structures())
+        {
+            var (local, ldir) = AimInStruct(st.Id);
+            if (MathF.Abs(ldir.Y) < 1e-4f) continue;
+            foreach (var ((mx, my, mz), kind) in st.Modules)
+            {
+                int floorY = StationGrid.FloorY(my);
+                float t = (floorY - local.Y) / ldir.Y;
+                if (t < AimMinCells || t > AimMaxCells) continue;
+                var hit = local + ldir * t;
+                int cx = (int)MathF.Floor(hit.X), cz = (int)MathF.Floor(hit.Z);
+                if (cx < mx * StationGrid.ModuleX || cx >= (mx + 1) * StationGrid.ModuleX || cz < mz * StationGrid.ModuleZ || cz >= (mz + 1) * StationGrid.ModuleZ) continue;
+                var cell = new Cell(st.Id, cx, floorY, cz);
+                if (kinds is not null && kinds.IsBuildable(kind))
+                {
+                    if (t < buildableT) { buildable = cell; buildableT = t; }
+                }
+                else
+                {
+                    bool isShip = st.Id == ship;
+                    if ((isShip && !otherIsShip) || (isShip == otherIsShip && t < otherT)) { other = cell; otherT = t; otherIsShip = isShip; }
+                }
+            }
+        }
+        var found = buildable ?? other;
+        if (found is { } f) _cursorY = f.Y;
+        return found;
+    }
+
+    /// <summary>True when the cell lies in a module whose floor can be built on.</summary>
+    private bool CellInBuildableModule(Cell c) =>
+        Net.TryGetModuleKindAt(c.S, c.X, c.Y, c.Z, out var kind) && _content.Structures is { } k && k.IsBuildable(kind);
 
     private static bool RayHitsAabb(Vector3 origin, Vector3 dir, Vector3 min, Vector3 size, out float t)
     {
@@ -196,8 +249,8 @@ public partial class Play
         if (!Net.TryGetModuleKindAt(cell.S, cell.X, cell.Y, cell.Z, out var kind)) return Why(Reject.OutsideStation);
         if (_content.Structures is { } kinds)
         {
-            bool allowed = item.IsBelt ? kinds.AllowsBelts(kind) : kinds.AllowsRole(kind, _content.Machines[item.Machine].Role);
-            if (!allowed) return Why(Reject.KindNotAllowed);
+            var problem = kinds.CellProblem(kind, cell.Y, item.IsBelt, item.IsBelt ? MachineRole.Crafter : _content.Machines[item.Machine].Role, Net.FreeBuilding);
+            if (problem != Reject.None) return Why(problem);
         }
         if (_world.EntityAt(cell.S, cell.X, cell.Y, cell.Z).Kind != SimWorld.EntityKind.None) return L("why.overlap");
         if (_gameMode == GameMode.Campaign)

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Godot;
 using Starfoundry.Sim;
 using Starfoundry.Ui;
@@ -122,6 +123,7 @@ public partial class Play
     private string? _walkShotPath;
     private bool _walkShot;
     private int _walkShotFrame;
+    private const float WalkAimYaw = 0f;
 
     /// <summary>
     /// <c>--walk-shot=path</c>: a scripted headless run of the structures campaign: stands up, places the body in the workshop looking at the
@@ -134,6 +136,20 @@ public partial class Play
         void Save(string p) { GetViewport().GetTexture().GetImage().SavePng(p); GD.Print("SHOT saved " + p); }
         switch (_walkShotFrame)
         {
+            case 3:
+                // A fabrication bay beside the hull with a small factory on its floor (ADR 0031): smelter, belt, depot, and a second belt line.
+                if (Net.GetStructure(ShipStruct).Modules.Values.All(k => k != ModuleKind.Workshop))
+                {
+                    Net.AddStructureModuleUnchecked(ShipStruct, 1, 0, 1, ModuleKind.Workshop);
+                    int smelter = Net.AddMachine(9, 0, 10, _content.MachineIndex("core:smelter"), _content.RecipeIndex("core:smelt_iron"), 0, ShipStruct);
+                    int depot = Net.AddMachine(14, 0, 10, _content.MachineIndex("core:depot"), -1, 0, ShipStruct);
+                    int line = Net.AddSegment(10, 0, 10, 1, 0, 0, 4, BeltTier.Mk1, ShipStruct);
+                    Net.ConnectFromMachine(smelter, line);
+                    Net.ConnectToMachine(line, depot);
+                    Net.AddSegment(10, 0, 13, 0, 0, 1, 2, BeltTier.Mk2, ShipStruct);
+                    _structureVersion = -1;
+                }
+                break;
             case 5:
                 _seated = true; ToggleSeat(); // exercises the real stand-up path
                 _body = new Vector3(4f, 0f, 9f);
@@ -153,6 +169,22 @@ public partial class Play
             case 120:
                 Save(_walkShotPath + ".seat.png");
                 GD.Print($"WALKSHOT seated={_seated} volumes={_bodyVolumes.Length}");
+                _body = new Vector3(11f, 0f, 14.5f); // standing on the bay floor, looking down at the belts with the belt tool in hand
+                _seated = false; _yaw = WalkAimYaw; _pitch = -0.55f;
+                if (_palette.FindIndex(b => b.IsBelt) is var belt and >= 0) SelectBuild(belt);
+                break;
+            case 170: Save(_walkShotPath + ".bay.png"); break;
+            case 171:
+                _tool = ToolMode.Pointer; // no tool: the crosshair on a belt shows its card (right click demolishes)
+                _pitch = -0.35f;
+                break;
+            case 210: Save(_walkShotPath + ".belt.png"); break;
+            case 211:
+                if (_palette.FindIndex(b => !b.IsBelt && !b.IsModule && !b.IsStation) is var machine and >= 0) SelectBuild(machine);
+                _pitch = -0.2f; // a machine tool aimed at a wall: not on a floor, refused
+                break;
+            case 250:
+                Save(_walkShotPath + ".wall.png");
                 GetTree().Quit();
                 break;
         }

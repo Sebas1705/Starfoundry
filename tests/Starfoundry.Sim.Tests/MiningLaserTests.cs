@@ -152,7 +152,7 @@ public class MiningLaserTests
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, log, C.Hash, GameMode.Sandbox, Seed, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(12, bytes[4]);
+        Assert.Equal(13, bytes[4]);
         var back = CommandCodec.ReadLog(new MemoryStream(bytes));
         Assert.Equal(3, back.Count);
         Assert.Equal(log[1].Command, back[1].Command);
@@ -172,7 +172,7 @@ public class MiningLaserTests
             CommandCodec.ReadLog(new MemoryStream(bytes), out _, out _, out _, out _, out _, out _, out var rules);
             Assert.True(rules.LegacyLaser, $"version {version}");
             Assert.True(rules.LegacyGalaxy, $"version {version}");
-            Assert.True(rules.WithLegacyLaser(false).WithLegacyGalaxy(false).IsDefault);
+            Assert.True(rules.WithoutLegacyFlags().IsDefault);
         }
         var current = new MemoryStream();
         CommandCodec.WriteLog(current, plain, C.Hash, GameMode.Sandbox, Seed, structures: true);
@@ -327,7 +327,7 @@ public class MiningLaserTests
     public void A_laser_that_gets_less_power_than_it_asks_slows_in_proportion()
     {
         // A reactor that gives only 3 when it has no fuel (the content's emergency output is 15): the laser asks for 5.
-        var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", "core.json")))!.AsObject();
+        var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(TestContent.LegacyPath))!.AsObject();
         root.Remove("structure_templates");
         root["structures"]!["reactor"]!["emergency_power"] = 3;
         var content = ContentDb.FromJson(root.ToJsonString());

@@ -34,6 +34,7 @@ One decision per file, `NNNN-slug.md`. An accepted ADR is never rewritten; add a
 | [0028](0028-world-generation-obstacles-and-collisions.md) | A wider galaxy with obstacles: seeded star types, rocks, mines, clouds, wrecks and debris, boost and collision damage; log version 10 | proposed | 2026-11-22 |
 | [0029](0029-docking-ship-and-station-are-different.md) | The ship moves and the station is fixed; the ship docks at ports (core, cockpit flanks, dock module), is locked to the port, shares an airlock and a station stock; log version 11 | proposed | 2026-11-22 |
 | [0030](0030-ship-attitude-in-the-simulation.md) | The ship attitude is simulation state: a fixed-point quaternion set by SetAttitude (tag 42), hit volumes, ports and module positions turn with it, docking needs alignment; log version 12 | proposed | 2026-11-22 |
+| [0031](0031-construction-rules-fabrication-bays-and-floor-building.md) | Machines and belts are built on the floor of a fabrication bay; the starter ship has a workbench, not a factory; log version 13 | proposed | 2026-11-22 |
 
 ## Template
 ```markdown

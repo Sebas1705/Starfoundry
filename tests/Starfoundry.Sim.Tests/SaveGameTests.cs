@@ -87,7 +87,7 @@ public class SaveGameTests
     public void ASaveFromOtherContentIsRefused()
     {
         byte[] bytes = Save(Played());
-        string other = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", "core.json")).Replace("\"hp\": 400", "\"hp\": 401");
+        string other = File.ReadAllText(TestContent.LegacyPath).Replace("\"hp\": 400", "\"hp\": 401");
         var different = ContentDb.FromJson(other);
         Assert.NotEqual(C.Hash, different.Hash);
         var e = Assert.Throws<InvalidDataException>(() => SaveGame.Read(new MemoryStream(bytes), different, out _));

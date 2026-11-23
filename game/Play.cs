@@ -179,7 +179,7 @@ public partial class Play : Node3D
         }
         else
             _world = SimWorld.CreateGalaxy(_content, _gameMode, _galaxySeed, threats, _stationRules, _structuresOn);
-        if (_structuresOn) { _yaw = MathF.PI; _pitch = -0.35f; _cursorY = DefaultStructureLayer; } // face the workshop from the pilot seat
+        if (_structuresOn) { _yaw = MathF.PI; _pitch = -0.35f; _cursorY = DefaultLayer; } // face aft from the pilot seat
         _world.Network.EnsurePlayer(Player); // the ship starts at the origin, inside Home
         if (args.Contains("--structure-demo")) BuildStructureDemo(args);
         // For screenshots: finish every research that carries a bonus, so the upgrade line of the status panel shows.
@@ -1053,11 +1053,18 @@ void fragment() {
     private const float AimMinCells = 2.5f;
 
 
+    /// <summary>The ship workbench's recipes in the order F cycles them: ingots from ore, plates from ingots, ammo from ingots (ADR 0031).</summary>
+    private static readonly string[] BenchRecipes = { "core:ship_smelt", "core:ship_press", "core:ship_ammo" };
+
+    /// <summary>F: switches the workbench to the next recipe (ingots, plates, ammo) and off after the last one.</summary>
     private void ToggleRefinery()
     {
-        int recipe = _content.RecipeIndex("core:ship_smelt");
-        bool on = Net.HasPlayer(Player) && Net.GetPlayerInfo(Player).ShipRecipe == recipe;
-        Send(new SetShipRecipe(on ? -1 : recipe));
+        int current = Net.HasPlayer(Player) ? Net.GetPlayerInfo(Player).ShipRecipe : -1;
+        int at = Array.FindIndex(BenchRecipes, id => _content.RecipeIndex(id) == current);
+        int next = current < 0 ? 0 : at + 1; // an unknown recipe restarts at the first
+        if (next >= BenchRecipes.Length) next = -1;
+        Send(new SetShipRecipe(next < 0 ? -1 : _content.RecipeIndex(BenchRecipes[next])));
+        ToastLogistics(next < 0 ? L("toast.benchOff") : L("toast.bench", L("bench." + BenchRecipes[next])));
     }
 
     // ---- frame loop ----------------------------------------------------------------------------

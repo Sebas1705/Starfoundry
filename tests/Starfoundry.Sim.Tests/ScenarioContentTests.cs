@@ -12,8 +12,8 @@ namespace Starfoundry.Sim.Tests;
 /// </summary>
 public class ScenarioContentTests
 {
-    private static readonly ContentDb C = TestContent.Core;
-    private static readonly ScenarioCatalog Catalog = TestContent.Scenarios;
+    private static readonly ContentDb C = TestContent.CoreFloor;
+    private static readonly ScenarioCatalog Catalog = TestContent.ScenariosFloor;
     private const double Minute = 60;
 
     private readonly ITestOutputHelper _out;
