@@ -18,7 +18,7 @@ public static partial class Loc
         ("tool:info", "Información", "Info"), ("tool:stock", "Almacén", "Stock"), ("tool:module", "Módulo", "Module"), ("tool:drones", "Drones", "Drones"),
         ("tool:place", "Colocar", "Place"), ("tool:quick", "Acceso rápido", "Quick keys"), ("tool:run", "Correr", "Run"), ("tool:hp", "Puntos de vida", "Hit points"),
         ("tool:menu", "Menú", "Menu"), ("tool:resume", "Continuar", "Resume"), ("tool:hold", "Bodega", "Hold"), ("tool:belt", "Cinta", "Belt"),
-        ("tool:machine", "Máquina", "Machine"), ("tool:target", "Objetivo", "Target"), ("tool:add", "Añadir", "Add"),
+        ("tool:machine", "Máquina", "Machine"), ("tool:target", "Objetivo", "Target"), ("tool:add", "Añadir", "Add"), ("tool:designer", "Diseñador de naves", "Ship designer"), ("tool:fireGuns", "Disparar cañones", "Fire guns"),
         ("status:power", "Energía", "Power"), ("status:fuel", "Combustible", "Fuel"), ("status:hull", "Casco", "Hull"), ("status:shield", "Escudo", "Shield"),
         ("status:speed", "Velocidad", "Speed"), ("status:cargo", "Bodega", "Hold"), ("status:warning", "Aviso", "Warning"), ("status:alert", "Alerta", "Alert"),
         ("status:objective", "Objetivo", "Objective"), ("status:enemy", "Enemigo", "Enemy"), ("status:station", "Estación", "Station"),
@@ -29,7 +29,8 @@ public static partial class Loc
         ("status:shieldOk", "Escudo activo", "Shield up"), ("status:drone", "Dron", "Drone"),
     };
 
-    static Loc()
+    /// <summary>Adds the icon names to the table (called from the one static constructor, in LocShipyard.cs).</summary>
+    private static void AddIconStrings()
     {
         foreach (var (key, es, en) in IconStrings) Table["icon." + key] = (es, en);
     }

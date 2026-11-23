@@ -27,7 +27,9 @@ public partial class ShipDesigner : Control
     private readonly List<(ModuleKind Kind, Button Button)> _palette = new();
 
     private GridContainer _grid = null!;
-    private Label _layerLabel = null!, _selected = null!, _status = null!, _cost = null!, _weapons = null!, _hint = null!;
+    private HFlowContainer _costFlow = null!;
+    private IconLabel _status = null!;
+    private Label _layerLabel = null!, _selected = null!, _cost = null!, _weapons = null!, _hint = null!;
     private Button _remove = null!, _move = null!, _upgrade = null!, _apply = null!, _revert = null!;
     private SubViewport _view = null!;
     private Node3D _shipRoot = null!, _pivot = null!;
@@ -75,13 +77,14 @@ public partial class ShipDesigner : Control
 
     public override void _Ready()
     {
+        Theme = UiTheme.Create();
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         var dim = new ColorRect { Color = new Color(0f, 0f, 0.02f, 0.72f), MouseFilter = MouseFilterEnum.Stop };
         dim.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         AddChild(dim);
 
         var panel = new PanelContainer { MouseFilter = MouseFilterEnum.Stop };
-        panel.AddThemeStyleboxOverride("panel", UiKit.Box(new Color(0.05f, 0.07f, 0.11f, 0.97f), new Color(0.35f, 0.45f, 0.65f, 0.9f), 8, 12f));
+        panel.AddThemeStyleboxOverride("panel", UiTheme.Dock());
         panel.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         panel.OffsetLeft = 36; panel.OffsetRight = -36; panel.OffsetTop = 24; panel.OffsetBottom = -24;
         AddChild(panel);
@@ -93,6 +96,7 @@ public partial class ShipDesigner : Control
         var head = new HBoxContainer();
         var titles = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         var title = UiKit.Text(24, Colors.White); title.Text = Loc.T("designer.title"); title.Name = "Title";
+        head.AddChild(new IconRect("tool:designer", 30, UiTheme.Gold, tooltip: false));
         var sub = UiKit.Text(13, Muted); sub.Text = Loc.T("designer.subtitle");
         titles.AddChild(title); titles.AddChild(sub);
         head.AddChild(titles);
@@ -154,6 +158,14 @@ public partial class ShipDesigner : Control
             var k = kind;
             var b = UiKit.Button(KindName(k), () => PickKind(k), 13);
             b.Alignment = HorizontalAlignment.Left;
+            b.Icon = Icons.Get(IconCatalog.ForModule(k), 24);
+            b.ExpandIcon = false;
+            b.AddThemeConstantOverride("icon_max_width", 24);
+            b.AddThemeConstantOverride("h_separation", 8);
+            b.AddThemeColorOverride("icon_normal_color", ModuleModels.RoleColour(k).Lightened(0.3f));
+            b.AddThemeColorOverride("icon_hover_color", Colors.White);
+            b.AddThemeColorOverride("icon_pressed_color", Colors.White);
+            b.AddThemeColorOverride("icon_hover_pressed_color", Colors.White);
             b.TooltipText = Loc.T("module." + k.ToString().ToLowerInvariant() + ".purpose");
             b.ToggleMode = true;
             pal.AddChild(b);
@@ -176,9 +188,11 @@ public partial class ShipDesigner : Control
         var foot = new HBoxContainer();
         foot.AddThemeConstantOverride("separation", 12);
         var texts = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        _status = UiKit.Text(15, Colors.White); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _status = new IconLabel(15, 18, Colors.White); _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _costFlow = new HFlowContainer { MouseFilter = MouseFilterEnum.Pass };
+        _costFlow.AddThemeConstantOverride("h_separation", 12);
         _cost = UiKit.Text(13, Muted); _cost.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        texts.AddChild(_status); texts.AddChild(_cost);
+        texts.AddChild(_status); texts.AddChild(_cost); texts.AddChild(_costFlow);
         foot.AddChild(texts);
         _revert = UiKit.Button(Loc.T("designer.revert"), () => { _editor.Revert(); _sel = null; _moving = false; _signature = ""; }, 14);
         _apply = UiKit.Button(Loc.T("designer.apply"), () => ApplyRequested?.Invoke(_editor.ToCommand()), 16, 170);
@@ -318,9 +332,11 @@ public partial class ShipDesigner : Control
 
         // the verdict and the price
         var report = _editor.Check(net, _player);
+        foreach (var c in _costFlow.GetChildren()) { _costFlow.RemoveChild(c); c.QueueFree(); }
         if (!_editor.Dirty)
         {
             _status.Text = Loc.T("designer.unchanged"); _status.AddThemeColorOverride("font_color", Muted);
+            _status.SetIcon("tool:info", Muted);
             _cost.Text = "";
             _apply.Disabled = true;
         }
@@ -330,9 +346,27 @@ public partial class ShipDesigner : Control
             _status.Text = ok ? Loc.T("designer.valid") + "  -  " + Loc.T("designer.changes", report.Added, report.Removed, report.Moved)
                 : Loc.T("designer.invalid", RejectTexts.Key(report.Reject) is { } k ? Loc.T(k) : report.Reject.ToString());
             _status.AddThemeColorOverride("font_color", ok ? Good : Bad);
-            string cost = report.Cost.Length == 0 ? Loc.T("designer.free") : Loc.T("designer.cost", _stacks(report.Cost));
-            string refund = report.Refund.Length == 0 ? "" : "   " + Loc.T("designer.refund", _stacks(report.Refund));
-            _cost.Text = cost + refund;
+            _status.SetIcon(ok ? "status:check" : "status:cross", ok ? Good : Bad);
+            // The price as icons with counts (red when the hold lacks them), the refund after it in green.
+            _cost.Text = report.Cost.Length == 0 ? Loc.T("designer.free") : Loc.T("designer.cost", "").TrimEnd();
+            foreach (var c in report.Cost)
+            {
+                var ic = new IconCount(IconCatalog.ForItem(_content.Items[c.Item].Id), 20);
+                ic.SetCost(IconCatalog.ForItem(_content.Items[c.Item].Id), c.Count, net.Network.HoldCount(_player, c.Item));
+                _costFlow.AddChild(ic);
+            }
+            if (report.Refund.Length > 0)
+            {
+                var cap = UiKit.Text(13, Muted); cap.Text = "   " + Loc.T("designer.refund", "").TrimEnd();
+                _costFlow.AddChild(cap);
+                foreach (var c in report.Refund)
+                {
+                    var id = IconCatalog.ForItem(_content.Items[c.Item].Id);
+                    var ic = new IconCount(id, 20);
+                    ic.SetText(id, "+" + c.Count, Good);
+                    _costFlow.AddChild(ic);
+                }
+            }
             _apply.Disabled = !ok;
         }
         _revert.Disabled = !_editor.Dirty;
@@ -349,7 +383,12 @@ public partial class ShipDesigner : Control
         {
             var role = ModuleModels.RoleColour(kind);
             fill = new Color(role.R * 0.45f, role.G * 0.45f, role.B * 0.45f, 0.95f);
-            b.Text = Short(kind);
+            b.Icon = Icons.Get(IconCatalog.ForModule(kind), 24);
+            b.ExpandIcon = false;
+            b.AddThemeConstantOverride("icon_max_width", 24);
+            b.AddThemeColorOverride("icon_normal_color", role.Lightened(0.35f));
+            b.AddThemeColorOverride("icon_hover_color", Colors.White);
+            b.AddThemeColorOverride("icon_pressed_color", Colors.White);
             b.TooltipText = KindName(kind);
             bool original = _editor.IsOriginal(key, kind);
             border = original ? role : new Color(1f, 1f, 0.5f);

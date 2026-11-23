@@ -39,7 +39,7 @@ public class IconCatalogTests
     {
         string[] rows = { "boost", "build", "cancel", "choose", "close", "demolish", "dock", "dockGuide", "drones", "esc", "found", "help", "hp", "info", "inspect", "jump",
             "kind", "lang", "layer", "load", "look", "map", "mine", "mineFire", "module", "pick", "place", "quick", "recipe", "refine", "repair", "research", "resume",
-            "roll", "rotate", "run", "scan", "seat", "start", "stock", "tab", "undock", "unload", "walk", "weapons" };
+            "roll", "rotate", "run", "scan", "seat", "start", "stock", "tab", "undock", "unload", "walk", "weapons", "designer", "fireGuns" };
         foreach (var id in rows)
         {
             var icon = IconCatalog.ForKeyRow(id);

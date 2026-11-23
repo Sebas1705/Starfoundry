@@ -47,6 +47,7 @@ public static class IconCatalog
         Add("module:cargo", "cargo", 0); Add("module:workshop", "gear", 0); Add("module:defence", "turret", 0); Add("module:hull", "hull", 0);
         Add("module:drone_bay", "drone", 0); Add("module:shield", "shield", 0); Add("module:sensor", "dish", 0); Add("module:reactor_mk2", "reactor2", 0);
         Add("module:dock", "dock", 0);
+        Add("module:mining_laser", "laser", 0); Add("module:mining_laser_mk2", "laser2", 0); Add("module:gun", "gun", 0); Add("module:gun_mk2", "gun2", 0); Add("module:shipyard", "shipyard", 0);
 
         // Machines. The ports take the colour of the ore they unload, so the five of them tell apart at a glance.
         Add("machine:core:extractor", "laser", 0); Add("machine:core:drill", "drill", 0); Add("machine:core:smelter", "furnace", 0);
@@ -99,7 +100,7 @@ public static class IconCatalog
         ("store", "upload"), ("cancel", "cross"), ("close", "cross"), ("found", "station"), ("pick", "cursor"), ("inspect", "magnifier"),
         ("recipe", "cycle"), ("kind", "tag"), ("tab", "tabs"), ("start", "play"), ("info", "info"), ("stock", "depot"), ("module", "cargo"),
         ("drones", "drone"), ("place", "build"), ("quick", "bolt"), ("run", "bolt"), ("hp", "heart"), ("menu", "tabs"), ("resume", "play"),
-        ("hold", "cargo"), ("belt", "belt"), ("machine", "arm"), ("target", "crosshair"), ("add", "plus"),
+        ("hold", "cargo"), ("designer", "shipyard"), ("fireGuns", "gun"), ("belt", "belt"), ("machine", "arm"), ("target", "crosshair"), ("designer", "shipyard"), ("fireGuns", "gun"), ("add", "plus"),
     };
 
     /// <summary>Status icons by id (the part after <c>status:</c>).</summary>
@@ -158,7 +159,7 @@ public static class IconCatalog
         Objective.Lab => "machine:core:research_lab", Objective.Research => "tool:research", Objective.Scan => "tool:scan", Objective.Defend => "tool:weapons",
         Objective.Expand => "tool:found", Objective.Core => "module:core", Objective.CargoPort => "machine:core:ore_unloader",
         Objective.WatchFactory => "item:core:iron_plate", Objective.FoundStation => "tool:found", Objective.MakeFuel => "item:core:hydrogen",
-        Objective.AddModule => "tool:module", Objective.Automate => "tool:drones", _ => "status:objective",
+        Objective.AddModule => "tool:module", Objective.Automate => "tool:drones", Objective.FabBay => "module:workshop", _ => "status:objective",
     };
 
     /// <summary>The icon of a key panel row (by the row's id), or null when the row has none.</summary>
@@ -172,7 +173,7 @@ public static class IconCatalog
         "quick" => "tool:quick", "recipe" => "tool:recipe", "refine" => "tool:refine", "repair" => "tool:repair", "research" => "tool:research",
         "resume" => "tool:resume", "roll" => "tool:rotate", "rotate" => "tool:rotate", "run" => "tool:run", "scan" => "tool:scan", "seat" => "tool:seat",
         "start" => "tool:start", "stock" => "tool:stock", "tab" => "tool:tab", "undock" => "tool:undock", "unload" => "tool:unload",
-        "walk" => "tool:walk", "weapons" => "tool:weapons",
+        "walk" => "tool:walk", "weapons" => "tool:weapons", "designer" => "tool:designer", "fireGuns" => "tool:fireGuns",
         _ => null,
     };
 
