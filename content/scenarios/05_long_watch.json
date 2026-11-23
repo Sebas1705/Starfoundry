@@ -4,10 +4,10 @@
   "order": 5,
   "name_es": "La larga guardia",
   "name_en": "The Long Watch",
-  "description_es": "La campaña completa en dificultad Difícil: una estación, un salto y 12 oleadas.",
-  "description_en": "The full campaign on Hard: a station, a jump and 12 waves.",
-  "briefing_es": "Todo lo aprendido, sin red. Funda una estación, salta a otro sistema y resiste doce oleadas con el núcleo intacto. El Remanente llega antes, golpea más fuerte y los yacimientos son más pobres. Yo estaré aquí, vigilando.",
-  "briefing_en": "Everything you have learned, without a net. Found a station, jump to another system and survive twelve waves with the core intact. The Remnant comes sooner, hits harder and the deposits are thinner. I will be here, keeping watch.",
+  "description_es": "La campaña completa en dificultad Difícil: una estación, un salto y 13 oleadas.",
+  "description_en": "The full campaign on Hard: a station, a jump and 13 waves.",
+  "briefing_es": "Todo lo aprendido, sin red. Funda una estación, salta a otro sistema y resiste trece oleadas con el núcleo intacto. El Remanente llega antes, golpea más fuerte y los yacimientos son más pobres. Yo estaré aquí, vigilando.",
+  "briefing_en": "Everything you have learned, without a net. Found a station, jump to another system and survive thirteen waves with the core intact. The Remnant comes sooner, hits harder and the deposits are thinner. I will be here, keeping watch.",
   "rules": { "preset": "hard" },
   "goals": {
     "primary": [

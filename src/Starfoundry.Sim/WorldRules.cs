@@ -100,8 +100,8 @@ public sealed class WorldRules : IEquatable<WorldRules>
 
     public static WorldRules Hard { get; } = new()
     {
-        EnemyDamagePercent = 130, EnemyHpPercent = 130, WaveSizePercent = 130, WaveIntervalPercent = 80, FirstWaveGraceSeconds = 300,
-        DepositRichnessPercent = 80, PowerOutputPercent = 100, GoalWaves = 12,
+        EnemyDamagePercent = 120, EnemyHpPercent = 120, WaveSizePercent = 120, WaveIntervalPercent = 80, FirstWaveGraceSeconds = 300,
+        DepositRichnessPercent = 80, PowerOutputPercent = 100, GoalWaves = 13,
     };
 
     public static WorldRules Brutal { get; } = new()

@@ -159,7 +159,7 @@ public class GameOutcomeTests
 
         Assert.Equal(OutcomeKind.Won, GameOutcome.Evaluate(w.Network, 0, new WorldRules { GoalWaves = 2 }).Kind);
         Assert.Equal(OutcomeKind.Won, GameOutcome.Evaluate(w.Network, 0, new WorldRules { GoalWaves = 1 }).Kind);
-        Assert.Equal(OutcomeKind.Playing, GameOutcome.Evaluate(w.Network, 0, WorldRules.Hard).Kind); // 12 waves
+        Assert.Equal(OutcomeKind.Playing, GameOutcome.Evaluate(w.Network, 0, WorldRules.Hard).Kind); // 13 waves
         Assert.Equal(OutcomeKind.Playing, GameOutcome.Evaluate(w.Network, 0, new WorldRules { GoalWaves = 3 }).Kind);
         // The world's own rules (default here: 10 waves) are used when none are passed.
         Assert.Equal(OutcomeKind.Playing, GameOutcome.Evaluate(w.Network, 0).Kind);
