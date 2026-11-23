@@ -48,6 +48,17 @@ internal static class TestContent
         enemies.Remove(enemies.First(e => e!["id"]!.GetValue<string>() == "core:bulwark"));
     }
 
+    /// <summary>Removes the hardpoint modules from every structure template (the starter ship, the scenario ships): the layouts as they were before ADR 0032.</summary>
+    public static void WithoutHardpointModules(System.Text.Json.Nodes.JsonObject root)
+    {
+        if (root["structure_templates"] is not System.Text.Json.Nodes.JsonObject templates) return;
+        foreach (var (_, template) in templates)
+        {
+            var modules = template!["modules"]!.AsArray();
+            foreach (var m in modules.Where(m => m!["kind"]!.GetValue<string>() is "mining_laser" or "mining_laser_mk2" or "gun" or "gun_mk2").ToList()) modules.Remove(m);
+        }
+    }
+
     /// <summary>The core content without the starter ship: structure worlds that build their own ships by hand start empty.</summary>
     public static readonly ContentDb CoreWithoutStarterShip = ContentDb.FromJson(RemoveStarterShip());
 

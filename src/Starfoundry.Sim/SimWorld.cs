@@ -5,7 +5,7 @@ namespace Starfoundry.Sim;
 /// world goes through <see cref="Submit"/>; commands wait in a queue and are applied at the start of
 /// the next <see cref="Step"/> in submission order, so two worlds fed the same log stay identical.
 /// </summary>
-public sealed class SimWorld
+public sealed partial class SimWorld
 {
     public const int MaxSegmentCells = 128;
     public const int MaxCoord = 10_000;
@@ -437,12 +437,14 @@ public sealed class SimWorld
                 if (!Network.IsDeposit(sm.Deposit)) return Reject.UnknownDeposit;
                 if (!Network.IsDepositRevealed(sm.Deposit)) return Reject.NotDiscovered;
                 if (Network.DepositRemaining(sm.Deposit) <= 0) return Reject.Depleted;
+                if (!Network.HasMiningLaser(player)) return Reject.NoLaser; // ADR 0032: a ship mines with its laser modules
                 if (!Network.InMineRange(player, sm.Deposit)) return Reject.OutOfRange;
                 Network.StartMining(player, sm.Deposit);
                 return Reject.None;
             }
 
             case SetWeapons sw:
+                if (sw.Armed && !Network.HasGun(player)) return Reject.NoGun; // ADR 0032: a ship shoots with its gun modules
                 Network.SetWeapons(player, sw.Armed);
                 return Reject.None;
 
@@ -635,6 +637,9 @@ public sealed class SimWorld
 
             case FoundStation fs:
                 return FoundStationCore(player, fs);
+
+            case DesignerApply da:
+                return DesignerApplyCore(player, da);
 
             case DockAt da:
             {
@@ -964,6 +969,9 @@ public sealed class SimWorld
         // A station is fixed (ADR 0029): it has no cockpit and no engine, and a ship has no core.
         if (s.Kind == StructureKind.Station && p.Kind is ModuleKind.Cockpit or ModuleKind.Engine) return Reject.KindNotAllowed;
         if (s.Kind == StructureKind.Ship && p.Kind == ModuleKind.Core) return Reject.KindNotAllowed;
+        if (!ModuleKindIds.AllowedOn(s.Kind, p.Kind)) return Reject.KindNotAllowed; // ADR 0032: hardpoints are ship-only, the shipyard is station-only
+        // ADR 0032: hardpoints are fitted in the ship designer; the single placement works only while the ship is docked at a shipyard of its owner.
+        if (ModuleKindIds.IsHardpoint(p.Kind) && !(Network.ShipStructure(player) == p.Structure && Network.TryGetShipyard(player, out _))) return Reject.NoShipyard;
 
         var centre = ModuleCentre(s, p.Mx, p.My, p.Mz);
         if (!StructurePointInRange(player, s, centre.X, centre.Y, centre.Z)) return Reject.OutOfRange;

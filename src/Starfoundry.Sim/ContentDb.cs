@@ -812,7 +812,7 @@ public sealed class ContentDb
             string owner = "structures." + names[i];
             RequireObject(k, owner, "cost", "hp", "allows", "hold_capacity", "thrust_speed_percent", "power_output", "burn_interval_ticks",
                 "drone_range_cells", "drone_interval_ticks", "power_use", "defence_bonus_percent", "emergency_power", "regen_hp",
-                "shield_percent", "shield_stack_percent", "shield_max_percent", "sensor_range_cells", "buildable");
+                "shield_percent", "shield_stack_percent", "shield_max_percent", "sensor_range_cells", "buildable", "hardpoint_percent", "hardpoint_range_cells");
             var kindValue = (ModuleKind)i;
             bool isReactor = ModuleKindIds.IsReactor(kindValue);
             bool isBay = kindValue == ModuleKind.DroneBay;
@@ -820,15 +820,23 @@ public sealed class ContentDb
             bool isSensor = kindValue == ModuleKind.Sensor;
             if (!isBay && (k.TryGetProperty("drone_range_cells", out _) || k.TryGetProperty("drone_interval_ticks", out _)))
                 throw new InvalidDataException($"'drone_range_cells' and 'drone_interval_ticks' only belong to the drone bay, not {owner}.");
-            if (!isBay && !isShield && !isSensor && k.TryGetProperty("power_use", out _))
-                throw new InvalidDataException($"'power_use' only belongs to the drone bay, shield and sensor, not {owner}.");
+            bool isHardpoint = ModuleKindIds.IsHardpoint(kindValue);
+            if (!isHardpoint && (k.TryGetProperty("hardpoint_percent", out _) || k.TryGetProperty("hardpoint_range_cells", out _)))
+                throw new InvalidDataException($"'hardpoint_percent' and 'hardpoint_range_cells' only belong to the mining laser and gun modules, not {owner}.");
+            if (!ModuleKindIds.IsMiningLaser(kindValue) && k.TryGetProperty("hardpoint_range_cells", out _))
+                throw new InvalidDataException($"'hardpoint_range_cells' only belongs to the mining laser modules, not {owner}.");
+            if (!isBay && !isShield && !isSensor && !ModuleKindIds.IsMiningLaser(kindValue) && k.TryGetProperty("power_use", out _))
+                throw new InvalidDataException($"'power_use' only belongs to the drone bay, shield, sensor and mining laser, not {owner}.");
             if (!isShield && (k.TryGetProperty("shield_percent", out _) || k.TryGetProperty("shield_stack_percent", out _) || k.TryGetProperty("shield_max_percent", out _)))
                 throw new InvalidDataException($"'shield_percent', 'shield_stack_percent' and 'shield_max_percent' only belong to the shield, not {owner}.");
             if (!isSensor && k.TryGetProperty("sensor_range_cells", out _))
                 throw new InvalidDataException($"'sensor_range_cells' only belongs to the sensor, not {owner}.");
             int droneRange = isBay ? (k.TryGetProperty("drone_range_cells", out _) ? Int(k, "drone_range_cells", owner, 1, 10_000) : 60) : 0;
             int droneInterval = isBay ? (k.TryGetProperty("drone_interval_ticks", out _) ? Int(k, "drone_interval_ticks", owner, 1, 1_000_000) : 90) : 0;
-            int bayPower = isBay || isShield || isSensor ? (k.TryGetProperty("power_use", out _) ? Int(k, "power_use", owner, 0, 100_000) : isBay ? 20 : 0) : 0;
+            bool isLaser = ModuleKindIds.IsMiningLaser(kindValue);
+            int bayPower = isBay || isShield || isSensor || isLaser ? (k.TryGetProperty("power_use", out _) ? Int(k, "power_use", owner, 0, 100_000) : isBay ? 20 : isLaser ? PlayerRules.LaserPowerUse : 0) : 0;
+            int hardpointPercent = isHardpoint ? (k.TryGetProperty("hardpoint_percent", out _) ? Int(k, "hardpoint_percent", owner, 1, 10_000) : 100) : 0;
+            int hardpointRange = isLaser ? (k.TryGetProperty("hardpoint_range_cells", out _) ? Int(k, "hardpoint_range_cells", owner, 1, 10_000) : 10) : 0;
             int shieldPercent = isShield ? (k.TryGetProperty("shield_percent", out _) ? Int(k, "shield_percent", owner, 0, 100) : 30) : 0;
             int shieldStack = isShield ? (k.TryGetProperty("shield_stack_percent", out _) ? Int(k, "shield_stack_percent", owner, 0, 100) : 10) : 0;
             int shieldMax = isShield ? (k.TryGetProperty("shield_max_percent", out _) ? Int(k, "shield_max_percent", owner, 0, 100) : 60) : 0;
@@ -882,7 +890,7 @@ public sealed class ContentDb
                 Int(k, "hp", owner, 1, 100_000), roles.ToArray(), belts,
                 Int(k, "hold_capacity", owner, 0, 100_000), Int(k, "thrust_speed_percent", owner, 0, 10_000), powerOutput, burnInterval, droneRange, droneInterval, bayPower, defenceBonus, emergency,
                 k.TryGetProperty("regen_hp", out _) ? Int(k, "regen_hp", owner, 1, 1000) : 1,
-                shieldPercent, shieldStack, shieldMax, sensorRange, buildable);
+                shieldPercent, shieldStack, shieldMax, sensorRange, buildable, hardpointPercent, hardpointRange);
         }
         return new StructureContent(kinds);
     }
@@ -1187,6 +1195,7 @@ public sealed class ContentDb
                 if (k.DroneIntervalTicks != 0) { Mix(k.DroneRangeCells); Mix(k.DroneIntervalTicks); Mix(k.PowerUse); }
                 if (k.Kind is ModuleKind.Shield or ModuleKind.Sensor) { Mix(k.PowerUse); Mix(k.ShieldPercent); Mix(k.ShieldStackPercent); Mix(k.ShieldMaxPercent); Mix(k.SensorRangeCells); }
                 if (k.Kind == ModuleKind.Defence && k.DefenceBonusPercent != 10) Mix(k.DefenceBonusPercent); // 10 is the default
+                if (ModuleKindIds.IsHardpoint(k.Kind)) { Mix(k.HardpointPercent); Mix(k.HardpointRangeCells); Mix(k.PowerUse); }
                 if (k.RegenHp != 1) Mix(k.RegenHp); // 1 is the default
                 if (k.BuildableFloor != (k.AllowedRoles.Length > 0 || k.AllowsBelts)) Mix(k.BuildableFloor ? 7 : 8); // the default is: it allows something
             }

@@ -54,7 +54,7 @@ public static class BuildCatalog
 {
     /// <summary>The module kinds the module tool places in a structure world, in menu order (the core is placed by the station tool).</summary>
     public static readonly ModuleKind[] PlaceableKinds =
-        { ModuleKind.Cockpit, ModuleKind.Engine, ModuleKind.Reactor, ModuleKind.Cargo, ModuleKind.Workshop, ModuleKind.Defence, ModuleKind.Hull, ModuleKind.DroneBay, ModuleKind.Shield, ModuleKind.Sensor, ModuleKind.ReactorMk2, ModuleKind.Dock };
+        { ModuleKind.Cockpit, ModuleKind.Engine, ModuleKind.Reactor, ModuleKind.Cargo, ModuleKind.Workshop, ModuleKind.Defence, ModuleKind.Hull, ModuleKind.DroneBay, ModuleKind.Shield, ModuleKind.Sensor, ModuleKind.ReactorMk2, ModuleKind.Dock, ModuleKind.Shipyard };
 
     public static readonly BuildCategory[] Categories = { BuildCategory.Logistics, BuildCategory.Production, BuildCategory.Defence, BuildCategory.Structure };
 

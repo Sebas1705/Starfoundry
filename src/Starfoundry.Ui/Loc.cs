@@ -13,7 +13,7 @@ public enum Language
 /// <c>{0}</c>, <c>{1}</c>... and must match between them (checked by tests). Game data names (items, machines,
 /// recipes, research, system types, enemies) are looked up with <see cref="Name"/>.
 /// </summary>
-public static class Loc
+public static partial class Loc
 {
     public static Language Lang { get; set; } = Language.En;
 
@@ -1116,7 +1116,7 @@ public static class Loc
             "  Tab              soltar el ratón para usar los botones (clic en el juego para volver a mirar)\n\n" +
             "Nave\n" +
             "  W S   avanzar / retroceder por el eje de la nave     A D   desplazarse a los lados     Espacio / C   hacia el techo / hacia el suelo de la nave     Z X (o flechas)   alabeo\n" +
-            "  E   sentarte / levantarte del asiento del piloto (de pie: WASD camina, Mayús corre y no se vuela)\n  M   minar (vuela primero al yacimiento)      F   banco de trabajo (lingotes, placas, munición)       K   escanear       V   armas\n  Marcadores (sentado): yacimiento elegido y los más cercanos, enemigo más cercano, estación y puertos, y la puerta hacia el sistema elegido en el mapa; llevan distancia y, en el borde de la pantalla, una flecha y los grados que hay que girar\n  Marco galáctico (arriba, centro): los ejes fijos X, Y, Z de la galaxia vistos desde tu nave; no es un horizonte\n\n" +
+            "  E   sentarte / levantarte del asiento del piloto (de pie: WASD camina, Mayús corre y no se vuela)\n  M   minar (vuela primero al yacimiento)      F   banco de trabajo (lingotes, placas, munición)       K   escanear       V   grupo de armas (láser de minería o cañones; clic mantenido para disparar)      F2   diseñador de naves (atracado en una estación con astillero: añade, mueve o mejora módulos y armas)\n  Marcadores (sentado): yacimiento elegido y los más cercanos, enemigo más cercano, estación y puertos, y la puerta hacia el sistema elegido en el mapa; llevan distancia y, en el borde de la pantalla, una flecha y los grados que hay que girar\n  Marco galáctico (arriba, centro): los ejes fijos X, Y, Z de la galaxia vistos desde tu nave; no es un horizonte\n\n" +
             "Construcción\n" +
             "  B   menú de construcción, anclado a la derecha (pestañas Logística, Producción, Defensa y Estructura, con coste, energía y qué hace cada cosa; flechas, Intro o clic eligen la herramienta; Re Pág / Av Pág cambian de pestaña; B o Esc lo cierran)       Esc   dejar de construir\n" +
             "  1-9, 0, Q   teclas rápidas de las primeras entradas (cintas, horno, ensamblador, laboratorio, depósito, torreta, muro, taller de reparación, puerto de carga; el panel de teclas las lista con su coste al pasar el ratón por la fila 1-0); los demás puertos solo están en el menú B\n" +
@@ -1143,7 +1143,7 @@ public static class Loc
             "  Tab              free the mouse to use the buttons (click in the game to look again)\n\n" +
             "Ship\n" +
             "  W S   forward / back along the ship's axis     A D   strafe     Space / C   toward the ship's roof / floor     Z X (or arrows)   roll\n" +
-            "  E   sit at / stand up from the pilot seat (standing: WASD walks, Shift runs, no flying)\n  M   mine (flies to the deposit first)      F   workbench (ingots, plates, ammo)       K   scan       V   weapons\n  Markers (seated): the selected deposit and the nearest ones, the nearest enemy, stations and ports, and the gate toward the system chosen on the map; they carry the distance and, at the screen edge, an arrow and the degrees to turn\n  Galactic frame (top centre): the fixed X, Y, Z axes of the galaxy as seen from your ship; it is not a horizon\n\n" +
+            "  E   sit at / stand up from the pilot seat (standing: WASD walks, Shift runs, no flying)\n  M   mine (flies to the deposit first)      F   workbench (ingots, plates, ammo)       K   scan       V   weapon group (mining laser or guns; hold the click to fire)      F2   ship designer (docked at a station with a shipyard: add, move or upgrade modules and weapons)\n  Markers (seated): the selected deposit and the nearest ones, the nearest enemy, stations and ports, and the gate toward the system chosen on the map; they carry the distance and, at the screen edge, an arrow and the degrees to turn\n  Galactic frame (top centre): the fixed X, Y, Z axes of the galaxy as seen from your ship; it is not a horizon\n\n" +
             "Building\n" +
             "  B   build menu, docked at the right (tabs Logistics, Production, Defence and Structure, with cost, power and what each thing does; arrows, Enter or click pick the tool; PgUp / PgDn change tab; B or Esc close it)       Esc   stop building\n" +
             "  1-9, 0, Q   quick keys for the first entries (belts, smelter, assembler, lab, depot, turret, wall, repair bay, cargo port; the key panel lists them with their cost when you hover its 1-0 row); the other ports are only in the B menu\n" +

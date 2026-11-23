@@ -45,6 +45,13 @@ public enum HintAim
     Module,
 }
 
+/// <summary>The weapon group in hand (ADR 0032): the fire button mines with the lasers or shoots with the guns.</summary>
+public enum WeaponGroup
+{
+    Laser,
+    Guns,
+}
+
 /// <summary>How a row is drawn: normal, highlighted (the tool or menu is active), dimmed (unavailable, with a reason), alert (a threat is on) or plain information without a key.</summary>
 public enum KeyRowState
 {
@@ -115,6 +122,13 @@ public sealed record KeyState
     /// <summary>The laser is firing: the simulation is mining the deposit under the crosshair.</summary>
     public bool LaserFiring { get; init; }
     public bool Refining { get; init; }
+    /// <summary>The ship fits weapons as hardpoint modules (ADR 0032): the weapon rows follow the group in hand and the modules the ship has.</summary>
+    public bool Hardpoints { get; init; }
+    public bool HasLaserModule { get; init; } = true;
+    public bool HasGunModule { get; init; } = true;
+    public WeaponGroup WeaponGroup { get; init; }
+    /// <summary>Docked at one of the player's stations that has a shipyard: the ship designer opens (F2).</summary>
+    public bool ShipyardDocked { get; init; }
     /// <summary>The content has boost (Shift while flying, ADR 0028).</summary>
     public bool BoostAvailable { get; init; }
     public bool Boosting { get; init; }
@@ -216,10 +230,19 @@ public static class KeyHints
         yield return Row("research", "T", "research", "T", Lit(s.ResearchOpen));
         if (s.HasGalaxy) yield return Row("map", "G", "map", "G", Lit(s.MapOpen));
         yield return s.ScanReady ? Row("scan", "K", "scan", "K") : Off("scan", "K", "scan", "key.why.scanWait");
-        yield return Row("mine", "M", s.Mining ? "mineStop" : "mine", "M", Lit(s.Mining));
+        if (s.Hardpoints && !s.HasLaserModule) yield return Off("mine", "M", "mine", "key.why.noLaser");
+        else yield return Row("mine", "M", s.Mining ? "mineStop" : "mine", "M", Lit(s.Mining));
         if (s.Mining) yield return Row("mineFire", "@hold", "mineFire", state: s.LaserFiring ? KeyRowState.Active : KeyRowState.Info);
         yield return Row("refine", "F", s.Refining ? "refineStop" : "refine", "F", Lit(s.Refining));
-        yield return s.ThreatActive ? Row("weapons", "V", "weapons", "V", Lit(s.Armed)) : Off("weapons", "V", "weapons", "key.why.noThreats");
+        if (s.Hardpoints)
+        {
+            // ADR 0032: V picks the weapon group the fire button uses; the guns need a gun module.
+            yield return s.HasGunModule
+                ? Row("weapons", "V", s.WeaponGroup == WeaponGroup.Guns ? "weaponGuns" : "weaponLaser", "V", Lit(s.WeaponGroup == WeaponGroup.Guns))
+                : Off("weapons", "V", "weaponLaser", "key.why.noGun");
+            if (s.WeaponGroup == WeaponGroup.Guns && s.HasGunModule) yield return Row("fireGuns", "@hold", "fireGuns", state: s.Armed ? KeyRowState.Active : KeyRowState.Info);
+        }
+        else yield return s.ThreatActive ? Row("weapons", "V", "weapons", "V", Lit(s.Armed)) : Off("weapons", "V", "weapons", "key.why.noThreats");
         if (s.StructuresOn) yield return Row("found", "I", "found", "I");
         if (s.ModuleToolAvailable) yield return Row("module", "N", "module", "N");
         if (s.BoostAvailable) yield return Row("boost", "Shift", "boost", state: s.Boosting ? KeyRowState.Active : KeyRowState.Info);
@@ -249,6 +272,7 @@ public static class KeyHints
             yield return Row("unload", ",", "unload", "Comma");
             yield return Row("load", ".", "load", "Period");
             yield return new KeyRow("stock", Array.Empty<string>(), "key.stock", KeyRowState.Info, null, null, new object[] { s.StockUsed, s.StockCapacity });
+            if (s.ShipyardDocked) yield return Row("designer", "F2", "designer", "F2"); // ADR 0032
         }
     }
 
@@ -378,7 +402,8 @@ public static class KeyHints
     /// <summary>(g) A wave is on its way or enemies are alive: the weapons and the repair on top, highlighted.</summary>
     private static IEnumerable<KeyRow> ThreatRows(KeyState s)
     {
-        yield return Row("weapons", "V", "fire", "V", s.Armed ? KeyRowState.Active : KeyRowState.Alert);
+        if (s.Hardpoints) yield return s.HasGunModule ? Row("weapons", "V", s.WeaponGroup == WeaponGroup.Guns ? "weaponGuns" : "weaponLaser", "V", s.WeaponGroup == WeaponGroup.Guns ? KeyRowState.Active : KeyRowState.Alert) : Off("weapons", "V", "weaponLaser", "key.why.noGun");
+        else yield return Row("weapons", "V", "fire", "V", s.Armed ? KeyRowState.Active : KeyRowState.Alert);
         yield return s.AnythingDamaged ? Row("repair", "@backspace", "repair", "Backspace", KeyRowState.Alert) : Off("repair", "@backspace", "repair", "key.why.noDamage");
     }
 }

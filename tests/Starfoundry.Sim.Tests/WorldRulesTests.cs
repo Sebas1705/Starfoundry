@@ -526,7 +526,7 @@ public class WorldRulesTests
         byte[] plain = LogBytes(log, null);
         byte[] normal = LogBytes(log, WorldRules.Normal);
         Assert.Equal(plain, normal); // default rules write no block
-        Assert.Equal(13, plain[4]); // version 13 only gates the floor-building rule; the rules block is unchanged
+        Assert.Equal(14, plain[4]); // version 14 added DesignerApply and the hardpoints; the rules block is unchanged
         Assert.Equal(0, plain[4 + 1 + 8 + 1 + 8] & 8);
 
         byte[] hard = LogBytes(log, WorldRules.Hard);
@@ -572,6 +572,7 @@ public class WorldRulesTests
             Assert.Equal((9UL, GameMode.Campaign, 3UL, true), (hash, mode, seed, threats));
             Assert.True(rules.LegacyLaser); // recorded before the laser drew power (ADR 0027)
             Assert.True(rules.LegacyGalaxy); // and before the wide galaxy (ADR 0028)
+            Assert.True(rules.LegacyHardpoints); // and before the hardpoint modules (ADR 0032)
             Assert.True(rules.WithoutLegacyFlags().IsDefault);
         }
         // Older versions cannot carry the rules flag.

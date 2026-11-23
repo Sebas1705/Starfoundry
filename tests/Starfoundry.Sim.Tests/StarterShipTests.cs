@@ -50,6 +50,8 @@ public class StarterShipTests
         Assert.Equal(ModuleKind.Cargo, s.Modules[(0, 0, 2)]);
         Assert.Equal(ModuleKind.Reactor, s.Modules[(0, 0, 3)]);
         Assert.Equal(ModuleKind.Engine, s.Modules[(0, 0, 4)]);
+        Assert.Equal(ModuleKind.MiningLaser, s.Modules[(0, 0, -1)]); // the nose laser: a ship mines with its laser modules (ADR 0032)
+        Assert.Equal(ModuleKind.Gun, s.Modules[(0, 1, 0)]);
         Assert.Equal(100, n.HoldCapacity(0));
         Assert.Single(n.Structures());
 
@@ -65,7 +67,7 @@ public class StarterShipTests
         w.ValidateInvariants();
     }
 
-    private const int ObjectiveStarterModules = 5;
+    private const int ObjectiveStarterModules = 7; // five ship modules plus the nose mining laser and the top gun (ADR 0032)
 
     [Fact]
     public void Starter_ship_is_only_built_with_structure_rules()

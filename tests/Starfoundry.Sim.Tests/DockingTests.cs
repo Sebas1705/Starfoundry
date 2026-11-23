@@ -503,7 +503,7 @@ public class DockingTests
         Ok(w, DockWest(station));
         Assert.Equal(Reject.Overlap, Run(w, new PlaceModuleIn(station, 1, 0, 0, ModuleKind.Hull)));
         Assert.Equal(Reject.Overlap, Run(w, new PlaceModuleIn(station, 1, 0, 2, ModuleKind.Hull)));
-        Assert.Equal(Reject.NotAdjacent, Run(w, new PlaceModuleIn(ship, -1, 1, 0, ModuleKind.Hull)));
+        Assert.Equal(Reject.NotAdjacent, Run(w, new PlaceModuleIn(ship, -2, 1, 0, ModuleKind.Hull)));
         Ok(w, new PlaceModuleIn(station, 0, 0, 1, ModuleKind.Hull)); // the station can still grow away from the ship
         w.ValidateInvariants();
     }
@@ -559,7 +559,7 @@ public class DockingTests
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, log, C.Hash, GameMode.Sandbox, Seed, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(13, bytes[4]);
+        Assert.Equal(14, bytes[4]);
         Assert.Equal(log, CommandCodec.ReadLog(new MemoryStream(bytes)));
 
         // Older logs cannot hold them: the reader refuses, even inside a batch.

@@ -64,6 +64,9 @@ public static class RejectTexts
         Reject.AlreadyDocked => "toast.reject.alreadyDocked",
         Reject.Misaligned => "toast.reject.misaligned",
         Reject.NotOnFloor => "toast.reject.notOnFloor",
+        Reject.NoLaser => "toast.reject.noLaser",
+        Reject.NoGun => "toast.reject.noGun",
+        Reject.NoShipyard => "toast.reject.noShipyard",
         _ => null,
     };
 }

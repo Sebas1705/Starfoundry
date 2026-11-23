@@ -31,6 +31,7 @@ public class PowerTests
         n.AddStructureModuleUnchecked(s, 2, 0, 0, ModuleKind.Workshop);
         n.AddStructureModuleUnchecked(s, 3, 0, 0, ModuleKind.Cargo);
         for (int i = 0; i < reactors; i++) n.AddStructureModuleUnchecked(s, 4 + i, 0, 0, ModuleKind.Reactor);
+        n.AddStructureModuleUnchecked(s, 0, 1, 0, ModuleKind.MiningLaser); // a ship mines with a laser module (ADR 0032)
         if (hydrogen > 0) n.GiveItems(0, Hydrogen, hydrogen);
         return s;
     }
@@ -307,7 +308,7 @@ public class PowerTests
             var w = World(threats: true);
             int s = Ship(w, hydrogen: 40);
             Load(w.Network, s, loadUnits);
-            w.Network.AddStructureModuleUnchecked(s, 0, 1, 0, ModuleKind.Defence);
+            w.Network.AddStructureModuleUnchecked(s, 1, 1, 0, ModuleKind.Defence);
             int turret = w.Network.AddMachine(1, 9, 1, Turret, -1, owner: 0, structure: s);
             int belt = w.Network.AddSegment(1, 9, 3, 0, 0, -1, 2, BeltTier.Mk1, s);
             w.Network.SetSource(belt, new ushort[] { (ushort)Ammo });

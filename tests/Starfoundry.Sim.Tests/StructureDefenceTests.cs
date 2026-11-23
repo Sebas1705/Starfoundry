@@ -686,6 +686,10 @@ public class StructureDefenceTests
         // absent for the golden checksums to hold.
         foreach (var kind in new[] { "shield", "sensor", "reactor_mk2", "dock" })
             root["structures"]!.AsObject().Remove(kind);
+        // And before the hardpoint modules and the shipyard (ADR 0032): none of the five kinds, and the starter ship has no laser and no gun module.
+        foreach (var kind in new[] { "mining_laser", "mining_laser_mk2", "gun", "gun_mk2", "shipyard" })
+            root["structures"]!.AsObject().Remove(kind);
+        TestContent.WithoutHardpointModules(root);
         void RemoveWhere(string section, params string[] ids)
         {
             var arr = root[section]!.AsArray();
