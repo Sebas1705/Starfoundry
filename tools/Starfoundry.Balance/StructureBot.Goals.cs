@@ -249,7 +249,7 @@ public sealed partial class StructureBot
         var core = _c.Structures!.ModuleCost(ModuleKind.Core);
         if (!Need(core, "the station core")) return;
         var p = Net.GetPlayerInfo(0);
-        int wx = FloorCell(p.X), wy = FloorCell(p.Y), wz = FloorCell(p.Z) - 8; // beside the cockpit, on its -z side, inside build range of everything
+        int wx = FloorCell(p.X), wy = FloorCell(p.Y), wz = FloorCell(p.Z) - 16; // ahead of the cockpit, past the nose laser module (ADR 0032), inside build range of everything
         var r = Act(new FoundStation(wx, wy, wz));
         if (Failed(r, "FoundStation")) return;
         _station = Net.Structures().First(s => s.Kind == StructureKind.Station && s.Owner == 0).Id;

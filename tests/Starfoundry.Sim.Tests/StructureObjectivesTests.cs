@@ -103,7 +103,7 @@ public class StructureObjectivesTests
             w.Network.AddStructureModuleUnchecked(ship, i, 0, 0, ModuleKind.Hull);
         t.Update(w.Network, 0);
         Assert.False(t.IsDone(Objective.AddModule));
-        w.Network.AddStructureModuleUnchecked(ship, 5, 0, 0, ModuleKind.Workshop);
+        w.Network.AddStructureModuleUnchecked(ship, ObjectiveTracker.StarterModuleCount, 0, 0, ModuleKind.Workshop);
         t.Update(w.Network, 0);
         Assert.True(t.IsDone(Objective.AddModule));
 

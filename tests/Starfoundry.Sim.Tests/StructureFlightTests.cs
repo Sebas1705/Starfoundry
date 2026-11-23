@@ -44,6 +44,7 @@ public class StructureFlightTests
         w.Network.EnsurePlayer(0);
         int s = w.Network.CreateStructure(0, StructureKind.Ship, 0, 0, 0);
         w.Network.AddStructureModuleUnchecked(s, 0, 0, 0, ModuleKind.Workshop);
+        w.Network.AddStructureModuleUnchecked(s, 0, 1, 0, ModuleKind.MiningLaser); // a ship mines with a laser module (ADR 0032)
         int next = 1;
         for (int i = 0; i < cockpits; i++) w.Network.AddStructureModuleUnchecked(s, next++, 0, 0, ModuleKind.Cockpit);
         for (int i = 0; i < engines; i++) w.Network.AddStructureModuleUnchecked(s, next++, 0, 0, ModuleKind.Engine);

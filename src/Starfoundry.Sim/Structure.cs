@@ -2,13 +2,39 @@ namespace Starfoundry.Sim;
 
 public enum StructureKind { Ship, Station }
 
-public enum ModuleKind { Core, Cockpit, Engine, Reactor, Cargo, Workshop, Defence, Hull, DroneBay, Shield, Sensor, ReactorMk2, Dock }
+public enum ModuleKind { Core, Cockpit, Engine, Reactor, Cargo, Workshop, Defence, Hull, DroneBay, Shield, Sensor, ReactorMk2, Dock, MiningLaser, MiningLaserMk2, Gun, GunMk2, Shipyard }
 
 /// <summary>Content ids of module kinds: the enum name in snake case (<c>DroneBay</c> is <c>drone_bay</c>).</summary>
 public static class ModuleKindIds
 {
     /// <summary>True for the module kinds that burn fuel and make power: the reactor and the mark 2 reactor.</summary>
     public static bool IsReactor(ModuleKind kind) => kind is ModuleKind.Reactor or ModuleKind.ReactorMk2;
+
+    /// <summary>True for the hardpoint kinds (ADR 0032): the mining lasers and the guns of a ship.</summary>
+    public static bool IsHardpoint(ModuleKind kind) => kind is ModuleKind.MiningLaser or ModuleKind.MiningLaserMk2 or ModuleKind.Gun or ModuleKind.GunMk2;
+
+    /// <summary>True for the mining laser module and its mark 2.</summary>
+    public static bool IsMiningLaser(ModuleKind kind) => kind is ModuleKind.MiningLaser or ModuleKind.MiningLaserMk2;
+
+    /// <summary>True for the gun module and its mark 2.</summary>
+    public static bool IsGun(ModuleKind kind) => kind is ModuleKind.Gun or ModuleKind.GunMk2;
+
+    /// <summary>The next mark of a hardpoint (the mining laser becomes the mark 2, the gun becomes the mark 2), or null when there is none.</summary>
+    public static ModuleKind? UpgradeOf(ModuleKind kind) => kind switch
+    {
+        ModuleKind.MiningLaser => ModuleKind.MiningLaserMk2,
+        ModuleKind.Gun => ModuleKind.GunMk2,
+        _ => null,
+    };
+
+    /// <summary>
+    /// The one catalogue rule of ship and station editing (ADR 0029, ADR 0032): whether a kind may be part of a structure of this kind. A station has no
+    /// cockpit, engine or hardpoint; a ship has no core and no shipyard. Everything else (hull, cargo, reactors, workshops, defence, bays, shields,
+    /// sensors, docks) is shared by both.
+    /// </summary>
+    public static bool AllowedOn(StructureKind structure, ModuleKind kind) => structure == StructureKind.Station
+        ? kind is not (ModuleKind.Cockpit or ModuleKind.Engine) && !IsHardpoint(kind)
+        : kind is not (ModuleKind.Core or ModuleKind.Shipyard);
 
     /// <summary>The ability research must unlock before this kind can be placed in a campaign world, or null when it is free.</summary>
     public static Ability? RequiredAbility(ModuleKind kind) => kind switch

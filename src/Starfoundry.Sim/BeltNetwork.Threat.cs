@@ -381,6 +381,7 @@ public sealed partial class BeltNetwork
         foreach (var p in _players.Values)
         {
             if (!p.Armed || p.RespawnRemaining > 0 || p.WeaponCooldown > 0) continue;
+            if (HardpointsRequired(p)) { FireGuns(p, rules); continue; } // ADR 0032: the ship shoots with its gun modules
             var target = NearestEnemy(p.X, p.Y, p.Z, (long)rules.ShipWeaponRangeCells * Units.CellUnits);
             if (target is null) continue;
             target.Hp -= ShipWeaponDamage;

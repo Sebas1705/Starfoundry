@@ -173,6 +173,12 @@ public sealed record TransferItems(int Item, int Count, bool ToStation) : Comman
 /// the quaternion is not of unit length within <see cref="AttitudeRules.NormTolerance"/>, and with <see cref="Reject.Docked"/> for a turn while docked.</summary>
 public sealed record SetAttitude(int W, int X, int Y, int Z) : Command;
 
+/// <summary>Replaces the whole module list of the commanding player's ship (ADR 0032): the ship designer's apply. The ship must be docked at one of the
+/// player's stations that has a shipyard module. The design is validated like a sequence of single placements and removals (a cockpit, an engine, a reactor and
+/// a cargo module, no core, connected, nothing removed that holds a machine or belt, the docked port kept, no overlap with the station, the hold still fits) and
+/// priced: modules that only move are free, a removed module refunds half its cost, the hold pays first and the station stock the rest. All or nothing.</summary>
+public sealed record DesignerApply(DesignModule[] Modules) : Command;
+
 /// <summary>Several commands applied atomically: either all succeed or the world is left untouched.</summary>
 public sealed record Batch(Command[] Commands) : Command;
 
@@ -295,6 +301,14 @@ public enum Reject
 
     /// <summary>Machines and belts are built on the floor of a module only (ADR 0031): the cell is above the floor layer of its module.</summary>
     NotOnFloor,
+    /// <summary>The ship has no mining laser module (ADR 0032), so it cannot mine.</summary>
+    NoLaser,
+
+    /// <summary>The ship has no gun module (ADR 0032), so it cannot shoot.</summary>
+    NoGun,
+
+    /// <summary>The ship is not docked at a station of its owner that has a shipyard module, so it cannot be redesigned.</summary>
+    NoShipyard,
 }
 
 /// <summary>Outcome of one submitted command.</summary>

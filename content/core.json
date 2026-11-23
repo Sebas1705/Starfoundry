@@ -1771,6 +1771,49 @@
       "allows": [],
       "hold_capacity": 0,
       "thrust_speed_percent": 0
+    },
+    "mining_laser": {
+      "cost": [{ "item": "core:iron_plate", "count": 12 }, { "item": "core:carbon", "count": 4 }],
+      "hp": 150,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0,
+      "power_use": 5,
+      "hardpoint_percent": 100,
+      "hardpoint_range_cells": 10
+    },
+    "mining_laser_mk2": {
+      "cost": [{ "item": "core:circuit", "count": 8 }, { "item": "core:titanium_alloy", "count": 8 }, { "item": "core:iron_plate", "count": 12 }],
+      "hp": 180,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0,
+      "power_use": 8,
+      "hardpoint_percent": 170,
+      "hardpoint_range_cells": 14
+    },
+    "gun": {
+      "cost": [{ "item": "core:iron_plate", "count": 14 }, { "item": "core:iron_ingot", "count": 6 }],
+      "hp": 150,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0,
+      "hardpoint_percent": 100
+    },
+    "gun_mk2": {
+      "cost": [{ "item": "core:circuit", "count": 8 }, { "item": "core:titanium_alloy", "count": 8 }, { "item": "core:iron_plate", "count": 14 }],
+      "hp": 180,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0,
+      "hardpoint_percent": 170
+    },
+    "shipyard": {
+      "cost": [{ "item": "core:iron_plate", "count": 24 }, { "item": "core:iron_ingot", "count": 16 }, { "item": "core:carbon", "count": 8 }],
+      "hp": 250,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0
     }
   },
   "structure_templates": {
@@ -1780,7 +1823,9 @@
         { "at": [0, 0, 1], "kind": "hull" },
         { "at": [0, 0, 2], "kind": "cargo" },
         { "at": [0, 0, 3], "kind": "reactor" },
-        { "at": [0, 0, 4], "kind": "engine" }
+        { "at": [0, 0, 4], "kind": "engine" },
+        { "at": [0, 0, -1], "kind": "mining_laser" },
+        { "at": [0, 1, 0], "kind": "gun" }
       ],
       "hold": [{ "item": "core:hydrogen", "count": 20 }],
       "machines": [],
@@ -1815,7 +1860,9 @@
         { "at": [0, 0, 1], "kind": "workshop" },
         { "at": [0, 0, 2], "kind": "cargo" },
         { "at": [0, 0, 3], "kind": "reactor" },
-        { "at": [0, 0, 4], "kind": "engine" }
+        { "at": [0, 0, 4], "kind": "engine" },
+        { "at": [0, 0, -1], "kind": "mining_laser" },
+        { "at": [0, 1, 0], "kind": "gun" }
       ],
       "hold": [{ "item": "core:hydrogen", "count": 6 }],
       "machines": [
@@ -1838,6 +1885,8 @@
         { "at": [0, 0, 2], "kind": "cargo" },
         { "at": [0, 0, 3], "kind": "reactor" },
         { "at": [0, 0, 4], "kind": "engine" },
+        { "at": [0, 0, -1], "kind": "mining_laser" },
+        { "at": [0, 1, 0], "kind": "gun" },
         { "at": [-1, 0, 0], "kind": "cargo" },
         { "at": [-1, 0, 1], "kind": "cargo" },
         { "at": [-1, 0, 2], "kind": "cargo" },

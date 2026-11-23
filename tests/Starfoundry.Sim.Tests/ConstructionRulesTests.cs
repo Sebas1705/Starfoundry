@@ -172,7 +172,7 @@ public class ConstructionRulesTests
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, log, C.Hash, GameMode.Campaign, Seed, threats: false, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(13, bytes[4]);
+        Assert.Equal(14, bytes[4]);
         CommandCodec.ReadLog(new MemoryStream(bytes), out _, out _, out _, out _, out _, out _, out var now);
         Assert.False(now.LegacyBuilding);
         for (byte version = 6; version <= 12; version++)
@@ -183,6 +183,11 @@ public class ConstructionRulesTests
             Assert.True(rules.LegacyBuilding, $"version {version}");
             Assert.True(rules.WithoutLegacyFlags().IsDefault, $"version {version}");
         }
+        var v13 = (byte[])bytes.Clone();
+        v13[4] = 13; // recorded before the hardpoint modules (ADR 0032): building is not legacy, the implicit weapons are
+        CommandCodec.ReadLog(new MemoryStream(v13), out _, out _, out _, out _, out _, out _, out var rules13);
+        Assert.False(rules13.LegacyBuilding);
+        Assert.True(rules13.LegacyHardpoints);
     }
 
     [Fact]
@@ -202,7 +207,7 @@ public class ConstructionRulesTests
     public void The_starter_ship_has_a_workbench_and_a_hold_but_no_bay_and_no_machines()
     {
         var ship = C.StarterShip!;
-        Assert.Equal(new[] { ModuleKind.Cockpit, ModuleKind.Hull, ModuleKind.Cargo, ModuleKind.Reactor, ModuleKind.Engine }, ship.Modules.OrderBy(m => m.Mz).Select(m => m.Kind).ToArray());
+        Assert.Equal(new[] { ModuleKind.MiningLaser, ModuleKind.Cockpit, ModuleKind.Hull, ModuleKind.Cargo, ModuleKind.Reactor, ModuleKind.Engine }, ship.Modules.Where(m => m.Kind != ModuleKind.Gun).OrderBy(m => m.Mz).Select(m => m.Kind).ToArray()); // the nose laser and the top gun are hardpoints (ADR 0032)
         Assert.Empty(ship.Machines);
         Assert.Empty(ship.Belts);
         Assert.DoesNotContain(ship.Modules, m => C.Structures!.IsBuildable(m.Kind));

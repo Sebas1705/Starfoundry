@@ -85,7 +85,7 @@ public sealed class ObjectiveTracker
     };
 
     /// <summary>Modules of the starter ship; a player with more than this has added some.</summary>
-    public const int StarterModuleCount = 5;
+    public const int StarterModuleCount = 7; // five ship modules plus the nose laser and the top gun (ADR 0032)
 
     /// <summary>Hydrogen the starter ship's hold starts with; more than this in the hold means the player made some.</summary>
     public const int StarterHydrogen = 20;

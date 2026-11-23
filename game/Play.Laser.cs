@@ -40,6 +40,7 @@ public partial class Play
         if (!on)
         {
             if (_laserCore is not null) _laserCore.Visible = _laserHalo!.Visible = _laserSpot!.Visible = false;
+            foreach (var (core, halo) in _extraBeams) core.Visible = halo.Visible = false;
             return;
         }
         EnsureLaserNodes();
@@ -60,6 +61,29 @@ public partial class Play
         if (length < 0.05f) return;
 
         float pulse = 0.75f + 0.25f * MathF.Sin((float)_animTime * 38f);
+        // ADR 0032: with hardpoint modules every laser that reaches the rock draws its own beam from the tip of its emitter, in the ship's attitude.
+        var muzzles = LaserMuzzles(dep);
+        if (muzzles.Count > 0)
+        {
+            for (int i = 0; i < muzzles.Count; i++)
+            {
+                var (core, halo) = BeamPair(i);
+                float len = (to - muzzles[i]).Length();
+                if (len < 0.05f) { core.Visible = halo.Visible = false; continue; }
+                foreach (var (node, width) in new[] { (core, 0.07f), (halo, 0.22f) })
+                {
+                    node.Visible = true;
+                    node.LookAtFromPosition((muzzles[i] + to) / 2f, to);
+                    node.Scale = new Vector3(width * pulse, width * pulse, len);
+                }
+            }
+            _laserCore.Visible = _laserHalo!.Visible = false;
+            for (int i = muzzles.Count; i < _extraBeams.Count; i++) _extraBeams[i].Core.Visible = _extraBeams[i].Halo.Visible = false;
+            _laserSpot!.Visible = true;
+            _laserSpot.Position = to;
+            _laserSpot.Scale = Vector3.One * (0.8f + 0.5f * pulse);
+            return;
+        }
         foreach (var (node, width) in new[] { (_laserCore!, 0.07f), (_laserHalo!, 0.22f) })
         {
             node.Visible = true;

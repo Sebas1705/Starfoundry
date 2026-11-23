@@ -106,7 +106,7 @@ public sealed partial class BeltNetwork
         if (!LaserDrawsPower || s.Kind != StructureKind.Ship) return 0;
         int total = 0;
         foreach (var p in _players.Values)
-            if (p.ShipStructure == s.Id && LaserWouldMine(p)) total += PlayerRules.LaserPowerUse;
+            if (p.ShipStructure == s.Id && LaserWouldMine(p)) total += LaserPowerFor(p);
         return total;
     }
 

@@ -96,6 +96,7 @@ public static partial class ModuleModels
         ModuleKind.Sensor => new Color(0.20f, 0.85f, 0.78f),
         ModuleKind.Core => new Color(1f, 0.78f, 0.30f),
         ModuleKind.Dock => new Color(0.20f, 0.90f, 0.80f),
+        ModuleKind.MiningLaser or ModuleKind.MiningLaserMk2 or ModuleKind.Gun or ModuleKind.GunMk2 or ModuleKind.Shipyard => HardpointColour(kind),
         _ => new Color(0.58f, 0.64f, 0.76f),
     };
 
@@ -124,6 +125,7 @@ public static partial class ModuleModels
             case ModuleKind.Sensor: Sensor(c); break;
             case ModuleKind.ReactorMk2: ReactorMk2(c); break;
             case ModuleKind.Dock: DockModule(c); break;
+            case ModuleKind.MiningLaser or ModuleKind.MiningLaserMk2 or ModuleKind.Gun or ModuleKind.GunMk2 or ModuleKind.Shipyard: HardpointOrYard(c); break; // ModuleModels.Hardpoints.cs
             default: HullModule(c); break;
         }
         Joints(c);

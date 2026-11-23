@@ -302,7 +302,7 @@ public class ScenarioTests
         Ok(w, new SetMovement(1, 0, 0));
         byte[] plain = LogBytes(w, null);
         byte[] scen = LogBytes(w, def);
-        Assert.Equal(13, scen[4]);
+        Assert.Equal(14, scen[4]);
         const int flagsAt = 4 + 1 + 8 + 1 + 8;
         Assert.Equal(0, plain[flagsAt] & 16);
         Assert.Equal(16, scen[flagsAt] & 16);
@@ -465,7 +465,7 @@ public class ScenarioTests
         Assert.Equal(0, net.StationsFounded);
         var p = net.GetPlayerInfo(0);
         int Floor(int units) => (int)Math.Floor(units / (double)Units.CellUnits);
-        Ok(w, new FoundStation(Floor(p.X), Floor(p.Y), Floor(p.Z) - 8));
+        Ok(w, new FoundStation(Floor(p.X), Floor(p.Y), Floor(p.Z) - 16));
         Assert.Equal(1, net.StationsFounded);
         int station = net.Structures().Single(s => s.Kind == StructureKind.Station).Id;
         Assert.Equal(0, net.ModulesBuilt(ModuleKind.Core)); // the core of a founded station is part of founding

@@ -18,7 +18,10 @@
       { "id": "jump", "type": "visit_systems", "count": 2,
         "text_es": "Salta a otro sistema", "text_en": "Jump to another system" }
     ],
-    "secondary": []
+    "secondary": [
+      { "id": "build_shipyard", "type": "build_module", "kind": "shipyard", "count": 1,
+        "text_es": "Opcional: construye un astillero, atraca y pulsa F2 para añadir o mejorar un láser", "text_en": "Optional: build a shipyard, dock and press F2 to add or upgrade a laser" }
+    ]
   },
   "story": [
     { "trigger": "win",

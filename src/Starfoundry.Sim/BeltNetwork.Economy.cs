@@ -324,8 +324,10 @@ public sealed partial class BeltNetwork
     /// (<see cref="BonusKind.MiningRate"/>), at least 1. With no bonus it is exactly the pre-laser-research value.</summary>
     public int MineTicksFor(int deposit) => MineTicks(GetDeposit(deposit).Density);
 
-    private int MineTicks(int density) =>
-        (int)Math.Max(1L, (long)PlayerRules.MineTicksPerItem * 10_000 / ((long)density * (100 + _bonus[(int)BonusKind.MiningRate])));
+    /// <summary>Ticks per item for the strength of the lasers that reach the deposit: <paramref name="laserPercent"/> is 100 for one mark 1 laser (and the implicit laser),
+    /// so the result is then exactly <c>MineTicksPerItem * 10000 / (density * (100 + bonus))</c>; two such lasers halve it (ADR 0032).</summary>
+    private int MineTicks(int density, int laserPercent = 100) =>
+        (int)Math.Max(1L, (long)PlayerRules.MineTicksPerItem * 1_000_000 / ((long)density * (100 + _bonus[(int)BonusKind.MiningRate]) * Math.Max(1, laserPercent)));
 
     /// <summary>True while the player's mining laser is firing: a mining order is on and the trigger is not released.</summary>
     public bool LaserFiring(int player) => _players.TryGetValue(player, out var p) && p.MiningDeposit >= 0 && !p.LaserReleased;
@@ -470,6 +472,7 @@ public sealed partial class BeltNetwork
     {
         var d = GetDeposit(deposit);
         var p = _players.TryGetValue(player, out var found) ? found : null;
+        if (p is not null && HardpointsRequired(p)) return LasersInReach(p, deposit).Count > 0; // ADR 0032: a laser module must reach it
         long px = p?.X ?? 0, py = p?.Y ?? 0, pz = p?.Z ?? 0;
         long dx = d.X * (long)Units.CellUnits - px, dy = d.Y * (long)Units.CellUnits - py, dz = d.Z * (long)Units.CellUnits - pz;
         long r = (long)PlayerRules.MineRangeCells * Units.CellUnits;
@@ -671,7 +674,7 @@ public sealed partial class BeltNetwork
                 {
                     ClearMining(p);
                 }
-                else if (LaserWouldMine(p) && LaserAdvances(p) && ++p.MineProgress >= MineTicks(d.Density))
+                else if (LaserWouldMine(p) && LaserAdvances(p) && ++p.MineProgress >= MineTicks(d.Density, LaserPercentFor(p, p.MiningDeposit)))
                 {
                     p.MineProgress = 0;
                     d.Remaining--;
