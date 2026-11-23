@@ -67,7 +67,10 @@ public partial class Play
                 SelectBuild(_palette.FindIndex(b => !b.IsBelt && !b.IsModule && !b.IsStation && b.Machine == _content.MachineIndex("core:smelter")));
                 break;
             case 150: Save(path + ".bar.png"); break;
-            case 151: GetTree().Quit(); break;
+            case 151: _tool = ToolMode.Pointer; ToggleResearchPanel(); break;
+            case 160: _researchPanel?.Select(_content.ResearchIndex("core:repair_drones")); break;
+            case 175: Save(path + ".research.field.png"); break; // a science-field node: its colour, ring and requirements
+            case 176: GetTree().Quit(); break;
         }
     }
 

@@ -80,7 +80,8 @@ public partial class MarkerLayer : Control
                 DrawPolygon(new[] { at + d * 13f, at - d * 7f + n * 9f, at - d * 7f - n * 9f }, new[] { sh });
                 DrawPolygon(new[] { at + d * 10f, at - d * 5f + n * 6.5f, at - d * 5f - n * 6.5f }, new[] { color });
                 if (item.Icon.Length > 0) Chip(at - d * 24f, item.Icon, color, sh);
-                var basePos = new Vector2(at.X - d.X * (w / 2f + 18f) - w / 2f, at.Y - d.Y * 20f + 5f);
+                float chipPad = item.Icon.Length > 0 ? 24f : 0f; // the icon chip sits between the arrow and its label
+                var basePos = new Vector2(at.X - d.X * (w / 2f + 18f + chipPad) - w / 2f, at.Y - d.Y * (20f + chipPad) + 5f);
                 // Edge labels stack along the edge instead of sitting on top of each other.
                 foreach (float k in new[] { 0f, 1f, -1f, 2f, -2f, 3f, -3f })
                     candidates.Add(basePos + new Vector2(0f, k * LineHeight));

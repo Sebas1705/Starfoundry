@@ -15,6 +15,16 @@ public partial class Play
         : label == L("mark.droneTarget") || label == L("mark.drones") ? "status:drone"
         : "";
 
+    /// <summary>The icon id of a build menu entry.</summary>
+    private string EntryIcon(BuildEntry e) => e.Kind switch
+    {
+        BuildEntryKind.Belt => IconCatalog.ForBelt(e.Tier),
+        BuildEntryKind.Machine => IconCatalog.ForMachine(_content.Machines[e.Machine].Id),
+        BuildEntryKind.Station => "tool:found",
+        BuildEntryKind.LegacyModule => "module:core",
+        _ => IconCatalog.ForModule(e.Module ?? ModuleKind.Core),
+    };
+
     /// <summary>The icon id of a build palette entry.</summary>
     private string ToolIcon(BuildItem item) =>
         item.IsStation ? "tool:found"

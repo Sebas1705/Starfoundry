@@ -49,7 +49,7 @@ public static class IconCatalog
         Add("module:dock", "dock", 0);
 
         // Machines. The ports take the colour of the ore they unload, so the five of them tell apart at a glance.
-        Add("machine:core:extractor", "drill", 0); Add("machine:core:drill", "drill", 0); Add("machine:core:smelter", "furnace", 0);
+        Add("machine:core:extractor", "laser", 0); Add("machine:core:drill", "drill", 0); Add("machine:core:smelter", "furnace", 0);
         Add("machine:core:micro_refinery", "furnace", 0); Add("machine:core:assembler", "arm", 0); Add("machine:core:research_lab", "flask", 0);
         Add("machine:core:depot", "depot", 0); Add("machine:core:turret", "turret", 0); Add("machine:core:wall", "wall", 0);
         Add("machine:core:repair_bay", "repairBay", 0); Add("machine:core:unloader", "port", Ammo); Add("machine:core:ore_unloader", "port", Iron);
@@ -150,6 +150,17 @@ public static class IconCatalog
         _ => "module:hull",
     };
 
+    /// <summary>The icon of a guided step (the checklist strip of the steps panel).</summary>
+    public static string ForObjective(Objective o) => o switch
+    {
+        Objective.Fly => "status:speed", Objective.Mine => "tool:mine", Objective.Refine => "tool:refine", Objective.Drill => "machine:core:drill",
+        Objective.Smelter => "machine:core:smelter", Objective.Depot => "machine:core:depot", Objective.Assembler => "machine:core:assembler",
+        Objective.Lab => "machine:core:research_lab", Objective.Research => "tool:research", Objective.Scan => "tool:scan", Objective.Defend => "tool:weapons",
+        Objective.Expand => "tool:found", Objective.Core => "module:core", Objective.CargoPort => "machine:core:ore_unloader",
+        Objective.WatchFactory => "item:core:iron_plate", Objective.FoundStation => "tool:found", Objective.MakeFuel => "item:core:hydrogen",
+        Objective.AddModule => "tool:module", Objective.Automate => "tool:drones", _ => "status:objective",
+    };
+
     /// <summary>The icon of a key panel row (by the row's id), or null when the row has none.</summary>
     public static string? ForKeyRow(string rowId) => rowId switch
     {
@@ -209,7 +220,7 @@ public static class IconCatalog
         {
             case "item": case "machine": case "research": case "enemy": case "obstacle": case "star": case "arch":
                 return Loc.Name(kind, rest);
-            case "module": return Loc.T("module." + rest.Replace("_", ""));
+            case "module": return Loc.Has("module." + rest.Replace("_", "")) ? Loc.T("module." + rest.Replace("_", "")) : rest.Replace('_', ' ');
             case "belt": return Loc.T("ui.belt", rest[2..]);
             case "field": return Loc.T("research.field." + rest);
             default: return Loc.Has("icon." + id) ? Loc.T("icon." + id) : rest;

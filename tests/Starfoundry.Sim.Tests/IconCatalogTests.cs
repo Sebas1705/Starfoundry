@@ -108,3 +108,52 @@ public class IconCatalogTests
         Assert.NotEqual(IconCatalog.ResearchTint(ResearchField.Biology), IconCatalog.ResearchTint(ResearchField.Engineering));
     }
 }
+
+public class ResearchTreeLayoutTests
+{
+    private static IReadOnlyList<ResearchEntry> Entries()
+    {
+        var c = TestContent.Core;
+        var net = new BeltNetwork(c);
+        return ResearchView.Build(c, net, 0);
+    }
+
+    [Fact]
+    public void EveryNodeGetsOneSlotAndNoTwoShareACell()
+    {
+        var entries = Entries();
+        var slots = ResearchTreeLayout.Layout(entries);
+        Assert.Equal(entries.Count, slots.Count);
+        Assert.Equal(entries.Count, slots.Select(s => s.Index).Distinct().Count());
+        Assert.Equal(slots.Count, slots.Select(s => (s.Band, s.Column, s.Row)).Distinct().Count());
+    }
+
+    [Fact]
+    public void ANodeSitsRightOfEverythingItRequires()
+    {
+        var entries = Entries();
+        var slots = ResearchTreeLayout.Layout(entries).ToDictionary(s => s.Index);
+        foreach (var e in entries)
+            foreach (var r in e.Requires)
+                Assert.True(slots[e.Index].Column > slots[r.Index].Column, $"{e.Id} is not right of {r.Id}");
+    }
+
+    [Fact]
+    public void BandsFollowTheFieldOrder()
+    {
+        var slots = ResearchTreeLayout.Layout(Entries());
+        var order = ResearchView.Fields.ToList();
+        foreach (var s in slots) Assert.Equal(order.Where(f => slots.Any(x => x.Field == f)).ToList().IndexOf(s.Field), s.Band);
+        Assert.True(ResearchTreeLayout.Columns(slots) >= 2);
+    }
+}
+
+public class ObjectiveIconTests
+{
+    [Fact]
+    public void EveryGuidedStepHasARegisteredIcon()
+    {
+        foreach (var o in Enum.GetValues<Objective>())
+            Assert.True(IconCatalog.IsRegistered(IconCatalog.ForObjective(o)), o.ToString());
+    }
+}

@@ -25,7 +25,7 @@ public partial class EndScreen : Control
         MouseFilter = MouseFilterEnum.Stop;
     }
 
-    public override void _Ready() => SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+    public override void _Ready() { Theme = UiTheme.Create(); SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect); }
 
     /// <summary>Shows the overlay for a result: <paramref name="victory"/> picks the title and colours.</summary>
     /// <summary>What a scenario result adds to the overlay: the scenario, its goals, the stars and the best-result line.</summary>

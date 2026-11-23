@@ -56,6 +56,7 @@ public partial class Play
     private CanvasLayer _layer = null!;
     private Control _uiRoot = null!;
     private PanelContainer _statusPanel = null!, _toolbar = null!, _actions = null!, _objectivesPanel = null!, _inspector = null!, _helpPanel = null!;
+    private StepStrip _stepStrip = null!;
     private Label _statusLabel = null!, _modeHint = null!, _objectivesText = null!, _tooltipLabel = null!;
     private Label _inspectorTitle = null!, _inspectorBody = null!, _helpText = null!;
     private ScrollContainer _helpScroll = null!;
@@ -242,8 +243,10 @@ public partial class Play
         objButtons.AddChild(_btnLang);
         objButtons.Visible = false; // everything it did has a key (H, O, F1, L) in the key panel or the help; the card stays plain
         obj.AddChild(objButtons);
+        _stepStrip = new StepStrip();
         BuildGoalsUi(obj);
         obj.AddChild(_objectivesText);
+        obj.AddChild(_stepStrip);
         // The goal stays pinned as the last line, whether the list is open or folded.
         _goalLabel = MakeText(14, new Color(1f, 0.85f, 0.45f));
         _goalLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -1210,10 +1213,12 @@ public partial class Play
         _objectivesPanel.Visible = !(ResearchOpen || BuildOpen); // a docked panel takes its place at the right
         UpdateGoalLine();
         _btnObjectives.Visible = GuidedSteps;
+        _stepStrip.Visible = GuidedSteps && _objectivesOpen;
         if (!GuidedSteps) { _objectivesText.Visible = false; return; }
         _goalLabel.CustomMinimumSize = new Vector2(Math.Clamp(GetViewport().GetVisibleRect().Size.X * 0.3f, 240, 420), 0);
         var states = _objectives.States;
         var current = _objectives.Current;
+        _stepStrip.Set(states, current);
         var sb = new StringBuilder();
         sb.Append(L("obj.title", _objectives.DoneCount, states.Count)).Append('\n');
         if (_objectivesOpen)
@@ -1224,8 +1229,6 @@ public partial class Play
                 // The step in progress with its hint, then a short look at what comes next.
                 var cur = states.First(s => s.Objective == current);
                 sb.Append("> ").Append(L(cur.TitleKey)).Append('\n').Append("   ").Append(L(cur.HintKey)).Append('\n');
-                foreach (var s in states.Where(s => !s.Done && s.Objective != current).Take(3))
-                    sb.Append("  ○ ").Append(L(s.TitleKey)).Append('\n');
             }
             _objectivesText.Text = sb.ToString().TrimEnd('\n');
             _objectivesText.Visible = true;

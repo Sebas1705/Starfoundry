@@ -25,6 +25,7 @@ public partial class MenuScreen : Control
     private readonly bool _dim;
     private readonly List<Entry> _entries = new();
     private PanelContainer _panel = null!;
+    private ScrollContainer _scroll = null!;
     private VBoxContainer _body = null!;
     private Label _status = null!;
     private Label _tip = null!;
@@ -50,6 +51,7 @@ public partial class MenuScreen : Control
 
     public override void _Ready()
     {
+        Theme = UiTheme.Create();
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         MouseFilter = MouseFilterEnum.Stop;
         if (_dim) { var dim = new ColorRect { Color = new Color(0f, 0f, 0.02f, 0.62f), MouseFilter = MouseFilterEnum.Ignore }; AddChild(dim); dim.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect); }
@@ -59,9 +61,12 @@ public partial class MenuScreen : Control
         _panel = new PanelContainer();
         _panel.AddThemeStyleboxOverride("panel", UiKit.Box(PanelBg, PanelEdge, 8, 22f));
         centre.AddChild(_panel);
-        _body = new VBoxContainer();
+        _body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _body.AddThemeConstantOverride("separation", 8);
-        _panel.AddChild(_body);
+        // A page taller than the window (Settings on a small screen) scrolls instead of running off it.
+        _scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        _scroll.AddChild(_body);
+        _panel.AddChild(_scroll);
         VisibilityChanged += () => { if (Visible) Rebuild(); };
         Rebuild();
     }
@@ -96,7 +101,16 @@ public partial class MenuScreen : Control
         _status.Text = _statusText;
         _status.HorizontalAlignment = HorizontalAlignment.Center;
         _body.AddChild(_status);
+        CallDeferred(MethodName.FitScroll);
         CallDeferred(MethodName.GrabInitialFocus);
+    }
+
+    /// <summary>Limits the page to the window height (less the panel margins) so a long page scrolls.</summary>
+    private void FitScroll()
+    {
+        if (!IsInsideTree() || _scroll is null) return;
+        float room = GetViewportRect().Size.Y - 2f * 22f - 24f;
+        _scroll.CustomMinimumSize = new Vector2(_scroll.CustomMinimumSize.X, Math.Min(_body.GetCombinedMinimumSize().Y, Math.Max(200f, room)));
     }
 
     private void GrabInitialFocus()
@@ -123,6 +137,7 @@ public partial class MenuScreen : Control
         title.Text = Loc.T(Current == Page.Main ? _titleKey : Current == Page.Settings ? "settings.title" : "menu.controls");
         title.HorizontalAlignment = HorizontalAlignment.Center;
         _body.AddChild(title);
+        _body.AddChild(UiTheme.Rule(UiTheme.Accent, 0.4f));
         if (subtitleKey.Length > 0)
         {
             var sub = UiKit.Text(14, Muted);
@@ -304,14 +319,7 @@ public static class UiKit
     private static readonly Color Edge = new(0.35f, 0.45f, 0.65f, 0.7f);
     private static readonly Color Accent = new(0.35f, 0.65f, 1f);
 
-    public static StyleBoxFlat Box(Color bg, Color? border = null, int radius = 6, float margin = 8f)
-    {
-        var s = new StyleBoxFlat { BgColor = bg };
-        s.SetCornerRadiusAll(radius);
-        s.SetContentMarginAll(margin);
-        if (border is { } b) { s.BorderColor = b; s.SetBorderWidthAll(1); }
-        return s;
-    }
+    public static StyleBoxFlat Box(Color bg, Color? border = null, int radius = 6, float margin = 8f) => UiTheme.Box(bg, border, radius, margin);
 
     public static Label Text(int size = 14, Color? color = null)
     {
@@ -325,15 +333,7 @@ public static class UiKit
     {
         var b = new Button { Text = text, FocusMode = Control.FocusModeEnum.All, CustomMinimumSize = new Vector2(minWidth, 0) };
         b.AddThemeFontSizeOverride("font_size", fontSize);
-        b.AddThemeStyleboxOverride("normal", Box(new Color(0.1f, 0.13f, 0.2f, 0.95f), Edge, 5, 6f));
-        b.AddThemeStyleboxOverride("hover", Box(new Color(0.16f, 0.22f, 0.34f, 0.97f), Accent, 5, 6f));
-        b.AddThemeStyleboxOverride("pressed", Box(new Color(0.15f, 0.34f, 0.58f, 0.98f), Accent, 5, 6f));
-        b.AddThemeStyleboxOverride("hover_pressed", Box(new Color(0.18f, 0.4f, 0.66f, 0.98f), Accent, 5, 6f));
-        var focus = Box(new Color(0f, 0f, 0f, 0f), new Color(1f, 0.85f, 0.4f), 5, 6f);
-        focus.SetBorderWidthAll(2);
-        b.AddThemeStyleboxOverride("focus", focus);
-        b.AddThemeStyleboxOverride("disabled", Box(new Color(0.06f, 0.07f, 0.1f, 0.7f), new Color(0.2f, 0.22f, 0.28f), 5, 6f));
-        b.AddThemeColorOverride("font_disabled_color", new Color(0.5f, 0.52f, 0.58f));
+        UiTheme.StyleButton(b);
         b.Pressed += () => AudioManager.PlayUi(Sfx.UiClick);
         b.Pressed += onPressed;
         return b;

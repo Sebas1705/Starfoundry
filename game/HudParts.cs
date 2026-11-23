@@ -134,3 +134,58 @@ public partial class ToolReadout : HBoxContainer
         _note.AddThemeColorOverride("font_color", noteColour);
     }
 }
+
+/// <summary>
+/// The guided steps as a strip of icons: done in green with a tick, the step in progress ringed in gold, the rest dim. Hovering one names the
+/// step. The text of the current step stays in the card; this is the checklist.
+/// </summary>
+public partial class StepStrip : HFlowContainer
+{
+    private string _signature = "";
+
+    public StepStrip()
+    {
+        MouseFilter = MouseFilterEnum.Ignore;
+        AddThemeConstantOverride("h_separation", 4);
+        AddThemeConstantOverride("v_separation", 4);
+    }
+
+    public void Set(IReadOnlyList<ObjectiveState> states, Objective? current)
+    {
+        string signature = string.Join(",", System.Linq.Enumerable.Select(states, s => $"{(int)s.Objective}{(s.Done ? 'd' : s.Objective == current ? 'c' : 'p')}")) + Loc.Lang;
+        if (signature == _signature) return;
+        _signature = signature;
+        foreach (var c in GetChildren()) { RemoveChild(c); c.QueueFree(); }
+        foreach (var s in states) AddChild(new StepIcon(s, s.Objective == current));
+    }
+}
+
+/// <summary>One step of <see cref="StepStrip"/>.</summary>
+public partial class StepIcon : Control
+{
+    private readonly ObjectiveState _state;
+    private readonly bool _current;
+
+    public StepIcon(ObjectiveState state, bool current)
+    {
+        _state = state;
+        _current = current;
+        CustomMinimumSize = new Vector2(28, 28);
+        MouseFilter = MouseFilterEnum.Pass;
+        TooltipText = Loc.T(state.TitleKey);
+    }
+
+    public override void _Draw()
+    {
+        var c = Size / 2f;
+        var tint = _state.Done ? UiTheme.Good : _current ? UiTheme.Gold : new Color(0.55f, 0.6f, 0.72f);
+        DrawCircle(c, 13f, new Color(0.03f, 0.05f, 0.09f, 0.7f));
+        DrawArc(c, 12.5f, 0f, MathF.Tau, 32, tint with { A = _current ? 1f : 0.5f }, _current ? 2.2f : 1.2f, true);
+        DrawTextureRect(Icons.Get(IconCatalog.ForObjective(_state.Objective), 16), new Rect2(c - new Vector2(8f, 8f), new Vector2(16f, 16f)), false, tint);
+        if (_state.Done)
+        {
+            DrawCircle(c + new Vector2(8f, 8f), 6f, new Color(0.03f, 0.05f, 0.09f, 0.95f));
+            DrawTextureRect(Icons.Get("status:check", 9), new Rect2(c + new Vector2(3.5f, 3.5f), new Vector2(9f, 9f)), false, UiTheme.Good);
+        }
+    }
+}

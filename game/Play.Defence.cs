@@ -26,7 +26,8 @@ public partial class Play
     private Label _moduleTitle = null!, _moduleHpLabel = null!;
     private ProgressBar _moduleHp = null!;
     private GaugeRow _integrityBox = null!;
-    private Label _waveBanner = null!, _goalLabel = null!;
+    private IconLabel _waveBanner = null!;
+    private Label _goalLabel = null!;
 
     private readonly Dictionary<(int S, int Mx, int My, int Mz), double> _hitBars = new();
 
@@ -75,7 +76,7 @@ void fragment() {
         _modulePanel.MouseFilter = Control.MouseFilterEnum.Ignore;
         _modulePanel.Visible = false;
 
-        _waveBanner = MakeText(20, ToastThreatColor);
+        _waveBanner = new IconLabel(20, 26, ToastThreatColor);
         _waveBanner.AddThemeColorOverride("font_outline_color", Colors.Black);
         _waveBanner.AddThemeConstantOverride("outline_size", 8);
         _waveBanner.HorizontalAlignment = HorizontalAlignment.Center;
@@ -120,6 +121,7 @@ void fragment() {
             var th = Net.GetSystemThreat(Math.Max(0, Net.CurrentSystem(Player)));
             if (th.WarningRemaining >= 0) banner = L("hud.banner.wave", th.Wave + 1, Math.Ceiling(th.WarningRemaining / (float)Units.TicksPerSecond).ToString("F0", Loc.Culture));
             else if (th.Enemies > 0) banner = L("hud.banner.fight", Net.WavesSpawned, th.Enemies);
+            _waveBanner.SetIcon(th.WarningRemaining >= 0 ? "status:alert" : "status:enemy", ToastThreatColor);
         }
         _waveBanner.Text = banner;
         _waveBanner.Visible = banner.Length > 0;
