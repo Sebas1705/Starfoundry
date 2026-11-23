@@ -22,7 +22,7 @@ public partial class StoryDialog : Control
         MouseFilter = MouseFilterEnum.Stop;
     }
 
-    public override void _Ready() => SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+    public override void _Ready() { Theme = UiTheme.Create(); SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect); }
 
     public void Present(string scenarioName, string briefing, StoryMessage message)
     {

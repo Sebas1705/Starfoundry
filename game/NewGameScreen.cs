@@ -59,6 +59,7 @@ public partial class NewGameScreen : Control
 
     public override void _Ready()
     {
+        Theme = UiTheme.Create();
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         MouseFilter = MouseFilterEnum.Stop;
         var centre = new CenterContainer { MouseFilter = MouseFilterEnum.Ignore };

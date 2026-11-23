@@ -53,6 +53,8 @@ public partial class Gallery : Node3D
         string? Arg(string key) => args.FirstOrDefault(a => a.StartsWith(key + "="))?[(key.Length + 1)..];
         float F(string key, float def) => float.TryParse(Arg(key), NumberStyles.Float, CultureInfo.InvariantCulture, out float v) ? v : def;
 
+        if (Arg("--focus") == "icons") { SetProcess(false); IconGallery.Run(this, args); return; }
+
         string? export = Arg("--export-models");
         if (export != null)
         {

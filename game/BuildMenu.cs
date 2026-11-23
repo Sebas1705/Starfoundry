@@ -7,19 +7,19 @@ using Starfoundry.Ui;
 namespace Starfoundry.Game;
 
 /// <summary>What the menu shows about one entry right now (the game fills it from <see cref="BuildCatalog"/> and the world).</summary>
-public sealed record BuildEntryView(string Name, string Key, string Role, string Cost, string Power, string Description, string Status, bool Locked, bool Affordable, bool Selected);
+public sealed record BuildEntryView(string Name, string Key, string Role, string Cost, string Power, string Description, string Status, bool Locked, bool Affordable, bool Selected,
+    string IconId = "", IReadOnlyList<(string Icon, int Need, int Have)>? CostItems = null);
 
 /// <summary>
-/// The build menu (B), docked at the right of the screen: a tab per category with a list of entries, each showing its name, quick key, cost,
-/// power use, a one-line description and whether it is locked or unaffordable. The left and the centre of the view stay visible. Arrows move
-/// between entries, Enter or a click chooses the tool, PgUp and PgDn change tab, B and Esc close it (the game handles those two; the key panel
-/// below the menu lists them). A locked entry can still be pressed: the game then says what unlocks it.
+/// The build menu (B), docked at the right of the screen: a tab per category (an icon and a name) over a grid of icon tiles, and under the grid a
+/// detail pane for the tile in focus or under the mouse (big icon, name, what it does, cost as icons with counts in red when the hold lacks
+/// them, power, and why it is locked or what is missing). Arrows move between tiles, Enter or a click chooses the tool, PgUp and PgDn change
+/// tab, B and Esc close it (the game handles those two; the key panel below the menu lists them). A locked tile can still be pressed: the
+/// game then says what unlocks it.
 /// </summary>
 public partial class BuildMenu : Control
 {
-    private static readonly Color Muted = new(0.65f, 0.72f, 0.85f);
-    private static readonly Color Good = new(0.5f, 0.9f, 0.55f);
-    private static readonly Color Bad = new(1f, 0.55f, 0.45f);
+    private static readonly Color Muted = UiTheme.Muted;
 
     private readonly Func<IReadOnlyList<BuildEntry>> _entries;
     private readonly Func<BuildEntry, BuildEntryView> _view;
@@ -28,10 +28,28 @@ public partial class BuildMenu : Control
     private GridContainer _grid = null!;
     private Label _title = null!, _empty = null!;
     private readonly Dictionary<BuildCategory, Button> _tabButtons = new();
-    private readonly List<(BuildEntry Entry, Button Button, Label Name, Label Cost, Label Power, Label Detail, Label Status)> _cells = new();
+    private readonly List<Tile> _cells = new();
     private BuildCategory _tab = BuildCategory.Logistics;
     private string _signature = "";
     private Rect2 _dock = new(0, 0, 480, 600);
+    private string? _detailId;
+
+    // The detail pane.
+    private IconRect _dIcon = null!;
+    private Label _dName = null!, _dRole = null!, _dDesc = null!, _dStatus = null!;
+    private HFlowContainer _dCost = null!;
+    private IconCount _dPower = null!;
+    private IconRect _dStatusIcon = null!;
+    private string _dCostSig = "";
+
+    /// <summary>One tile of the grid: the entry, its button and the parts that change with the world.</summary>
+    private sealed class Tile
+    {
+        public BuildEntry Entry = null!;
+        public Button Button = null!;
+        public Label Name = null!, Key = null!;
+        public IconRect Icon = null!, Badge = null!;
+    }
 
     /// <summary>The player chose an entry (Enter or click).</summary>
     public event Action<BuildEntry>? Chosen;
@@ -66,20 +84,27 @@ public partial class BuildMenu : Control
         // The root only hosts the docked panel: every click outside the panel goes through to the game.
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         _panel = new PanelContainer { MouseFilter = MouseFilterEnum.Stop };
-        _panel.AddThemeStyleboxOverride("panel", UiKit.Box(new Color(0.05f, 0.07f, 0.11f, 0.95f), new Color(0.35f, 0.45f, 0.65f, 0.85f), 8, 12f));
+        _panel.AddThemeStyleboxOverride("panel", UiTheme.Dock());
         AddChild(_panel);
         var root = new VBoxContainer();
         root.AddThemeConstantOverride("separation", 8);
         _panel.AddChild(root);
 
         var head = new HBoxContainer();
-        _title = UiKit.Text(22, Colors.White);
+        head.AddThemeConstantOverride("separation", 8);
+        head.AddChild(new IconRect("tool:build", 26, UiTheme.Gold, tooltip: false));
+        _title = UiKit.Text(UiTheme.Title, Colors.White);
         _title.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         head.AddChild(_title);
-        var close = UiKit.Button("X", () => CloseRequested?.Invoke(), 13);
+        var close = UiKit.Button("", () => CloseRequested?.Invoke(), 13);
+        close.Icon = Icons.Get("tool:close", 16);
+        close.ExpandIcon = false;
+        close.AddThemeColorOverride("icon_normal_color", UiTheme.Muted);
         close.FocusMode = FocusModeEnum.None;
+        close.TooltipText = Loc.T("icon.tool:close");
         head.AddChild(close);
         root.AddChild(head);
+        root.AddChild(UiTheme.Rule());
 
         _tabs = new HBoxContainer();
         _tabs.AddThemeConstantOverride("separation", 4);
@@ -87,13 +112,48 @@ public partial class BuildMenu : Control
 
         _grid = new GridContainer { Columns = 1 };
         _grid.AddThemeConstantOverride("h_separation", 8);
-        _grid.AddThemeConstantOverride("v_separation", 6);
+        _grid.AddThemeConstantOverride("v_separation", 8);
         var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true, Name = "EntryScroll", SizeFlagsVertical = SizeFlags.ExpandFill };
         scroll.AddChild(_grid);
         root.AddChild(scroll);
         _empty = UiKit.Text(14, Muted);
         root.AddChild(_empty);
+        root.AddChild(BuildDetailPane());
         ApplyDock();
+    }
+
+    private Control BuildDetailPane()
+    {
+        var pane = new PanelContainer { MouseFilter = MouseFilterEnum.Pass, CustomMinimumSize = new Vector2(0, 118) };
+        pane.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color(0.07f, 0.1f, 0.16f, 0.95f), new Color(0.3f, 0.4f, 0.6f, 0.6f), 6, 8f));
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 10);
+        pane.AddChild(row);
+        _dIcon = new IconRect("tool:build", 56, null, tooltip: false) { SizeFlagsVertical = SizeFlags.ShrinkBegin };
+        row.AddChild(_dIcon);
+        var col = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        col.AddThemeConstantOverride("separation", 3);
+        row.AddChild(col);
+        _dName = UiKit.Text(UiTheme.Heading + 2, Colors.White);
+        _dName.ClipText = true;
+        _dRole = UiKit.Text(UiTheme.Small, Muted);
+        _dDesc = UiKit.Text(UiTheme.Small + 1, UiTheme.Text);
+        _dDesc.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _dCost = new HFlowContainer { MouseFilter = MouseFilterEnum.Pass };
+        _dCost.AddThemeConstantOverride("h_separation", 12);
+        _dCost.AddThemeConstantOverride("v_separation", 2);
+        _dPower = new IconCount("status:power", 18, UiTheme.Body);
+        var status = new HBoxContainer();
+        status.AddThemeConstantOverride("separation", 5);
+        _dStatusIcon = new IconRect("status:locked", 16, UiTheme.Warn, tooltip: false);
+        _dStatus = UiKit.Text(UiTheme.Small + 1, UiTheme.Warn);
+        _dStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _dStatus.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        status.AddChild(_dStatusIcon);
+        status.AddChild(_dStatus);
+        foreach (var c in new Control[] { _dName, _dRole, _dDesc, _dCost, status }) col.AddChild(c);
+        _dCost.AddChild(_dPower);
+        return pane;
     }
 
     private void ApplyDock()
@@ -110,6 +170,7 @@ public partial class BuildMenu : Control
         if (tab is { } t) _tab = t;
         Visible = true;
         _signature = "";
+        _detailId = null;
         Refresh(Size);
         FocusFirst();
     }
@@ -120,6 +181,7 @@ public partial class BuildMenu : Control
     {
         _tab = tab;
         _signature = "";
+        _detailId = null;
         Refresh(Size);
         FocusFirst();
     }
@@ -127,7 +189,7 @@ public partial class BuildMenu : Control
     private void FocusFirst()
     {
         var selected = _cells.FirstOrDefault(c => _view(c.Entry).Selected);
-        var target = selected.Button ?? _cells.FirstOrDefault().Button;
+        var target = selected?.Button ?? _cells.FirstOrDefault()?.Button;
         target?.CallDeferred(Control.MethodName.GrabFocus);
     }
 
@@ -139,8 +201,12 @@ public partial class BuildMenu : Control
         SetTab(tabs[((i + step) % tabs.Count + tabs.Count) % tabs.Count]);
     }
 
-    /// <summary>One column in the usual docked width, two when the dock is wide (a big window).</summary>
-    private int Columns() => _dock.Size.X >= 720f ? 2 : 1;
+    private const float TileHeight = 100f, TileMinWidth = 92f, Gap = 8f;
+
+    private float InnerWidth => _dock.Size.X - 24f - 14f; // panel margins and the scroll bar
+
+    /// <summary>As many columns as fit at the minimum tile width.</summary>
+    private int Columns() => Math.Max(2, (int)((InnerWidth + Gap) / (TileMinWidth + Gap)));
 
     private static string Capitalise(string s) => s.Length == 0 ? s : char.ToUpperInvariant(s[0]) + s[1..];
 
@@ -167,6 +233,7 @@ public partial class BuildMenu : Control
         foreach (var cell in _cells) Update(cell);
         _empty.Text = _cells.Count == 0 ? Loc.T("build.empty") : "";
         _empty.Visible = _cells.Count == 0;
+        FillDetail();
     }
 
     private void Rebuild(List<BuildCategory> categories, IReadOnlyList<BuildEntry> all)
@@ -179,8 +246,17 @@ public partial class BuildMenu : Control
             var b = UiKit.Button(Loc.T(TabKey(c)), () => SetTab(category), 14);
             b.ToggleMode = true;
             b.ClipText = true;
+            b.Icon = Icons.Get(IconCatalog.ForBuildTab(c), 20);
+            b.ExpandIcon = false;
+            b.IconAlignment = HorizontalAlignment.Left;
+            b.AddThemeColorOverride("icon_normal_color", UiTheme.Muted);
+            b.AddThemeColorOverride("icon_pressed_color", Colors.White);
+            b.AddThemeColorOverride("icon_hover_color", Colors.White);
+            b.AddThemeColorOverride("icon_hover_pressed_color", Colors.White);
+            b.AddThemeConstantOverride("icon_max_width", 20);
             b.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            b.FocusMode = FocusModeEnum.None; // PgUp and PgDn (or a click) change tab; the arrows stay on the entries
+            b.FocusMode = FocusModeEnum.None; // PgUp and PgDn (or a click) change tab; the arrows stay on the tiles
+            b.TooltipText = Loc.T(TabKey(c));
             _tabButtons[c] = b;
             _tabs.AddChild(b);
         }
@@ -188,63 +264,111 @@ public partial class BuildMenu : Control
         foreach (var child in _grid.GetChildren()) { _grid.RemoveChild(child); child.QueueFree(); }
         _cells.Clear();
         int cols = Columns();
-        float width = Math.Clamp((_dock.Size.X - 24f - 12f - 8f * (cols - 1)) / cols, 200f, 470f); // panel margins, scroll bar and gaps
+        float width = (InnerWidth - Gap * (cols - 1)) / cols;
         foreach (var entry in all.Where(e => e.Category == _tab))
         {
+            var tile = new Tile { Entry = entry };
             var b = UiKit.Button("", () => { }, 13);
-            b.CustomMinimumSize = new Vector2(width, 64); // grown to fit the text in Update
-            b.Alignment = HorizontalAlignment.Left;
+            b.CustomMinimumSize = new Vector2(width, TileHeight);
             var e = entry;
             b.Pressed += () => Chosen?.Invoke(e);
+            b.FocusEntered += () => { _detailId = e.Id; FillDetail(); };
+            b.MouseEntered += () => { _detailId = e.Id; FillDetail(); };
             var box = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
-            box.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, 6);
+            box.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, 5);
             box.AddThemeConstantOverride("separation", 1);
-            Label L(int size, Color? color = null)
-            {
-                var l = UiKit.Text(size, color);
-                l.ClipText = true;
-                l.CustomMinimumSize = new Vector2(width - 18f, 0);
-                box.AddChild(l);
-                return l;
-            }
-            var name = L(16);
-            var cost = L(13);
-            cost.ClipText = false;
-            cost.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-            cost.CustomMinimumSize = new Vector2(width - 18f, 17f);
-            var power = L(12, new Color(0.95f, 0.82f, 0.5f));
-            var detail = L(12, Muted);
-            detail.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-            detail.ClipText = false;
-            detail.CustomMinimumSize = new Vector2(width - 18f, 0f);
-            var status = L(12);
+            var top = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
+            tile.Key = UiKit.Text(UiTheme.Caption, UiTheme.Muted);
+            tile.Key.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            tile.Badge = new IconRect("status:locked", 14, UiTheme.Warn, tooltip: false) { Visible = false };
+            top.AddChild(tile.Key);
+            top.AddChild(tile.Badge);
+            box.AddChild(top);
+            tile.Icon = new IconRect("generic", 38, null, tooltip: false) { SizeFlagsHorizontal = SizeFlags.ShrinkCenter };
+            box.AddChild(tile.Icon);
+            tile.Name = UiKit.Text(UiTheme.Small, UiTheme.Text);
+            tile.Name.HorizontalAlignment = HorizontalAlignment.Center;
+            tile.Name.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            tile.Name.MaxLinesVisible = 3;
+            tile.Name.CustomMinimumSize = new Vector2(width - 10f, 0);
+            tile.Name.SizeFlagsVertical = SizeFlags.ExpandFill;
+            box.AddChild(tile.Name);
             b.AddChild(box);
+            tile.Button = b;
             _grid.AddChild(b);
-            _cells.Add((entry, b, name, cost, power, detail, status));
+            _cells.Add(tile);
         }
     }
 
-    private void Update((BuildEntry Entry, Button Button, Label Name, Label Cost, Label Power, Label Detail, Label Status) cell)
+    private void Update(Tile cell)
     {
         var v = _view(cell.Entry);
-        cell.Name.Text = (v.Key.Length > 0 ? $"[{v.Key}]  " : "") + Capitalise(v.Name) + (v.Selected ? "   <" : "");
-        cell.Name.AddThemeColorOverride("font_color", v.Locked ? new Color(0.6f, 0.62f, 0.7f) : v.Selected ? new Color(1f, 0.9f, 0.5f) : Colors.White);
-        cell.Cost.Text = v.Cost;
-        cell.Power.Text = v.Power;
-        cell.Power.Visible = v.Power.Length > 0;
-        cell.Cost.AddThemeColorOverride("font_color", v.Locked ? new Color(0.55f, 0.57f, 0.64f) : v.Affordable ? Good : Bad);
-        cell.Detail.Text = v.Description;
-        cell.Status.Text = v.Status;
-        cell.Status.Visible = v.Status.Length > 0;
-        cell.Detail.Visible = v.Description.Length > 0;
-        // The card is as tall as its text: no reserved blank lines under a short description.
-        float textWidth = Math.Max(120f, cell.Button.CustomMinimumSize.X - 18f);
-        int Lines(string s, float charWidth) => s.Length == 0 ? 0 : (int)Math.Ceiling(s.Length * charWidth / textWidth);
-        float h = 14f + 22f + 18f * Math.Max(1, Lines(v.Cost, 7f)) + (v.Power.Length > 0 ? 17f : 0f) + 16f * Lines(v.Description, 6.4f) + (v.Status.Length > 0 ? 18f * Lines(v.Status, 6.4f) : 0f);
-        cell.Button.CustomMinimumSize = new Vector2(cell.Button.CustomMinimumSize.X, Math.Max(60f, h));
-        cell.Status.AddThemeColorOverride("font_color", v.Locked ? new Color(1f, 0.82f, 0.4f) : Bad);
-        cell.Button.Modulate = v.Locked ? new Color(0.78f, 0.78f, 0.85f) : Colors.White;
-        cell.Button.TooltipText = v.Role + (v.Status.Length > 0 ? "\n" + v.Status : "");
+        cell.Key.Text = v.Key;
+        cell.Name.Text = Capitalise(v.Name);
+        cell.Name.AddThemeColorOverride("font_color", v.Locked ? UiTheme.Dim : v.Selected ? UiTheme.Gold : UiTheme.Text);
+        cell.Icon.Set(v.IconId.Length > 0 ? v.IconId : "generic", v.Locked ? new Color(0.5f, 0.54f, 0.64f) : null);
+        // The corner badge: a padlock when locked, a red cross when the hold cannot pay.
+        cell.Badge.Visible = v.Locked || !v.Affordable;
+        if (cell.Badge.Visible) cell.Badge.Set(v.Locked ? "status:locked" : "status:cross", v.Locked ? UiTheme.Warn : UiTheme.Bad);
+        var b = cell.Button;
+        b.AddThemeStyleboxOverride("normal", UiTheme.Tile(v.Selected, v.Locked));
+        b.AddThemeStyleboxOverride("hover", UiTheme.Tile(v.Selected, v.Locked, hover: true));
+        b.TooltipText = Capitalise(v.Name) + (v.Role.Length > 0 ? "  -  " + v.Role : "") + (v.Status.Length > 0 ? "\n" + v.Status : "");
+    }
+
+    private BuildEntry? DetailEntry()
+    {
+        var shown = _cells.FirstOrDefault(c => c.Entry.Id == _detailId)
+            ?? _cells.FirstOrDefault(c => c.Button.HasFocus())
+            ?? _cells.FirstOrDefault(c => _view(c.Entry).Selected)
+            ?? _cells.FirstOrDefault();
+        return shown?.Entry;
+    }
+
+    /// <summary>Fills the pane under the grid for the focused or hovered tile.</summary>
+    private void FillDetail()
+    {
+        if (_dName is null) return;
+        var entry = DetailEntry();
+        if (entry is null)
+        {
+            _dName.Text = "";
+            _dRole.Text = "";
+            _dDesc.Text = "";
+            _dCost.Visible = false;
+            _dStatus.Text = "";
+            _dStatusIcon.Visible = false;
+            return;
+        }
+        var v = _view(entry);
+        _dIcon.Set(v.IconId.Length > 0 ? v.IconId : "generic", v.Locked ? new Color(0.5f, 0.54f, 0.64f) : null);
+        _dName.Text = (v.Key.Length > 0 ? $"[{v.Key}]  " : "") + Capitalise(v.Name);
+        _dName.AddThemeColorOverride("font_color", v.Locked ? UiTheme.Dim : v.Selected ? UiTheme.Gold : Colors.White);
+        _dRole.Text = v.Role;
+        _dDesc.Text = v.Description;
+
+        // Cost as icons with counts; the power it draws or makes after them.
+        var items = v.CostItems ?? Array.Empty<(string Icon, int Need, int Have)>();
+        string sig = string.Join(",", items.Select(i => i.Icon));
+        if (sig != _dCostSig)
+        {
+            _dCostSig = sig;
+            foreach (var c in _dCost.GetChildren().OfType<IconCount>().Where(c => c != _dPower).ToList()) { _dCost.RemoveChild(c); c.QueueFree(); }
+            for (int i = 0; i < items.Count; i++) { var ic = new IconCount(items[i].Icon, 20, UiTheme.Body); _dCost.AddChild(ic); _dCost.MoveChild(ic, i); }
+        }
+        var costNodes = _dCost.GetChildren().OfType<IconCount>().Where(c => c != _dPower).ToList();
+        for (int i = 0; i < costNodes.Count && i < items.Count; i++) costNodes[i].SetCost(items[i].Icon, items[i].Need, items[i].Have);
+        if (items.Count == 0 && v.Cost.Length > 0) { /* free: the text says so */ }
+        if (entry.PowerUse > 0) { _dPower.SetText("status:power", "-" + entry.PowerUse, UiTheme.Warn, v.Power); _dPower.Visible = true; }
+        else if (entry.PowerOutput > 0) { _dPower.SetText("status:power", "+" + entry.PowerOutput, UiTheme.Good, v.Power); _dPower.Visible = true; }
+        else _dPower.Visible = false;
+        _dCost.Visible = items.Count > 0 || _dPower.Visible;
+
+        bool problem = v.Status.Length > 0;
+        _dStatus.Text = v.Status;
+        _dStatusIcon.Visible = problem;
+        if (problem) _dStatusIcon.Set(v.Locked ? "status:locked" : "status:cross", v.Locked ? UiTheme.Warn : UiTheme.Bad);
+        _dStatus.AddThemeColorOverride("font_color", v.Locked ? UiTheme.Warn : UiTheme.Bad);
     }
 
     public override void _Input(InputEvent ev)

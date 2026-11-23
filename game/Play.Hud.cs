@@ -18,9 +18,8 @@ public partial class Play
     private static readonly Color HudMuted = new(0.62f, 0.7f, 0.84f);
     private static readonly Color EnemyMarkerColor = new(1f, 0.35f, 0.3f);
 
-    private Label _statusTitle = null!, _hullLabel = null!;
-    private HBoxContainer _hullBox = null!;
-    private ProgressBar _hullBar = null!;
+    private Label _statusTitle = null!;
+    private GaugeRow _hullBox = null!;
     private float _hudDt = 1f / 60f;
     private readonly Dictionary<Control, float> _hudFade = new();
 
@@ -53,14 +52,9 @@ public partial class Play
     /// <summary>The title and the hull row at the head of the ship card.</summary>
     private void BuildShipCardHead(VBoxContainer box)
     {
-        _statusTitle = MakeText(11, HudMuted);
-        box.AddChild(_statusTitle);
-        _hullBox = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore, Visible = false };
-        _hullBox.AddThemeConstantOverride("separation", 8);
-        _hullLabel = MakeText(13);
-        _hullBar = new ProgressBar { MinValue = 0, MaxValue = 1, ShowPercentage = false, CustomMinimumSize = new Vector2(96, 8), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter, MouseFilter = Control.MouseFilterEnum.Ignore };
-        _hullBox.AddChild(_hullLabel);
-        _hullBox.AddChild(_hullBar);
+        _statusTitle = MakeText(UiTheme.Caption, HudMuted);
+        box.AddChild(UiTheme.Header("status:hull", _statusTitle));
+        _hullBox = new GaugeRow("status:hull") { Visible = false };
         box.AddChild(_hullBox);
     }
 
@@ -73,17 +67,10 @@ public partial class Play
         float f = Math.Clamp(p.Hull / (float)max, 0f, 1f);
         if (p.RespawnRemaining > 0)
         {
-            _hullLabel.Text = L("hud.rebuilding", (p.RespawnRemaining / (float)Units.TicksPerSecond).ToString("F0", Loc.Culture));
-            _hullLabel.AddThemeColorOverride("font_color", ToastThreatColor);
-            f = 0f;
+            string text = L("hud.rebuilding", (p.RespawnRemaining / (float)Units.TicksPerSecond).ToString("F0", Loc.Culture));
+            _hullBox.Set("status:hull", 0f, $"{(p.RespawnRemaining / (float)Units.TicksPerSecond):F0} s", ToastThreatColor, text);
         }
-        else
-        {
-            _hullLabel.Text = L("hud.ess.hull", p.Hull, max);
-            _hullLabel.AddThemeColorOverride("font_color", HpColor(f));
-        }
-        _hullBar.Value = f;
-        StyleBar(_hullBar, f);
+        else _hullBox.Set("status:hull", f, $"{p.Hull}/{max}", HpColor(f), L("hud.ess.hull", p.Hull, max));
     }
 
     /// <summary>A wave is on its way or enemies are alive in the current system.</summary>
@@ -122,7 +109,7 @@ public partial class Play
 
         bool shipCard = hud && (info || threat || (ShipHudContext && !building && !aiming));
         _statusTitle.Text = L(info ? "hud.card.info" : "hud.card.ship").ToUpperInvariant();
-        _holdBar.Visible = _holdItems.Visible = shipCard;
+        _holdItems.Visible = shipCard;
         _toolLabel.Visible = building;
 
         bool statusContent = _statusPanel.Visible;

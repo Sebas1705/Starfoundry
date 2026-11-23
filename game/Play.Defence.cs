@@ -25,10 +25,9 @@ public partial class Play
     private PanelContainer _modulePanel = null!;
     private Label _moduleTitle = null!, _moduleHpLabel = null!;
     private ProgressBar _moduleHp = null!;
-    private HBoxContainer _integrityBox = null!;
-    private Label _integrityLabel = null!;
-    private ProgressBar _integrityBar = null!;
-    private Label _waveBanner = null!, _goalLabel = null!;
+    private GaugeRow _integrityBox = null!;
+    private IconLabel _waveBanner = null!;
+    private Label _goalLabel = null!;
 
     private readonly Dictionary<(int S, int Mx, int My, int Mz), double> _hitBars = new();
 
@@ -42,12 +41,7 @@ public partial class Play
     /// <summary>The integrity bar in the status block, the hit vignette (behind every panel), the module bars, the module panel and the wave banner.</summary>
     private void BuildDefenceUi(VBoxContainer statusBox)
     {
-        _integrityBox = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore, Visible = false };
-        _integrityBox.AddThemeConstantOverride("separation", 8);
-        _integrityLabel = MakeText(13);
-        _integrityBar = new ProgressBar { MinValue = 0, MaxValue = 1000, ShowPercentage = false, CustomMinimumSize = new Vector2(110, 10), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter, MouseFilter = Control.MouseFilterEnum.Ignore };
-        _integrityBox.AddChild(_integrityLabel);
-        _integrityBox.AddChild(_integrityBar);
+        _integrityBox = new GaugeRow("status:health") { Visible = false };
         statusBox.AddChild(_integrityBox);
 
         _vignetteMat = new ShaderMaterial
@@ -82,7 +76,7 @@ void fragment() {
         _modulePanel.MouseFilter = Control.MouseFilterEnum.Ignore;
         _modulePanel.Visible = false;
 
-        _waveBanner = MakeText(20, ToastThreatColor);
+        _waveBanner = new IconLabel(20, 26, ToastThreatColor);
         _waveBanner.AddThemeColorOverride("font_outline_color", Colors.Black);
         _waveBanner.AddThemeConstantOverride("outline_size", 8);
         _waveBanner.HorizontalAlignment = HorizontalAlignment.Center;
@@ -117,10 +111,7 @@ void fragment() {
         {
             int permille = Net.StructureHpFraction(ship);
             float f = permille / 1000f;
-            _integrityLabel.Text = L("hud.integrity", permille / 10);
-            _integrityLabel.AddThemeColorOverride("font_color", HpColor(f));
-            _integrityBar.Value = permille;
-            StyleBar(_integrityBar, f);
+            _integrityBox.Set("status:health", f, $"{permille / 10} %", HpColor(f), L("hud.integrity", permille / 10));
         }
 
         // The wave: a big countdown while the warning runs, the enemy count while it is fought.
@@ -130,6 +121,7 @@ void fragment() {
             var th = Net.GetSystemThreat(Math.Max(0, Net.CurrentSystem(Player)));
             if (th.WarningRemaining >= 0) banner = L("hud.banner.wave", th.Wave + 1, Math.Ceiling(th.WarningRemaining / (float)Units.TicksPerSecond).ToString("F0", Loc.Culture));
             else if (th.Enemies > 0) banner = L("hud.banner.fight", Net.WavesSpawned, th.Enemies);
+            _waveBanner.SetIcon(th.WarningRemaining >= 0 ? "status:alert" : "status:enemy", ToastThreatColor);
         }
         _waveBanner.Text = banner;
         _waveBanner.Visible = banner.Length > 0;

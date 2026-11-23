@@ -56,13 +56,17 @@ public partial class Play
     private CanvasLayer _layer = null!;
     private Control _uiRoot = null!;
     private PanelContainer _statusPanel = null!, _toolbar = null!, _actions = null!, _objectivesPanel = null!, _inspector = null!, _helpPanel = null!;
-    private Label _statusLabel = null!, _holdItems = null!, _modeHint = null!, _objectivesText = null!, _tooltipLabel = null!;
+    private StepStrip _stepStrip = null!;
+    private Label _statusLabel = null!, _modeHint = null!, _objectivesText = null!, _tooltipLabel = null!;
     private Label _inspectorTitle = null!, _inspectorBody = null!, _helpText = null!;
     private ScrollContainer _helpScroll = null!;
-    private Label _toolLabel = null!, _flightFrame = null!, _flightSpeed = null!;
+    private ToolReadout _toolLabel = null!;
+    private HoldStrip _holdItems = null!;
+    private Label _flightFrame = null!;
+    private IconCount _flightSpeed = null!;
     private NavGizmo _navGizmo = null!;
     private Label _targetTitle = null!, _targetRole = null!, _targetStatus = null!, _targetRecipe = null!, _targetHpLabel = null!;
-    private ProgressBar _holdBar = null!, _targetHp = null!;
+    private ProgressBar _targetHp = null!;
     private PanelContainer _flightPanel = null!, _targetPanel = null!;
     private VBoxContainer _toastBox = null!;
     private readonly Label[] _toastLabels = new Label[ToastQueue.MaxVisible];
@@ -110,11 +114,7 @@ public partial class Play
     /// <summary>The one look of every HUD card: a soft dark glass with a thin cool edge, rounded corners and a faint shadow.</summary>
     private static StyleBoxFlat HudCard(Color? edge = null)
     {
-        var s = Box(new Color(0.04f, 0.06f, 0.10f, 0.74f), edge ?? new Color(0.45f, 0.58f, 0.82f, 0.38f), 8, 10f);
-        s.ContentMarginLeft = s.ContentMarginRight = 13f;
-        s.ShadowColor = new Color(0f, 0f, 0f, 0.35f);
-        s.ShadowSize = 8;
-        return s;
+        return UiTheme.Card(edge);
     }
 
     private PanelContainer MakePanel(Control content)
@@ -154,6 +154,7 @@ public partial class Play
         _layer = new CanvasLayer();
         AddChild(_layer);
         _uiRoot = new Control { MouseFilter = Control.MouseFilterEnum.Ignore };
+        _uiRoot.Theme = UiTheme.Create();
         _uiRoot.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         _layer.AddChild(_uiRoot);
 
@@ -176,8 +177,7 @@ public partial class Play
         _flightFrame = MakeText(10, new Color(0.62f, 0.7f, 0.84f));
         _flightFrame.HorizontalAlignment = HorizontalAlignment.Center;
         _navGizmo = new NavGizmo { SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter };
-        _flightSpeed = MakeText(13, new Color(0.7f, 0.8f, 0.95f));
-        _flightSpeed.HorizontalAlignment = HorizontalAlignment.Center;
+        _flightSpeed = new IconCount("status:speed", 18, UiTheme.Body) { Alignment = BoxContainer.AlignmentMode.Center };
         flight.AddChild(_flightFrame);
         flight.AddChild(_navGizmo);
         flight.AddChild(_flightSpeed);
@@ -201,14 +201,8 @@ public partial class Play
         // here; the build menu, the shortcuts and the quick keys are in the key panel at the bottom right (see BuildKeyPanel).
         var infoRow = new HBoxContainer();
         infoRow.AddThemeConstantOverride("separation", 10);
-        _holdBar = new ProgressBar { MinValue = 0, MaxValue = Net.HoldCapacity(Player), ShowPercentage = false, CustomMinimumSize = new Vector2(110, 14), SizeFlagsVertical = Control.SizeFlags.ShrinkCenter, MouseFilter = Control.MouseFilterEnum.Ignore };
-        _holdItems = MakeText(13);
-        _holdItems.ClipText = true;
-        _holdItems.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
-        _holdItems.CustomMinimumSize = new Vector2(HoldItemsWidth, 0); // wide enough for ore, ingots and plates
-        _toolLabel = MakeText(14);
-        _toolLabel.HorizontalAlignment = HorizontalAlignment.Left;
-        infoRow.AddChild(_holdBar);
+        _holdItems = new HoldStrip();
+        _toolLabel = new ToolReadout();
         infoRow.AddChild(_holdItems);
         infoRow.AddChild(_toolLabel);
         _toolbar = MakePanel(infoRow);
@@ -249,8 +243,10 @@ public partial class Play
         objButtons.AddChild(_btnLang);
         objButtons.Visible = false; // everything it did has a key (H, O, F1, L) in the key panel or the help; the card stays plain
         obj.AddChild(objButtons);
+        _stepStrip = new StepStrip();
         BuildGoalsUi(obj);
         obj.AddChild(_objectivesText);
+        obj.AddChild(_stepStrip);
         // The goal stays pinned as the last line, whether the list is open or folded.
         _goalLabel = MakeText(14, new Color(1f, 0.85f, 0.45f));
         _goalLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -496,7 +492,7 @@ public partial class Play
         _flightFrame.Text = L("hud.frame").ToUpperInvariant();
         _navGizmo.Set(NavFrame.Project(HudCamera()));
         float speed = (ShipPosition(1f) - ShipPosition(0f)).Length() * Units.TicksPerSecond;
-        _flightSpeed.Text = L("hud.flightSpeed", speed.ToString("F1", Loc.Culture));
+        _flightSpeed.SetText("status:speed", L("hud.flightSpeed", speed.ToString("F1", Loc.Culture)), UiTheme.Text, Icons.Name("status:speed"));
     }
 
     private readonly List<Vec3> _baseTmp = new();
@@ -519,7 +515,7 @@ public partial class Play
         _markers.RightLimit = ResearchOpen || BuildOpen ? DockRect(size).Position.X - 6f : 0f;
         var items = new List<MarkerLayer.Item>();
 
-        void Add(string label, Color color, Vector3 target, float hideBelow = 4f, string? distanceText = null, int priority = 1)
+        void Add(string label, Color color, Vector3 target, float hideBelow = 4f, string? distanceText = null, int priority = 1, string? icon = null)
         {
             var p = Markers.Place(V(target - eye), cam, size.X, size.Y, left, 58f, 24f, bottom, hideBelow);
             // A marker behind the steps panel is unreadable (and hides its text): slide it just below the panel.
@@ -533,13 +529,14 @@ public partial class Play
             if (_keyPanel.Visible && keys.HasPoint(new Vector2(p.X, p.Y))) p = p with { Y = keys.Position.Y - 6f };
             // Off screen the arrow also says how many degrees to turn (the same whichever way up the ship is).
             string turn = p.OnScreen ? "" : $"  {NavFrame.TurnDegrees(V(target - eye), cam):F0}°";
-            if (p.Visible && (color == EnemyMarkerColor || ShipHudContext)) items.Add(new MarkerLayer.Item($"{label}  {distanceText ?? L("mark.dist", p.Distance.ToString("F0", Loc.Culture))}{turn}", color, p, color == EnemyMarkerColor ? 3 : priority));
+            string dist = distanceText ?? L("mark.dist", p.Distance.ToString("F0", Loc.Culture));
+            if (p.Visible && (color == EnemyMarkerColor || ShipHudContext)) items.Add(new MarkerLayer.Item($"{label}  {dist}{turn}", color, p, color == EnemyMarkerColor ? 3 : priority, icon ?? MarkerIcon(label), $"{dist}{turn}"));
         }
 
         if (Net.IsDeposit(_selectedDeposit) && Net.IsDepositRevealed(_selectedDeposit) && Net.DepositRemaining(_selectedDeposit) > 0)
         {
             var dp = Net.DepositPosition(_selectedDeposit);
-            Add($"{ItemName(Net.DepositItem(_selectedDeposit))} - {DensityText(_selectedDeposit)}{(DepositHasDrones(_selectedDeposit) ? " - " + L("mark.drones") : "")}", new Color(1f, 0.8f, 0.35f), new Vector3(dp.X, dp.Y, dp.Z), 6f, null, 2);
+            Add($"{ItemName(Net.DepositItem(_selectedDeposit))} - {DensityText(_selectedDeposit)}{(DepositHasDrones(_selectedDeposit) ? " - " + L("mark.drones") : "")}", new Color(1f, 0.8f, 0.35f), new Vector3(dp.X, dp.Y, dp.Z), 6f, null, 2, Icons.ItemId(_content.Items[Net.DepositItem(_selectedDeposit)].Id));
         }
 
         // Other deposits you know of nearby: a quiet mark each, the two nearest only (the chosen one above keeps its full label).
@@ -553,7 +550,7 @@ public partial class Play
                 others.Add((d, (at - eye).LengthSquared(), at));
             }
             others.Sort((a, b) => a.D2.CompareTo(b.D2));
-            foreach (var (d, _, at) in others.Take(2)) Add(ItemName(Net.DepositItem(d)), new Color(0.78f, 0.66f, 0.4f), at, 8f);
+            foreach (var (d, _, at) in others.Take(2)) Add(ItemName(Net.DepositItem(d)), new Color(0.78f, 0.66f, 0.4f), at, 8f, null, 1, Icons.ItemId(_content.Items[Net.DepositItem(d)].Id));
         }
 
         // The gate: the direction of the destination chosen on the star map, as a mark at the edge of the system (its distance is in map units).
@@ -563,7 +560,7 @@ public partial class Play
             var to = gal.Systems[_selectedSystem];
             var dir = NavFrame.DirectionTo(new Vec3(from.X, from.Y, from.Z), new Vec3(to.X, to.Y, to.Z));
             float mapDistance = new Vector3(to.X - from.X, to.Y - from.Y, to.Z - from.Z).Length();
-            Add(L("mark.gate", to.Name), new Color(1f, 0.55f, 0.25f), eye + new Vector3(dir.X, dir.Y, dir.Z) * 900f, 4f, L("mark.gateDist", mapDistance.ToString("F0", Loc.Culture)), 2);
+            Add(L("mark.gate", to.Name), new Color(1f, 0.55f, 0.25f), eye + new Vector3(dir.X, dir.Y, dir.Z) * 900f, 4f, L("mark.gateDist", mapDistance.ToString("F0", Loc.Culture)), 2, "status:gate");
         }
 
         int system = Net.CurrentSystem(Player);
@@ -575,7 +572,7 @@ public partial class Play
             float d = (new Vector3(en.X, en.Y, en.Z) / CellUnits - eye).LengthSquared();
             if (d < best) { best = d; nearest = en; }
         }
-        if (nearest is { } e) Add(Loc.Name("enemy", _content.Enemies[e.Type].Id), EnemyMarkerColor, new Vector3(e.X, e.Y, e.Z) / CellUnits, 3f);
+        if (nearest is { } e) Add(Loc.Name("enemy", _content.Enemies[e.Type].Id), EnemyMarkerColor, new Vector3(e.X, e.Y, e.Z) / CellUnits, 3f, null, 3, IconCatalog.ForEnemy(_content.Enemies[e.Type].Id));
 
         if (_structuresOn) { StructureMarkers((l, c, t, h) => Add(l, c, t, h, null, l == L("mark.station") ? 2 : 1)); _markers.Set(items); return; }
 
@@ -606,21 +603,14 @@ public partial class Play
     private void UpdateHold()
     {
         int total = Net.HoldTotal(Player), cap = Net.HoldCapacity(Player);
-        _holdBar.MaxValue = Math.Max(1, cap);
-        _holdBar.Value = total;
         bool full = total >= cap;
-        _holdBar.AddThemeStyleboxOverride("fill", Box(full ? BadColor : HudFormat.Band(cap - total, cap) == HealthBand.Critical ? WornColor : GoodColor, null, 3, 0f));
-        _holdBar.AddThemeStyleboxOverride("background", Box(new Color(0.12f, 0.14f, 0.2f), null, 3, 0f));
-
-        var items = new StringBuilder();
-        items.Append(L("hud.hold", total, cap));
+        var held = new List<(string Icon, int Count)>();
         foreach (var item in _content.Items)
         {
             int n = Net.HoldCount(Player, item.Index);
-            if (n > 0) items.Append($"  {ItemName(item.Index)} {n}");
+            if (n > 0) held.Add((Icons.ItemId(item.Id), n));
         }
-        _holdItems.Text = items.ToString();
-        _holdItems.AddThemeColorOverride("font_color", full ? new Color(1f, 0.55f, 0.45f) : Colors.White);
+        _holdItems.Set(total, cap, full, HudFormat.Band(cap - total, cap) == HealthBand.Critical, held);
 
         // Said when it fills and again every 25 s while it stays full: a full hold silently stops mining and depots.
         double now = Time.GetTicksMsec() / 1000.0;
@@ -1154,8 +1144,7 @@ public partial class Play
     {
         if (_tool != ToolMode.Build)
         {
-            _toolLabel.Text = L("hud.tool.pointer");
-            _toolLabel.AddThemeColorOverride("font_color", new Color(0.75f, 0.82f, 0.95f));
+            _toolLabel.Set("tool:pick", L("hud.tool.pointer"), new Color(0.75f, 0.82f, 0.95f), Array.Empty<(string, int, int)>(), "", UiTheme.Text);
             return;
         }
         var item = _palette[_selected];
@@ -1163,19 +1152,15 @@ public partial class Play
         var cost = ItemCost(item);
         var state = HudFormat.Tool(locked, cost.Length > 0, Net.CanPay(Player, cost));
         string name = ItemName(item);
-        string costText = state switch
+        string note = state switch
         {
             ToolState.Locked => L("ui.locked"),
             ToolState.Free => L("ui.free"),
-            _ => Stacks(cost) + (item.IsBelt ? L("ui.perCell") : ""),
+            _ => item.IsBelt ? L("ui.perCell") : "",
         };
-        _toolLabel.Text = L("hud.tool", name, costText);
-        _toolLabel.AddThemeColorOverride("font_color", state switch
-        {
-            ToolState.Short => BadColor,
-            ToolState.Locked => new Color(0.6f, 0.62f, 0.68f),
-            _ => GoodColor,
-        });
+        var costIcons = state == ToolState.Locked ? new List<(string, int, int)>() : cost.Select(c => (Icons.ItemId(_content.Items[c.Item].Id), c.Count, Net.HoldCount(Player, c.Item))).ToList();
+        var nameColour = state switch { ToolState.Short => BadColor, ToolState.Locked => new Color(0.6f, 0.62f, 0.68f), _ => GoodColor };
+        _toolLabel.Set(ToolIcon(item), name, nameColour, costIcons, note, state == ToolState.Locked ? new Color(1f, 0.82f, 0.4f) : UiTheme.Muted);
     }
 
     private string BuildTooltip(BuildItem item, ItemStack[] cost, bool locked, bool affordable)
@@ -1228,10 +1213,12 @@ public partial class Play
         _objectivesPanel.Visible = !(ResearchOpen || BuildOpen); // a docked panel takes its place at the right
         UpdateGoalLine();
         _btnObjectives.Visible = GuidedSteps;
+        _stepStrip.Visible = GuidedSteps && _objectivesOpen;
         if (!GuidedSteps) { _objectivesText.Visible = false; return; }
         _goalLabel.CustomMinimumSize = new Vector2(Math.Clamp(GetViewport().GetVisibleRect().Size.X * 0.3f, 240, 420), 0);
         var states = _objectives.States;
         var current = _objectives.Current;
+        _stepStrip.Set(states, current);
         var sb = new StringBuilder();
         sb.Append(L("obj.title", _objectives.DoneCount, states.Count)).Append('\n');
         if (_objectivesOpen)
@@ -1242,8 +1229,6 @@ public partial class Play
                 // The step in progress with its hint, then a short look at what comes next.
                 var cur = states.First(s => s.Objective == current);
                 sb.Append("> ").Append(L(cur.TitleKey)).Append('\n').Append("   ").Append(L(cur.HintKey)).Append('\n');
-                foreach (var s in states.Where(s => !s.Done && s.Objective != current).Take(3))
-                    sb.Append("  ○ ").Append(L(s.TitleKey)).Append('\n');
             }
             _objectivesText.Text = sb.ToString().TrimEnd('\n');
             _objectivesText.Visible = true;

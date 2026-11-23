@@ -203,7 +203,8 @@ public partial class Play
             ? (st.UnlockedBy >= 0 ? L("build.locked", Loc.Name("research", _content.Research[st.UnlockedBy].Id)) : L("build.lockedNoNode"))
             : !st.Affordable && st.Cost.Length > 0 ? Missing(st.Cost) : "";
         return new BuildEntryView(BuildCatalog.Name(_content, e), key, role, BuildCatalog.CostText(_content, e, st.Cost), BuildCatalog.PowerText(e),
-            L(e.DescriptionKey), status, st.Locked, st.Affordable, IsSelectedEntry(e));
+            L(e.DescriptionKey), status, st.Locked, st.Affordable, IsSelectedEntry(e), EntryIcon(e),
+            st.Cost.Select(c => (Icons.ItemId(_content.Items[c.Item].Id), c.Count, Net.HoldCount(Player, c.Item))).ToList());
     }
 
     private void ChooseFromMenu(BuildEntry e)
