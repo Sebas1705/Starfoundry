@@ -136,8 +136,13 @@ public static class Loc
         // ---- buttons ----
         ["btn.mine"] = ("Láser de minería  [M]", "Mining laser  [M]"),
         ["btn.mineStop"] = ("Guardar láser  [M]", "Stow laser  [M]"),
-        ["btn.refine"] = ("Refinar a bordo  [F]", "Refine on board  [F]"),
-        ["btn.refineStop"] = ("Parar refinería  [F]", "Stop refinery  [F]"),
+        ["btn.refine"] = ("Banco de trabajo  [F]", "Workbench  [F]"),
+        ["btn.refineStop"] = ("Banco: {0}  [F]", "Workbench: {0}  [F]"),
+        ["bench.core:ship_smelt"] = ("lingotes", "ingots"),
+        ["bench.core:ship_press"] = ("placas", "plates"),
+        ["bench.core:ship_ammo"] = ("munición", "ammo"),
+        ["toast.bench"] = ("Banco de trabajo: {0}", "Workbench: {0}"),
+        ["toast.benchOff"] = ("Banco de trabajo apagado", "Workbench off"),
         ["btn.scan"] = ("Escanear  [K]", "Scan  [K]"),
         ["btn.scanWait"] = ("Escáner ({0} s)", "Scanner ({0} s)"),
         ["btn.map"] = ("Mapa estelar  [G]", "Star map  [G]"),
@@ -158,8 +163,8 @@ public static class Loc
                         "Takes out or stows the mining laser. With it in hand, aim at a deposit in range and hold the left click: it mines while it fires. 2 ore per second. In structure worlds it pauses at 75% of the hold so the factory keeps room."),
         ["tip.minePaused"] = ("Minería en pausa: la bodega llegó al 75%. Gasta o mueve objetos (construir, módulos) para seguir.",
                               "Mining paused: the hold reached 75%. Spend or move items (building, modules) to continue."),
-        ["tip.refine"] = ("La microrrefinería de la nave convierte mineral en lingotes, despacio (un lingote cada 4 s).",
-                          "The ship's micro-refinery turns ore into ingots, slowly (one ingot every 4 s)."),
+        ["tip.refine"] = ("El banco de trabajo de la nave fabrica despacio con lo de la bodega. F pasa de lingotes (1 mineral, 2 s) a placas (2 lingotes, 2 s) y a munición (1 lingote, 4 balas) y luego se apaga.",
+                          "The ship's workbench makes things slowly from the hold. F cycles ingots (1 ore, 2 s), plates (2 ingots, 2 s) and ammo (1 ingot, 4 rounds) and then switches off."),
         ["tip.scan"] = ("Revela los yacimientos ocultos a menos de 80 celdas. Se recarga en 5 s.",
                         "Reveals hidden deposits within 80 cells. Recharges in 5 s."),
         ["tip.map"] = ("Abre el mapa de sistemas. Elige uno con las flechas y salta con J.",
@@ -187,7 +192,7 @@ public static class Loc
         ["tip.role.repairer"] = ("Repara poco a poco las máquinas dañadas cercanas, gastando lingotes que le llegan por cinta.", "Slowly repairs damaged machines nearby, using ingots delivered by belt."),
         ["tip.role.unloader"] = ("Saca de tu bodega un objeto y lo pone en una cinta: el puerto de carga lleva lingotes (sin tocar los últimos 10) y los demás (hierro, titanio, níquel, hielo, cuarzo, carbono) llevan ese material (sin reserva). Así lo que mines en otro sistema puede alimentar una fábrica lejos de él.", "Takes one kind of item out of your hold and puts it on a belt: the cargo port carries ingots (leaving the last 10) and the others (iron, titanium, nickel, ice, quartz, carbon) carry that material (no reserve). What you mine in another system can feed a factory far from it."),
         ["tip.role.ship"] = ("Va en la nave.", "Lives on the ship."),
-        ["tip.belt"] = ("Cinta Mk{0}: {1} celdas, {2} objetos encima", "Belt Mk{0}: {1} cells, {2} items on it"),
+        ["tip.belt"] = ("Cinta Mk{0}: {1} celdas, {2} objetos encima. Clic derecho: demoler", "Belt Mk{0}: {1} cells, {2} items on it. Right click: demolish"),
         ["tip.deposit"] = ("Yacimiento de {0} ({3}): quedan {1} de {2}.\nClic izquierdo para elegirlo; M y mantén el clic para minarlo con el láser.",
                            "{0} deposit ({3}): {1} of {2} left.\nLeft click to select it; M, then hold the click to mine it with the laser."),
         ["tip.enemy"] = ("Enemigo: {0}  (vida {1})", "Enemy: {0}  (HP {1})"),
@@ -1028,8 +1033,8 @@ public static class Loc
         ["key.scan"] = ("Escanear", "Scan"),
         ["key.mine"] = ("Láser de minería", "Mining laser"),
         ["key.mineStop"] = ("Guardar láser", "Stow laser"),
-        ["key.refine"] = ("Refinar", "Refine"),
-        ["key.refineStop"] = ("Parar refinería", "Stop refinery"),
+        ["key.refine"] = ("Banco de trabajo", "Workbench"),
+        ["key.refineStop"] = ("Banco: siguiente", "Workbench: next"),
         ["key.weapons"] = ("Armas", "Weapons"),
         ["key.fire"] = ("Armas (auto)", "Weapons (auto)"),
         ["key.found"] = ("Fundar estación", "Found station"),
@@ -1107,16 +1112,16 @@ public static class Loc
             "  Mover el ratón   pilotar: gira la nave sobre sus propios ejes (cabeceo y guiñada, sin límite ni horizonte; en el espacio no hay arriba). Con una herramienta de construcción, de pie o con Alt pulsado mira por dentro de la nave. La mirilla del centro es tu puntería\n" +
             "  Clic izquierdo   inspeccionar lo que apuntas o elegir un yacimiento\n" +
             "                   construyendo: apunta al suelo y coloca (cintas: clic al inicio y clic al final, o arrastra)\n" +
-            "  Clic derecho     demoler lo que apuntas (se devuelve el coste)\n" +
+            "  Clic derecho     demoler la máquina o la cinta que apuntas, a cualquier altura (se devuelve el coste)\n" +
             "  Tab              soltar el ratón para usar los botones (clic en el juego para volver a mirar)\n\n" +
             "Nave\n" +
             "  W S   avanzar / retroceder por el eje de la nave     A D   desplazarse a los lados     Espacio / C   hacia el techo / hacia el suelo de la nave     Z X (o flechas)   alabeo\n" +
-            "  E   sentarte / levantarte del asiento del piloto (de pie: WASD camina, Mayús corre y no se vuela)\n  M   minar (vuela primero al yacimiento)      F   refinería       K   escanear       V   armas\n  Marcadores (sentado): yacimiento elegido y los más cercanos, enemigo más cercano, estación y puertos, y la puerta hacia el sistema elegido en el mapa; llevan distancia y, en el borde de la pantalla, una flecha y los grados que hay que girar\n  Marco galáctico (arriba, centro): los ejes fijos X, Y, Z de la galaxia vistos desde tu nave; no es un horizonte\n\n" +
+            "  E   sentarte / levantarte del asiento del piloto (de pie: WASD camina, Mayús corre y no se vuela)\n  M   minar (vuela primero al yacimiento)      F   banco de trabajo (lingotes, placas, munición)       K   escanear       V   armas\n  Marcadores (sentado): yacimiento elegido y los más cercanos, enemigo más cercano, estación y puertos, y la puerta hacia el sistema elegido en el mapa; llevan distancia y, en el borde de la pantalla, una flecha y los grados que hay que girar\n  Marco galáctico (arriba, centro): los ejes fijos X, Y, Z de la galaxia vistos desde tu nave; no es un horizonte\n\n" +
             "Construcción\n" +
             "  B   menú de construcción, anclado a la derecha (pestañas Logística, Producción, Defensa y Estructura, con coste, energía y qué hace cada cosa; flechas, Intro o clic eligen la herramienta; Re Pág / Av Pág cambian de pestaña; B o Esc lo cierran)       Esc   dejar de construir\n" +
             "  1-9, 0, Q   teclas rápidas de las primeras entradas (cintas, horno, ensamblador, laboratorio, depósito, torreta, muro, taller de reparación, puerto de carga; el panel de teclas las lista con su coste al pasar el ratón por la fila 1-0); los demás puertos solo están en el menú B\n" +
             "  El panel de estado muestra la energía de la nave (verde, ámbar, rojo), el hidrógeno y el tiempo que dura\n" +
-            "  Y   cambiar receta (con una máquina apuntada: la suya; con una herramienta: la que colocará)       R   girar cintas sueltas       Z / X   cambiar de capa\n" +
+            "  Y   cambiar receta (con una máquina apuntada: la suya; con una herramienta: la que colocará)       R   girar cintas sueltas       Z / X   cambiar de capa (solo en mundos antiguos o con la herramienta de módulos: las máquinas y cintas se construyen siempre sobre el suelo de una bahía de fabricación)\n" +
             "  N   módulo de estación (con estaciones antiguas: el primero es el núcleo; solo se construye dentro de los módulos)\n" +
             "  Estructuras: N elige la herramienta de módulos y, pulsada otra vez, cambia su tipo (cabina, motor, reactor, bodega, taller, defensa, casco, hangar de drones tras investigarlo); I elige fundar una estación junto a la nave; cada tipo de módulo admite máquinas distintas\n" +
             "  F7   asignar los drones de tu nave o estación al yacimiento elegido ([ ] o clic); de nuevo con el mismo yacimiento, quitarlos\n" +
@@ -1134,16 +1139,16 @@ public static class Loc
             "  Move the mouse   pilot: turns the ship about its own axes (pitch and yaw, no limit, no horizon; there is no up in space). With a build tool in hand, standing, or with Alt held you look around inside the ship. The centre crosshair is your aim\n" +
             "  Left click       inspect what you aim at or pick a deposit\n" +
             "                   building: aim at the ground and place (belts: click the start and click the end, or drag)\n" +
-            "  Right click      demolish what you aim at (the cost is refunded)\n" +
+            "  Right click      demolish the machine or belt you aim at, at any height (the cost is refunded)\n" +
             "  Tab              free the mouse to use the buttons (click in the game to look again)\n\n" +
             "Ship\n" +
             "  W S   forward / back along the ship's axis     A D   strafe     Space / C   toward the ship's roof / floor     Z X (or arrows)   roll\n" +
-            "  E   sit at / stand up from the pilot seat (standing: WASD walks, Shift runs, no flying)\n  M   mine (flies to the deposit first)      F   refinery       K   scan       V   weapons\n  Markers (seated): the selected deposit and the nearest ones, the nearest enemy, stations and ports, and the gate toward the system chosen on the map; they carry the distance and, at the screen edge, an arrow and the degrees to turn\n  Galactic frame (top centre): the fixed X, Y, Z axes of the galaxy as seen from your ship; it is not a horizon\n\n" +
+            "  E   sit at / stand up from the pilot seat (standing: WASD walks, Shift runs, no flying)\n  M   mine (flies to the deposit first)      F   workbench (ingots, plates, ammo)       K   scan       V   weapons\n  Markers (seated): the selected deposit and the nearest ones, the nearest enemy, stations and ports, and the gate toward the system chosen on the map; they carry the distance and, at the screen edge, an arrow and the degrees to turn\n  Galactic frame (top centre): the fixed X, Y, Z axes of the galaxy as seen from your ship; it is not a horizon\n\n" +
             "Building\n" +
             "  B   build menu, docked at the right (tabs Logistics, Production, Defence and Structure, with cost, power and what each thing does; arrows, Enter or click pick the tool; PgUp / PgDn change tab; B or Esc close it)       Esc   stop building\n" +
             "  1-9, 0, Q   quick keys for the first entries (belts, smelter, assembler, lab, depot, turret, wall, repair bay, cargo port; the key panel lists them with their cost when you hover its 1-0 row); the other ports are only in the B menu\n" +
             "  The status panel shows the ship's power (green, amber, red), the hydrogen and how long it lasts\n" +
-            "  Y   change recipe (aiming at a machine: its own; with a tool: the one it will place)       R   rotate single belts       Z / X   change layer\n" +
+            "  Y   change recipe (aiming at a machine: its own; with a tool: the one it will place)       R   rotate single belts       Z / X   change layer (old worlds and the module tool only: machines and belts are always built on the floor of a fabrication bay)\n" +
             "  N   station module (older station rules: the first one is the core; you can only build inside modules)\n" +
             "  Structures: N picks the module tool and, pressed again, changes its kind (cockpit, engine, reactor, cargo, workshop, defence, hull, drone bay once researched); I picks founding a station beside the ship; each module kind allows different machines\n" +
             "  F7   assign your ship's or station's drones to the selected deposit ([ ] or click); again on the same deposit, unassign them\n" +

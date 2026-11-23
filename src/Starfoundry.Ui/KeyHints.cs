@@ -86,6 +86,9 @@ public sealed record KeyState
     public bool Standing { get; init; }
     public bool NearSeat { get; init; }
     public bool StructuresOn { get; init; }
+
+    /// <summary>True under the floor-building rule (ADR 0031): machines and belts go on the floor, so there is no layer to change.</summary>
+    public bool FloorBuilding { get; init; }
     public bool ModuleToolAvailable { get; init; }
 
     // the tool in hand
@@ -281,7 +284,7 @@ public static class KeyHints
                 yield return Row("place", "@click", "place");
                 break;
         }
-        if (s.Tool is HintTool.Machine or HintTool.Belt) yield return Row("layer", new[] { "Z", "X" }, "layer", state: KeyRowState.Info);
+        if (s.Tool is HintTool.Machine or HintTool.Belt && !s.FloorBuilding) yield return Row("layer", new[] { "Z", "X" }, "layer", state: KeyRowState.Info);
         if (s.Tool == HintTool.Machine && s.ToolHasRecipes) yield return Row("recipe", "Y", "recipe", "Y");
         if (s.Tool == HintTool.Module) yield return Row("demolish", "@rclick", "removeModule");
         else if (s.Tool != HintTool.Station) yield return Row("demolish", "@rclick", s.BeltAnchored ? "cancelLine" : "demolish");

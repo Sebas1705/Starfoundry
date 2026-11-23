@@ -120,6 +120,7 @@ public sealed class Tips
     /// <summary>Ore held in quantity that has no port to put it on a belt (structure worlds); returns its item index, or -1.</summary>
     private int OreWithoutPort(BeltNetwork net, int player)
     {
+        if (!HasBay(net, player)) return -1; // no floor to put a port on yet (ADR 0031): the guided steps say to add a bay first
         foreach (var def in _content.Machines)
         {
             if (def.Role != MachineRole.Unloader || def.Unloader is not { Item: >= 0 } u) continue;
@@ -131,6 +132,10 @@ public sealed class Tips
         }
         return -1;
     }
+
+    /// <summary>True when a structure of the player has a module whose floor machines and belts can be built on.</summary>
+    private bool HasBay(BeltNetwork net, int player) =>
+        _content.Structures is { } kinds && net.Structures().Any(s => s.Owner == player && s.Modules.Values.Any(k => kinds.IsBuildable(k) && kinds.AllowsBelts(k)));
 
     /// <summary>Hold count of an ore (or ice) from which a port tip is worth showing.</summary>
     public const int PortTipOreCount = 15;

@@ -942,7 +942,7 @@ public partial class Play
         _structureVersion = -1; // rebuilds belts, machines and deposits from the loaded world
         _beltAnchor = null;
         _dragStart = null;
-        if (_structuresOn && _cursorY == 0) _cursorY = DefaultStructureLayer;
+        if (_structuresOn && _cursorY == 0) _cursorY = DefaultLayer;
         _selMachine = -1;
         _waypoint = null;
         _seated = true; // the loaded world has its own ship and modules: start at the seat again
@@ -1100,9 +1100,9 @@ public partial class Play
         _btnMine.SetPressedNoSignal(mining);
         _btnMine.TooltipText = MiningPausedByLimit ? L("tip.minePaused") : L("tip.mine");
 
-        int shipRecipe = _content.RecipeIndex("core:ship_smelt");
-        bool refining = player.ShipRecipe == shipRecipe;
-        _btnRefine.Text = refining ? L("btn.refineStop") : L("btn.refine");
+        bool refining = player.ShipRecipe >= 0;
+        string benchName = refining ? L("bench." + _content.Recipes[player.ShipRecipe].Id) : "";
+        _btnRefine.Text = refining ? L("btn.refineStop", benchName) : L("btn.refine");
         _btnRefine.SetPressedNoSignal(refining);
         _btnRefine.TooltipText = L("tip.refine");
 
@@ -1495,6 +1495,7 @@ public partial class Play
                 if (_beltAnchor is not null) { _beltAnchor = null; _dragStart = null; break; } // cancels a belt line in progress
                 // Right click demolishes what the crosshair is on.
                 if (_hover.Kind == HoverKind.Machine) RemoveAt(CellOfMachine(_hover.Id));
+                else if (_hover.Kind == HoverKind.Segment && Net.IsAlive(_hover.Id)) Send(new RemoveSegment(_hover.Id)); // a belt is found by a ray at any layer, like a machine
                 else if (CellUnderAim() is { } cell) RemoveAt(cell);
                 break;
             case MouseButton.Left:
@@ -1647,8 +1648,8 @@ public partial class Play
             case Key.Tab: _wantCapture = !_wantCapture; break; // free the cursor to use the buttons, or take it back
             case Key.Y: CycleRecipeKey(); break;
             case Key.R: _dir = _dir switch { Dir.PosX => Dir.PosZ, Dir.PosZ => Dir.NegX, Dir.NegX => Dir.NegZ, _ => Dir.PosX }; Toast(L("toast.beltFacing", _dir.ToString())); break;
-            case Key.Z when _tool == ToolMode.Build: _cursorY--; break; // flying: Z and X roll the ship instead
-            case Key.X when _tool == ToolMode.Build: _cursorY++; break;
+            case Key.Z when _tool == ToolMode.Build && !(FloorRule && !ModuleSelected): _cursorY--; break; // flying: Z and X roll the ship instead; on the floor rule only the module tool has layers
+            case Key.X when _tool == ToolMode.Build && !(FloorRule && !ModuleSelected): _cursorY++; break;
             case Key.M: ToggleMining(); break;
             case Key.E: ToggleSeat(); break;
             case Key.U: DockKey(); break;
@@ -1850,6 +1851,21 @@ public partial class Play
             {
                 best = tb;
                 _hover = new Hover(HoverKind.Machine, id, MachineSummary(id));
+            }
+        }
+        // Belts: the ray against the box of each segment, at any layer and from any side (the build plane only finds the cell it crosses).
+        for (int id = 0; id < Net.SegmentIdLimit; id++)
+        {
+            if (!Net.IsAlive(id)) continue;
+            var s = Net.GetSegmentInfo(id);
+            var (lo, ld) = AimInStruct(s.Structure);
+            int ex = s.OriginX + s.DirX * (s.LengthCells - 1), ey = s.OriginY + s.DirY * (s.LengthCells - 1), ez = s.OriginZ + s.DirZ * (s.LengthCells - 1);
+            var min = new Vector3(Math.Min(s.OriginX, ex), Math.Min(s.OriginY, ey), Math.Min(s.OriginZ, ez));
+            var size = new Vector3(Math.Abs(ex - s.OriginX) + 1f, Math.Abs(ey - s.OriginY) + 0.6f, Math.Abs(ez - s.OriginZ) + 1f);
+            if (RayHitsAabb(lo, ld, min, size, out float tb) && tb < best && tb > 0.5f)
+            {
+                best = tb;
+                _hover = new Hover(HoverKind.Segment, id, L("tip.belt", (int)s.Tier + 1, s.LengthCells, Net.CountOn(id)));
             }
         }
         // Then enemies (small and dangerous) and deposits, whichever is nearer along the ray.
@@ -2064,8 +2080,8 @@ public partial class Play
         if (StationSelected) { UpdateFoundGhost(); return; }
         if (ModuleSelected) { if (_structuresOn) UpdateStructModuleGhost(); else UpdateModuleGhost(); return; }
         _ghost.Scale = Vector3.One;
-        _cellHelper.Visible = true;
         var c = _aimCell!.Value;
+        _cellHelper.Visible = !FloorRule || CellInBuildableModule(c); // the faint cells show only on a floor that can be built on
         Reparent(_ghost, RootOf(c.S)); // local cells under the structure root
         _ghost.Position = CellCenter(c.X, c.Y, c.Z);
         string? problem = PlacementProblem(c);

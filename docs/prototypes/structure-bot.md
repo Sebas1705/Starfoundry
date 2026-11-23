@@ -112,3 +112,29 @@ Decided and done in the second balance pass: the hold trap (hold 100, depots sto
 - A second ice or iron source for the time after minute 120 (the home deposits run out); drones on carbon; more than one deposit per structure (kept at one on purpose).
 - A human's real hesitation, aiming, and the HUD; only the commands.
 - Other defence layouts: the bot uses one (turrets in a defence module on top of a workshop, walls inside it).
+
+## Construction rules (ADR 0031)
+The bot was rewritten for the floor rule and the workbench start ([ADR 0031](../adr/0031-construction-rules-fabrication-bays-and-floor-building.md)). It still uses sim commands only.
+
+What it does differently:
+- **First minutes.** It hand-mines, runs the workbench (`SetShipRecipe`: a small policy picks ingots or plates), adds a fabrication bay beside the hull (module (1,0,1)) and builds the starter factory on its floor (ore port, smelter, assembler, depot; the same planar layout as the old pre-built one). It then builds the ice loop (own depot on another row), founds the station and adds cargo.
+- **Layouts are planar.** Every machine and belt is on the floor layer. The ammo battery (port, assembler, two belts, two turrets) lies on the bay floor with the defence module beside it (module x + 1), the belts crossing the seam; walls stand on the defence floor. The plate line is two smelter rows into one assembler, whose output belt climbs one row into the laboratory; the lab bay has one free face for one raw feed (carbon), which is all the default plan needs. The station gets a bay at (1,0,0) with its defence module at (2,0,0).
+- **Not played any more:** the science tier (`--science`, `StructureBot.Science.cs`), the ingot and plate feeds and advanced plating (three feeds into one lab: the floor has no room for the three faces) and the two extra station laboratories of the second balance pass (one is built). The tests of those chains run against the content before the rule.
+
+| Measure (seed 20261121, 6 s per action) | Before ADR 0031 | After |
+| --- | --- | --- |
+| Hand mining, first ingot | 0:01, 0:10 | 0:05, 0:08 |
+| Fabrication bay built | (built in) | 2:12 |
+| Starter factory delivering | (built in) | 5:13 |
+| Hydrogen cracker, first hydrogen | 5:21, 6:05 | 6:19, 7:17 |
+| Station founded | 1:48 | 8:44 |
+| First turret loaded | 10:15 | 16:45 |
+| Station powered with machines | 12:38 | 23:18 |
+| Wave 1 warning | 15:26 | 24:36 |
+| Laboratory, first research | 16:26, 20:03 | 26:41, 31:03 |
+| Drone automation | 32:44 | 50:30 |
+| Jump drive researched | 41:37 | 56:59 |
+| **Victory** Normal | 43:54 | 61:00 |
+| Victory Relaxed, Hard | not measured | 59:43, 66:58 |
+
+The win moved about 17 minutes later on Normal. The scripted player now starts with nothing built, so its machines (and the noise that fills the alert meter, ADR 0008) come later and so do the waves: the first warning is at 24:36 instead of 15:26. The workbench was made faster than its first draft (1 s recipes, 2 s with the ship multiplier) because the first draft left the factory to minute 10 and the reactor ran dry. Level 2's start ingots went from 30 to 60 because its ice loop now has a depot of its own.
