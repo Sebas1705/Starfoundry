@@ -349,7 +349,7 @@ public partial class Play
         // Directional markers go last so they are never hidden under a panel.
         _markers = new MarkerLayer { Visible = false };
         _uiRoot.AddChild(_markers);
-        if (!_demo) BuildPanels();
+        if (!_demo) { BuildPanels(); BuildDesigner(); }
         if (!_demo) BuildPauseMenu();
         if (!_demo) BuildEndScreen();
     }
@@ -1575,7 +1575,7 @@ public partial class Play
     // ---- cursor capture ------------------------------------------------------------------------------------
 
     /// <summary>Panels that need the pointer: the help overlay, the research panel, the build menu and the star map.</summary>
-    private bool PanelOpen() => PauseOpen || EndOpen || StoryOpen || _helpOpen || ResearchOpen || BuildOpen || (_mapOpen && Net.Galaxy is not null);
+    private bool PanelOpen() => PauseOpen || EndOpen || StoryOpen || _helpOpen || ResearchOpen || BuildOpen || DesignerOpen || (_mapOpen && Net.Galaxy is not null);
 
     /// <summary>Releases or captures the mouse so it matches what the player wants and what is on screen.</summary>
     private void UpdateCapture()
@@ -1625,7 +1625,8 @@ public partial class Play
         switch (k.Keycode)
         {
             case Key.Escape:
-                if (ResearchOpen) CloseResearchPanel();
+                if (DesignerOpen) CloseDesigner();
+                else if (ResearchOpen) CloseResearchPanel();
                 else if (BuildOpen) CloseBuildMenu();
                 else if (_helpOpen) _helpOpen = false;
                 else if (_beltAnchor is not null) { _beltAnchor = null; _dragStart = null; } // first Esc cancels a belt line in progress
@@ -1635,6 +1636,7 @@ public partial class Play
                 else { _waypoint = null; _wantCapture = false; OpenPause(); } // last: let go of the mouse and open the pause menu
                 break;
             case Key.F1: _helpOpen = !_helpOpen; break;
+            case Key.F2: ToggleDesigner(); break;
             case Key.F11:
                 SettingsStore.Set(SettingsStore.Current with { Fullscreen = DisplayServer.WindowGetMode() != DisplayServer.WindowMode.Fullscreen });
                 break;
@@ -1764,6 +1766,8 @@ public partial class Play
             return;
         }
         if (Standing) { ToastLogistics(L("toast.sitToFly")); return; }
+        if (HardpointsOn && !Net.HasMiningLaser(Player)) { ToastLogistics(L("toast.reject.noLaser")); return; }
+        if (HardpointsOn && _weaponGroup != WeaponGroup.Laser) SetWeaponGroup(WeaponGroup.Laser);
         SetLaser(true);
         ToastProduction(L("toast.laserReady"), 6.0);
     }
@@ -1780,6 +1784,7 @@ public partial class Play
     /// laser) is mined by the simulation. Letting go, looking away, going out of range or standing up stops it. Only changes are sent.</summary>
     private void UpdateLaser()
     {
+        UpdateGuns();
         if (!_laserOn) return;
         if (Standing || _tool == ToolMode.Build || PanelOpen()) { SetLaser(false); return; }
         bool fire = (_mouseLook && Input.IsMouseButtonPressed(MouseButton.Left));

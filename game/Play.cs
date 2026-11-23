@@ -149,7 +149,9 @@ public partial class Play : Node3D
         _flightShot = _flightShotPath is not null;
         _dockShotPath = args.FirstOrDefault(a => a.StartsWith("--dock-shot="))?["--dock-shot=".Length..];
         _dockShot = _dockShotPath is not null;
-        bool threats = !(args.Contains("--demo") || _exploreDemo) && _stressMachines == 0 && !((_structuresShot || _walkShot || _dockShot || _flightShot) && !args.Contains("--threats") && _defenceShotPath is null && _endShotPath is null);
+        _designerShotPath = args.FirstOrDefault(a => a.StartsWith("--designer-shot="))?["--designer-shot=".Length..];
+        _laserShotPath = args.FirstOrDefault(a => a.StartsWith("--laser-shot="))?["--laser-shot=".Length..];
+        bool threats = !(args.Contains("--demo") || _exploreDemo) && _stressMachines == 0 && !((_structuresShot || _walkShot || _dockShot || _flightShot || _designerShotPath is not null || _laserShotPath is not null) && !args.Contains("--threats") && _defenceShotPath is null && _endShotPath is null);
         _stationDemo = args.Contains("--station-demo");
         // --station-demo: a sandbox world with the station rules on and a scripted station, for screenshots of the build rules.
         _gameMode = _exploreDemo || _threatDemo || _stressMachines > 0 || (_stationDemo && !args.Contains("--station-campaign")) || args.Contains("--structure-demo")
@@ -1170,6 +1172,8 @@ void fragment() {
         if (_walkShot) WalkShotFrame();
         if (_flightShot) FlightShotFrame();
         if (_dockShot) DockShotFrame();
+        if (_designerShotPath is not null || _laserShotPath is not null) DesignerShotFrame();
+        UpdateDesigner();
         if (!_structuresOn) _stationView.Sync(Net, Player, _cursorY);
         if (_structureDemo) StructureDemoTick();
         if (_structuresShot) StructuresShotFrame();
@@ -1397,6 +1401,7 @@ void fragment() {
 
     private void ToggleWeapons()
     {
+        if (HardpointsOn) { CycleWeaponGroup(); return; } // ADR 0032: V picks the weapon group the fire button uses
         bool on = Net.HasPlayer(Player) && Net.GetPlayerInfo(Player).Armed;
         Send(new SetWeapons(!on));
     }
