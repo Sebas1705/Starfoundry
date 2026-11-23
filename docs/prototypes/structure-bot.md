@@ -119,7 +119,7 @@ The bot was rewritten for the floor rule and the workbench start ([ADR 0031](../
 What it does differently:
 - **First minutes.** It hand-mines, runs the workbench (`SetShipRecipe`: a small policy picks ingots or plates), adds a fabrication bay beside the hull (module (1,0,1)) and builds the starter factory on its floor (ore port, smelter, assembler, depot; the same planar layout as the old pre-built one). It then builds the ice loop (own depot on another row), founds the station and adds cargo.
 - **Layouts are planar.** Every machine and belt is on the floor layer. The ammo battery (port, assembler, two belts, two turrets) lies on the bay floor with the defence module beside it (module x + 1), the belts crossing the seam; walls stand on the defence floor. The plate line is two smelter rows into one assembler, whose output belt climbs one row into the laboratory; the lab bay has one free face for one raw feed (carbon), which is all the default plan needs. The station gets a bay at (1,0,0) with its defence module at (2,0,0).
-- **Not played any more:** the science tier (`--science`, `StructureBot.Science.cs`), the ingot and plate feeds and advanced plating (three feeds into one lab: the floor has no room for the three faces) and the two extra station laboratories of the second balance pass (one is built). The tests of those chains run against the content before the rule.
+- **Not played after ADR 0031 (played again since the rebalance of 2026-11-23, see the last section):** the science tier (`--science`, `StructureBot.Science.cs`), the ingot and plate feeds and advanced plating (three feeds into one lab) and the extra station laboratories of the second balance pass. The tests of those chains ran against the content before the rule for a while.
 
 | Measure (seed 20261121, 6 s per action) | Before ADR 0031 | After |
 | --- | --- | --- |
@@ -138,3 +138,53 @@ What it does differently:
 | Victory Relaxed, Hard | not measured | 59:43, 66:58 |
 
 The win moved about 17 minutes later on Normal. The scripted player now starts with nothing built, so its machines (and the noise that fills the alert meter, ADR 0008) come later and so do the waves: the first warning is at 24:36 instead of 15:26. The workbench was made faster than its first draft (1 s recipes, 2 s with the ship multiplier) because the first draft left the factory to minute 10 and the reactor ran dry. Level 2's start ingots went from 30 to 60 because its ice loop now has a depot of its own.
+
+## Rebalance after the construction rework (2026-11-23)
+Goal set by the owner: bring Normal back to about 50 minutes (it was 66:08 after ADR 0031 and ADR 0032), Relaxed about 45 and Hard about 55, keep Brutal unwinnable but close, keep the feeling of starting from nothing, and play the whole research tree again.
+
+### Where the time was lost (Normal, seed 20261121, 6 s per action, content before the change)
+| Finding | Evidence |
+| --- | --- |
+| **Ingots were the bottleneck for the first 25 minutes.** The only factory is one ore port, one smelter (2 s per ingot, 30 a minute) feeding both the depot and the plate assembler, and everything that is built before the first laboratory costs ingots (station core 36, defence module 16, turrets, walls, repair bays, bays 24 each, reactors, cargo). | The hold held 1 to 15 ingots from minute 12 to 22; the ship defence goal alone took 10 minutes (12:00 to 22:12) with plates piling up to 57. |
+| **The laboratory came at 26:29.** Defence, station and cargo had to be paid first. | Wave 1 warning 24:31, first research 31:03. |
+| **The waves came later too.** The alert meter fills with the noise of the machines (signature above 8), so a slower build-up moves the first warning (15:26 before the rework, 24:31 after) and with it wave 10 (55:12). | Wave 10 survived at 55:12, the jump drive only at 63:37, so the jump research was the last thing the win waited for. |
+| **Research ran at about 20 plates a minute** (ore ports are served in the order the machines were built, so the starter lines ate the ore before the lab line did). | logistics (90 plates) took 4 minutes, carbon drilling started 7 minutes after it ended (the second lab was built in between), drone automation at 50:30. |
+| Bot only: the stock policy switched the starter smelter off at 70 ingots even when plates (made from its ingots) were short, so builds that need plates from the hold could wait for ever once the full tree started building. | Found while playing the new late plan (`StationLabs` stuck for 20 minutes with 241 ore and 75 ingots in the hold). |
+
+### What was changed
+Content, one number: **`core:smelt_iron` takes 1 s instead of 2 s** (a smelter makes 60 ingots a minute, an iron ore port plus smelter plus depot is a real source of ingots). Everything else is as it was: the workbench (2 s per ingot, 2 s per plate on the ship), the bay price (24 ingots and 8 plates), the starter factory, the research costs and times, the deposits, the wave table and the grace period.
+
+Why this and not the other levers tried (same bot, Normal, three seeds):
+| Variant | Normal (20261121, 20261120, 777) | Verdict |
+| --- | --- | --- |
+| Before | 66:08, 57:54, 56:34 (Relaxed 59:46 to 54:17, Hard 64:44 to 61:31, one Hard loss) | the starting point |
+| Smelting 1 s and plates 1 s | 48:42, 54:04, 52:28 | the plate assembler is not the bottleneck; it also doubles every lab line, which spreads the seeds (one at 54) |
+| **Smelting 1 s** | 49:04, 48:58, 50:42 (then 48:45, 48:59, 48:53 with the bot changes below) | chosen: one number, the ingot source is what the first 25 minutes lack |
+| Smelting 1 s and home iron density 150 | 50:02, 52:27, 50:25 (jump drive at minute 37) | more ore buys nothing: the win is now bound by the wave clock, not by research |
+
+With the 1 s smelter the alert meter fills sooner (first warning 18:59 instead of 24:31), the laboratory stands at 19:04 and the jump drive at about 43 to 46. The win moved from "the research" back to "the wave clock plus the jump" as before ADR 0031. No cost, no wave number and no research cost was lowered: a human still has to build the bay, the factory, a power line, the defence and the laboratory in the same order, only the ingots arrive twice as fast.
+
+Bot, so that it plays the whole tree again:
+- **The first jump.** The win needs one jump. The expedition for the new metals takes the ship (and the noise of its machines) away from home, which holds the waves back (Relaxed on seed 777 lost seven minutes that way). The bot now makes one hop to a neighbouring system and back as soon as the drive is researched, researches plate-only nodes until the win, and goes on the expedition afterwards.
+- **Two feeds on a lab.** A laboratory has four faces on the floor plane: the plate line comes in from one, a belt along row 1 ends beside it, a belt along row 2 ends beside it, the fourth face is the next bay. The bot builds two feeds at once (raw, ingot or plate feed: port, smelter, assembler) and, for a research with a third feed (advanced plating: titanium ingots, nickel ingots, quartz), builds the third when the lab has all it needs of the first and takes that feed down.
+- **Extra station labs.** Two reactors and two more fabrication bays beside the station's defence module, each with the plate line of the ship's lab (`StationLabs`). They are built after the expedition.
+- **The science tier** (`--science`, `StructureBot.Science.cs`) is back: the electronics branch (silicon, nickel and titanium plates), then a wing per field on the station. Engineering and physics use two fabrication bays side by side (the circuit or physics science belt crosses the seam into the laboratory), biology uses one. All planar, belts only along rows and columns.
+- **Stock policy.** The starter smelter stays on while plates are short.
+
+### Measured (seed 20261121 unless noted, 6 s per action)
+| Measure | Before (after ADR 0031/0032) | After |
+| --- | --- | --- |
+| Fabrication bay, factory delivering | 2:12, 5:13 | 2:12, 5:13 (the workbench is as slow as before) |
+| Station founded, first turret loaded | 8:44, 16:45 | 8:20, 12:16 |
+| Station powered with machines | 23:18 | 15:28 |
+| Wave 1 warning | 24:31 | 18:59 |
+| Laboratory, first research | 26:29, 31:03 | 19:04, 30:43 (the defence is built while it researches) |
+| Drone automation | 52:38 | 39:44 |
+| Jump drive researched | 63:37 | 46:13 |
+| **Victory** Normal | 66:08 | 48:45 |
+| No waves, whole basic tree (17 nodes) | not played (advanced plating skipped, 15 nodes in about 2 hours) | 94:34 (advanced plating 93:06, drone automation 34:40) |
+| Science tier on rich deposits (`--science --richness=400`) | not played | complete at 377:23 (345 on the stacked layout) |
+
+The table with every preset and seed is in [difficulty](difficulty.md#rebalance-after-the-construction-rework-2026-11-23). On other seeds (Normal): seed 1 46:38, seed 2 47:36, seed 20261120 48:59; pace 0 s 48:10, 3 s 48:35, 15 s 59:22, 30 s 88:16.
+
+Caveats: the base still falls to wave 17 or 18 after the win (about minute 66 to 76 with the compressed economy; the bot then no longer researches). With the new order (expedition after the win) titanium smelting is researched at 65:19 and nickel smelting at 69:42 on that seed, close to that limit. The science mode runs without waves.

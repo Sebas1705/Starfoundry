@@ -1,38 +1,85 @@
 using Starfoundry.Sim;
+using Starfoundry.Ui;
 
 namespace Starfoundry.Balance;
 
 /// <summary>The second half of the plan: new metals, plates of them, drone bays and the rest of the research.</summary>
 public sealed partial class StructureBot
 {
-    private static readonly Feed TiRaw = new(FeedKind.Raw, "core:titanium_ore_unloader");
-    private static readonly Feed NiRaw = new(FeedKind.Raw, "core:nickel_ore_unloader");
-    private static readonly Feed QuartzRaw = new(FeedKind.Raw, "core:quartz_unloader");
-    private static readonly Feed TiIngots = new(FeedKind.Ingots, "core:titanium_ore_unloader", "core:smelt_titanium");
-    private static readonly Feed NiIngots = new(FeedKind.Ingots, "core:nickel_ore_unloader", "core:smelt_nickel");
-    private static readonly Feed TiPlates = new(FeedKind.Plates, "core:titanium_ore_unloader", "core:smelt_titanium", "core:titanium_plate");
+    private static readonly Feed CarbonRaw = new(FeedKind.Raw, "core:carbon_unloader", "core:carbon");
+    private static readonly Feed TiRaw = new(FeedKind.Raw, "core:titanium_ore_unloader", "core:titanium_ore");
+    private static readonly Feed NiRaw = new(FeedKind.Raw, "core:nickel_ore_unloader", "core:nickel_ore");
+    private static readonly Feed QuartzRaw = new(FeedKind.Raw, "core:quartz_unloader", "core:quartz");
+    private static readonly Feed TiIngots = new(FeedKind.Ingots, "core:titanium_ore_unloader", "core:titanium_ingot", "core:smelt_titanium");
+    private static readonly Feed NiIngots = new(FeedKind.Ingots, "core:nickel_ore_unloader", "core:nickel_ingot", "core:smelt_nickel");
+    private static readonly Feed SiliconIngots = new(FeedKind.Ingots, "core:quartz_unloader", "core:silicon", "core:smelt_silicon");
+    private static readonly Feed TiPlates = new(FeedKind.Plates, "core:titanium_ore_unloader", "core:titanium_plate", "core:smelt_titanium", "core:titanium_plate");
+    private static readonly Feed NiPlates = new(FeedKind.Plates, "core:nickel_ore_unloader", "core:nickel_plate", "core:smelt_nickel", "core:nickel_plate");
+
+    private static readonly string[] PlateNodes =
+    {
+        "core:turret_calibration", "core:reinforced_plating", "core:rapid_loader", "core:ship_cannon", "core:ship_armor", "core:field_repair",
+        "core:overclock", "core:alloy_refinement", "core:nanite_repair",
+    };
+
+    private bool WinReached => _seen.Contains(VictoryMilestone);
 
     private void PlayRemainder()
     {
         MoreCargoUpTo(4);
+        // The win needs one jump. The ship takes its machines (and their noise) with it, so a long trip would hold the waves back and the win with
+        // them: one hop to a neighbour and home again, then the expedition for the new metals waits for the win (or follows it).
+        FirstJump();
+        // Until the win the base is needed at home: the nodes that cost only plates, which also make the defence stronger.
+        foreach (var id in PlateNodes)
+        {
+            if (WinReached) break;
+            ResearchNow(id);
+            Reinforce();
+        }
         Goal("prepare the first expedition");
-        // One expedition: the jump itself (the win needs a second system) and the ore of the two metal smelting nodes (40 each) and quartz.
+        // One expedition: the ore of the two metal smelting nodes (40 each), the same again for the ingots of advanced plating, and its quartz.
         if (!Expedition("titanium ore, nickel ore and quartz", ("core:titanium_ore", 100), ("core:nickel_ore", 100), ("core:quartz", 32)))
             Stuck("the expedition did not bring everything");
         ResearchNow("core:titanium_smelting", TiRaw);
         ResearchNow("core:nickel_smelting", NiRaw);
         Reinforce();
-        // After the win the plan keeps researching what the lab bay's single raw feed (or none) can supply: the plate-only nodes and the carbon ones.
-        // The metal and quartz chains (titanium, nickel, advanced plating, the science tier) need lab faces the floor layout does not have; they are
-        // not played (docs/prototypes/structure-bot.md).
+        // Drones mine the iron now, so ore is no longer the limit and the plate lines are: more laboratories on the station.
+        StationLabs();
         FetchCarbon(80, "carbon for advanced logistics");
-        ResearchNow("core:advanced_logistics", new Feed(FeedKind.Raw, "core:carbon_unloader"));
-        foreach (var id in new[] { "core:turret_calibration", "core:reinforced_plating", "core:rapid_loader", "core:ship_cannon", "core:ship_armor", "core:field_repair", "core:overclock", "core:alloy_refinement", "core:nanite_repair" })
+        ResearchNow("core:advanced_logistics", CarbonRaw);
+        foreach (var id in PlateNodes)
         {
             ResearchNow(id);
             Reinforce();
         }
+        // Advanced plating: titanium and nickel ingots and quartz, three feeds on the two free faces of the lab (the third waits for the first to be done).
+        ResearchNow("core:advanced_plating", TiIngots, NiIngots, QuartzRaw);
+        if (Science) PlayScience();
         LaserResearch();
+    }
+
+    /// <summary>The first jump of the game (a neighbouring system and back), done as soon as the drive is researched when the win still waits for it.</summary>
+    private void FirstJump()
+    {
+        if (GameOutcome.HasExplored(Net) || WinReached || !Net.HasAbility(Ability.Jump)) return;
+        Goal("first jump: a neighbouring system and back (the win needs one)");
+        WaitUntil(() => !WaveSoon(60), 240);
+        WaitUntil(() => Net.EnemyCount == 0, 180);
+        if (Hydrogen < 40 && !_refuelling) { Refuel(50); WaitUntil(() => Hydrogen >= 35, 240); }
+        if (Have("core:carbon") < JumpCarbon * 2 + 5) Gather(Item("core:carbon"), JumpCarbon * 2 + 15, "the first jump");
+        int next = Net.Galaxy!.Systems[0].Lanes.FirstOrDefault(n => Net.IsSystemKnown(n), -1);
+        if (next < 0) { Stuck("no neighbouring system on the star map for the first jump"); return; }
+        _inExpedition = true;
+        try
+        {
+            if (!JumpTo(next)) return;
+            ScanHere();
+            if (PathTo(CurrentSystem, 0) is { } home) JumpPath(home);
+            _mineTarget = -1;
+            GoHome();
+        }
+        finally { _inExpedition = false; }
     }
 
     /// <summary>
@@ -45,23 +92,23 @@ public sealed partial class StructureBot
     {
         ResearchNow("core:laser_focusing");
         FetchCarbon(24, "carbon for the beam collimator");
-        ResearchNow("core:beam_collimator", new Feed(FeedKind.Raw, "core:carbon_unloader"));
+        ResearchNow("core:beam_collimator", CarbonRaw);
     }
 
     private bool _stationLabsBuilt;
 
     /// <summary>
-    /// With drones on the iron, ore is no longer the limit: a laboratory's plate line makes at most 30 plates a minute (one assembler),
-    /// so the station gets two reactors and two more labs with their own plate lines (the same two smelter rows and assembler as the ship's).
+    /// With drones on the iron, ore is no longer the limit: a laboratory's plate line makes at most 30 plates a minute (one assembler), so the
+    /// station gets two reactors and more laboratories, each in a fabrication bay of its own with the same two smelter rows and assembler as the
+    /// ship's lab. The bays lie side by side along x beside the station's defence module.
     /// </summary>
     private void StationLabs()
     {
-        if (_stationLabsBuilt || _station < 0 || !Net.StructureExists(_station) || StationLabLines <= 0) return;
-        // (A station lab needs a bay of its own: not part of the default plan, see StationLabLines.)
+        if (_stationLabsBuilt || _station < 0 || !Net.StructureExists(_station) || StationLabLines <= 0 || !_dronesOnIron) return;
         _stationLabsBuilt = true;
-        Goal("more laboratories on the station: a reactor and plate lines");
+        Goal("more laboratories on the station: reactors and bays with plate lines");
         FetchCarbon(18, "carbon for two more station reactors");
-        foreach (var (x, y, z) in new[] { (-1, 0, 0), (-1, -1, 0) })
+        foreach (var (x, y, z) in new[] { (1, -1, 0), (2, -1, 0) })
             if (Need(new[] { new ItemStack(Item("core:carbon"), 8) }, "carbon for a station reactor")) PlaceModule(_station, x, y, z, ModuleKind.Reactor);
         for (int i = 0; i < StationLabLines; i++)
         {
@@ -72,7 +119,7 @@ public sealed partial class StructureBot
     }
 
     /// <summary>Plate lines with a laboratory each that the bot builds on the station workshop once drones mine the iron.</summary>
-    public int StationLabLines { get; init; } = 1;
+    public int StationLabLines { get; init; } = 2;
 
     private void MoreCargoUpTo(int total)
     {
