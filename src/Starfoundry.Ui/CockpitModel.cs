@@ -41,6 +41,8 @@ public enum CockpitAction
     PickTarget,
     /// <summary>The map zoom buttons: <c>Arg</c> 1 zooms in, -1 out; 0 resets the view.</summary>
     MapZoom,
+    /// <summary>The next HUD detail level (minimal, standard, detailed).</summary>
+    CycleHudDetail,
 }
 
 /// <summary>A clickable rectangle of a display, in the pixels of that display's texture.</summary>

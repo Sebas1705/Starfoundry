@@ -22,6 +22,7 @@ public sealed class CockpitSnapshot
     public bool Autopilot, DockNear, DockAssist, DockReady, Docked, Jumping, Rebuilding, HasReactor, ScanReady = true, HasGalaxy;
     public int DockDistance, JumpSeconds;
     public HudMode HudMode;
+    public HudDetail HudDetail = HudDetail.Standard;
     public string SelectedName = "";
     /// <summary>Everything the navigation page can show on its map (positions in the ship's frame), and the target the pilot picked, if any.</summary>
     public IReadOnlyList<NavTarget> MapTargets = Array.Empty<NavTarget>();
@@ -207,6 +208,12 @@ public partial class CockpitScreenView : Control
         string mode = Loc.T("cp.hud") + " " + Loc.T("cp.hud." + HudModes.Id(Snapshot.HudMode));
         float w = Math.Min(size.X * 0.5f, Measure(mode, 13) + 24f);
         Button(new Rect2(size.X - w - 8, 7, w, 26), mode, null, CockpitAction.CycleHudMode, 0, Snapshot.HudMode != HudMode.Full, true, Cyan, 13);
+        // The detail level (minimal, standard, detailed) has its own button beside the mode one, when the title leaves room for it.
+        string detail = Loc.T("cp.detail") + " " + Loc.T("hud.detail." + HudDetails.Id(Snapshot.HudDetail));
+        float dw = Measure(detail, 13) + 24f;
+        float dx = size.X - w - 8f - 6f - dw;
+        if (dx > 40f + Measure(PageName(page), 22) + 8f)
+            Button(new Rect2(dx, 7, dw, 26), detail, null, CockpitAction.CycleHudDetail, 0, Snapshot.HudDetail != HudDetail.Standard, true, Cyan, 13);
     }
 
     private void DrawTabs(Vector2 size)

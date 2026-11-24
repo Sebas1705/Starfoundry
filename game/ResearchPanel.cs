@@ -50,6 +50,7 @@ public partial class ResearchPanel : Control
     {
         _entries = entries;
         Visible = false;
+        UiFx.Present(this); // fades and grows in instead of popping
         MouseFilter = MouseFilterEnum.Stop;
     }
 
@@ -188,6 +189,7 @@ public partial class ResearchPanel : Control
     /// <summary>Shows the panel with the most useful node selected and focused.</summary>
     public void Open()
     {
+        UiFx.Cancel(this);
         Visible = true;
         _detailSignature = "";
         _selected = -1;
@@ -200,7 +202,7 @@ public partial class ResearchPanel : Control
         if (_tree.Node(pick) is { } b) b.CallDeferred(Control.MethodName.GrabFocus);
     }
 
-    public void Close() => Visible = false;
+    public void Close() => UiFx.Dismiss(this);
 
     /// <summary>Selects a node and shows its details (a focused or hovered node calls this too).</summary>
     public void Select(int node)

@@ -24,7 +24,7 @@ public partial class Play
     private readonly Dictionary<Control, float> _hudFade = new();
 
     /// <summary>The headless screenshot flags render frames as fast as they can, so a fade would be caught half way: they snap instead.</summary>
-    private readonly bool _hudSnap = Array.Exists(OS.GetCmdlineUserArgs(), a => a.Contains("-shot"));
+    private readonly bool _hudSnap = Array.Exists(OS.GetCmdlineUserArgs(), a => a.Contains("-shot") || a.StartsWith("--hud-sweep=") || a.StartsWith("--ui-audit")); // the audit runs frames faster than a fade lasts, so it snaps too
 
     /// <summary>True while the player sits in the pilot seat (or the world has no walking): the ship's data is what the HUD is about.</summary>
     private bool ShipHudContext => !Standing;
@@ -61,7 +61,7 @@ public partial class Play
     /// <summary>The hull of the ship as a text and a bar (worlds with threats only: without them nothing can hurt it).</summary>
     private void UpdateHullRow(PlayerInfo p)
     {
-        _hullBox.Visible = Net.ThreatActive && !_demo;
+        _hullBox.Visible = Net.ThreatActive && !_demo && VitalRows.HasFlag(HudRow.Hull);
         if (!_hullBox.Visible) return;
         int max = Math.Max(1, Net.ShipMaxHull);
         float f = Math.Clamp(p.Hull / (float)max, 0f, 1f);
@@ -108,16 +108,22 @@ public partial class Play
         bool info = _detailsOpen;
 
         var layers = HudLayersNow; // the HUD mode (F3): seated, the cockpit-only and minimal modes leave the cards to the cockpit displays
-        bool shipCard = hud && (info || (layers.Cards && (threat || (ShipHudContext && !building && !aiming))));
+        // The detail level (Shift+F3) says which groups the context shows (HudDetails): the ship card, the hold, the tool, the flight readout, the target card.
+        bool vitals = GroupOn(HudGroup.Vitals);
+        bool shipCard = hud && (info || (layers.Cards && (threat || (vitals && !aiming))));
+        bool holdOn = hud && (info || (layers.Cards && GroupOn(HudGroup.Hold) && !aiming));
         _statusTitle.Text = L(info ? "hud.card.info" : "hud.card.ship").ToUpperInvariant();
-        _holdItems.Visible = shipCard;
+        _holdItems.Visible = holdOn;
         _toolLabel.Visible = building;
 
         bool statusContent = _statusPanel.Visible;
         Fade(_statusPanel, shipCard, statusContent);
         bool flightClear = !shipCard || !new Rect2(_flightPanel.Position, _flightPanel.Size).Intersects(new Rect2(_statusPanel.Position, _statusPanel.Size));
-        Fade(_flightPanel, hud && layers.FlightReadout && ShipHudContext && !building && !aiming && flightClear, _flightPanel.Visible);
-        Fade(_toolbar, shipCard || building, true);
+        Fade(_flightPanel, hud && layers.FlightReadout && ShipHudContext && GroupOn(HudGroup.Flight) && !building && !aiming && flightClear, _flightPanel.Visible);
+        Fade(_toolbar, holdOn || building, true);
+        // The target, weapons and objective rows stay out of the way of the aim card and of the full status block.
+        bool teleWanted = hud && layers.Cards && !aiming && !building && !info;
+        Fade(_teleCard, teleWanted, _teleHas);
         Fade(_objectivesPanel, hud && info, _objectivesPanel.Visible && (_objectivesText.Visible || _goalsBox.Visible || _goalLabel.Visible));
         Fade(_targetPanel, true, _targetPanel.Visible);
         Fade(_tooltipPanel, true, _tooltipPanel.Visible, instantOut: true);

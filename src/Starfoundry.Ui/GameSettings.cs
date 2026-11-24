@@ -43,6 +43,15 @@ public sealed record GameSettings
     /// <summary>How much of the outside HUD is drawn (F3 cycles it; see <see cref="Starfoundry.Ui.HudMode"/>).</summary>
     public HudMode HudMode { get; init; } = HudModes.Default;
 
+    /// <summary>How rich the HUD is on top of the mode: minimal, standard (default) or detailed (the cockpit button and the settings page change it; see <see cref="Starfoundry.Ui.HudDetail"/>).</summary>
+    public HudDetail HudDetail { get; init; } = HudDetails.Default;
+
+    /// <summary>A soft click the moment an interface button is pressed (not when it is released).</summary>
+    public bool UiClickSound { get; init; } = true;
+
+    /// <summary>A very quiet tick when the pointer moves onto a button.</summary>
+    public bool UiHoverSound { get; init; } = true;
+
     /// <summary>Piloting turns the ship a little behind the mouse (a short angular inertia) and eases the roll keys; off, the ship follows the mouse at once.</summary>
     public bool SmoothLook { get; init; } = true;
 
@@ -75,6 +84,7 @@ public sealed record GameSettings
         Fov = Clamp(Fov, MinFov, MaxFov, DefaultFov),
         HudMode = Enum.IsDefined(HudMode) ? HudMode : HudModes.Default,
         ShipInertia = Enum.IsDefined(ShipInertia) ? ShipInertia : ShipInertias.Default,
+        HudDetail = Enum.IsDefined(HudDetail) ? HudDetail : HudDetails.Default,
         MasterVolume = Clamp(MasterVolume, 0f, 1f, 0.8f),
         SfxVolume = Math.Clamp(SfxVolume, 0, 100),
         AmbienceVolume = Math.Clamp(AmbienceVolume, 0, 100),
@@ -101,6 +111,9 @@ public sealed record GameSettings
             new KeyValuePair<string, string>("invert_mouse_y", s.InvertMouseY ? "true" : "false"),
             new KeyValuePair<string, string>("aim_assist", s.AimAssist ? "true" : "false"),
             new KeyValuePair<string, string>("hud_mode", HudModes.Id(s.HudMode)),
+            new KeyValuePair<string, string>("hud_detail", HudDetails.Id(s.HudDetail)),
+            new KeyValuePair<string, string>("ui_click_sound", s.UiClickSound ? "true" : "false"),
+            new KeyValuePair<string, string>("ui_hover_sound", s.UiHoverSound ? "true" : "false"),
             new KeyValuePair<string, string>("smooth_look", s.SmoothLook ? "true" : "false"),
             new KeyValuePair<string, string>("ship_inertia", ShipInertias.Id(s.ShipInertia)),
             new KeyValuePair<string, string>("flight_assist", s.FlightAssist ? "true" : "false"),
@@ -142,6 +155,9 @@ public sealed record GameSettings
                 case "smooth_look" when bool.TryParse(value, out bool sl): s = s with { SmoothLook = sl }; oldSmooth = sl; break;
                 case "ship_inertia" when ShipInertias.TryParse(value, out var si): s = s with { ShipInertia = si }; sawInertia = true; break;
                 case "flight_assist" when bool.TryParse(value, out bool fa): s = s with { FlightAssist = fa }; break;
+                case "hud_detail" when HudDetails.TryParse(value, out var hd): s = s with { HudDetail = hd }; break;
+                case "ui_click_sound" when bool.TryParse(value, out bool uc): s = s with { UiClickSound = uc }; break;
+                case "ui_hover_sound" when bool.TryParse(value, out bool uh): s = s with { UiHoverSound = uh }; break;
                 case "fullscreen" when bool.TryParse(value, out bool fs): s = s with { Fullscreen = fs }; break;
                 case "low_textures" when bool.TryParse(value, out bool lt): s = s with { LowTextures = lt }; break;
                 case "blender_cockpit" when bool.TryParse(value, out bool bc): s = s with { BlenderCockpit = bc }; break;

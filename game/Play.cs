@@ -111,6 +111,7 @@ public partial class Play : Node3D
     public override void _Ready()
     {
         var args = OS.GetCmdlineUserArgs();
+        UiFx.Install(this); // hover, press and click feedback for every button of every screen
         InitAudio(args);
         _threatDemo = args.Contains("--threat-demo");
         _demo = args.Contains("--demo") || args.Contains("--explore-demo") || _threatDemo;
@@ -211,7 +212,7 @@ public partial class Play : Node3D
         BuildDroneVisuals();
         RebuildGeometry();
         if (_stationDemo) StationDemoSelect(args);
-        if (!_demo && !_stationDemo && !_structuresShot && Launch.MenuShotPath is null && _uiShotPath is null && !_uiAudit && _layoutShotPath is null && _keysShotPath is null && _cockpitShotPath is null && _turnShotPath is null) StartPlayLog();
+        if (!_demo && !_stationDemo && !_structuresShot && Launch.MenuShotPath is null && _uiShotPath is null && !_uiAudit && _layoutShotPath is null && _keysShotPath is null && _cockpitShotPath is null && _turnShotPath is null && !args.Any(a => a.StartsWith("--hud-sweep="))) StartPlayLog();
         if (_uiShotPath is not null || _uiAudit) UiShotSetup(args);
         if (_uiAudit) UiAuditSetup(args);
         if (_layoutShotPath is not null) LayoutShotSetup(args);

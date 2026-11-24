@@ -21,6 +21,8 @@ public enum Sfx
     RockThud, MineBeep, SalvageChime, BoostWhoosh,
     // Music (loops)
     MusicCalm, MusicTense,
+    // UI, added later (kept at the end so the table order of the others does not move)
+    UiHover,
 }
 
 /// <summary>The audio buses of the game; every one sends to Master.</summary>
@@ -81,6 +83,8 @@ public static class SoundCatalog
 
         new(Sfx.MusicCalm, AudioBus.Ambience, true, 0, -14f, 0.8f),
         new(Sfx.MusicTense, AudioBus.Ambience, true, 0, -14f, 0.8f),
+
+        new(Sfx.UiHover, AudioBus.Ui, false, 0.03, -22f),
     };
 
     public static IReadOnlyList<SoundSpec> All => Specs;

@@ -106,7 +106,8 @@ void fragment() {
 
         // Integrity of the ship.
         int ship = ShipStruct;
-        _integrityBox.Visible = structures && ship >= 0 && Net.ThreatActive && Net.GetStructure(ship).Modules.Count > 0;
+        _integrityBox.Visible = structures && ship >= 0 && Net.ThreatActive && Net.GetStructure(ship).Modules.Count > 0
+            && (VitalRows.HasFlag(HudRow.Integrity) || Net.StructureHpFraction(ship) < 1000); // the minimal level shows it only once something is damaged
         if (_integrityBox.Visible)
         {
             int permille = Net.StructureHpFraction(ship);
