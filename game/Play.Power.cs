@@ -57,6 +57,9 @@ public partial class Play
         _powerRow.Set("status:power", st.SatisfactionPermille / 1000f, powered ? $"{st.Production}/{st.Demand}" : "-",
             powered ? colour : BadColor,
             powered ? L("hud.power", st.Production, st.Demand, PowerFormat.Percent(st.SatisfactionPermille)) : L("hud.power.noReactor"));
+        var vital = VitalRows;
+        _powerRow.Visible = vital.HasFlag(HudRow.PowerGauge) || band != PowerBand.Full || !powered; // the minimal level shows the gauge only when power is short
+        _fuelRow.Visible = vital.HasFlag(HudRow.FuelTime);
         long left = PowerFormat.TimeLeftTicks(st, BurnInterval);
         var fuelColour = left < PowerFormat.LowFuelSeconds * Units.TicksPerSecond ? colour == GoodColor ? PowerAmber : colour : UiTheme.Text;
         _fuelRow.SetText("item:core:hydrogen", left <= 0 ? $"{st.HydrogenInHold}  -" : $"{st.HydrogenInHold}  ·  {PowerFormat.Clock(left)}", left <= 0 ? BadColor : fuelColour, PowerFormat.FuelLine(st, BurnInterval));

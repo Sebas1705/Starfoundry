@@ -19,6 +19,7 @@ public partial class StoryDialog : Control
     public StoryDialog()
     {
         Visible = false;
+        UiFx.Present(this); // fades and grows in instead of popping
         MouseFilter = MouseFilterEnum.Stop;
     }
 

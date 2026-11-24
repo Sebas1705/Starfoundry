@@ -81,6 +81,7 @@ public partial class BuildMenu : Control
         _entries = entries;
         _view = view;
         Visible = false;
+        UiFx.Present(this); // fades and grows in instead of popping
         MouseFilter = MouseFilterEnum.Ignore;
     }
 
@@ -176,6 +177,7 @@ public partial class BuildMenu : Control
     public void Open(BuildCategory? tab = null)
     {
         if (tab is { } t) _tab = t;
+        UiFx.Cancel(this);
         Visible = true;
         _signature = "";
         _detailId = null;
@@ -183,7 +185,7 @@ public partial class BuildMenu : Control
         FocusFirst();
     }
 
-    public void Close() => Visible = false;
+    public void Close() => UiFx.Dismiss(this);
 
     public void SetTab(BuildCategory tab)
     {

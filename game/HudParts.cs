@@ -50,30 +50,63 @@ public partial class HoldStrip : HBoxContainer
     private readonly IconRect _icon = new("status:cargo", 20, null, tooltip: false);
     private readonly GaugeBar _bar = new(96f, 10f);
     private readonly Label _total = new() { MouseFilter = MouseFilterEnum.Ignore, VerticalAlignment = VerticalAlignment.Center };
+    private readonly Label _note = new() { MouseFilter = MouseFilterEnum.Pass, VerticalAlignment = VerticalAlignment.Center, Visible = false };
     private readonly HBoxContainer _items = new() { MouseFilter = MouseFilterEnum.Pass };
     private readonly Dictionary<string, IconCount> _counts = new();
+    private readonly CounterTween _usedTween = new();
     private string _signature = "";
+    private int _capacity;
+    private bool _full, _colourInit;
 
     public HoldStrip()
     {
         MouseFilter = MouseFilterEnum.Pass;
         AddThemeConstantOverride("separation", 8);
         _total.AddThemeFontSizeOverride("font_size", UiTheme.Body);
+        _note.AddThemeFontSizeOverride("font_size", UiTheme.Small);
+        _note.AddThemeColorOverride("font_color", UiTheme.Muted);
         _items.AddThemeConstantOverride("separation", 12);
         AddChild(_icon);
         AddChild(_bar);
         AddChild(_total);
+        AddChild(_note);
         AddChild(_items);
+        SetProcess(false);
     }
 
-    public void Set(int used, int capacity, bool full, bool nearlyFull, IReadOnlyList<(string Icon, int Count)> items)
+    private void ShowTotal()
+    {
+        string text = _usedTween.Value + "/" + _capacity;
+        if (_total.Text != text) _total.Text = text;
+    }
+
+    public override void _Process(double delta)
+    {
+        if (!_usedTween.Step((float)delta)) SetProcess(false);
+        ShowTotal();
+    }
+
+    /// <summary>
+    /// Shows the hold. <paramref name="note"/> is a short line after the total (the forecast and the income, empty when there is none); the numbers count up or
+    /// down instead of jumping, and nothing is touched when nothing changed.
+    /// </summary>
+    public void Set(int used, int capacity, bool full, bool nearlyFull, IReadOnlyList<(string Icon, int Count)> items, string note = "", string noteTip = "")
     {
         var colour = full ? UiTheme.Bad : nearlyFull ? UiTheme.Warn : UiTheme.Good;
         _bar.Set(capacity <= 0 ? 0f : used / (float)capacity, colour);
-        _total.Text = $"{used}/{capacity}";
-        _total.AddThemeColorOverride("font_color", full ? UiTheme.Bad : UiTheme.Text);
-        TooltipText = Loc.T("hud.hold", used, capacity);
+        _capacity = capacity;
+        _usedTween.Set(used, UiFx.Instant);
+        SetProcess(!UiFx.Instant && _usedTween.Value != used);
+        ShowTotal();
+        if (_full != full || !_colourInit) { _colourInit = true; _full = full; _total.AddThemeColorOverride("font_color", full ? UiTheme.Bad : UiTheme.Text); }
+        string tip = Loc.T("hud.hold", used, capacity);
+        if (TooltipText != tip) TooltipText = tip;
         _icon.Set("status:cargo", colour);
+
+        bool hasNote = note.Length > 0;
+        if (_note.Visible != hasNote) _note.Visible = hasNote;
+        if (hasNote && _note.Text != note) _note.Text = note;
+        if (_note.TooltipText != noteTip) _note.TooltipText = noteTip;
 
         string signature = string.Join(",", System.Linq.Enumerable.Select(items, i => i.Icon));
         if (signature != _signature)
@@ -83,7 +116,7 @@ public partial class HoldStrip : HBoxContainer
             _counts.Clear();
             foreach (var (icon, _) in items)
             {
-                var ic = new IconCount(icon, 20);
+                var ic = new IconCount(icon, 20) { Animate = true };
                 _counts[icon] = ic;
                 _items.AddChild(ic);
             }

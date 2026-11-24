@@ -115,7 +115,7 @@ public partial class Play
     private void UpdateFlightReadout()
     {
         bool show = !_demo && !Overview && Net.HasPlayer(Player);
-        _velMarkers.Visible = show && Piloting && HudLayersNow.Markers; // the cockpit-only and minimal modes leave the velocity markers to the flight display
+        _velMarkers.Visible = show && Piloting && MarkersWanted; // the cockpit-only and minimal modes leave the velocity markers to the flight display
         if (!show) return;
         string cur = _speedCps.ToString("F1", Loc.Culture), top = _topCps.ToString("F1", Loc.Culture);
         _flightSpeed.SetText("status:speed", L("hud.flightSpeedOf", cur, top), UiTheme.Text, Icons.Name("status:speed"));

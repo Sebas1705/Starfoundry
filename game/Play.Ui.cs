@@ -172,6 +172,7 @@ public partial class Play
         statusBox.AddChild(_statusLabel);
         BuildPowerBox(statusBox);
         BuildDefenceUi(statusBox);
+        BuildHudDetailUi(statusBox);
         _statusPanel = MakePanel(statusBox);
         _statusPanel.MouseFilter = Control.MouseFilterEnum.Ignore;
 
@@ -298,6 +299,7 @@ public partial class Play
         insp.AddChild(inspButtons);
         _inspector = MakePanel(insp);
         _inspector.Visible = false;
+        UiFx.Present(_inspector);
 
         // Help overlay.
         _helpText = MakeText(14);
@@ -308,6 +310,7 @@ public partial class Play
         _helpPanel.AddThemeStyleboxOverride("panel", Box(new Color(0.04f, 0.06f, 0.1f, 0.97f), PanelEdge, 8, 10f)); // opaque: the HUD must not show through the text
         _helpPanel.Visible = false;
         _helpPanel.SetMeta(UiAudit.ModalMeta, true);
+        UiFx.Present(_helpPanel);
 
         _crosshair = new Crosshair { Visible = false };
         _uiRoot.AddChild(_crosshair);
@@ -468,10 +471,21 @@ public partial class Play
         }
 
         var size = GetViewport().GetVisibleRect().Size;
-        UpdateHold();
-        UpdateStatus();
+        ResolveHudContext(dt); // the context, the level's groups and rows, and whether the cards refresh this frame
+        _satCache.Clear(); // read again each frame by the machine models
+        _hudAccum += dt;
+        if (_hudDue)
+        {
+            // The cards refresh at most 15 times a second, at once when what they show changes (ResolveHudContext); the setters skip unchanged values.
+            float step = _hudAccum;
+            _hudAccum = 0f;
+            UpdateHold();
+            UpdateStatus();
+            UpdateObjectivesPanel();
+            UpdateShipExtras();
+            UpdateTelemetry(step);
+        }
         UpdateButtons();
-        UpdateObjectivesPanel();
         UpdateInspector();
         UpdateTarget();
         UpdateFlight();
@@ -506,7 +520,11 @@ public partial class Play
         _flightPanel.Visible = show;
         if (!show) return;
         _flightFrame.Text = L("hud.frame").ToUpperInvariant();
-        _navGizmo.Set(NavFrame.Project(HudCamera()));
+        // The minimal level keeps the speed number only; the gizmo and the throttle gauge come back at the standard one.
+        bool gizmo = _hudRows.HasFlag(HudRow.VelocityGizmo) || !_hudGroups.HasFlag(HudGroup.Flight);
+        _flightFrame.Visible = _navGizmo.Visible = gizmo;
+        _speedGauge.Visible = _hudRows.HasFlag(HudRow.ThrottleGauge) || !_hudGroups.HasFlag(HudGroup.Flight);
+        if (gizmo) _navGizmo.Set(NavFrame.Project(HudCamera()));
         UpdateFlightReadout(); // the speed against the engines' top speed, the throttle gauge and the velocity markers (Play.FlightFeel.cs)
     }
 
@@ -515,7 +533,7 @@ public partial class Play
     /// <summary>Markers for the selected deposit, the nearest enemy and the base (the nearest cluster of machines, else the anchor).</summary>
     private void UpdateMarkers(Vector2 size)
     {
-        _markers.Visible = !_demo && !Overview && Net.HasPlayer(Player) && HudLayersNow.Markers;
+        _markers.Visible = !_demo && !Overview && Net.HasPlayer(Player) && MarkersWanted;
         if (!_markers.Visible) return;
 
         var basis = _camera.GlobalTransform.Basis;
@@ -583,15 +601,16 @@ public partial class Play
         }
 
         int system = Net.CurrentSystem(Player);
-        EnemyInfo? nearest = null;
-        float best = float.MaxValue;
+        // The nearest threat gets a marker; the detailed level marks the three nearest (the arrows say which way to turn for each).
+        var threats = new List<(float D, EnemyInfo E)>();
         foreach (var en in Net.Enemies())
         {
             if (system >= 0 && en.System != system) continue;
-            float d = (new Vector3(en.X, en.Y, en.Z) / CellUnits - eye).LengthSquared();
-            if (d < best) { best = d; nearest = en; }
+            threats.Add(((new Vector3(en.X, en.Y, en.Z) / CellUnits - eye).LengthSquared(), en));
         }
-        if (nearest is { } e) Add(Loc.Name("enemy", _content.Enemies[e.Type].Id), EnemyMarkerColor, new Vector3(e.X, e.Y, e.Z) / CellUnits, 3f, null, 3, IconCatalog.ForEnemy(_content.Enemies[e.Type].Id));
+        threats.Sort((a, b) => a.D.CompareTo(b.D));
+        foreach (var (_, e) in threats.Take(HudDetails.ThreatArrows(CurrentHudDetail)))
+            Add(Loc.Name("enemy", _content.Enemies[e.Type].Id), EnemyMarkerColor, new Vector3(e.X, e.Y, e.Z) / CellUnits, 3f, null, 3, IconCatalog.ForEnemy(_content.Enemies[e.Type].Id));
 
         if (_structuresOn) { StructureMarkers((l, c, t, h) => Add(l, c, t, h, null, l == L("mark.station") ? 2 : 1)); _markers.Set(items); return; }
 
@@ -629,7 +648,8 @@ public partial class Play
             int n = Net.HoldCount(Player, item.Index);
             if (n > 0) held.Add((Icons.ItemId(item.Id), n));
         }
-        _holdItems.Set(total, cap, full, HudFormat.Band(cap - total, cap) == HealthBand.Critical, held);
+        var (holdNote, holdTip) = HoldNote(total, cap);
+        _holdItems.Set(total, cap, full, HudFormat.Band(cap - total, cap) == HealthBand.Critical, held, holdNote, holdTip);
 
         // Said when it fills and again every 25 s while it stays full: a full hold silently stops mining and depots.
         double now = Time.GetTicksMsec() / 1000.0;
@@ -657,7 +677,6 @@ public partial class Play
     {
         var sb = new StringBuilder();
         var p = Net.GetPlayerInfo(Player);
-        _satCache.Clear(); // read again each frame by the machine models
         UpdatePowerHud();
         UpdateHullRow(p);
 
@@ -1349,6 +1368,7 @@ public partial class Play
         _statusPanel.Visible = _statusLabel.Visible || _powerBox.Visible || _integrityBox.Visible || _hullBox.Visible;
         _statusPanel.ResetSize();
         _statusPanel.Position = new Vector2(12, 10);
+        LayoutTelemetry(); // the target, weapons and objective card under it
 
         _actions.Position = new Vector2(12, _statusPanel.Visible ? _statusPanel.Position.Y + _statusPanel.Size.Y + 10 : 10);
 
@@ -1387,7 +1407,17 @@ public partial class Play
         _toastBox.CustomMinimumSize = new Vector2(toastWidth, 0);
         _toastBox.ResetSize();
         _toastBox.Position = new Vector2(toastCentre - toastWidth / 2f, _modeHint.Position.Y - 8 - _toastBox.Size.Y);
-
+        // The stack never reaches the centre 30 percent of the view: the oldest lines go first, and a single long line is cut to what fits.
+        float floorY = size.Y * 0.65f;
+        for (int i = 0; i < _toastRows.Length - 1 && _toastBox.Position.Y < floorY; i++)
+        {
+            if (!_toastRows[i].Visible) continue;
+            int shown = _toastRows.Count(r => r.Visible);
+            if (shown <= 1) break;
+            _toastRows[i].Visible = _toastLabels[i].Visible = false;
+            _toastBox.ResetSize();
+            _toastBox.Position = new Vector2(toastCentre - toastWidth / 2f, _modeHint.Position.Y - 8 - _toastBox.Size.Y);
+        }
         var objSize = _objectivesPanel.GetCombinedMinimumSize();
         _objectivesPanel.Position = new Vector2(size.X - objSize.X - 12, 10);
         float y = _detailsOpen && _objectivesPanel.Visible ? _objectivesPanel.Position.Y + objSize.Y + 10 : 10f; // the steps card is only there with the info panels open

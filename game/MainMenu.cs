@@ -26,6 +26,7 @@ public partial class MainMenu : Control
     public override void _Ready()
     {
         var args = OS.GetCmdlineUserArgs();
+        UiFx.Install(this); // hover, press and click feedback for every button of every screen
         if (AudioTest.Handle(GetTree(), args)) return;
         AudioManager.Enabled = !AudioFlags.IsSilent(args);
         _menuShotPath = args.FirstOrDefault(a => a.StartsWith("--menu-shot="))?["--menu-shot=".Length..];

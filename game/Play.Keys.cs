@@ -15,6 +15,8 @@ namespace Starfoundry.Game;
 public partial class Play
 {
     private KeyPanel _keyPanel = null!;
+    private bool _keyPanelBuilt;
+    private Vector2 _keyMin;
     private Rect2 _keyRect;
     private int _keyTipFrame;
     private int _damagedCount;
@@ -157,13 +159,17 @@ public partial class Play
     private void UpdateKeyPanel(Vector2 size)
     {
         _keyPanel.Visible = !_demo && !EndOpen && Net.HasPlayer(Player) && KeyPanelWanted;
-        if (!_keyPanel.Visible) { _keyRect = new Rect2(size, Vector2.Zero); return; }
+        if (!_keyPanel.Visible) { _keyRect = new Rect2(size, Vector2.Zero); _keyPanelBuilt = false; return; }
         if (++_keyTipFrame % 120 == 0) _keyPanel.Invalidate(); // costs and locks in the tooltip change slowly
         int sizeClass = size.Y < 800f ? 0 : size.Y < 1000f ? 1 : 2;
-        _keyPanel.Set(KeyHints.For(KeyStateNow()), sizeClass, KeyTip);
-        _keyPanel.ResetSize();
-        var panel = _keyPanel.GetCombinedMinimumSize();
-        _keyPanel.Size = panel;
+        bool rebuilt = false;
+        if (_hudDue || !_keyPanelBuilt)
+        {
+            rebuilt = _keyPanelBuilt = true; // the rows are worked out at most 15 times a second (and when the context changes)
+            _keyPanel.Set(HudDetails.TrimKeys(KeyHints.For(KeyStateNow()), CurrentHudDetail), sizeClass, KeyTip); // the minimal level drops the rows of the first-minutes actions
+        }
+        if (rebuilt || _keyMin == Vector2.Zero) { _keyPanel.ResetSize(); _keyMin = _keyPanel.GetCombinedMinimumSize(); _keyPanel.Size = _keyMin; }
+        var panel = _keyMin;
         _keyPanel.Position = new Vector2(size.X - panel.X - 10f, size.Y - panel.Y - 8f);
         _keyRect = new Rect2(_keyPanel.Position, panel);
     }

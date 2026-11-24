@@ -52,6 +52,7 @@ public static class SoundBank
             Sfx.BoostWhoosh => BoostWhoosh(rng),
             Sfx.MusicCalm => Music(rng, tense: false),
             Sfx.MusicTense => Music(rng, tense: true),
+            Sfx.UiHover => UiHover(),
             _ => throw new ArgumentOutOfRangeException(nameof(id)),
         };
         if (!spec.Loop) Synth.FadeEdges(b);
@@ -65,6 +66,14 @@ public static class SoundBank
     {
         var b = Synth.Buffer(0.06);
         Synth.AddTone(b, 0, 0.06, 2200, 1500, 1.0, 70, h2: 0.2);
+        return b;
+    }
+
+    /// <summary>A very short, high, quiet tick: the pointer moved onto a button.</summary>
+    private static float[] UiHover()
+    {
+        var b = Synth.Buffer(0.03);
+        Synth.AddTone(b, 0, 0.03, 3000, 2800, 1.0, 120, h2: 0.1);
         return b;
     }
 

@@ -43,6 +43,7 @@ public partial class MenuScreen : Control
     public MenuScreen(string titleKey, bool dim)
     {
         _titleKey = titleKey;
+        UiFx.Present(this); // fades and grows in instead of popping
         _dim = dim;
     }
 
@@ -239,6 +240,20 @@ public partial class MenuScreen : Control
         AddSlider("UiVolumeSlider", s.UiVolume, 0, 100, 5,
             v => Loc.T("settings.uiVolume", (int)Math.Round(v)), v => SettingsStore.Current with { UiVolume = (int)Math.Round(v) }, "settings.tip.uiVolume");
 
+        var detailButton = UiKit.Button(Loc.T("settings.hudDetail", Loc.T("hud.detail." + HudDetails.Id(s.HudDetail))), () =>
+        {
+            var c = SettingsStore.Current;
+            _focusName = "HudDetailButton";
+            SettingsStore.Set(c with { HudDetail = HudDetails.Next(c.HudDetail) });
+            CallDeferred(MethodName.Rebuild);
+        }, 14);
+        detailButton.Name = "HudDetailButton";
+        detailButton.Alignment = HorizontalAlignment.Left;
+        WithTip(detailButton, "settings.tip.hudDetail");
+        _body.AddChild(detailButton);
+        AddCheck("UiClickCheck", Loc.T("settings.uiClick"), s.UiClickSound, on => SettingsStore.Current with { UiClickSound = on }, "settings.tip.uiClick");
+        AddCheck("UiHoverCheck", Loc.T("settings.uiHover"), s.UiHoverSound, on => SettingsStore.Current with { UiHoverSound = on }, "settings.tip.uiHover");
+
         AddCheck("InvertCheck", Loc.T("settings.invertY"), s.InvertMouseY, on => SettingsStore.Current with { InvertMouseY = on }, "settings.tip.invertY");
         var inertia = UiKit.Button(Loc.T("settings.inertia") + ": " + Loc.T("settings.inertia." + ShipInertias.Id(s.ShipInertia)), () =>
         {
@@ -348,8 +363,7 @@ public static class UiKit
         var b = new Button { Text = text, FocusMode = Control.FocusModeEnum.All, CustomMinimumSize = new Vector2(minWidth, 0) };
         b.AddThemeFontSizeOverride("font_size", fontSize);
         UiTheme.StyleButton(b);
-        b.Pressed += () => AudioManager.PlayUi(Sfx.UiClick);
-        b.Pressed += onPressed;
+        b.Pressed += onPressed; // the click sound is UiFx's, at the press
         return b;
     }
 }

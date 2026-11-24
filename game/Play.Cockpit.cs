@@ -123,7 +123,7 @@ public partial class Play
     private CockpitSnapshot BuildCockpitSnapshot()
     {
         if (_syntheticSnapshot is { } fake) return fake;
-        var snap = new CockpitSnapshot { HudMode = CurrentHudMode, Online = Net.HasPlayer(Player) && !Net.ShipLost(Player) };
+        var snap = new CockpitSnapshot { HudMode = CurrentHudMode, HudDetail = CurrentHudDetail, Online = Net.HasPlayer(Player) && !Net.ShipLost(Player) };
         if (!snap.Online) return snap;
         int ship = ShipStruct;
         var p = Net.GetPlayerInfo(Player);
@@ -262,6 +262,7 @@ public partial class Play
             case CockpitAction.ToggleAutopilot: ToggleAutopilot(); break;
             case CockpitAction.ToggleDockAssist: DockKey(); break;
             case CockpitAction.CycleHudMode: CycleHudMode(); break;
+            case CockpitAction.CycleHudDetail: CycleHudDetail(); break;
             case CockpitAction.PrevTarget: CycleDeposit(-1); break;
             case CockpitAction.NextTarget: CycleDeposit(1); break;
             case CockpitAction.SelectTarget:
@@ -343,7 +344,7 @@ public partial class Play
     /// <summary>Keys that belong to the displays; true when one was used.</summary>
     private bool CockpitKey(InputEventKey k)
     {
-        if (k.Keycode == Key.F3) { CycleHudMode(); return true; }
+        if (k.Keycode == Key.F3) { if (k.ShiftPressed) CycleHudDetail(); else CycleHudMode(); return true; }
         if (k.Keycode == Key.F4)
         {
             if (_focus is not null) SetFocus(null);

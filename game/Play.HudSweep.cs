@@ -23,7 +23,7 @@ public partial class Play
     private Image? _sweepWith;
     private long _sweepDockTick;
 
-    private static readonly string[] SweepContexts = { "flying", "mining", "walking", "building", "combat", "docked" };
+    private static readonly string[] SweepContexts = { "flying", "mining", "walking", "building", "docked", "combat" };
 
     private void HudSweepSetup(string[] args)
     {
@@ -46,6 +46,8 @@ public partial class Play
         _dockAssist = false;
         if (_laserOn) SetLaser(false);
         if (Net.LaserFiring(Player)) Send(new StopMining());
+        if (IsDockedNow) Send(new Undock());
+        _speed = 1;
         if (!_seated) { _body = StandSpot; Sit(); }
         _yaw = MathF.PI; _pitch = -0.35f;
         _paused = false;
@@ -84,7 +86,8 @@ public partial class Play
                 break;
             case "combat":
                 Net.ScheduleWave(0);
-                _world.Step(Units.TicksPerSecond * 20);
+                _speed = 20; // the wave warning runs out at this speed; the phase below waits for the enemies
+                _sweepDockTick = Net.Tick;
                 _yaw = 0f; _pitch = 0f;
                 break;
             case "docked":
@@ -132,6 +135,8 @@ public partial class Play
                 _sweepFrame = 20; _sweepPhase = 1;
                 break;
             case 1:
+                if (ctx == "combat" && !Net.Enemies().Any() && Net.Tick < _sweepDockTick + 30 * 60) { _sweepFrame = 20; break; } // wait for the wave
+                if (ctx == "combat") _speed = 1;
                 if (ctx == "docked" && !IsDockedNow && Net.Tick < _sweepDockTick + 30 * 90) { _sweepFrame = 20; break; } // wait for the assisted approach
                 if (ctx == "docked" && !IsDockedNow) { GD.Print("HUDCOVER docked: the approach did not dock; skipped"); _sweepCtx++; _sweepLevel = 0; _sweepPhase = 0; _sweepFrame = 20; break; }
                 if (_sweepFrame < 45) break;
@@ -194,6 +199,7 @@ public partial class Play
             if (r.Size.X < 2 || r.Size.Y < 2) continue;
             var centre = new Rect2(size.X * 0.35f, size.Y * 0.35f, size.X * 0.3f, size.Y * 0.3f);
             bool hitsCentre = r.Intersects(centre);
+            if (hitsCentre && name is not ("aim-tooltip" or "aim-card")) GD.Print($"HUDCOVER VIOLATION {ctx}/{level}: {name} reaches the centre 30 percent");
             GD.Print(string.Create(inv, $"HUDELEM ctx={ctx} level={level} name={name} area={100.0 * r.Size.X * r.Size.Y / screen:F2}% rect={r.Position.X:0},{r.Position.Y:0} {r.Size.X:0}x{r.Size.Y:0} centre={hitsCentre}"));
             _sweepRows.Add(string.Create(inv, $"#elem,{ctx},{level},{name},{100.0 * r.Size.X * r.Size.Y / screen:F2},{hitsCentre}"));
         }
@@ -208,16 +214,16 @@ public partial class Play
         yield return ("toasts", _toastBox);
         yield return ("hint", _modeHint);
         yield return ("steps-panel", _objectivesPanel);
-        yield return ("target-card", _targetPanel);
+        yield return ("aim-card", _targetPanel);
         yield return ("aim-tooltip", _tooltipPanel);
         yield return ("wave-banner", _waveBanner);
         foreach (var (name, c) in SweepExtraControls()) yield return (name, c);
     }
 
-    private IEnumerable<(string, Control)> SweepExtraControls() { yield break; }
+    private IEnumerable<(string, Control)> SweepExtraControls() { yield return ("telemetry-card", _teleCard); }
 
-    // Hooked up when the detail levels exist (Play.HudDetail.cs); the baseline sweep has only the one HUD.
-    partial void ApplySweepLevelHook(string level);
+    // The level of this pass of the sweep (the setting is never touched).
+    private void ApplySweepLevelHook(string level) { if (HudDetails.TryParse(level, out var d)) _hudDetailShot = d; }
     private void ApplySweepLevel(string level) => ApplySweepLevelHook(level);
-    private int HudSweepGroups(string ctx) => 0;
+    private int HudSweepGroups(string ctx) => HudDetails.Count(_hudGroups);
 }

@@ -58,6 +58,7 @@ public partial class ShipDesigner : Control
         _player = player;
         _stacks = stacks;
         Visible = false;
+        UiFx.Present(this); // fades and grows in instead of popping
         MouseFilter = MouseFilterEnum.Stop;
     }
 
@@ -210,10 +211,11 @@ public partial class ShipDesigner : Control
     public void Open()
     {
         Reload();
+        UiFx.Cancel(this);
         Visible = true;
     }
 
-    public void Close() => Visible = false;
+    public void Close() => UiFx.Dismiss(this);
 
     /// <summary>Loads the ship's layout from the world again (after an apply, or on opening).</summary>
     public void Reload()

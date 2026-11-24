@@ -111,6 +111,7 @@ public partial class Play : Node3D
     public override void _Ready()
     {
         var args = OS.GetCmdlineUserArgs();
+        UiFx.Install(this); // hover, press and click feedback for every button of every screen
         InitAudio(args);
         _threatDemo = args.Contains("--threat-demo");
         _demo = args.Contains("--demo") || args.Contains("--explore-demo") || _threatDemo;

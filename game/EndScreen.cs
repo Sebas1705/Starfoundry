@@ -22,6 +22,7 @@ public partial class EndScreen : Control
     public EndScreen()
     {
         Visible = false;
+        UiFx.Present(this); // fades and grows in instead of popping
         MouseFilter = MouseFilterEnum.Stop;
     }
 
