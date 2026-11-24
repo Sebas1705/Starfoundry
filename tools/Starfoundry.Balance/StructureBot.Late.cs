@@ -93,10 +93,6 @@ public sealed partial class StructureBot
         ResearchNow("core:laser_focusing");
         FetchCarbon(24, "carbon for the beam collimator");
         ResearchNow("core:beam_collimator", CarbonRaw);
-        // The engine research of ADR 0033 (top speed, then acceleration): also last, so the way to the win is the same.
-        ResearchNow("core:ion_thrusters");
-        FetchCarbon(24, "carbon for the thrust vectoring");
-        ResearchNow("core:thrust_vectoring", CarbonRaw);
     }
 
     private bool _stationLabsBuilt;

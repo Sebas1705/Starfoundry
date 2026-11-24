@@ -23,8 +23,9 @@ public sealed partial class StructureBot
     {
         _flying++;
         _flyDone = done;
+        double before = FlightSeconds;
         try { return FlyToCore(tx, ty, tz, tolUnits, maxSeconds); }
-        finally { _flying--; _flyDone = null; }
+        finally { _flying--; _flyDone = null; Say($"flight of {FlightSeconds - before:F0} s to ({tx / Cell},{ty / Cell},{tz / Cell}){(done is null ? "" : " (until the laser reaches)")}"); }
     }
 
     /// <summary>Ends the flight early when true (ADR 0033: a deposit is a solid rock, so the ship cannot reach its centre; it stops where its laser reaches).</summary>
