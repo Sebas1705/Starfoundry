@@ -183,7 +183,7 @@ public class OrientedCollisionTests
     [Fact]
     public void An_older_log_replays_byte_identically_to_the_level_ship_it_was_recorded_with()
     {
-        var w = World();
+        var w = SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: new WorldRules().WithLegacyFeel(true).WithLegacyResources(true)); // what a build of that time recorded (ADR 0036 did not exist)
         Ship(w);
         w.Submit(0, new SetThrust(0, 0, 512));
         w.Step(60);

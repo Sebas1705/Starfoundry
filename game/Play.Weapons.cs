@@ -223,6 +223,7 @@ public partial class Play
         foreach (var s in Net.Shots)
         {
             if (s.Kind != ShotKind.Ship) continue;
+            Spark(new Vector3(s.FromX, s.FromY, s.FromZ) / CellUnits, new Color(1f, 0.85f, 0.5f), 0.9f); // the muzzle flash
             float recoil = Net.GunRecoil(Player) / 1000f;
             _kick = Math.Max(_kick, 0.35f + Math.Min(3.5f, recoil * 1.2f));
             _shake = MathF.Max(_shake, 0.04f + Math.Min(0.4f, recoil * 0.1f));

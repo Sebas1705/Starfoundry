@@ -151,8 +151,10 @@ public class WorldRulesTests
             Assert.Equal(r.Serialize(), back.Serialize());
         }
         // The form is stable: a fixed rule set always gives the same bytes.
-        Assert.Equal(1 + 8 * 4 + 1 + 4, WorldRules.Default.Serialize().Length);
-        Assert.Equal(1, WorldRules.Default.Serialize()[0]);
+        Assert.Equal(1 + 8 * 4 + 1 + 1 + 4 + 4, WorldRules.Default.Serialize().Length); // the density (140) makes it the second format: a flags byte and the density follow the first flags byte
+        Assert.Equal(2, WorldRules.Default.Serialize()[0]);
+        Assert.Equal(1 + 8 * 4 + 1 + 4, new WorldRules { ResourceDensityPercent = 100 }.Serialize().Length); // a density of 100 keeps the first format (the bytes before ADR 0036)
+        Assert.Equal(1, new WorldRules { ResourceDensityPercent = 100 }.Serialize()[0]);
 
         byte[] bytes = rules.Serialize();
         Assert.Throws<InvalidDataException>(() => WorldRules.Deserialize(bytes.AsSpan(0, bytes.Length - 1)));

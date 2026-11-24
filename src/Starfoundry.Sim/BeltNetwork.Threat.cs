@@ -580,7 +580,7 @@ public sealed partial class BeltNetwork
         {
             if (_enemies.Count != 0) Fail("enemies exist while threats are inactive");
             bool collisions = ObstacleCount > 0; // collisions and mines destroy modules without any threat (ADR 0028)
-            if (WavesSpawned != 0 || MachinesLost != 0 || WallsLost != 0 || AutoRepaired != 0 || (!collisions && (ModulesLost != 0 || StationsLost != 0))) Fail("threat counters changed while threats are inactive");
+            if (WavesSpawned != 0 || AutoRepaired != 0 || (!collisions && (MachinesLost != 0 || WallsLost != 0 || ModulesLost != 0 || StationsLost != 0))) Fail("threat counters changed while threats are inactive"); // a mine can take machines with a module, so they count with the modules
             return;
         }
 
