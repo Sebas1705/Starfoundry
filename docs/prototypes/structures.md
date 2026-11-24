@@ -116,3 +116,41 @@ The holes were all at the joints, never in the middle of a module:
 
 ### Checks
 `ShellVarietyTests` (cockpit front brute force, skins, solids, pods, machines, the audit helpers), the updated `HullProfileTests` and `BodyShellBruteForceTests`, and the full `dotnet test`. Not checked by tests (they need the engine): the three Godot audits above and the screenshots (`--focus=ship-nose`, `--flight-shot`, `--walk-shot --walk-bevel`).
+
+## Polish round 8 (2026-11-24): ladders, more wall skins, closed stations, floating parts
+Status: built. Client only (`src/Starfoundry.Ui`, `game/`); nothing touches the simulation, the logs or the checksums.
+
+### Ladders between decks (`Stairwell`)
+- A module with a module right below it has a **stairwell** when both are of a kind with room for it (`Stairwell.Capable`: hull, cargo, fabrication bay, and a station's core): a square opening in the upper deck at the front (`Stairwell.X0..Z1` = x 3.2 to 4.8, z 0.6 to 2.0, the same for every kind and clear of every kind's furniture), a yellow coaming and a ladder down to the lower deck. The mask bit `HullProfile.StairDown` (bit 30) carries it, so the model, the body and the audits share it. The floor rule of ADR 0031 is unchanged: building stays on the floor of a bay; the opening is a hole in the floor, and a machine standing on the landing refuses the climb.
+- **E** at a ladder (within 0.6 cells of the shaft) climbs: up from the lower deck onto the deck behind the opening, down from the upper deck to the floor under the ladder. When both ways exist (a middle deck) the view decides: looking up goes up. The crosshair prompt says "E: climb up/down"; a blocked landing says why. The eye glides between decks. It works in ships and in a docked station (the station's boxes join the walkable volumes).
+- `Stairwell.Links/Try/Reachable` are engine-free. `StairwellTests` cover the mask rule, the shaft and landing being free in every capable kind, round trips on every capable pair (ship and station), refusals, and a **flood fill** over a three-level ship and a station core stack that reaches every deck (walking by `BodyMotion.Step`, climbing by `Stairwell.Try`).
+- `--walk-shot=path --walk-stairs` stacks a hull and a cargo module, climbs up and down with the real E path and saves `path.stairs.below/top/down.png`, then walks a row of hull modules for the skins (`path.skin.<n>.<skin>.<l|r>.png`).
+
+### More wall skins
+`HullProfile.SkinOf` now picks among seven: plain, arched, boxy, **ribbed** (four 0.42 deep ribs and a lit ring on each closed wall, boxy section), **stepped** (a two-step plinth along the wall, 0.5 deep, 0.55 and 1.05 high, boxy section) and **niched** (a window niche and a recessed service bay with a steel hatch and a hazard strip, arched section). All are in `HullProfile.SkinSolids` (solid for the body, from the same numbers the model draws), skip a side that is a doorway, and replace the wall lockers on their wall. The skin number is 3 bits (bit 31 of the mask is the high bit); a neighbour's skin is stored as its section family (`SectionClassOf`), so the existing joint plates close every pair. `WallSkinTests` cover occurrence, mask round trips, solids on closed sides only, clearance of the stairwell and the workbench, brute-force walks and the joints between all skin pairs. **Not done:** flared sections (they need keyframed sections along Z) and the same skins on station walls.
+
+### Closed station stacks and one station height
+- A core, a station reactor and a shipyard were 3.0 and 3.2 high; every station kind except the pods is now `HullProfile.Roof` (3.88) like a ship. The walls of a station module with another on top now reach the floor above: a 12 cm slit ran round every stacked station (the holes audit, now run on stations, found 84 rays through it; now 0).
+- Station furniture is solid for the body: the wall lockers (`Fixture.StationLockers`), the core's four braces and the turret barrels at rest.
+
+### Skylights, wings, floating parts
+- A gun deck on top of another module has two glazed **skylight panes** in its floor (`HullProfile.SkylightPanes`, either side of the gun mounts), so the module under it (the starter cockpit) sees sky through the glass roof of the deck, not plating. Collision and the shell tests are untouched (a pod is not walkable).
+- **Wings** (the stub fins of hull, cargo and reactor modules) stand 0.55 above the deck (`HullProfile.WingY`), below every window sill (the lowest is 1.3), with the root on the hull surface at that height; the strobes follow. `Gallery --audit=glass` (`MeshAudit.AttachmentsThroughGlass`) reports a wing, antenna or rigging part cutting through glazing: 0 on the starter, nose, row, big and skins layouts. The designer shows "Warning: n attachment(s) block the pilot view" when a pod stands on, in front of or beside a cockpit (`DesignWarnings.ViewBlockers`; the glazed gun deck is exempt). Wings are outside the hull, so there is no body collision to match. `--focus=ship-row` shows wings on every module kind.
+- **Floating parts audit** (`Gallery --audit=floating`, `MeshAudit.FloatingComponents`): every connected piece of a module mesh must touch (within 3 cm) the skin, the deck or a part that does. First run: 121 floating pieces on the ship row. Fixed: ceiling and wall light strips (on pods, beside doorways, on sloping walls, over a missing roof), reactor screens with a doorway behind, vents in doorways, the cargo hatch over a missing roof, stacked crates with a gap, drone cradles and drones, the pilot seat (pedestal, pedals, armrests), turret heads, workshop lamps, the hangar gantry, floor chevrons over the stairwell. The reactor's rings, pipes and pillars were already attached. Now 14 on the ship row, all within 4 to 9 cm (small lamps, a locker tag) or by design (the shield's spinning halo).
+
+### Audit numbers (after the rebase onto #84; `--step=0.8`)
+| Layout | holes | coplanar pairs | walk (parts) | floating | glass |
+| --- | --- | --- | --- | --- | --- |
+| ship-starter | 0 | 29 (area 1.70) | 0 | 5 | 0 |
+| ship-nose | 0 | 38 | 0 | 10 | 0 |
+| ship-row | 0 (the pinhole at 26.5, 1.0, 0.25 is gone) | 62 | 1 (drone bay wall) | 14 | 0 |
+| ship-big | 0 | 63 | a few | 29 | 0 |
+| ship-tower (three decks) | 0 | 48 | a few | 9 | 0 |
+| ship-skins (12 rows, every skin pair) | 0 | 48 | 2 (hangar) | 134 | 0 |
+| station-demo | 0 (was 84) | 60 | 8 (door frame slabs, barrels) | 22 | 0 |
+
+The coplanar pairs are not zero. They are slivers where hull parts meet at the module boundary (joint plates against end caps, window frames against the wall skin); nothing above 0.4 cell2 is left on the starter. The floor decals were split by height (decals along X are 1.75 mm taller than along Z), and the reactor pipes were lowered under the 0.3 step height. The remaining pairs are listed by the audit and were not fixed. The text-fit audit (`--ui-audit`) fails 8 times: the info card overlaps the galactic frame gizmo (an overlap from the cockpit HUD work, not touched here).
+
+### Smaller items
+- Speed streaks are longer, wider and brighter (`Ambience.StreakExposure` 0.2 s, `StreakMinLength` 0.6, `StreakHalfWidth` 0.035, `StreakPeak` 1.0; all tunable constants).
+- Cockpit displays dim with low power (`CockpitMath.PowerDim`: 1.0 at full power, 0.45 with none satisfied, 0.2 with no power at all) and the speed number is bigger (76 px on the centre screen). The boost chip and the port and gate rows of the nav list already existed; choosing a port or a gate from the list is still not possible.
