@@ -103,11 +103,15 @@ public class HullProfileTests
     [Fact]
     public void TheCeilingBevelClipsTheHeadUnderALowRoof()
     {
-        // A reactor hull is lower (3.0): at the head height (1.8) the roof chamfer starts at 3.0 - 0.876, well above, so only the floor matters.
+        // A ship reactor has the full roof like the rest of the hull (so the joints line up) and its vessel is solid; a core module is lower (3.0): at the head
+        // height (1.8) the roof chamfer of a ship section would start well above, so only the floor chamfer matters.
         var v = One(ModuleKind.Reactor, true);
-        Assert.True(BodyMotion.Contains(new Vector3(4, 0, 4), v));
-        var p = Walk(new Vector3(4, 0, 4), new Vector3(-1, 0, 0), v, 3f);
-        Assert.InRange(p.X - BodyMotion.Radius - LeftChamferX(HullProfile.LowRoof, HullProfile.DeckTop), 0f, BodyMotion.MaxSubStep + 0.01f);
+        Assert.Equal(HullProfile.Roof, HullProfile.RoofOf(ModuleKind.Reactor, true));
+        Assert.False(BodyMotion.Contains(new Vector3(4, 0, 4), v), "the containment vessel stands in the middle");
+        Assert.True(BodyMotion.Contains(new Vector3(1.9f, 0, 4), v));
+        var low = One(ModuleKind.Hull, true);
+        var p = Walk(new Vector3(4, 0, 4), new Vector3(-1, 0, 0), low, 3f);
+        Assert.InRange(p.X - BodyMotion.Radius - LeftChamferX(HullProfile.Roof, HullProfile.DeckTop), 0f, BodyMotion.MaxSubStep + 0.01f);
         // The low modules (shield, laser, gun) have a roof under the head: the body cannot stand in them.
         foreach (var kind in new[] { ModuleKind.Shield, ModuleKind.MiningLaser, ModuleKind.MiningLaserMk2, ModuleKind.Gun, ModuleKind.GunMk2 })
             foreach (bool ship in new[] { true, false })
@@ -118,11 +122,14 @@ public class HullProfileTests
     public void TheNoseFunnelStopsTheBodyWhereTheHeadMeetsTheRoof()
     {
         var v = One(ModuleKind.Cockpit, true);
-        var p = Walk(new Vector3(4, 0, 6.6f), new Vector3(0, 0, -1), v, 6f);
-        Assert.InRange(p.Z, 0.5f, 2.6f);
+        // the console and the seat are solid: straight ahead from behind the seat the body is stopped by the seat
+        var blocked = Walk(new Vector3(4, 0, 6.6f), new Vector3(0, 0, -1), v, 6f);
+        Assert.InRange(blocked.Z, HullProfile.SeatZ1, 6.6f);
+        // up the aisle beside the console the nose funnel stops the body where the head meets the roof, and pushing aside into the slanted wall slides along it
+        var p = Walk(new Vector3(1.7f, 0, 6.6f), new Vector3(0, 0, -1), v, 6f);
+        Assert.InRange(p.Z, 0.5f, 3.6f);
         Assert.True(BodyMotion.Contains(p, v));
-        // walking forward and aside into the sloped nose wall slides along it instead of sticking
-        var q = Walk(new Vector3(6f, 0, 6.6f), new Vector3(0.5f, 0, -1), v, 6f);
+        var q = Walk(new Vector3(1.7f, 0, 6.6f), new Vector3(-0.5f, 0, -1), v, 6f);
         Assert.True(BodyMotion.Contains(q, v));
         Assert.True(q.Z < 4f, $"went forward along the slanted wall: {q}");
         var withNeighbour = One(ModuleKind.Cockpit, true, HullProfile.Front);

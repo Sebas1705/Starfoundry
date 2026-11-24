@@ -56,6 +56,9 @@ public static partial class ModuleModels
     private readonly record struct Cx(Node3D R, string K, bool Ship, Color Acc, int V, ModuleKind Kind, int M, Color Role)
     {
         public bool Has(int bit) => (M & bit) != 0;
+        /// <summary>The front (rear) of a ship module opens onto the next module; a pod there (see <see cref="HullProfile.PodFront"/>) is no opening.</summary>
+        public bool FrontOpen => Has(Front) && !(Ship && Has(HullProfile.PodFront));
+        public bool RearOpen => Has(Rear) && !(Ship && Has(HullProfile.PodRear));
     }
 
     /// <summary>Neighbour bits of a module: which of its six sides touch another module of the same structure.</summary>
@@ -81,6 +84,12 @@ public static partial class ModuleModels
     public static int NeighbourMask(Func<int, int, int, bool> has, int mx, int my, int mz) =>
         (has(mx - 1, my, mz) ? Left : 0) | (has(mx + 1, my, mz) ? Right : 0) | (has(mx, my, mz - 1) ? Front : 0)
         | (has(mx, my, mz + 1) ? Rear : 0) | (has(mx, my + 1, mz) ? Up : 0) | (has(mx, my - 1, mz) ? Down : 0);
+
+    /// <summary>
+    /// The neighbour mask of the module at (mx, my, mz) given the kind of the module at any coordinate (null for none): the neighbour bits and the
+    /// pod bits (<see cref="HullProfile.PodFront"/>, <see cref="HullProfile.PodRear"/>). The walking body builds its shells from the same function.
+    /// </summary>
+    public static int NeighbourMask(Func<int, int, int, ModuleKind?> kindAt, int mx, int my, int mz) => HullProfile.MaskOf(kindAt, mx, my, mz);
 
     /// <summary>The colour that marks a module's role on its hull band, its door frames and its floor markings.</summary>
     public static Color RoleColour(ModuleKind kind) => kind switch
@@ -363,6 +372,7 @@ public static partial class ModuleModels
     {
         ModuleKind.Hull or ModuleKind.Workshop => new[] { new Win(2.6f, 5.4f, 1.3f, 2.7f) },
         ModuleKind.Cargo => new[] { new Win(3.1f, 4.9f, 1.9f, 2.8f) },
+        ModuleKind.Cockpit when c.Ship => new[] { new Win(c.Has(Front) ? 0.45f : HullProfile.NoseEnd + 0.05f, 7.55f, 1.2f, c.Has(Up) ? 3.65f : 2.74f) }, // one long glazed band, a low sill and thin mullions
         ModuleKind.Cockpit => new[] { new Win(4.3f, 7.3f, 1.3f, 2.7f) },
         _ => Array.Empty<Win>(),
     };
@@ -405,7 +415,7 @@ public static partial class ModuleModels
             Models.Add(c.R, "ViewFrame" + side, $"{c.K}.vframe.{tag}.{side}", ModuleStruct(), mb =>
             {
                 mb.At(default).C(Dark);
-                const float F = 0.14f;
+                float F = c.Kind == ModuleKind.Cockpit && c.Ship ? 0.09f : 0.14f; // thin frames round the cockpit glass
                 float d = thick + 0.1f;
                 foreach (var w in wins)
                 {
@@ -414,7 +424,8 @@ public static partial class ModuleModels
                     mb.Block(new(xc, w.Y0 - F / 2, zc), new(d, F, wl + 2 * F));
                     mb.Block(new(xc, yc, w.Z0 - F / 2), new(d, hh, F));
                     mb.Block(new(xc, yc, w.Z1 + F / 2), new(d, hh, F));
-                    if (wl > 2.4f) mb.Block(new(xc, yc, zc), new(thick + 0.04f, hh, 0.1f));
+                    int mullions = Math.Max(0, (int)MathF.Ceiling(wl / 2.0f) - 1); // a thin mullion about every two cells
+                    for (int mi = 1; mi <= mullions; mi++) mb.Block(new(xc, yc, w.Z0 + wl * mi / (mullions + 1)), new(thick + 0.04f, hh, c.Kind == ModuleKind.Cockpit ? 0.08f : 0.1f));
                     mb.C(Steel).Block(new(xc, w.Y0 - F - 0.03f, zc), new(d + 0.06f, 0.06f, wl + 2 * F + 0.1f)); // sill
                     mb.C(Dark);
                 }
@@ -435,10 +446,10 @@ public static partial class ModuleModels
     /// the viewports of <see cref="Viewports"/> into the exposed side walls; <paramref name="openRear"/> leaves the rear face open (a hangar door).
     /// </summary>
     private static void Skin(Cx c, float roofY, bool nose = false, bool tail = false, bool detail = false, bool collars = true, bool glassRoof = false,
-        bool windows = false, bool openRear = false)
+        bool windows = false, bool openRear = false, bool windscreen = false)
     {
         var wins = windows ? Viewports(c) : Array.Empty<Win>();
-        string key = $"{c.K}.skin.{roofY}.{nose}.{tail}.{detail}.{collars}.{glassRoof}.{windows}.{openRear}";
+        string key = $"{c.K}.skin.{roofY}.{nose}.{tail}.{detail}.{collars}.{glassRoof}.{windows}.{openRear}.{windscreen}";
         Models.Add(c.R, "Skin", key, ModuleHull(), mb =>
         {
             mb.At(default);
@@ -453,7 +464,7 @@ public static partial class ModuleModels
                 if (wallL) skip |= 1 << 6;
                 mb.C(White);
                 // exposed ends of the tube are closed by a bulkhead; ends that touch another module stay open
-                bool capFront = !nose && !c.Has(Front), capRear = !tail && !c.Has(Rear) && !openRear;
+                bool capFront = !nose && !c.FrontOpen && !windscreen, capRear = !tail && !c.RearOpen && !openRear;
                 bool wrap = nose && glassRoof; // a canopy round the nose: glass over the upper half and the tip
                 if (nose) Loft(mb, Oct(roofY, HullProfile.NoseTipScale, c.M, 0f), 0.05f, full, a, true, false, wrap ? skip | NoseGlassEdges : skip, true, wrap ? NoseGlassEdges : 0);
                 Loft(mb, full, a, full, b, capFront, capRear, skip, true);
@@ -492,7 +503,8 @@ public static partial class ModuleModels
                 // an exposed end of the tube carries a hatch in the role colour: the visible place where the next module would attach
                 foreach (bool front in new[] { true, false })
                 {
-                    if (front ? (nose || c.Has(Front)) : (tail || c.Has(Rear) || openRear)) continue;
+                    if (front ? (nose || c.FrontOpen || windscreen) : (tail || c.RearOpen || openRear)) continue;
+                    if (full[3].Y - full[2].Y < 1.7f) continue; // a low pod has no wall tall enough for the hatch: it would stand out of the hull
                     float z = front ? 0.05f : D - 0.05f, o = front ? -0.03f : 0.03f;
                     mb.C(Panel).Block(new(4, mid - 0.2f, z + o), new(3.9f, 2.5f, 0.06f));
                     mb.C(Dark).Block(new(4, mid - 0.2f, z + 2 * o), new(3.4f, 2.0f, 0.04f));
@@ -635,14 +647,14 @@ public static partial class ModuleModels
                     {
                         if (i % 2 == 1 && pa[i].DistanceTo(pa[(i + 1) % pa.Length]) < 1e-3f) continue; // squared corner: one post only
                         bool g = Glass(s == secs.Count - 1 ? 0 : gm, i) && s < 1 + (nose ? 1 : 0);
-                        mb.C(g ? Dark : Panel).Beam(new(pa[i].X, pa[i].Y, secs[s].Z), new(pb[i].X, pb[i].Y, secs[s + 1].Z), g ? 0.16f : 0.12f);
+                        mb.C(g ? Dark : Panel).Beam(new(pa[i].X, pa[i].Y, secs[s].Z), new(pb[i].X, pb[i].Y, secs[s + 1].Z), g ? 0.1f : 0.12f);
                     }
                 }
                 // Ring frames at both ends: a thicker role-colour ring where another module attaches (the visible seam), a plain one at an exposed end.
                 for (int e = 0; e < 2; e++)
                 {
                     var sec = e == 0 ? secs[0] : secs[^1];
-                    bool joined = e == 0 ? c.Has(Front) : c.Has(Rear);
+                    bool joined = (e == 0 ? c.FrontOpen : c.RearOpen) && !(c.Ship && HullProfile.IsPod(c.Kind)); // a pod keeps a plain ring: it has no doorway
                     bool nosering = e == 0 && nose;
                     var o = Oct(roofY, sec.S, c.M, nosering ? 0f : 0.35f);
                     for (int i = 0; i < o.Length; i++)
@@ -650,7 +662,7 @@ public static partial class ModuleModels
                         int j = (i + 1) % o.Length;
                         if (o[i].DistanceTo(o[j]) < 1e-3f) continue;
                         bool g = canopy && ((nosering ? NoseGlassEdges : e == 1 ? RoofEdges : 0) >> i & 1) != 0;
-                        mb.C(g ? Dark : joined ? c.Role : Panel).Beam(new(o[i].X, o[i].Y, sec.Z), new(o[j].X, o[j].Y, sec.Z), g ? 0.16f : joined ? 0.17f : 0.12f);
+                        mb.C(g ? Dark : joined ? c.Role : Panel).Beam(new(o[i].X, o[i].Y, sec.Z), new(o[j].X, o[j].Y, sec.Z), g ? 0.1f : joined ? 0.17f : 0.12f);
                     }
                 }
             }
@@ -722,6 +734,7 @@ public static partial class ModuleModels
         {
             if (!c.Has(lateral ? Right : Rear)) continue;
             if (c.Has(lateral ? DockedRight : DockedRear)) continue; // a docked side has an airlock instead of a plain joint
+            if (c.Ship && (HullProfile.IsPod(c.Kind) || (!lateral && c.Has(HullProfile.PodRear)))) continue; // a pod has no doorway: the neighbour closes its end
             Models.Add(c.R, "Joint", $"{c.K}.joint.{lateral}", ModuleStruct(), mb =>
             {
                 mb.At(default);
@@ -1045,19 +1058,19 @@ public static partial class ModuleModels
                     if (((mask >> i) & 1) == 0) continue;
                     var p = o[i]; var q = o[(i + 1) % o.Length];
                     if (p.DistanceTo(q) < 1e-3f) continue;
-                    mb.Beam(new(p.X, p.Y, z), new(q.X, q.Y, z), 0.14f);
+                    mb.Beam(new(p.X, p.Y, z), new(q.X, q.Y, z), 0.09f);
                 }
             }
             var top = Oct(roof, 1f, c.M)[4].Y;
             if (nose)
             {
-                foreach (float z in new[] { 1.2f, 2.3f }) Ring(z, NoseScale(z), 0f, NoseGlassEdges);
+                Ring(2.0f, NoseScale(2.0f), 0f, NoseGlassEdges);
                 Ring(3.4f, 1f, 0.35f, NoseGlassEdges);
                 var tipTop = Oct(roof, HullProfile.NoseTipScale, c.M, 0f)[4].Y;
-                mb.Beam(new(4, tipTop, 0.07f), new(4, top, 3.4f), 0.14f);
-                mb.Beam(new(4, top, 3.4f), new(4, top, D - 0.07f), 0.14f);
+                mb.Beam(new(4, tipTop, 0.07f), new(4, top, 3.4f), 0.09f);
+                mb.Beam(new(4, top, 3.4f), new(4, top, D - 0.07f), 0.09f);
             }
-            else mb.Beam(new(4, top, 0.07f), new(4, top, D - 0.07f), 0.14f);
+            else mb.Beam(new(4, top, 0.07f), new(4, top, D - 0.07f), 0.09f);
             foreach (float z in new[] { 4.9f, 6.4f }) Ring(z, 1f, 0.35f, RoofEdges);
             if (!nose) Ring(2.4f, 1f, 0.35f, RoofEdges);
         });
@@ -1109,12 +1122,43 @@ public static partial class ModuleModels
         });
     }
 
+    /// <summary>
+    /// The flat windscreen of a ship cockpit with a pod (a mining laser, a gun) in front: one pane over the whole octagon of the front, with two thin
+    /// mullions, so the pilot looks out over the pod instead of through a doorway. The pane is glass seen from inside and out.
+    /// </summary>
+    private static void Windscreen(Cx c, float roof)
+    {
+        const float Z = 0.06f;
+        Models.Add(c.R, "Canopy", $"{c.K}.windscreen.{roof}", Models.GlassMat(), mb =>
+        {
+            mb.At(default);
+            var o = Oct(roof, 1f, c.M);
+            var ctr = Vector2.Zero;
+            foreach (var p in o) ctr += p;
+            ctr /= o.Length;
+            for (int i = 0; i < o.Length; i++)
+            {
+                var p0 = o[i]; var p1 = o[(i + 1) % o.Length];
+                if (p0.DistanceTo(p1) < 1e-3f) continue;
+                mb.Tri(new(ctr.X, ctr.Y, Z), new(p0.X, p0.Y, Z), new(p1.X, p1.Y, Z), new(ctr.X, ctr.Y, 4f));
+            }
+        }).CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+        Models.Add(c.R, "CanopyRibs", $"{c.K}.windscreen.ribs.{roof}", ModuleStruct(), mb =>
+        {
+            mb.At(default).C(Dark);
+            foreach (float x in new[] { 1.9f, 6.1f }) mb.Beam(new(x, HullProfile.FloorY, Z + 0.01f), new(x, roof, Z + 0.01f), 0.09f);
+            mb.Beam(new(1.05f, roof - 0.02f, Z + 0.01f), new(6.95f, roof - 0.02f, Z + 0.01f), 0.09f);
+        });
+    }
+
     private static void Cockpit(Cx c)
     {
-        float roof = c.Ship ? Roof : LowRoof;
+        float roof = HullProfile.RoofOf(ModuleKind.Cockpit, c.Ship);
         bool nose = c.Ship && !c.Has(Front);
         bool glassRoof = !c.Has(Up);
-        Skin(c, roof, nose: nose, glassRoof: glassRoof, windows: true);
+        bool screen = c.Ship && c.Has(Front) && !c.FrontOpen; // a pod in front: a flat windscreen instead of a doorway or a nose
+        Skin(c, roof, nose: nose, glassRoof: glassRoof, windows: true, windscreen: screen);
+        if (screen) Windscreen(c, roof);
         if (glassRoof)
         {
             if (c.Ship) { ShipCanopy(c, roof, nose); CanopyRibs(c, roof, nose); }
@@ -1153,6 +1197,7 @@ public static partial class ModuleModels
             foreach (float s in new[] { -1f, 1f }) mb.C(Steel).Block(new(4 + s * 0.35f, 0.18f, 3.75f), new(0.4f, 0.05f, 0.3f)); // pedals
         });
 
+        int consoleFrom = c.R.GetChildCount(); // every part added from here to the lamps belongs to the console (duplicate part names are renamed by Godot, so count instead)
         // The console under the windscreen: a dark body with a tilted deck, a bezel round each of the three screens, a row of switches and cheek panels.
         Models.Add(c.R, "Console", $"{c.K}.console", ModuleHull(), mb =>
         {
@@ -1199,6 +1244,16 @@ public static partial class ModuleModels
                 mb.At(new(4, 1.02f, 2.55f), Models.Deg(18, 0, 0));
                 for (int i = k; i < 12; i += 3) mb.Block(new(-2.2f + i * 0.4f, 0.125f, 0.5f), new(0.07f, 0.02f, 0.05f));
             });
+
+        // A ship's console is a narrow, low desk: the whole instrument panel is squeezed to 72 percent of its width and 78 percent of its height
+        // about the middle of the module, so it never stands between the pilot's eye and the glass (HullProfile.ConsoleX0 and ConsoleX1 are its footprint).
+        if (c.Ship)
+            for (int ci = consoleFrom; ci < c.R.GetChildCount(); ci++)
+            {
+                if (c.R.GetChild(ci) is not MeshInstance3D part) continue;
+                part.Scale = new Vector3(0.72f, 0.78f, 1f);
+                part.Position = new Vector3(4f * (1f - 0.72f), 0f, 0f);
+            }
 
         if (nose)
             Models.Add(c.R, "Pitot", $"{c.K}.pitot", ModuleStruct(), mb =>
@@ -1289,10 +1344,28 @@ public static partial class ModuleModels
         }, new Vector3(x, y, 7.0f), new Vector3(0, -90, 0));
     }
 
+    /// <summary>
+    /// A ship's reactor has the same full-height roof as the rest of the hull (the vessel stands under it), so the glow shows through a lit
+    /// hatch: a hazard collar round a luminous disc in the roof. A station's low reactor roof lets the drum stand out instead.
+    /// </summary>
+    private static void ReactorHatch(Cx c, float roof, Color glow)
+    {
+        Models.Add(c.R, "Hatch", $"{c.K}.reactorhatch", ModuleHull(), mb =>
+        {
+            mb.At(default).C(Dark).Prism(new(4, roof - 0.02f, 4), 1.55f, 1.5f, 0.08f, 20);
+            mb.C(Yellow).Prism(new(4, roof + 0.04f, 4), 1.5f, 1.5f, 0.02f, 20);
+            mb.C(Dark).Prism(new(4, roof + 0.05f, 4), 1.38f, 1.38f, 0.02f, 20);
+        });
+        Models.Add(c.R, "GlowVent", $"{c.K}.reactorhatch.glow", Models.Glow(glow, 2.2f), mb =>
+            mb.At(default).Prism(new(4, roof + 0.06f, 4), 1.2f, 1.2f, 0.02f, 20));
+    }
+
     private static void Reactor(Cx c)
     {
-        Skin(c, LowRoof);
-        Frame(c, LowRoof);
+        float roof = HullProfile.RoofOf(ModuleKind.Reactor, c.Ship);
+        Skin(c, roof);
+        Frame(c, roof);
+        if (c.Ship) ReactorHatch(c, roof, Green);
         Models.Add(c.R, "Containment", $"{c.K}.containment", ModuleHull(), mb =>
         {
             mb.At(default).C(Steel).Prism(new(4, 0.08f, 4), 1.5f, 1.3f, 0.35f, 10);
@@ -1611,8 +1684,10 @@ public static partial class ModuleModels
     /// </summary>
     private static void ReactorMk2(Cx c)
     {
-        Skin(c, LowRoof);
-        Frame(c, LowRoof);
+        float roof = HullProfile.RoofOf(ModuleKind.ReactorMk2, c.Ship);
+        Skin(c, roof);
+        Frame(c, roof);
+        if (c.Ship) ReactorHatch(c, roof, Cyan);
         Models.Add(c.R, "Containment", $"{c.K}.containment", ModuleHull(), mb =>
         {
             mb.At(default).C(Steel).Prism(new(4, 0.08f, 4), 1.95f, 1.7f, 0.4f, 12);

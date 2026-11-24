@@ -68,16 +68,16 @@ public static partial class ModuleModels
             foreach (float x in mk2 ? new[] { 3.45f, 4.55f } : new[] { 4f })
             {
                 float r = mk2 ? 0.2f : 0.28f;
-                mb.C(Steel).Beam(new(x, roof + 0.9f, 4.2f), new(x, roof + 0.9f, 0.9f), r);
-                mb.C(c.Acc).Beam(new(x, roof + 0.9f, 1.9f), new(x, roof + 0.9f, 1.55f), r + 0.1f);
-                mb.C(Dark).Beam(new(x, roof + 0.9f, 1.1f), new(x, roof + 0.9f, 0.8f), r + 0.07f);
+                mb.C(Steel).Beam(new(x, LaserMuzzle.Y, 4.2f), new(x, LaserMuzzle.Y, 0.9f), r);
+                mb.C(c.Acc).Beam(new(x, LaserMuzzle.Y, 1.9f), new(x, LaserMuzzle.Y, 1.55f), r + 0.1f);
+                mb.C(Dark).Beam(new(x, LaserMuzzle.Y, 1.1f), new(x, LaserMuzzle.Y, 0.8f), r + 0.07f);
             }
         });
         Models.Add(c.R, "GlowLens", $"{c.K}.laser.lens.{mk2}", Models.Glow(glow, 2.6f), mb =>
         {
             mb.At(default);
             foreach (float x in mk2 ? new[] { 3.45f, 4.55f } : new[] { 4f })
-                mb.Sphere(new(x, roof + 0.9f, 0.72f), new(0.17f, 0.17f, 0.12f), 2, 8);
+                mb.Sphere(new(x, LaserMuzzle.Y, 0.72f), new(0.17f, 0.17f, 0.12f), 2, 8);
         });
         Models.Add(c.R, "GlowLamp", $"{c.K}.laser.lamp", Models.Glow(glow, 2f), mb =>
         {

@@ -23,7 +23,7 @@ public static class BodyMotion
     /// <summary>Half the width of the body: it keeps this far from every outer wall.</summary>
     public const float Radius = 0.3f;
     /// <summary>The longest stretch moved in one go, so a long frame cannot jump across a gap.</summary>
-    public const float MaxSubStep = 0.2f;
+    public const float MaxSubStep = 0.1f;
     /// <summary>How close to the pilot seat (horizontally, in cells) the body must be to sit down.</summary>
     public const float SeatReach = 2.6f;
 
@@ -68,12 +68,26 @@ public static class BodyMotion
         return false;
     }
 
-    /// <summary>True when the whole body (a square of half-width <see cref="Radius"/>) at <paramref name="position"/> is inside the union.</summary>
+    /// <summary>
+    /// True when the whole body (a square of half-width <see cref="Radius"/>) at <paramref name="position"/> is inside the union. The footprint is
+    /// sampled on a grid (<see cref="Samples"/> x <see cref="Samples"/>, a point every <see cref="Radius"/> / 2), not just at its four corners, so a
+    /// solid thinner than the body (a door frame beside the opening, a wall between two modules) cannot slip between the samples.
+    /// </summary>
     public static bool Contains(Vector3 position, IReadOnlyList<BodyBox> volumes) => Fits(volumes, position.X, position.Y, position.Z);
 
-    private static bool Fits(IReadOnlyList<BodyBox> volumes, float x, float y, float z) =>
-        PointIn(volumes, x - Radius, y, z - Radius) && PointIn(volumes, x + Radius, y, z - Radius)
-        && PointIn(volumes, x - Radius, y, z + Radius) && PointIn(volumes, x + Radius, y, z + Radius);
+    /// <summary>Points per side of the footprint grid.</summary>
+    public const int Samples = 5;
+
+    private static bool Fits(IReadOnlyList<BodyBox> volumes, float x, float y, float z)
+    {
+        for (int i = 0; i < Samples; i++)
+        {
+            float px = x + Radius * (2f * i / (Samples - 1) - 1f);
+            for (int j = 0; j < Samples; j++)
+                if (!PointIn(volumes, px, y, z + Radius * (2f * j / (Samples - 1) - 1f))) return false;
+        }
+        return true;
+    }
 
     /// <summary>
     /// Moves the body for <paramref name="dt"/> seconds along the horizontal part of <paramref name="wishDirection"/> (length up to 1;
