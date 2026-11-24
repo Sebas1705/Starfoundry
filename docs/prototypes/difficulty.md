@@ -159,6 +159,6 @@ Before (main, same bot and seed 20261121): Relaxed 48:34, Normal 49:31, Hard 52:
 
 | Preset (goal) | Win time |
 | --- | --- |
-| Relaxed (8) | 48:34 |
-| Normal (10) | 49:31 |
-| Hard (13) | 52:36 |
+| Relaxed (8) | 45:16 |
+| Normal (10) | 47:36 |
+| Hard (13) | 51:51 |
