@@ -34,3 +34,9 @@ Update this file in the same change as any decision. Move resolved items into an
 
 ## Research gaps
 Reference specifics we could not read: recipes, resource list, module stats, system count, co-op cap, modding. Verify by playing the reference or reading the official wiki ([unofficial wiki](https://mainsequenceguide.wiki/game/) not yet reviewed) before treating any comparison as fact.
+
+## Pilot feedback round (2026-11-24)
+See [the spec](../superpowers/specs/2026-11-24-pilot-feedback-round-design.md).
+- What "antenna" meant in the ship-editing request: sensor antenna types, or ship designs and hull types in general (the spec covers both).
+- Hold overflow while mining: surplus drifts as collectable pickups (proposed) versus jettisoned or voided.
+- Mining pace: raise yield and retune enemy pressure so Normal stays near 49 minutes, versus a faster game.
