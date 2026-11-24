@@ -124,7 +124,7 @@ public sealed class CockpitLayouts
         new[]
         {
             new ScreenRect(-1.79f, -0.01f, 0.95f, 0.9f, 310, 400, 14f),
-            new ScreenRect(0f, -0.03f, 2.3f, 1.1f, 612, 400, 22f),
+            new ScreenRect(0f, -0.02f, 2.3f, 1.08f, 612, 400, 22f),
             new ScreenRect(1.79f, -0.01f, 0.95f, 0.9f, 310, 400, 14f),
         });
 

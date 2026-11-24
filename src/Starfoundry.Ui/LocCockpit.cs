@@ -41,7 +41,14 @@ public static partial class Loc
         ["cp.nav.system"] = ("SISTEMA", "SYSTEM"),
         ["cp.nav.port"] = ("Puerto", "Port"),
         ["cp.nav.enemy"] = ("Hostil", "Hostile"),
-        ["cp.nav.noPick"] = ("Elige un yacimiento", "Pick a deposit"),
+        ["cp.nav.noPick"] = ("Elige un yacimiento o un puerto", "Pick a deposit or a port"),
+        ["cp.unit.cells"] = ("celdas", "cells"),
+        ["cp.nav.dist"] = ("DISTANCIA", "DISTANCE"),
+        ["cp.nav.noTarget"] = ("SIN OBJETIVO", "NO TARGET"),
+        ["cp.nav.autoRange"] = ("AUTO", "AUTO"),
+        ["cp.nav.reset"] = ("REINICIAR", "RESET"),
+        ["cp.nav.mapHint"] = ("Rueda: zoom. Arrastrar: girar el mapa.", "Wheel: zoom. Drag: turn the map."),
+        ["cp.nav.noRoute"] = ("Sin ruta a ese objetivo", "No route to that target"),
 
         // systems page
         ["cp.sys.modules"] = ("MÓDULOS", "MODULES"),

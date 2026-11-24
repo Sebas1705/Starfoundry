@@ -23,6 +23,11 @@ public partial class Play
     private bool _swallowRelease;
     private (CockpitScreen Screen, Vector2 Pixel)? _cockpitAim;
     private CockpitSnapshot _snap = new();
+    private readonly NavMapCamera _navMap = new();
+    private readonly AutoFrameTracker _autoFrame = new();
+    private float _mousePxFrame; // mouse movement since the last frame, in pixels (the auto-frame lets go when the mouse moves away)
+    private bool _autoFrameBlock; // a screenshot run switches the auto-frame off while it looks at the unframed console
+    private bool _mapDrag; // the left button is held on the nav map: the mouse turns the map
     private readonly Dictionary<CockpitScreen, Vector2?> _lastHover = new();
 
     /// <summary>The HUD mode a screenshot run pins (the settings file is never touched by a shot).</summary>
@@ -92,6 +97,11 @@ public partial class Play
             if (changed || _focus == sc) _cockpit.Refresh(sc);
         }
 
+        // Looking at a screen for a moment frames it (a gentle zoom, no click); the mouse moving away, a flight key or a full focus (F4) ends it.
+        _autoFrame.Update(dt, _cockpitAim?.Screen, _mousePxFrame, AnyFlightKey(), !_autoFrameBlock && _focus is null && !PanelOpen() && _tool != ToolMode.Build && !Standing);
+        _mousePxFrame = 0f;
+        if (NavCurrent() is { } navNow) _navMap.Follow(navNow.Kind == NavKind.Gate ? 400f : navNow.Distance, dt);
+
         _cockpitClock -= dt;
         if (_cockpitClock <= 0f || _hudSnap)
         {
@@ -104,6 +114,7 @@ public partial class Play
         {
             var view = _cockpit.View((CockpitScreen)i);
             view.Snapshot = _snap;
+            view.Map = _navMap;
             view.Time = _cockpitTime;
         }
         if (refreshAll) _cockpit.Refresh();
@@ -163,7 +174,11 @@ public partial class Play
         // navigation
         snap.HasGalaxy = Net.Galaxy is not null;
         snap.SystemName = Net.Galaxy is { } gal && system >= 0 ? gal.Systems[system].Name : L("hud.deepSpace");
-        snap.Targets = BuildNavTargets(shipCam, system);
+        var allTargets = BuildNavAll(shipCam, system);
+        snap.MapTargets = allTargets;
+        snap.Targets = NavList.Build(allTargets, 6);
+        snap.PickKind = _navPickKind;
+        snap.PickId = _navPickId;
         snap.Autopilot = _waypoint is not null;
         snap.DockNear = _dockNear;
         snap.DockAssist = _dockAssist;
@@ -175,7 +190,18 @@ public partial class Play
         return snap;
     }
 
-    private IReadOnlyList<NavTarget> BuildNavTargets(CameraBasis shipCam, int system)
+    private NavKind? _navPickKind;
+    private int _navPickId = -1;
+
+    /// <summary>A world offset in cells as the ship sees it: right, up, ahead.</summary>
+    private System.Numerics.Vector3 ShipLocal(Vector3 world)
+    {
+        var b = ShipBasis;
+        return new System.Numerics.Vector3(world.Dot(b.X), world.Dot(b.Y), world.Dot(-b.Z));
+    }
+
+    /// <summary>Everything the navigation page knows about (deposits, threats, the port, the gate), nearest first within each kind, with each position in the ship's frame.</summary>
+    private List<NavTarget> BuildNavAll(CameraBasis shipCam, int system)
     {
         var list = new List<NavTarget>();
         var ship = ShipPosition(0f);
@@ -185,26 +211,24 @@ public partial class Play
             var q = Net.DepositPosition(d);
             var v = new Vector3(q.X, q.Y, q.Z) - ship;
             list.Add(new NavTarget(NavKind.Deposit, d, ItemName(Net.DepositItem(d)), v.Length(), NavFrame.TurnDegrees(V(v), shipCam),
-                Icons.ItemId(_content.Items[Net.DepositItem(d)].Id), d == _selectedDeposit));
+                Icons.ItemId(_content.Items[Net.DepositItem(d)].Id), d == _selectedDeposit, ShipLocal(v)));
         }
-        EnemyInfo? nearest = null;
-        float best = float.MaxValue;
+        var enemies = new List<(float D2, EnemyInfo E)>();
         foreach (var en in Net.Enemies())
         {
             if (system >= 0 && en.System != system) continue;
-            float d2 = (new Vector3(en.X, en.Y, en.Z) / CellUnits - ship).LengthSquared();
-            if (d2 < best) { best = d2; nearest = en; }
+            enemies.Add(((new Vector3(en.X, en.Y, en.Z) / CellUnits - ship).LengthSquared(), en));
         }
-        if (nearest is { } e)
+        foreach (var (_, e) in enemies.OrderBy(x => x.D2).Take(12))
         {
             var v = new Vector3(e.X, e.Y, e.Z) / CellUnits - ship;
-            list.Add(new NavTarget(NavKind.Enemy, -1, Loc.Name("enemy", _content.Enemies[e.Type].Id), v.Length(), NavFrame.TurnDegrees(V(v), shipCam), IconCatalog.ForEnemy(_content.Enemies[e.Type].Id)));
+            list.Add(new NavTarget(NavKind.Enemy, e.Id, Loc.Name("enemy", _content.Enemies[e.Type].Id), v.Length(), NavFrame.TurnDegrees(V(v), shipCam), IconCatalog.ForEnemy(_content.Enemies[e.Type].Id), false, ShipLocal(v)));
         }
         if (_dockNear)
         {
             var (_, station) = CandidatePorts(_dockCand);
             var v = station - ship;
-            list.Add(new NavTarget(NavKind.Port, -1, L("cp.nav.port"), v.Length(), NavFrame.TurnDegrees(V(v), shipCam), "status:port"));
+            list.Add(new NavTarget(NavKind.Port, 0, L("cp.nav.port"), v.Length(), NavFrame.TurnDegrees(V(v), shipCam), "status:port", false, ShipLocal(v)));
         }
         if (_selectedSystem >= 0 && Net.Galaxy is { } galaxy && system >= 0 && _selectedSystem != system && Net.IsSystemKnown(_selectedSystem))
         {
@@ -212,10 +236,16 @@ public partial class Play
             var to = galaxy.Systems[_selectedSystem];
             var dir = NavFrame.DirectionTo(new Vec3(from.X, from.Y, from.Z), new Vec3(to.X, to.Y, to.Z));
             float mapDistance = new Vector3(to.X - from.X, to.Y - from.Y, to.Z - from.Z).Length();
-            list.Add(new NavTarget(NavKind.Gate, _selectedSystem, L("mark.gate", to.Name), mapDistance, NavFrame.TurnDegrees(dir, shipCam), "status:gate"));
+            var local = ShipLocal(new Vector3(dir.X, dir.Y, dir.Z)); // a unit direction: the map puts a gate at its rim
+            list.Add(new NavTarget(NavKind.Gate, _selectedSystem, L("mark.gate", to.Name), mapDistance, NavFrame.TurnDegrees(dir, shipCam), "status:gate", false, local));
         }
-        return NavList.Build(list, 6);
+        // the pick, when it is still there, is the highlighted row
+        if (_navPickKind is { } pk && list.Any(t => t.Kind == pk && t.Id == _navPickId))
+            list = list.Select(t => t with { Selected = t.Kind == pk && t.Id == _navPickId }).ToList();
+        else if (_navPickKind is not null && _navPickKind != NavKind.Deposit) _navPickKind = null; // the picked thing is gone
+        return list;
     }
+
 
     // ---- pressing buttons ------------------------------------------------------------------------------
 
@@ -233,28 +263,43 @@ public partial class Play
             case CockpitAction.CycleHudMode: CycleHudMode(); break;
             case CockpitAction.PrevTarget: CycleDeposit(-1); break;
             case CockpitAction.NextTarget: CycleDeposit(1); break;
-            case CockpitAction.SelectTarget: SelectNavRow(button.Arg); break;
+            case CockpitAction.SelectTarget:
+            case CockpitAction.PickTarget: PickNavTarget(button.Arg); break;
+            case CockpitAction.MapZoom: if (button.Arg == 0) _navMap.Reset(); else _navMap.Zoom(button.Arg); break;
             case CockpitAction.Scan: Send(new Scan()); break;
             case CockpitAction.LeaveFocus: SetFocus(null); break;
             case CockpitAction.ToggleFlightAssist: ToggleFlightAssist(); break;
+
         }
         _cockpit!.Refresh();
     }
 
-    private void SelectNavRow(int row)
+    /// <summary>Picks the map or list target number <paramref name="index"/> of <see cref="CockpitSnapshot.MapTargets"/> (any kind). A deposit also becomes the selected deposit.</summary>
+    private void PickNavTarget(int index)
     {
-        if (row < 0 || row >= _snap.Targets.Count) return;
-        var t = _snap.Targets[row];
-        if (!t.Selectable) return;
-        _selectedDeposit = t.Id;
-        _selMachine = -1;
-        ToastProduction(L("toast.depositSelected", ItemName(Net.DepositItem(t.Id))));
+        if (index < 0 || index >= _snap.MapTargets.Count) return;
+        var t = _snap.MapTargets[index];
+        if (_navPickKind == t.Kind && _navPickId == t.Id && t.Kind != NavKind.Deposit) { _navPickKind = null; _navPickId = -1; } // a second pick lets go
+        else
+        {
+            _navPickKind = t.Kind;
+            _navPickId = t.Id;
+        }
+        if (t.Kind == NavKind.Deposit)
+        {
+            _selectedDeposit = t.Id;
+            _selMachine = -1;
+            ToastProduction(L("toast.depositSelected", ItemName(Net.DepositItem(t.Id))));
+        }
         _snap = BuildCockpitSnapshot(); // the highlight follows at once
     }
 
+    /// <summary>The target the nav page's big numbers describe (the pick, else the selected deposit, else the nearest threat).</summary>
+    private NavTarget? NavCurrent() => NavPage.Current(_snap.MapTargets, _navPickKind ?? (Net.IsDeposit(_selectedDeposit) ? NavKind.Deposit : null), _navPickKind is null ? _selectedDeposit : _navPickId);
+
     /// <summary>
-    /// The autopilot button: flies toward the chosen deposit and stops inside the mining range (the same straight run as the guided mining flight); pressed again
-    /// it stops. The thrust it sends is the ordinary SetThrust.
+    /// The autopilot button: flies toward the target of the nav page (a deposit or a port) and stops inside the mining range or the docking range (the same straight
+    /// run as the guided mining flight); pressed again it stops. The thrust it sends is the ordinary SetThrust.
     /// </summary>
     private void ToggleAutopilot()
     {
@@ -266,9 +311,18 @@ public partial class Play
             return;
         }
         if (Standing) { ToastLogistics(L("toast.sitToFly")); return; }
-        if (!Net.IsDeposit(_selectedDeposit) || !Net.IsDepositRevealed(_selectedDeposit)) { ToastLogistics(L("cp.nav.noPick")); return; }
-        var q = Net.DepositPosition(_selectedDeposit);
         var ship = ShipPosition(0f);
+        var current = NavCurrent();
+        if (current is { Kind: NavKind.Port } && _dockNear)
+        {
+            var (_, station) = CandidatePorts(_dockCand);
+            var toPort = station - ship;
+            float stopPort = DockRules.RangeCells * 0.8f;
+            if (toPort.Length() > stopPort) _waypoint = ship + toPort.Normalized() * (toPort.Length() - stopPort);
+            return;
+        }
+        if (current is { Kind: NavKind.Enemy or NavKind.Gate } || !Net.IsDeposit(_selectedDeposit) || !Net.IsDepositRevealed(_selectedDeposit)) { ToastLogistics(L("cp.nav.noPick")); return; }
+        var q = Net.DepositPosition(_selectedDeposit);
         var to = new Vector3(q.X, q.Y, q.Z) - ship;
         float stop = PlayerRules.MineRangeCells * 0.6f;
         if (to.Length() <= stop) { ToastLogistics(L("toast.depositSelected", ItemName(Net.DepositItem(_selectedDeposit)))); return; }
@@ -313,12 +367,19 @@ public partial class Play
     /// </summary>
     private bool CockpitMouse(InputEventMouseButton mb)
     {
-        if (mb.ButtonIndex == MouseButton.Left && !mb.Pressed && _swallowRelease) { _swallowRelease = false; return true; }
+        if (mb.ButtonIndex == MouseButton.Left && !mb.Pressed && (_swallowRelease || _mapDrag)) { _swallowRelease = false; _mapDrag = false; return true; }
         if (!mb.Pressed || !CockpitPointer || _cockpit is null) return false;
+        if (mb.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown && NavMapUnderAim())
+        {
+            _navMap.Zoom(mb.ButtonIndex == MouseButton.WheelUp ? 1 : -1); // the wheel zooms the map
+            _cockpit.Refresh();
+            return true;
+        }
         if (_focus is not null && mb.ButtonIndex == MouseButton.Right) { SetFocus(null); return true; }
         if (mb.ButtonIndex != MouseButton.Left || _tool == ToolMode.Build || _cockpitAim is not { } aim) return false;
         _swallowRelease = true;
         if (_cockpit.ButtonAt(aim.Screen, aim.Pixel) is { } button) CockpitPress(aim.Screen, button);
+        else if (_focus == aim.Screen && NavMapUnderAim()) _mapDrag = true; // held on the map of a focused nav display: the mouse turns the map until the button is released
         else if (_focus != aim.Screen) SetFocus(aim.Screen);
         return true;
     }
@@ -326,9 +387,15 @@ public partial class Play
     /// <summary>Mouse motion while a display is in focus: moves the view over the screen (a small, clamped offset) instead of steering. True when used.</summary>
     private bool CockpitLook(Vector2 relative)
     {
+        if (_mapDrag)
+        {
+            _navMap.Orbit(-relative.X * 0.01f, relative.Y * 0.008f * (SettingsStore.Current.InvertMouseY ? -1f : 1f));
+            _cockpit?.Refresh();
+            return true;
+        }
         if (_focus is null) return false;
         var settings = SettingsStore.Current;
-        float k = MouseSensitivity * settings.MouseSensitivity * Math.Clamp(_fovNow / MathF.Max(1f, settings.Fov), 0.2f, 1f) * 0.8f;
+        float k =MouseSensitivity * settings.MouseSensitivity * Math.Clamp(_fovNow / MathF.Max(1f, settings.Fov), 0.2f, 1f) * 0.8f;
         float fov = Mathf.DegToRad(_fovNow > 1f ? _fovNow : settings.Fov);
         float aspect = Math.Max(1f, GetViewport().GetVisibleRect().Size.Aspect());
         float limitPitch = fov * 0.5f * 0.6f, limitYaw = limitPitch * aspect;
@@ -347,7 +414,8 @@ public partial class Play
         var settings = SettingsStore.Current;
         float flightFov = FlightFov(); // the setting plus the flight-feel kick: one field-of-view path, the kick eases itself (Play.FlightFeel.cs)
         float target = flightFov;
-        if (_focus is { } f && _cockpit is not null && _cockpit.TryGetCentre(f, out var centre, out _))
+        var framed = _focus ?? _autoFrame.Framed; // F4 and a click frame a screen fully; looking at it for a moment frames it gently
+        if (framed is { } f && _cockpit is not null && _cockpit.TryGetCentre(f, out var centre, out _))
         {
             var eye = _camera.GlobalPosition;
             var toScreen = centre - eye;
@@ -359,15 +427,28 @@ public partial class Play
             _pitch = _hudSnap ? tp : MotionSmoothing.Damp(_pitch, tp, 10f, dt);
             var size = _cockpit.WorldSize(f);
             float aspect = Math.Max(1f, GetViewport().GetVisibleRect().Size.Aspect());
-            const float fill = 0.70f; // how much of the view the screen takes along its tighter side
+            float fill = _focus is null ? 0.5f : 0.70f; // how much of the view the screen takes along its tighter side (a gentle frame takes half)
             float half = MathF.Max(size.Y * 0.5f / fill, size.X * 0.5f / fill / aspect) * 1.0f;
             target = Math.Clamp(Mathf.RadToDeg(2f * MathF.Atan(half / dist)), 18f, flightFov);
         }
         else _focusOffYaw = _focusOffPitch = 0f;
         if (_fovNow <= 0f) _fovNow = flightFov;
         // Only the focus zoom is eased here; with no display in focus the view follows the flight field of view exactly once it is back from a zoom.
-        bool zooming = _focus is not null || _fovNow < flightFov - 0.05f;
+        bool zooming = framed is not null || _fovNow < flightFov - 0.05f;
         _fovNow = _hudSnap || !zooming ? target : MotionSmoothing.Damp(_fovNow, target, 8f, dt);
         _camera.Fov = _fovNow;
     }
+}
+
+public partial class Play
+{
+    /// <summary>A key that flies the ship is down (thrust, roll, boost): the screen frame lets go.</summary>
+    private static bool AnyFlightKey() =>
+        Input.IsPhysicalKeyPressed(Key.W) || Input.IsPhysicalKeyPressed(Key.A) || Input.IsPhysicalKeyPressed(Key.S) || Input.IsPhysicalKeyPressed(Key.D)
+        || Input.IsPhysicalKeyPressed(Key.Space) || Input.IsPhysicalKeyPressed(Key.C) || Input.IsPhysicalKeyPressed(Key.Z) || Input.IsPhysicalKeyPressed(Key.X)
+        || Input.IsPhysicalKeyPressed(Key.Left) || Input.IsPhysicalKeyPressed(Key.Right) || Input.IsKeyPressed(Key.Shift);
+
+    /// <summary>The navigation map under the crosshair, on whichever display shows the nav page.</summary>
+    private bool NavMapUnderAim() =>
+        _cockpitAim is { } a && _cockpit is not null && _cockpit.Pages.PageOn(a.Screen) == CockpitPage.Nav && _cockpit.View(a.Screen).MapArea.HasPoint(a.Pixel);
 }

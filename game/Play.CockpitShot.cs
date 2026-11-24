@@ -59,27 +59,34 @@ public partial class Play
                 break;
             case 12:
                 _hudModeShot = HudMode.Full;
+                _autoFrameBlock = true; // the seat shots show the screens unframed
                 _yaw = 0f; _pitch = -0.5f; // from the seat, down at the console
                 _focus = null;
                 if (RevealedDeposits() is { Count: > 0 } deps) _selectedDeposit = deps[0];
                 break;
             case 55: GD.Print($"COCKPITSHOT attached={ConsoleReady} module={Seat.Module} deposits={RevealedDeposits().Count}"); Shot("seat"); break;
             case 56: _hudModeShot = HudMode.Cockpit; break;
+            case 57: _hudModeShot = HudMode.Full; _cockpit!.Pages.Show(CockpitScreen.Center, CockpitPage.Nav); break;
+            case 66: Shot("seat.nav"); NavLegibility("seat"); _cockpit!.Capture(CockpitScreen.Center).SavePng(path + ".tex.navcompact.png"); _cockpit.Capture(CockpitScreen.Right).SavePng(path + ".tex.right.png"); _cockpit!.Pages.Show(CockpitScreen.Center, CockpitPage.Flight); _hudModeShot = HudMode.Cockpit; break;
             case 80: Shot("seat.cockpit"); break;
             case 81: _hudModeShot = HudMode.Minimal; break;
             case 105: Shot("seat.minimal"); break;
             case 106: _hudModeShot = HudMode.Full; SetFocus(CockpitScreen.Center); _cockpit?.Pages.Show(CockpitScreen.Center, CockpitPage.Flight); break;
             case 150: Shot("flight"); foreach (var sc in new[] { CockpitScreen.Left, CockpitScreen.Center, CockpitScreen.Right }) _cockpit!.Capture(sc).SavePng(path + ".tex." + sc + ".png"); _cockpit!.Pages.Show(CockpitScreen.Center, CockpitPage.Nav); break;
-            case 175: Shot("nav"); _cockpit!.Pages.Show(CockpitScreen.Center, CockpitPage.Systems); break;
+            case 175: Shot("nav"); NavLegibility("focused"); _cockpit!.Pages.Show(CockpitScreen.Center, CockpitPage.Systems); break;
             case 200: Shot("systems"); _cockpit!.Pages.Show(CockpitScreen.Center, CockpitPage.Weapons); break;
             case 225: Shot("weapons"); ShowAll(); SetFocus(CockpitScreen.Left); break;
             case 255: Shot("left"); SetFocus(CockpitScreen.Right); break;
             case 285: Shot("right"); SetFocus(null); _yaw = 0f; _pitch = -0.62f; break;
-            case 320: Shot("console"); break;
-            case 321: ShowAll(); SetFocus(CockpitScreen.Center); _cockpit!.Pages.Show(CockpitScreen.Center, CockpitPage.Nav); break;
-            case 340: CockpitLook(new Vector2(260f, 150f)); break; // the mouse moves over the focused display
-            case 355: Shot("pan"); CockpitLook(new Vector2(-260f, -150f)); break;
-            case 360:
+            case 295: Shot("console"); GD.Print($"COCKPITSHOT console frame: autoframe={_autoFrame.Framed?.ToString() ?? "-"} aim={_cockpitAim?.Screen.ToString() ?? "-"}"); break;
+            case 296: _autoFrameBlock = false; _pitch = -0.5f; break; // from here the crosshair rests on the centre screen and the auto-frame may act
+            case 400: Shot("autoframe"); GD.Print($"COCKPITSHOT after looking at a screen for 0.4 s: autoframe={_autoFrame.Framed?.ToString() ?? "-"} fov={_camera.Fov:F1}"); break;
+            case 421: ShowAll(); SetFocus(CockpitScreen.Center); _cockpit!.Pages.Show(CockpitScreen.Center, CockpitPage.Nav); break;
+            case 440: CockpitLook(new Vector2(260f, 150f)); break; // the mouse moves over the focused display
+            case 445: _mapDrag = true; CockpitLook(new Vector2(90f, -40f)); _mapDrag = false; _navMap.Zoom(1); GD.Print($"COCKPITSHOT map yaw={_navMap.Yaw:F2} tilt={_navMap.Tilt:F2} range={_navMap.Range:F0} auto={_navMap.Auto}"); break;
+            case 450: Shot("nav.rotated"); _navMap.Reset(); break;
+            case 455: Shot("pan"); CockpitLook(new Vector2(-260f, -150f)); break;
+            case 460:
             {
                 // A click with the crosshair: the centre of the nav display is on a row of the list; pressing selects that deposit.
                 int before = _selectedDeposit;
@@ -95,18 +102,18 @@ public partial class Play
                 GD.Print($"COCKPITSHOT hud mode after the button: {CurrentHudMode}");
                 break;
             }
-            case 361: // every warning state at once, from made-up data: low hull, strained power, low fuel, full hold, a wave, boost, a port, a gate and an enemy
+            case 461: // every warning state at once, from made-up data: low hull, strained power, low fuel, full hold, a wave, boost, a port, a gate and an enemy
                 _syntheticSnapshot = SyntheticAlertSnapshot();
                 ShowAll(); SetFocus(CockpitScreen.Center); _cockpit!.Pages.Show(CockpitScreen.Center, CockpitPage.Flight);
                 break;
-            case 400: Shot("alert.flight"); _cockpit!.Pages.Show(CockpitScreen.Center, CockpitPage.Systems); break;
-            case 425: Shot("alert.systems"); _cockpit!.Pages.Show(CockpitScreen.Center, CockpitPage.Weapons); break;
-            case 450: Shot("alert.weapons"); _cockpit!.Pages.Show(CockpitScreen.Center, CockpitPage.Nav); break;
-            case 475: Shot("alert.nav"); break;
-            case 500: _syntheticSnapshot = null; _hudModeShot = HudMode.Cockpit; SetFocus(null); _cockpit?.Pages.Show(CockpitScreen.Center, CockpitPage.Flight); break;
-            case 501: ToggleSeat(); _yaw = 0f; _pitch = -0.45f; break; // stand up: the overlay for walking stays in cockpit mode
-            case 560: Shot("standing"); break;
-            case 561: GetTree().Quit(); break;
+            case 500: Shot("alert.flight"); _cockpit!.Pages.Show(CockpitScreen.Center, CockpitPage.Systems); break;
+            case 525: Shot("alert.systems"); _cockpit!.Pages.Show(CockpitScreen.Center, CockpitPage.Weapons); break;
+            case 550: Shot("alert.weapons"); _cockpit!.Pages.Show(CockpitScreen.Center, CockpitPage.Nav); break;
+            case 575: Shot("alert.nav"); break;
+            case 600: _syntheticSnapshot = null; _hudModeShot = HudMode.Cockpit; SetFocus(null); _cockpit?.Pages.Show(CockpitScreen.Center, CockpitPage.Flight); break;
+            case 601: ToggleSeat(); _yaw = 0f; _pitch = -0.45f; break; // stand up: the overlay for walking stays in cockpit mode
+            case 660: Shot("standing"); break;
+            case 661: GetTree().Quit(); break;
         }
     }
 
@@ -164,14 +171,47 @@ public partial class Play
             Velocity = CockpitMath.Velocity(0.4f, 0.2f, 5f),
             SystemName = "Kepler",
             Autopilot = true, DockNear = true, DockAssist = false, ScanReady = false, HasGalaxy = true, DockDistance = 12,
-            Targets = new[]
-            {
-                new NavTarget(NavKind.Enemy, -1, "Striker", 38f, 12f, "enemy:core:striker"),
-                new NavTarget(NavKind.Deposit, 4, "Iron ore", 120f, 95f, "item:core:iron_ore", true),
-                new NavTarget(NavKind.Gate, 2, "Gate: Vega", 640f, 140f, "status:gate"),
-                new NavTarget(NavKind.Port, -1, "Port", 26f, 30f, "status:port"),
-                new NavTarget(NavKind.Deposit, 7, "Ice", 1450f, 170f, "item:core:ice"),
-            },
+            Targets = SyntheticNav,
+            MapTargets = SyntheticNav,
+            PickKind = NavKind.Port,
+            PickId = 0,
         };
     }
+}
+
+public partial class Play
+{
+    /// <summary>
+    /// Prints how big the centre display is in the view and how tall its key glyphs are on the screen: the width of the quad in pixels, that over the window width,
+    /// and the three big values of the nav page (target name, distance, speed) in pixels (<c>NAVSHOT</c>). The acceptance is at least 14 px unfocused at 720p.
+    /// </summary>
+    private void NavLegibility(string tag)
+    {
+        if (_cockpit?.Quad(CockpitScreen.Center) is not { } q) return;
+        var def = _cockpit.Layout.Of(CockpitScreen.Center);
+        Vector2 P(float x, float y) => _camera.UnprojectPosition(q.GlobalTransform * new Vector3(x, y, 0f));
+        var l = P(-def.Width / 2f, 0f);
+        var r = P(def.Width / 2f, 0f);
+        var t = P(0f, def.Depth / 2f);
+        var b = P(0f, -def.Depth / 2f);
+        float widthPx = l.DistanceTo(r), heightPx = t.DistanceTo(b);
+        var vp = GetViewport().GetVisibleRect().Size;
+        float scale = widthPx / def.PxW;
+        var (nameF, distF, speedF) = NavPage.KeyFonts(def.PxW);
+        GD.Print($"NAVSHOT {tag} {vp.X:F0}x{vp.Y:F0}: screen {widthPx:F0} x {heightPx:F0} px ({widthPx / vp.X * 100f:F0} percent of the width), texture {def.PxW}x{def.PxH}, scale {scale:F3}, " +
+                 $"key glyphs name {nameF * scale:F1} px, distance {distF * scale:F1} px, speed {speedF * scale:F1} px (font sizes {nameF}/{distF}/{speedF}); fov {_camera.Fov:F1}");
+    }
+}
+
+public partial class Play
+{
+    /// <summary>Made-up nav targets of every kind, with positions in the ship's frame (right, up, ahead): a threat ahead and above, two deposits, a port beside and the gate's direction.</summary>
+    private static readonly NavTarget[] SyntheticNav =
+    {
+        new(NavKind.Enemy, 1, "Striker", 38f, 12f, "enemy:core:striker", false, new System.Numerics.Vector3(8f, 10f, 36f)),
+        new(NavKind.Deposit, 4, "Iron ore", 120f, 95f, "item:core:iron_ore", true, new System.Numerics.Vector3(110f, -20f, 40f)),
+        new(NavKind.Gate, 2, "Gate: Vega", 640f, 140f, "status:gate", false, new System.Numerics.Vector3(-0.6f, 0.2f, 0.75f)),
+        new(NavKind.Port, 0, "Port", 26f, 30f, "status:port", false, new System.Numerics.Vector3(-14f, -6f, 20f)),
+        new(NavKind.Deposit, 7, "Ice", 1450f, 170f, "item:core:ice", false, new System.Numerics.Vector3(-900f, 300f, -1100f)),
+    };
 }

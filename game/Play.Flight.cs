@@ -105,6 +105,7 @@ public partial class Play
     /// <summary>Mouse motion: steers the ship while piloting, otherwise turns the head (upright in the ship's frame, clamped).</summary>
     private void LookBy(Vector2 relative)
     {
+        _mousePxFrame += relative.Length();
         if (CockpitLook(relative)) return; // a display is in focus: the mouse moves the view over it
         var settings = SettingsStore.Current;
         float sens = MouseSensitivity * settings.MouseSensitivity;
@@ -149,7 +150,7 @@ public partial class Play
                 if (_lookPending.LengthSquared() < 1e-10f) { lookStep += _lookPending; _lookPending = Vector2.Zero; }
                 if (lookStep != Vector2.Zero) _shipQuat = FlightOrientation.Rotate(_shipQuat, lookStep.Y, lookStep.X, 0f);
             }
-            float k = 1f - MathF.Exp(-HeadRelaxRate * dt);
+            float k = _autoFrame.Framed is null ? 1f - MathF.Exp(-HeadRelaxRate * dt) : 0f; // a framed screen keeps the head turned towards it
             _yaw = Mathf.LerpAngle(_yaw, 0f, k);
             _pitch = Mathf.Lerp(_pitch, 0f, k);
             if (MathF.Abs(_yaw) < 1e-3f) _yaw = 0f;
