@@ -61,23 +61,26 @@ public static class Materials
     {
         var m = Build(t, tile, rough, metal, normal);
         m.Uv1Triplanar = false;
-        m.Uv1Scale = new Vector3(1f / tile, 1f / tile, 1f);
-        Planar.Add(m);
+        m.Uv1Scale = Vector3.One; // the mesh carries the UVs, counted in panels (see FaceUv)
+        Planar[m] = tile;
         return m;
     }
 
-    private static readonly HashSet<StandardMaterial3D> Planar = new();
+    private static readonly Dictionary<StandardMaterial3D, float> Planar = new();
+
+    /// <summary>Units covered by one panel (one texture repeat) of a planar material: the size <see cref="FaceUv"/> aims for when it fits whole panels to a face.</summary>
+    public static float PlanarTile(Material? m) => m is StandardMaterial3D sm && Planar.TryGetValue(sm, out float t) ? t : 1f;
 
     /// <summary>True for a material made by <see cref="BuildPlanar"/>: meshes built for it carry UVs and tangents.</summary>
-    public static bool IsPlanar(Material? m) => m is StandardMaterial3D sm && Planar.Contains(sm);
+    public static bool IsPlanar(Material? m) => m is StandardMaterial3D sm && Planar.ContainsKey(sm);
 
     /// <summary>Hull plating for the modules of ships and stations, mapped on the module grid (a panel row every 4 cells, so seams meet across modules).</summary>
     public static StandardMaterial3D ModuleHull() => Cached("mod.hull", () =>
-        BuildPlanar(Set("hull", () => Gen.HullPlating(N(512), 4, 1101, 3.2f * N(512) / 512f), 3.0f), 4f, 0.82f, 0.30f, 0.9f));
+        BuildPlanar(Set("panel", () => Gen.FramedPanel(N(512), 1101, 6.5f * N(512) / 512f), 3.0f), 1f, 0.82f, 0.30f, 0.9f));
 
     /// <summary>Structural metal for the frames, rails and trusses of the modules, on the same grid (a repeat every 2 cells, so it divides the hull's).</summary>
     public static StandardMaterial3D ModuleStruct() => Cached("mod.struct", () =>
-        BuildPlanar(Set("struct", () => Gen.Structural(N(256), 3303), 2.0f), 2f, 0.65f, 0.75f, 0.8f));
+        BuildPlanar(Set("beam", () => Gen.BeamSegment(N(256), 3303), 2.0f), 1f, 0.65f, 0.75f, 0.8f));
 
     private static StandardMaterial3D Cached(string key, Func<StandardMaterial3D> make)
     {
@@ -95,7 +98,7 @@ public static class Materials
 
     /// <summary>The same plating at machine scale (a panel is a quarter to half a unit): machines, drones, enemies, the player ship.</summary>
     public static StandardMaterial3D Machine() => Cached("machine", () =>
-        Build(Set("machine", () => Gen.HullPlating(N(512), 2, 2202, 5.0f * N(512) / 512f), 3.0f), 1f, 0.80f, 0.32f, 0.9f));
+        BuildPlanar(Set("panel", () => Gen.FramedPanel(N(512), 1101, 6.5f * N(512) / 512f), 3.0f), 0.3f, 0.80f, 0.32f, 0.9f));
 
     /// <summary>Dark structural metal for trusses, rails, masts and frames: brushed, bolted, grooved.</summary>
     public static StandardMaterial3D Structural() => Cached("struct", () =>

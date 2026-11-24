@@ -285,6 +285,111 @@ internal static class Gen
         return s;
     }
 
+    /// <summary>
+    /// One framed hull panel per tile, for the planar module material (<see cref="FaceUv"/> fits a whole number of tiles to every face, so
+    /// the tile border lies on the face border): a groove on the tile edge, a bevelled frame band with rivets (corners and every quarter),
+    /// corner gussets, a thin step and a slightly sunken field with grain, soft dirt and a few scratches. Brightness stays near 0.9 so the
+    /// vertex colour decides the hue. Everything is symmetric about the tile edge, so neighbouring tiles join without a visible seam.
+    /// </summary>
+    public static Surf FramedPanel(int n, int seed, float rivetPx)
+    {
+        var s = new Surf(n);
+        float k = n / 512f; // all feature sizes below are written for 512 px
+        float rr = rivetPx;
+        float inset = 28f * k, span = (n - 1) - 2f * inset, sp = span / 4f;
+        s.Each((x, y, u, v) =>
+        {
+            int i = s.Ix(x, y);
+            float cx = MathF.Min(x, n - 1 - x), cy = MathF.Min(y, n - 1 - y);
+            float d = MathF.Min(cx, cy) / k;                     // distance from the tile border, in 512 px units
+            float corner = (cx + cy) / k;
+            float groove = 1f - Tn.Smooth(3f, 6f, d);
+            float lip = Tn.Smooth(5f, 9f, d) * (1f - Tn.Smooth(11f, 16f, d));   // worn bevel: bare bright metal
+            float band = Tn.Smooth(6f, 18f, d);                                   // the frame rises out of the groove
+            float step = (1f - Tn.Smooth(0f, 2.5f, MathF.Abs(d - 42f))) ;         // thin step between frame and field
+            float field = Tn.Smooth(42f, 47f, d);
+            float h = -0.9f * groove + 0.45f * band - 0.18f * field;
+            float albedo = 0.91f * (1f - 0.55f * groove) + 0.06f * lip - 0.10f * step - 0.03f * field;
+            float rough = 0.80f - 0.30f * lip + 0.05f * field;
+            float metal = 0.45f + 0.5f * lip;
+            // corner gussets: a triangular plate in every corner of the frame
+            bool gusset = corner < 150f && d > 14f && d < 40f;
+            float gEdge = MathF.Abs(corner - 150f);
+            if (gusset) { h += 0.18f; albedo *= 1.04f; }
+            if (corner < 156f && d > 14f && d < 44f && gEdge < 2.5f) { h -= 0.35f; albedo *= 0.72f; }
+            // dirt, grain, edge grime
+            float dirt = Tn.Fbm(u, v, 3, 3, 4, seed + 40);
+            albedo *= 1f - 0.14f * Tn.Smooth(0.45f, 0.85f, dirt) - 0.08f * MathF.Exp(-d / 14f);
+            rough += 0.12f * Tn.Smooth(0.5f, 0.9f, dirt);
+            float grain = Tn.Vn(x * 0.5f, y * 0.5f, n / 2, n / 2, seed + 5) - 0.5f;
+            albedo *= 1f + 0.05f * grain; h += 0.03f * grain;
+            // rivets along the frame, corners included
+            float best = 1e9f;
+            float ex = Math.Clamp(MathF.Round((x - inset) / sp) * sp + inset, inset, (n - 1) - inset);
+            float ey = Math.Clamp(MathF.Round((y - inset) / sp) * sp + inset, inset, (n - 1) - inset);
+            best = MathF.Min(best, Dist(x, y, ex, inset));
+            best = MathF.Min(best, Dist(x, y, ex, (n - 1) - inset));
+            best = MathF.Min(best, Dist(x, y, inset, ey));
+            best = MathF.Min(best, Dist(x, y, (n - 1) - inset, ey));
+            if (best < rr)
+            {
+                float q = 1f - best / rr;
+                h += 0.55f * MathF.Sqrt(q); albedo *= 1.07f; rough = 0.45f; metal = 1f;
+            }
+            else if (best < rr + 1.8f * k) { albedo *= 0.78f; h -= 0.1f; }
+            s.H[i] = h; s.Ro[i] = Math.Clamp(rough, 0.2f, 1f); s.Me[i] = Math.Clamp(metal, 0f, 1f);
+            s.R[i] = albedo * 1.00f; s.G[i] = albedo * 1.01f; s.B[i] = albedo * 1.03f;
+        });
+        var rng = new Models.Rng(seed + 77);
+        for (int i = 0; i < n / 16; i++)
+        {
+            float x = (0.12f + 0.76f * rng.F()) * n, y = (0.12f + 0.76f * rng.F()) * n, a = rng.F() * Tau, len = (10 + rng.F() * 50) * k;
+            s.Line(x, y, x + MathF.Cos(a) * len, y + MathF.Sin(a) * len, 1.06f, -0.18f, 0.25f, -0.03f);
+        }
+        return s;
+    }
+
+    private static float Dist(float x0, float y0, float x1, float y1) => MathF.Sqrt((x0 - x1) * (x0 - x1) + (y0 - y1) * (y0 - y1));
+
+    /// <summary>
+    /// One beam segment per tile, run along +u, for the planar structural material: brushed streaks along u, a bevel on both long edges, a
+    /// joint groove with two bolts on the tile edge (so a segment ends exactly where the beam ends) and a bolt at the middle.
+    /// </summary>
+    public static Surf BeamSegment(int n, int seed)
+    {
+        var s = new Surf(n);
+        float k = n / 256f;
+        s.Each((x, y, u, v) =>
+        {
+            int i = s.Ix(x, y);
+            float cx = MathF.Min(x, n - 1 - x) / k, cy = MathF.Min(y, n - 1 - y) / k;
+            float brush = Tn.Fbm(u, v, 3, 64, 3, seed) - 0.5f;
+            float streak = Tn.Fbm(u, v, 2, 16, 2, seed + 4);
+            float a = 0.86f + 0.16f * brush + 0.06f * (streak - 0.5f);
+            float h = 0.10f * brush;
+            float rough = 0.72f + 0.35f * brush;
+            float metal = 0.85f;
+            // bevelled long edges and a joint groove at the end of the segment
+            float edge = 1f - Tn.Smooth(2f, 4f, cy);
+            float lip = Tn.Smooth(2.5f, 4f, cy) * (1f - Tn.Smooth(5f, 8f, cy));
+            float joint = 1f - Tn.Smooth(1.5f, 3.5f, cx);
+            h += -0.7f * MathF.Max(edge, joint) + 0.25f * Tn.Smooth(3f, 9f, MathF.Min(cx, cy));
+            a *= 1f - 0.45f * MathF.Max(edge, joint);
+            a += 0.07f * lip; rough -= 0.25f * lip;
+            // bolts: the middle of the segment and beside the joints
+            float b0 = Dist(x, y, n / 2f, n / 2f), b1 = Dist(x, y, 20f * k, n / 2f), b2 = Dist(x, y, n - 1 - 20f * k, n / 2f);
+            float bd = MathF.Min(b0, MathF.Min(b1, b2));
+            float br = 9f * k;
+            if (bd < br) { h += 0.55f * MathF.Sqrt(1f - bd / br); a *= 1.1f; rough = 0.4f; }
+            else if (bd < br + 1.5f * k) { a *= 0.78f; h -= 0.1f; }
+            float scuff = Tn.Fbm(u, v, 5, 5, 3, seed + 9);
+            a *= 1f - 0.10f * Tn.Smooth(0.55f, 0.85f, scuff);
+            s.H[i] = h; s.Ro[i] = Math.Clamp(rough, 0.2f, 1f); s.Me[i] = metal;
+            s.Set(i, a, a * 1.01f, a * 1.04f);
+        });
+        return s;
+    }
+
     /// <summary>Rust over plating (wrecks, debris): blotchy orange-brown with deep pits, bare steel in the gaps.</summary>
     public static Surf RustedPlating(int n, int seed)
     {
