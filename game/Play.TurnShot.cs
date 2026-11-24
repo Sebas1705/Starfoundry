@@ -104,8 +104,8 @@ public partial class Play
             case 1010: _assistShot = false; _turn.AddLook(0.4f, 0f, _turnStats); break;
             case 1090: GD.Print($"TURNSHOT free rotation: yaw rate {_turn.OmegaDegrees.Y:F1} deg/s"); Shot("free"); _cockpit?.Capture(CockpitScreen.Center).SavePng(path + ".tex.free.png"); break;
             case 1200: GD.Print($"TURNSHOT free rotation 1.5 s later: yaw rate {_turn.OmegaDegrees.Y:F1} deg/s (it should not have damped)"); _assistShot = true; break;
-            case 1320: GD.Print($"TURNSHOT assist back on: yaw rate {_turn.OmegaDegrees.Y:F2} deg/s (it should be 0)"); break;
-            case 1330: GetTree().Quit(); break;
+            case 1500: GD.Print($"TURNSHOT assist back on: yaw rate {_turn.OmegaDegrees.Y:F2} deg/s (it should be 0)"); break;
+            case 1510: GetTree().Quit(); break;
         }
     }
 }

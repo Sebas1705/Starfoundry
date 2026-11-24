@@ -96,7 +96,7 @@ public sealed record KeyState
     /// <summary>Flight assist (F8): the ship damps its rotation when the pilot stops turning. Off means free rotation.</summary>
     public bool FlightAssist { get; init; } = true;
     /// <summary>The ship has rotation dynamics (the inertia setting is not off), so the flight assist matters.</summary>
-    public bool HasTurnInertia { get; init; } = true;
+    public bool HasTurnInertia { get; init; }
     /// <summary>How much of the outside HUD is drawn (F3).</summary>
     public HudMode HudMode { get; init; }
 
