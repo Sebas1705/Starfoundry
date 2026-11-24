@@ -94,7 +94,7 @@ public static class StructureFlight
 /// belong to a structure and use its local cell coordinates. Structure 0 is the implicit legacy world
 /// (origin 0, no registry entry).
 /// </summary>
-public sealed class Structure
+public sealed partial class Structure
 {
     public int Id { get; }
     public StructureKind Kind { get; }
@@ -166,6 +166,7 @@ public sealed class Structure
         c.Attitude = Attitude; c.DockedTo = DockedTo; c.DockShipModule = DockShipModule; c.DockStationModule = DockStationModule;
         c.DockShipFace = DockShipFace; c.DockStationFace = DockStationFace;
         c.Stock = Stock is null ? null : (int[])Stock.Clone();
+        CloneReactorFuelInto(c);
         return c;
     }
 }

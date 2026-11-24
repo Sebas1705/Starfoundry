@@ -2,7 +2,8 @@ using System.Text.Json;
 
 namespace Starfoundry.Sim;
 
-public sealed record ItemDef(int Index, string Id);
+/// <summary>An item. <see cref="StackSize"/> is the most of it one inventory slot holds (ADR 0035); 0 means the default of <see cref="InventoryRules.DefaultStackSize"/>.</summary>
+public sealed record ItemDef(int Index, string Id, int StackSize = 0);
 
 public sealed record ItemStack(int Item, int Count);
 
@@ -351,6 +352,11 @@ public sealed class ContentDb
     }
 
     public int ItemIndex(string id) => _items.TryGetValue(id, out int i) ? i : throw new KeyNotFoundException($"Unknown item '{id}'.");
+
+    /// <summary>The most of an item one inventory slot holds: the item's own <c>stack_size</c>, else <see cref="InventoryRules.DefaultStackSize"/> (ADR 0035).</summary>
+    public int StackSizeOf(int item) =>
+        (uint)item < (uint)Items.Count && Items[item].StackSize > 0 ? Items[item].StackSize : InventoryRules.DefaultStackSize;
+
     public int MachineIndex(string id) => _machines.TryGetValue(id, out int i) ? i : throw new KeyNotFoundException($"Unknown machine '{id}'.");
     public int RecipeIndex(string id) => _recipes.TryGetValue(id, out int i) ? i : throw new KeyNotFoundException($"Unknown recipe '{id}'.");
     public int ResearchIndex(string id) => _research.TryGetValue(id, out int i) ? i : throw new KeyNotFoundException($"Unknown research '{id}'.");
@@ -380,10 +386,11 @@ public sealed class ContentDb
             var itemIds = new Dictionary<string, int>();
             foreach (var e in Array(root, "items"))
             {
-                RequireObject(e, "item", "id");
+                RequireObject(e, "item", "id", "stack_size");
                 string id = Id(e, "item");
                 if (!itemIds.TryAdd(id, items.Count)) throw new InvalidDataException($"Duplicate item '{id}'.");
-                items.Add(new ItemDef(items.Count, id));
+                int stackSize = e.TryGetProperty("stack_size", out _) ? Int(e, "stack_size", id, 1, InventoryRules.MaxStackSize) : 0;
+                items.Add(new ItemDef(items.Count, id, stackSize));
             }
             if (items.Count == 0 || items.Count > MaxItems) throw new InvalidDataException($"Item count must be 1 to {MaxItems}.");
 
@@ -1158,7 +1165,7 @@ public sealed class ContentDb
         }
 
         Mix(Items.Count);
-        foreach (var i in Items) MixStr(i.Id);
+        foreach (var i in Items) { MixStr(i.Id); if (i.StackSize != 0) Mix(i.StackSize); } // mixed only when set, so content that sets none hashes as before
         Mix(Machines.Count);
         foreach (var m in Machines)
         {

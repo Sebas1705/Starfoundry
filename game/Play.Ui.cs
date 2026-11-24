@@ -1280,7 +1280,7 @@ public partial class Play
     private void UpdateHelp()
     {
         _helpPanel.Visible = _helpOpen;
-        if (_helpOpen) _helpText.Text = L("help.text") + L("help.cockpit");
+        if (_helpOpen) _helpText.Text = L("help.text") + L("help.cockpit") + L("help.inventory");
     }
 
     private void UpdateToasts()
@@ -1381,6 +1381,7 @@ public partial class Play
         var dock = DockRect(size);
         if (_researchPanel is not null) _researchPanel.Dock = dock;
         if (_buildMenu is not null) _buildMenu.Dock = dock;
+        UpdateInventory(size);
 
         // The bottom strip (hold and tool in hand) is one line at the bottom left; it shrinks to fit narrow windows.
         _toolbar.ResetSize();
@@ -1612,6 +1613,7 @@ public partial class Play
         }
 
         // Pointer: inspect machines and pick deposits.
+        if (_structuresOn && AimedModule() is { } reactorAim && ModuleKindIds.IsReactor(reactorAim.Kind)) { _inventory?.Open(ContainerRef.Reactor(reactorAim.S, reactorAim.Key.Mx, reactorAim.Key.My, reactorAim.Key.Mz)); return; } // a click on a reactor opens its fuel slot
         switch (_hover.Kind)
         {
             case HoverKind.Machine:
@@ -1631,7 +1633,7 @@ public partial class Play
     // ---- cursor capture ------------------------------------------------------------------------------------
 
     /// <summary>Panels that need the pointer: the help overlay, the research panel, the build menu and the star map.</summary>
-    private bool PanelOpen() => PauseOpen || EndOpen || StoryOpen || _helpOpen || ResearchOpen || BuildOpen || DesignerOpen || (_mapOpen && Net.Galaxy is not null);
+    private bool PanelOpen() => PauseOpen || EndOpen || StoryOpen || _helpOpen || ResearchOpen || BuildOpen || InventoryOpen || DesignerOpen || (_mapOpen && Net.Galaxy is not null);
 
     /// <summary>Releases or captures the mouse so it matches what the player wants and what is on screen.</summary>
     private void UpdateCapture()
@@ -1682,7 +1684,8 @@ public partial class Play
         switch (k.Keycode)
         {
             case Key.Escape:
-                if (DesignerOpen) CloseDesigner();
+                if (InventoryOpen) { if (!_inventory!.HandleEscape()) CloseInventory(); }
+                else if (DesignerOpen) CloseDesigner();
                 else if (ResearchOpen) CloseResearchPanel();
                 else if (BuildOpen) CloseBuildMenu();
                 else if (_helpOpen) _helpOpen = false;
@@ -1695,6 +1698,7 @@ public partial class Play
             case Key.F1: _helpOpen = !_helpOpen; break;
             case Key.F8: ToggleFlightAssist(); break;
             case Key.F2: ToggleDesigner(); break;
+            case InventoryKey: ToggleInventory(); break;
             case Key.F11:
                 SettingsStore.Set(SettingsStore.Current with { Fullscreen = DisplayServer.WindowGetMode() != DisplayServer.WindowMode.Fullscreen });
                 break;

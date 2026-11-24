@@ -289,6 +289,7 @@ public sealed partial class BeltNetwork
         MixEconomy(Mix);
         MixStation(Mix);
         MixStructures(Mix);
+        MixHandCounters(Mix);
         foreach (var s in _segs)
         {
             if (s is null) { Mix(-1); continue; }
@@ -330,6 +331,7 @@ public sealed partial class BeltNetwork
         CopyStationFrom(other);
         CopyStructuresFrom(other);
         CopyCountersFrom(other);
+        CopyInventoryFrom(other);
         Tick = other.Tick;
         Spawned = other.Spawned;
         Consumed = other.Consumed;
@@ -400,9 +402,9 @@ public sealed partial class BeltNetwork
         ValidateMachines();
         ValidateEconomy();
         long held = MachineHeldItems;
-        if (Spawned + MachineOutputsCreated != Consumed + Destroyed + MachineInputsConsumed + InTransit + held)
+        if (Spawned + MachineOutputsCreated + HandIntoMachines != Consumed + Destroyed + MachineInputsConsumed + InTransit + held + HandOutOfMachines)
             Fail($"conservation broken: spawned {Spawned} + made {MachineOutputsCreated} != consumed {Consumed} + destroyed {Destroyed} " +
-                 $"+ used {MachineInputsConsumed} + in transit {InTransit} + held {held}");
+                 $"+ used {MachineInputsConsumed} + hand {HandOutOfMachines} - {HandIntoMachines} + in transit {InTransit} + held {held}");
     }
 
     private BeltSegment Get(int id)

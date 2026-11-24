@@ -86,6 +86,7 @@ public static class IconCatalog
 
         // Tools and actions (key panel rows, buttons): coloured by their state, so no tint.
         foreach (var (id, glyph) in ToolGlyphs) Add("tool:" + id, glyph, 0);
+        foreach (var (id, glyph) in InventoryToolGlyphs) Add("tool:" + id, glyph, 0);
         foreach (var (id, glyph) in StatusGlyphs) Add("status:" + id, glyph, 0);
     }
 
@@ -106,6 +107,12 @@ public static class IconCatalog
         ("recipe", "cycle"), ("kind", "tag"), ("tab", "tabs"), ("start", "play"), ("info", "info"), ("stock", "depot"), ("module", "cargo"),
         ("drones", "drone"), ("place", "build"), ("quick", "bolt"), ("run", "bolt"), ("hp", "heart"), ("menu", "tabs"), ("resume", "play"),
         ("hold", "cargo"), ("designer", "shipyard"), ("fireGuns", "gun"), ("belt", "belt"), ("machine", "arm"), ("target", "crosshair"), ("add", "plus"),
+    };
+
+    /// <summary>The icons of the personal inventory panel (ADR 0035), by id (the part after <c>tool:</c>).</summary>
+    public static readonly (string Id, string Glyph)[] InventoryToolGlyphs =
+    {
+        ("inventory", "backpack"), ("sort", "sort"), ("bin", "trash"), ("invAll", "tabs"), ("invOre", "ore"), ("invParts", "plate"), ("invFuel", "drop"), ("invAmmo", "ammo"),
     };
 
     /// <summary>Status icons by id (the part after <c>status:</c>).</summary>
@@ -199,6 +206,7 @@ public static class IconCatalog
         "quick" => "tool:quick", "recipe" => "tool:recipe", "refine" => "tool:refine", "repair" => "tool:repair", "research" => "tool:research",
         "resume" => "tool:resume", "roll" => "tool:rotate", "rotate" => "tool:rotate", "run" => "tool:run", "scan" => "tool:scan", "seat" => "tool:seat",
         "start" => "tool:start", "stock" => "tool:stock", "tab" => "tool:tab", "undock" => "tool:undock", "unload" => "tool:unload",
+        "inventory" => "tool:inventory", "invDrag" => "tool:pick", "invQuick" => "tool:quick", "invKeys" => "tool:pick", "invClose" => "tool:close",
         "walk" => "tool:walk", "weapons" => "tool:weapons", "designer" => "tool:designer", "fireGuns" => "tool:fireGuns",
         "console" => "tool:look", "assist" => "tool:boost", "hudmode" => "tool:info", "press" => "tool:pick", "leave" => "tool:close", "nav" => "tool:pick",
         _ => null,

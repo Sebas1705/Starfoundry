@@ -138,6 +138,7 @@ public partial class Play : Node3D
         _uiAudit = args.Contains("--ui-audit");
         _layoutShotPath = args.FirstOrDefault(a => a.StartsWith("--layout-shot="))?["--layout-shot=".Length..];
         _keysShotPath = args.FirstOrDefault(a => a.StartsWith("--keys-shot="))?["--keys-shot=".Length..];
+        _inventoryShotPath = args.FirstOrDefault(a => a.StartsWith("--inventory-shot="))?["--inventory-shot=".Length..];
         _cockpitShotPath = args.FirstOrDefault(a => a.StartsWith("--cockpit-shot="))?["--cockpit-shot=".Length..];
         _turnShotPath = args.FirstOrDefault(a => a.StartsWith("--turn-shot="))?["--turn-shot=".Length..];
         // --continue=slot (quicksave, autosave, ...): continue that save, as the Continue button does; the galaxy comes from its header.
@@ -212,11 +213,12 @@ public partial class Play : Node3D
         BuildDroneVisuals();
         RebuildGeometry();
         if (_stationDemo) StationDemoSelect(args);
-        if (!_demo && !_stationDemo && !_structuresShot && Launch.MenuShotPath is null && _uiShotPath is null && !_uiAudit && _layoutShotPath is null && _keysShotPath is null && _cockpitShotPath is null && _turnShotPath is null && !args.Any(a => a.StartsWith("--hud-sweep="))) StartPlayLog();
+        if (!_demo && !_stationDemo && !_structuresShot && Launch.MenuShotPath is null && _uiShotPath is null && !_uiAudit && _layoutShotPath is null && _keysShotPath is null && _cockpitShotPath is null && _turnShotPath is null && _inventoryShotPath is null && !args.Any(a => a.StartsWith("--hud-sweep="))) StartPlayLog();
         if (_uiShotPath is not null || _uiAudit) UiShotSetup(args);
         if (_uiAudit) UiAuditSetup(args);
         if (_layoutShotPath is not null) LayoutShotSetup(args);
         if (_keysShotPath is not null) KeysShotSetup(args);
+        if (_inventoryShotPath is not null) InventoryShotSetup(args);
         if (_cockpitShotPath is not null) CockpitShotSetup(args);
         if (_turnShotPath is not null) TurnShotSetup(args);
         if (!_demo) Toast(L("toast.welcome"));
@@ -921,6 +923,7 @@ void fragment() {
             AudioResult(r);
             if (r.Command is DesignerApply) { _designerRejected = !r.Ok; if (!r.Ok) ToastLogistics(Why(r.Reject)); continue; } // the designer panel says "applied" only when it was
             if (r.Command is DockAt or Undock or TransferItems) { DockResult(r); continue; }
+            if (r.Command is MoveItems or SetFeedSource or SortInventory) { InventoryResult(r); continue; }
             if (!r.Ok)
             {
                 if (r.Reject == Reject.OutOfRange) _outOfRangeSeen = true;
@@ -1229,6 +1232,7 @@ void fragment() {
         UiAuditFrame();
         LayoutShotFrame();
         KeysShotFrame();
+        InventoryShotFrame();
         CockpitShotFrame();
         TurnShotFrame();
         DefenceShotFrame();

@@ -35,6 +35,7 @@ public partial class Play
     {
         CloseBuildMenu();
         CloseResearchPanel();
+        CloseInventory();
         _designer?.Close();
         if (_pauseMenu is not null) _pauseMenu.Visible = false;
         _endScreen?.Dismiss();
@@ -84,6 +85,17 @@ public partial class Play
             var id = node;
             s.Add(("research." + id, () => { _researchPanel?.Select(_content.ResearchIndex(id)); }));
         }
+        // The personal inventory (ADR 0035): the reactor beside the bag, the hold with a filter, a machine's buffers and the bin's question.
+        s.Add(("inventory.reactor", () => { CloseAllPanels(); InventoryAuditFeed(); InventoryShotOpenReactor(); }));
+        s.Add(("inventory.hold", () => { CloseAllPanels(); InventoryAuditFeed(); _inventory?.Open(ContainerRef.Hold); _inventory?.SetFilter(ItemCategory.Ore); }));
+        s.Add(("inventory.machine", () => { CloseAllPanels(); InventoryAuditFeed(); if (InventoryShotMachine() is { } m) _inventory?.Open(ContainerRef.MachineIn(m), m); }));
+        s.Add(("inventory.bin", () =>
+        {
+            CloseAllPanels();
+            InventoryAuditFeed();
+            _inventory?.Open(ContainerRef.Hold);
+            if (_inventory?.FindSlot(ContainerRef.Person, _content.ItemIndex("core:iron_ore")) is { } slot) _inventory.AskBinFor(slot);
+        }));
         s.Add(("designer", () => { CloseAllPanels(); _designer?.Open(); }));
         s.Add(("pause", () => { CloseAllPanels(); OpenPause(); }));
         s.Add(("pause.settings", () => { _pauseMenu?.Open(MenuScreen.Page.Settings); }));

@@ -117,6 +117,7 @@ public partial class Play
         _buildMenu.Chosen += ChooseFromMenu;
         _buildMenu.CloseRequested += CloseBuildMenu;
         _uiRoot.AddChild(_buildMenu);
+        BuildInventoryPanel();
     }
 
     /// <summary>Per frame: keeps the open panel in step with the world (a few times a second is plenty).</summary>
@@ -144,6 +145,7 @@ public partial class Play
         if (_researchPanel is null) return;
         if (ResearchOpen) { CloseResearchPanel(); return; }
         CloseBuildMenu();
+        CloseInventory();
         _mapOpen = false;
         _researchPanel.Open();
     }
@@ -163,6 +165,7 @@ public partial class Play
         if (_buildMenu is null) return;
         if (BuildOpen) { CloseBuildMenu(); return; }
         CloseResearchPanel();
+        CloseInventory();
         _mapOpen = false;
         _buildMenu.Open(_tool == ToolMode.Build ? CategoryOfSelection() : null);
     }

@@ -154,3 +154,11 @@ Before (main, same bot and seed 20261121): Relaxed 48:34, Normal 49:31, Hard 52:
 - Relaxed is inside its band on every seed. Normal's two seeds land 0:01 and 0:24 under 48 and Hard's seed 777 1:16 over 56: the spread between seeds (up to 5 minutes) is wider than the band for Normal, so the capacity was set for the middle. Seed 777 is slow on every preset because the bot's approach to the home iron rock pins a wing for minutes there; its waves come later because the bot builds less meanwhile. A better approach for the bot is the real fix; it was not attempted beyond the sideways slide.
 - Running with `--density=100` on seed 777 gives the same minute, so the extra deposits are not what moved the bot there. The `--density=N` flag of the Balance tool plays any density (the presets carry 150, 140, 120 and 100).
 - Brutal was not re-measured.
+## Personal inventory round (2026-11-24)
+[ADR 0035](../adr/0035-personal-inventory-container-moves-and-reactor-fuel-slots.md) adds the personal bag, `MoveItems`, `SetFeedSource` and a reactor fuel slot. The bot never moves items by hand and the default feed source is the old rule, so nothing moved. StructureBot, 6 s per action, seed 20261121, `--structures --difficulty=<preset> --minutes 150`:
+
+| Preset (goal) | Win time |
+| --- | --- |
+| Relaxed (8) | 48:34 |
+| Normal (10) | 49:31 |
+| Hard (13) | 52:36 |

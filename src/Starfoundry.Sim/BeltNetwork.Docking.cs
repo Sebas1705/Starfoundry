@@ -424,30 +424,9 @@ public sealed partial class BeltNetwork
     /// </summary>
     internal int TransferItems(int player, int item, int count, bool toStation)
     {
-        var p = _players[player];
-        var ship = _structures[p.ShipStructure];
-        var station = _structures[ship.DockedTo];
-        int want = count <= 0 ? int.MaxValue : count;
-        if (toStation)
-        {
-            int room = StockCapacity(station.Id) - StockTotal(station.Id);
-            int n = Math.Min(Math.Min(want, p.Hold[item]), Math.Max(0, room));
-            if (n <= 0) return 0;
-            station.Stock ??= new int[Content!.Items.Count];
-            station.Stock[item] += n;
-            p.Hold[item] -= n; p.HoldTotal -= n; HoldOut += n;
-            return n;
-        }
-        else
-        {
-            int have = StockCount(station.Id, item);
-            int room = HoldCapacityOf(p) - p.HoldTotal - p.ShipReserved;
-            int n = Math.Min(Math.Min(want, have), Math.Max(0, room));
-            if (n <= 0) return 0;
-            station.Stock![item] -= n;
-            AddToHold(p, item, n);
-            return n;
-        }
+        var station = ContainerRef.Stock(_structures[_players[player].ShipStructure].DockedTo);
+        // A transfer is a move between the hold and the stock of the docked station (ADR 0035), clamped to what is there and what fits.
+        return (toStation ? MoveCore(player, ContainerRef.Hold, item, station, InventoryRules.AnySlot, count, clamp: true) : MoveCore(player, station, item, ContainerRef.Hold, InventoryRules.AnySlot, count, clamp: true)).Moved;
     }
 
     /// <summary>The room the transfer in a direction would have: the hold's free slots, or the stock's.</summary>
