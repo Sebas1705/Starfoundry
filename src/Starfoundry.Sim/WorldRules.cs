@@ -113,7 +113,7 @@ public sealed class WorldRules : IEquatable<WorldRules>
     /// than version 17 read with this on, so they replay as they were recorded; every new world leaves it off. Not a difficulty setting: it is not in the presets
     /// or the new-game screen.
     /// </summary>
-$1
+    public bool LegacyResources { get; init; }
     /// <summary>
     /// True: the player has no personal inventory, reactors have no fuel slot and no auto-feed setting, and the commands that use them are refused, as before ADR 0035. Logs older
     /// than version 18 read with this on, so they replay as they were recorded; every new world leaves it off. Bit 2 of the second flags byte. Not a difficulty setting.
@@ -211,7 +211,7 @@ $1
     public WorldRules WithLegacyFeel(bool legacy) => Flags(LegacyLaser, LegacyGalaxy, LegacyBuilding, LegacyHardpoints, LegacyCollisions, LegacyFlight, feel: legacy);
 
     /// <summary>A copy with <see cref="LegacyResources"/> set to <paramref name="legacy"/>.</summary>
-    $1
+    public WorldRules WithLegacyResources(bool legacy) => Flags(LegacyLaser, LegacyGalaxy, LegacyBuilding, LegacyHardpoints, LegacyCollisions, LegacyFlight, resources: legacy);
     /// <summary>A copy with <see cref="LegacyInventory"/> set to <paramref name="legacy"/>.</summary>
     public WorldRules WithLegacyInventory(bool legacy) => Flags(LegacyLaser, LegacyGalaxy, LegacyBuilding, LegacyHardpoints, LegacyCollisions, LegacyFlight, inventory: legacy);
 
@@ -278,7 +278,7 @@ $1
         LegacyLaser = LegacyLaser,
         LegacyGalaxy = LegacyGalaxy,
         LegacyBuilding = LegacyBuilding, LegacyHardpoints = LegacyHardpoints, LegacyCollisions = LegacyCollisions, LegacyFlight = LegacyFlight,
-$1LegacyInventory = LegacyInventory, ResourceDensityPercent = Math.Clamp(ResourceDensityPercent, MinDensityPercent, MaxDensityPercent),
+        LegacyFeel = LegacyFeel, LegacyResources = LegacyResources, LegacyInventory = LegacyInventory, ResourceDensityPercent = Math.Clamp(ResourceDensityPercent, MinDensityPercent, MaxDensityPercent),
         StartingItems = _startingItems
             .Where(s => s.Item >= 0 && (content is null || s.Item < content.Items.Count) && s.Count >= 1)
             .Select(s => new ItemStack(s.Item, Math.Min(s.Count, MaxStackCount)))
