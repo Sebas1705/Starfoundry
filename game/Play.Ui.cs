@@ -1659,6 +1659,7 @@ public partial class Play
                 else { _waypoint = null; _wantCapture = false; OpenPause(); } // last: let go of the mouse and open the pause menu
                 break;
             case Key.F1: _helpOpen = !_helpOpen; break;
+            case Key.F8: ToggleFlightAssist(); break;
             case Key.F2: ToggleDesigner(); break;
             case Key.F11:
                 SettingsStore.Set(SettingsStore.Current with { Fullscreen = DisplayServer.WindowGetMode() != DisplayServer.WindowMode.Fullscreen });

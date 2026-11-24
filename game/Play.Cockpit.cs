@@ -131,6 +131,10 @@ public partial class Play
         snap.Flight = new FlightDisplayData(_speedCps, top, thrust, boosting, canBoost, _targetShown, Net.ThreatActive ? p.Hull : 0, maxHull,
             st.Production, st.Demand, st.SatisfactionPermille, st.HydrogenInHold, fuelLeft, holdUsed, holdCap);
         snap.HasReactor = reactor;
+        snap.TurnRates = _turn.OmegaDegrees;
+        snap.TurnRateMax = _turnStats.RateDegPerSecond;
+        snap.FlightAssist = FlightAssistOn;
+        snap.HasInertia = UsesDynamics;
 
         // attitude and velocity, in the ship's own axes (not the head's)
         var b = ShipBasis;
@@ -232,6 +236,7 @@ public partial class Play
             case CockpitAction.SelectTarget: SelectNavRow(button.Arg); break;
             case CockpitAction.Scan: Send(new Scan()); break;
             case CockpitAction.LeaveFocus: SetFocus(null); break;
+            case CockpitAction.ToggleFlightAssist: ToggleFlightAssist(); break;
         }
         _cockpit!.Refresh();
     }

@@ -35,6 +35,8 @@ public enum CockpitAction
     SelectTarget,
     Scan,
     LeaveFocus,
+    /// <summary>Flight assist on or off (F8).</summary>
+    ToggleFlightAssist,
 }
 
 /// <summary>A clickable rectangle of a display, in the pixels of that display's texture.</summary>

@@ -43,6 +43,12 @@ public sealed record GameSettings
     /// <summary>Piloting turns the ship a little behind the mouse (a short angular inertia) and eases the roll keys; off, the ship follows the mouse at once.</summary>
     public bool SmoothLook { get; init; } = true;
 
+    /// <summary>How much the ship's turn lags the pilot: off (the old short mouse easing), light or full rotation dynamics (see <see cref="TurnController"/>). Replaces the old piloting half of <c>smooth_look</c>; the flag above now only smooths walking and sitting.</summary>
+    public ShipInertia ShipInertia { get; init; } = ShipInertias.Default;
+
+    /// <summary>Flight assist: the ship damps its rotation when the pilot stops turning (on), or keeps rotating until countered (off).</summary>
+    public bool FlightAssist { get; init; } = true;
+
     public bool Fullscreen { get; init; }
 
     /// <summary>Low texture quality: the procedural textures are generated at half their size (read when the game starts, so a change applies on the next launch).</summary>
@@ -65,6 +71,7 @@ public sealed record GameSettings
         MouseSensitivity = Clamp(MouseSensitivity, MinMouseSensitivity, MaxMouseSensitivity, 1f),
         Fov = Clamp(Fov, MinFov, MaxFov, DefaultFov),
         HudMode = Enum.IsDefined(HudMode) ? HudMode : HudModes.Default,
+        ShipInertia = Enum.IsDefined(ShipInertia) ? ShipInertia : ShipInertias.Default,
         MasterVolume = Clamp(MasterVolume, 0f, 1f, 0.8f),
         SfxVolume = Math.Clamp(SfxVolume, 0, 100),
         AmbienceVolume = Math.Clamp(AmbienceVolume, 0, 100),
@@ -91,6 +98,8 @@ public sealed record GameSettings
             new KeyValuePair<string, string>("invert_mouse_y", s.InvertMouseY ? "true" : "false"),
             new KeyValuePair<string, string>("hud_mode", HudModes.Id(s.HudMode)),
             new KeyValuePair<string, string>("smooth_look", s.SmoothLook ? "true" : "false"),
+            new KeyValuePair<string, string>("ship_inertia", ShipInertias.Id(s.ShipInertia)),
+            new KeyValuePair<string, string>("flight_assist", s.FlightAssist ? "true" : "false"),
             new KeyValuePair<string, string>("fullscreen", s.Fullscreen ? "true" : "false"),
             new KeyValuePair<string, string>("low_textures", s.LowTextures ? "true" : "false"),
             new KeyValuePair<string, string>("blender_cockpit", s.BlenderCockpit ? "true" : "false"),
@@ -105,6 +114,8 @@ public sealed record GameSettings
     public static GameSettings FromPairs(IEnumerable<KeyValuePair<string, string>> pairs, GameSettings baseline)
     {
         var s = baseline.Clamped();
+        bool sawInertia = false;
+        bool? oldSmooth = null;
         foreach (var (rawKey, rawValue) in pairs)
         {
             string key = rawKey.Trim().ToLowerInvariant();
@@ -123,13 +134,17 @@ public sealed record GameSettings
                 case "ui_volume" when int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int uv): s = s with { UiVolume = uv }; break;
                 case "invert_mouse_y" when bool.TryParse(value, out bool i): s = s with { InvertMouseY = i }; break;
                 case "hud_mode" when HudModes.TryParse(value, out var hm): s = s with { HudMode = hm }; break;
-                case "smooth_look" when bool.TryParse(value, out bool sl): s = s with { SmoothLook = sl }; break;
+                case "smooth_look" when bool.TryParse(value, out bool sl): s = s with { SmoothLook = sl }; oldSmooth = sl; break;
+                case "ship_inertia" when ShipInertias.TryParse(value, out var si): s = s with { ShipInertia = si }; sawInertia = true; break;
+                case "flight_assist" when bool.TryParse(value, out bool fa): s = s with { FlightAssist = fa }; break;
                 case "fullscreen" when bool.TryParse(value, out bool fs): s = s with { Fullscreen = fs }; break;
                 case "low_textures" when bool.TryParse(value, out bool lt): s = s with { LowTextures = lt }; break;
                 case "blender_cockpit" when bool.TryParse(value, out bool bc): s = s with { BlenderCockpit = bc }; break;
                 case "goal_waves" when int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int gw): s = s with { GoalWaves = gw }; break;
             }
         }
+        // An older file only knows smooth_look: a pilot who had turned it off keeps the plain, quick response (inertia off).
+        if (!sawInertia && oldSmooth == false) s = s with { ShipInertia = ShipInertia.Off };
         return s.Clamped();
     }
 

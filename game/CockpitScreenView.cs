@@ -23,6 +23,10 @@ public sealed class CockpitSnapshot
     public int DockDistance, JumpSeconds;
     public HudMode HudMode;
     public string SelectedName = "";
+    /// <summary>Angular velocity about the ship's axes in degrees per second (pitch up, yaw right, roll right) and the most it can reach.</summary>
+    public System.Numerics.Vector3 TurnRates;
+    public float TurnRateMax = 90f;
+    public bool FlightAssist = true, HasInertia = true;
 }
 
 /// <summary>
@@ -277,11 +281,46 @@ public partial class CockpitScreenView : Control
         y += step;
         GaugeLine(16, y, colW - 4, "status:cargo", Loc.T("cp.hold"), f.HoldFraction, f.HoldFraction > 0.95f ? UiTheme.Warn : accent, $"{f.HoldUsed}/{f.HoldCapacity}");
 
-        if (wide) DrawAttitude(new Vector2(size.X - 170f, 190f), 100f, accent);
+        if (wide) { DrawAttitude(new Vector2(size.X - 150f, 168f), 84f, accent); DrawTurnIndicator(new Rect2(size.X - 290f, 280f, 280f, 68f), accent); }
         else DrawAttitude(new Vector2(size.X - 64f, 100f), 42f, accent, compact: true);
         if (s.Docked) Banner(size, Loc.T("cp.docked"), UiTheme.Good);
         else if (s.Jumping) Banner(size, $"{Loc.T("cp.jumping")} {s.JumpSeconds}s", UiTheme.Warn);
         else if (s.Rebuilding) Banner(size, Loc.T("cp.rebuilding"), UiTheme.Bad);
+    }
+
+    /// <summary>
+    /// The three-axis turn-rate indicator of the flight display: pitch, yaw and roll as bars from the centre (right or up is to the right), against the ship's
+    /// turn rate, and the flight assist button. Without ship inertia the controller is off and the indicator says so.
+    /// </summary>
+    private void DrawTurnIndicator(Rect2 r, Color accent)
+    {
+        var s = Snapshot;
+        Txt(Loc.T("cp.turn"), r.Position.X, r.Position.Y + 2, 12, UiTheme.Muted);
+        string assist = s.FlightAssist ? Loc.T("cp.assist") : Loc.T("cp.assistOff");
+        var btn = new Rect2(r.End.X - 96, r.Position.Y - 2, 96, 22);
+        if (s.HasInertia) Button(btn, assist, "tool:boost", CockpitAction.ToggleFlightAssist, 0, s.FlightAssist, true, s.FlightAssist ? accent : Amber, 12);
+        else Txt(Loc.T("cp.noInertia"), btn.Position.X, btn.Position.Y + 4, 12, UiTheme.Dim, HorizontalAlignment.Right, btn.Size.X);
+        string[] names = { Loc.T("cp.rate.pitch"), Loc.T("cp.rate.yaw"), Loc.T("cp.rate.roll") };
+        float[] rates = { s.TurnRates.X, s.TurnRates.Y, s.TurnRates.Z };
+        float max = Math.Max(1f, s.TurnRateMax);
+        float labelW = 34f, valueW = 40f;
+        float barX = r.Position.X + labelW, barW = r.Size.X - labelW - valueW;
+        for (int i = 0; i < 3; i++)
+        {
+            float y = r.Position.Y + 24f + i * 16f;
+            Txt(names[i], r.Position.X, y - 1, 11, UiTheme.Muted);
+            var track = new Rect2(barX, y + 2, barW, 8);
+            Fill(track, UiTheme.Track, 4);
+            float mid = barX + barW / 2f;
+            float frac = Math.Clamp(rates[i] / max, -1f, 1f);
+            if (MathF.Abs(frac) > 0.003f)
+            {
+                float w = MathF.Abs(frac) * barW / 2f;
+                Fill(new Rect2(frac > 0f ? mid : mid - w, y + 2, MathF.Max(3f, w), 8), s.HasInertia ? accent : UiTheme.Dim, 3);
+            }
+            DrawLine(new Vector2(mid, y), new Vector2(mid, y + 12), new Color(1f, 1f, 1f, 0.5f), 1f);
+            Txt(FlightAssistText.Rate(rates[i]), r.End.X - valueW, y - 1, 11, UiTheme.Text, HorizontalAlignment.Right, valueW);
+        }
     }
 
     private static Color PowerColor(int permille) => PowerFormat.Band(permille) switch

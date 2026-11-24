@@ -93,6 +93,10 @@ public sealed record KeyState
     public bool ConsoleFocus { get; init; }
     /// <summary>The ship has cockpit displays to look at (a seat at a console).</summary>
     public bool HasConsole { get; init; }
+    /// <summary>Flight assist (F8): the ship damps its rotation when the pilot stops turning. Off means free rotation.</summary>
+    public bool FlightAssist { get; init; } = true;
+    /// <summary>The ship has rotation dynamics (the inertia setting is not off), so the flight assist matters.</summary>
+    public bool HasTurnInertia { get; init; } = true;
     /// <summary>How much of the outside HUD is drawn (F3).</summary>
     public HudMode HudMode { get; init; }
 
@@ -257,6 +261,7 @@ public static class KeyHints
         if (s.BoostAvailable) yield return Row("boost", "Shift", "boost", state: s.Boosting ? KeyRowState.Active : KeyRowState.Info);
         yield return new KeyRow("roll", new[] { "Z", "X" }, "key.roll", KeyRowState.Info); // free flight: roll the ship about its own axis (the arrow keys too)
         yield return new KeyRow("look", new[] { "Alt" }, "key.look", KeyRowState.Info); // free flight: hold to look around inside the ship instead of steering
+        if (s.HasTurnInertia) yield return Row("assist", "F8", s.FlightAssist ? "assistOn" : "assistOff", "F8", Lit(!s.FlightAssist)); // flight assist: damp the rotation, or let it run free
         if (s.CanWalk) yield return Row("seat", "E", "stand", "E");
         if (s.HasConsole) yield return Row("console", "F4", "console", "F4");
         yield return HudModeRow(s);

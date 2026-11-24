@@ -97,6 +97,8 @@ public partial class Play
             HasConsole = ConsoleReady,
             ConsoleFocus = _focus is not null,
             HudMode = CurrentHudMode,
+            FlightAssist = FlightAssistOn,
+            HasTurnInertia = UsesDynamics,
             CanWalk = CanWalk,
             Standing = Standing,
             NearSeat = Standing && BodyMotion.InSeatReach(Sys(_body), Sys(SeatPosition)),

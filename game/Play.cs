@@ -121,6 +121,7 @@ public partial class Play : Node3D
         var content = ContentSource.Load(args, out var contentLookup, out string? contentError);
         if (content is null) { ContentSource.ShowError(this, contentLookup, contentError); SetProcess(false); SetPhysicsProcess(false); SetProcessUnhandledInput(false); return; }
         _content = content;
+        ClientContent.Load(contentLookup.Path);
         if (args.Contains("--ui-lang=es")) Loc.Lang = Language.Es; // any screenshot or scripted run may pin the language (after the settings load)
         if (args.Contains("--ui-lang=en")) Loc.Lang = Language.En;
         // --window=WxH puts any scripted run or screenshot in a window of that size (the shots saw the maximised window before, so 1024x600 was never looked at).
@@ -137,6 +138,7 @@ public partial class Play : Node3D
         _layoutShotPath = args.FirstOrDefault(a => a.StartsWith("--layout-shot="))?["--layout-shot=".Length..];
         _keysShotPath = args.FirstOrDefault(a => a.StartsWith("--keys-shot="))?["--keys-shot=".Length..];
         _cockpitShotPath = args.FirstOrDefault(a => a.StartsWith("--cockpit-shot="))?["--cockpit-shot=".Length..];
+        _turnShotPath = args.FirstOrDefault(a => a.StartsWith("--turn-shot="))?["--turn-shot=".Length..];
         // --continue=slot (quicksave, autosave, ...): continue that save, as the Continue button does; the galaxy comes from its header.
         if (args.FirstOrDefault(a => a.StartsWith("--continue="))?["--continue=".Length..] is { Length: > 0 } cont) { Launch.Mode = Launch.Intent.Continue; Launch.ContinueSave = cont; }
         _galaxySeed = ChooseSeed(args);
@@ -208,12 +210,13 @@ public partial class Play : Node3D
         BuildDroneVisuals();
         RebuildGeometry();
         if (_stationDemo) StationDemoSelect(args);
-        if (!_demo && !_stationDemo && !_structuresShot && Launch.MenuShotPath is null && _uiShotPath is null && !_uiAudit && _layoutShotPath is null && _keysShotPath is null && _cockpitShotPath is null) StartPlayLog();
+        if (!_demo && !_stationDemo && !_structuresShot && Launch.MenuShotPath is null && _uiShotPath is null && !_uiAudit && _layoutShotPath is null && _keysShotPath is null && _cockpitShotPath is null && _turnShotPath is null) StartPlayLog();
         if (_uiShotPath is not null || _uiAudit) UiShotSetup(args);
         if (_uiAudit) UiAuditSetup(args);
         if (_layoutShotPath is not null) LayoutShotSetup(args);
         if (_keysShotPath is not null) KeysShotSetup(args);
         if (_cockpitShotPath is not null) CockpitShotSetup(args);
+        if (_turnShotPath is not null) TurnShotSetup(args);
         if (!_demo) Toast(L("toast.welcome"));
         if (_structuresShot) StructuresShotSetup(args);
         if (_defenceShotPath is not null) DefenceShotSetup();
@@ -1222,6 +1225,7 @@ void fragment() {
         LayoutShotFrame();
         KeysShotFrame();
         CockpitShotFrame();
+        TurnShotFrame();
         DefenceShotFrame();
         ObstacleShotFrame();
         if (_shotCountdown > 0 && --_shotCountdown == 0 && _shotPath != null)
