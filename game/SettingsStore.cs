@@ -35,6 +35,8 @@ public static class SettingsStore
     {
         if (_current is not null) return;
         _current = Load();
+        // A test flag, not stored: look at the half-size textures without touching the player's settings file.
+        if (Array.IndexOf(OS.GetCmdlineUserArgs(), "--low-textures") >= 0) _current = _current with { LowTextures = true };
         Apply(_current);
     }
 

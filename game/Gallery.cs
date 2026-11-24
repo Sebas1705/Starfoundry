@@ -193,7 +193,18 @@ public partial class Gallery : Node3D
         Color[] caps = { new(1f, 0.78f, 0.2f), new(0.95f, 0.3f, 0.25f), new(0.35f, 0.95f, 0.55f) };
         for (int i = 0; i < 3; i++)
             Put(BeltModels.Hub(), caps[i], new Vector3(11f, -0.46f, i * 1.3f));
-        Label("belts Mk1 / Mk2 / Mk3, splitter / sink / source caps", new Vector3(5f, -0.3f, 4.4f));
+        // a vertical run laid out like Play.BuildGeometry does it: a rail beside the item path, caps lying flat across the two ends
+        for (int i = 0; i < 4; i++)
+        {
+            var c = new Vector3(13.5f, 0.0f + i, 0.5f);
+            var mm = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true, Mesh = BeltModels.Tile(1), InstanceCount = 1 };
+            mm.SetInstanceTransform(0, new Transform3D(Basis.FromEuler(new Vector3(0, 0, Mathf.Pi / 2f)), new Vector3(c.X + 0.285f, c.Y, c.Z)));
+            mm.SetInstanceColor(0, tiers[1]);
+            AddChild(new MultiMeshInstance3D { Multimesh = mm });
+        }
+        Put(BeltModels.Hub(), caps[0], new Vector3(13.5f, 3.5f, 0.5f)); // top end: splitter
+        Put(BeltModels.Hub(), caps[2], new Vector3(13.5f, -0.5f, 0.5f)); // bottom end: source
+        Label("belts Mk1 / Mk2 / Mk3, splitter / sink / source caps, a vertical run", new Vector3(5f, -0.3f, 4.4f));
     }
 
     /// <summary>--focus=deposits: one row per item, columns for density 25, 100, 200 and a 100-density deposit at 30% left.</summary>
