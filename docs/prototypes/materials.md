@@ -133,3 +133,68 @@ Hand test: the panel textures did not frame. Panel lines started mid-panel at th
 - **Geometry changes keep working.** `FaceUv` knows nothing about the models: a new face or a changed height is framed on the next build. Faces made of triangles that do not share an edge (a T-junction between two quads) are framed separately, each to its own borders.
 - **Check.** `Gallery.tscn --focus=framing --angle=25 --pitch=38 --dist=42 --frames=40 --shot=out.png` shows a cube, a chamfered prism, a tapered block, a twelve-sided drum with a dome and a beam frame, then a three-module ship strip and a three-module station strip behind them. Every face should carry whole panels with a seam on each border; neighbouring modules should show a double groove where they meet. Also `--focus=ship-demo`, `--focus=station-demo` and `--walk-shot` for the inside.
 - **Limits.** A face that is not a rectangle (a tapered nose, a triangle) has one aligned border; the slanted sides cut the panels. The colour stripes and accent plates sit on the hull as their own faces and carry their own panel grid. A faceted drum shows one narrow panel per facet.
+
+## Materials and what they are for: audit and the optional chains (2026-11-24)
+Status: built. Decision: [ADR 0034](../adr/0034-optional-material-chains-and-read-only-goal-types.md). Content: `content/core.json`. Tests: `MaterialsExpansionTests`, `StructureEconomyTests`, `IconCatalogTests`.
+
+### Audit before the change
+Seventeen items, three of them only ever spent as research or module costs and two that nothing but a few modules ever used. The late economy was a straight line (ore, ingot, plate, then research), and weapons had no reason to look at the rest of the tree.
+
+| Item | Source | Uses before the change | Verdict |
+| --- | --- | --- | --- |
+| Iron ore, ingot, plate | home deposit, smelter, assembler | everything | the backbone, unchanged |
+| Carbon | hand mining | jump cost, engine, reactor, mining laser, advanced logistics, alloy | fine |
+| Ice, hydrogen, fuel cell | hand mining, cracker | reactor fuel | fine; fuel cells are the propellant variant |
+| Titanium ore, ingot, plate | hand mining, smelter, assembler | drone bay, alloy, research | fine |
+| Nickel ore, ingot, plate | hand mining, smelter, assembler | circuits, fuel cells, research | fine |
+| Quartz | hand mining | silicon, research | fine, and now also the lens |
+| Silicon, circuit, titanium alloy | smelter, assembler | shield, sensor, Mk2 reactor, Mk2 hardpoints | fine |
+| Ammo | assembler | turrets | fine |
+| Science items, biomass | bench, lab, greenhouse | research | fine |
+| Wreck loot | derelict wrecks (one item per wreck: plates, ingots, carbon, ammo, ice) | nothing special: the same items the player makes anyway | weak: no reason to fly to a wreck |
+
+Gaps: no hazardous source gave anything the factory could not make, the Mk2 hardpoints cost only circuits, alloy and plates (an upgrade that needed nothing new), and carbon had no second product.
+
+### New items (appended after biomass, so no index moves)
+| Item | Made by | Needs | Used for |
+| --- | --- | --- | --- |
+| Carbon fibre | assembler, `make_carbon_fiber`, 6 s: 3 carbon and 1 nickel ingot give 2 | research Composites | composite plate |
+| Composite plate | assembler, `make_composite_plate`, 6 s: 2 carbon fibre and 1 titanium plate | research Composites | Mk2 gun |
+| Coolant | hydrogen cracker, `make_coolant`, 8 s: 3 ice and 1 silicon give 2 | research Cryogenics | Mk2 laser (2) and Mk2 gun (3) |
+| Resonant crystal | **only** derelict wrecks (two of the seven loot entries, 2 to 6 crystals) | a crystal port (`core:crystal_unloader`, free in structure worlds) | focus lens |
+| Focus lens | assembler, `make_focus_lens`, 8 s: 1 resonant crystal and 2 quartz | research Resonance | Mk2 laser (1) |
+
+Module costs (campaign): Mk2 mining laser 8 circuits, 8 titanium alloy, 1 focus lens, 2 coolant (it used to take 12 iron plates as well; a module is limited to four stacks); Mk2 gun 8 circuits, 8 titanium alloy, 1 composite plate, 3 coolant. Everything else is unchanged: no early module, machine or research node needs a new item.
+
+### New research (basic field, so the science bot and the whole-tree tests are unaffected)
+| Node | Needs | Cost | Gives |
+| --- | --- | --- | --- |
+| Composites | advanced plating, carbon processing | 200 iron plates, 60 carbon, 20 nickel plates | `make_carbon_fiber`, `make_composite_plate`; ship hull +20 percent |
+| Cryogenics | electronics | 250 iron plates, 30 silicon, 20 titanium plates | `make_coolant` |
+| Resonance | sensors | 250 iron plates, 30 silicon, 40 quartz | `make_focus_lens`, the crystal port; mining rate +20 percent |
+
+```
+carbon + nickel ingot --assembler--> carbon fibre --+
+                                                    +--assembler--> composite plate --> Mk2 gun
+titanium plate -------------------------------------+
+ice + silicon --cracker--> coolant -----------------------------------> Mk2 laser, Mk2 gun
+wreck (salvage) -> resonant crystal --crystal port--+
+quartz -------------------------------------------+--assembler--> focus lens --> Mk2 laser
+```
+
+### Rules the content tests keep (`MaterialsExpansionTests`)
+- Every item is found (deposit or wreck) or made, and has a use (a recipe input, a research cost, a machine, module or belt cost, the jump, ammo or reactor fuel).
+- Every recipe of a placeable machine has inputs that can reach a belt (a raw item with a port, or the output of such a recipe). The resonant crystal counts as raw because wrecks give it and the crystal port carries it.
+- Every new recipe is gated by exactly one research node and the research graph of the shipped content is completable.
+- No research node, machine, early module or hardpoint Mk1 costs a new item; only the two Mk2 hardpoints do.
+- Every item, machine, recipe and node has Spanish and English text; every item and machine has an icon.
+- A resonant-crystal wreck exists within two jumps of home on seeds 20261121, 20261120 and 777.
+
+### Sources and hazards
+The task asked for a rare ore from unstable crystals and mine fields as well. Those obstacles explode and carry no loot in the simulation, so giving them salvage needs a new obstacle rule (a sim change with a version gate). This round keeps to content: the crystal comes from wrecks, which already exist, are placed away from mines by the generator and are worth a short detour. A "mine field salvage" rule is a candidate for a later ADR.
+
+### Models and icons
+Items use the existing shapes with new tints (carbon fibre and composite: ingot and plate in slate, coolant: an orb in cyan, crystal and lens: crystals in violet); the crystal port reuses the unloader model with a violet heap. Icons: `item:core:carbon_fiber` (ingot), `composite_plate` (plate), `coolant` (drop), `resonant_crystal` (crystal), `focus_lens` (gem), `machine:core:crystal_unloader` (port) and the three research nodes, all registered in `IconCatalog` with Spanish and English names. A bespoke model for each is not built yet.
+
+### Pacing
+None of this is on the path to the win: the scripted player never researches the three nodes or builds a Mk2 module. Bot times are in [difficulty.md](difficulty.md#materials-and-missions-round-2026-11-24).
