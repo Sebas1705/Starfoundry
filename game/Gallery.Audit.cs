@@ -16,6 +16,7 @@ public partial class Gallery
     /// </summary>
     private void RunAudit(string what, float step)
     {
+        System.Threading.Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
         var tris = new List<AuditTri>();
         foreach (var m in _auditModules) Collect(m.Node, m.Kind.ToString(), tris);
         GD.Print($"AUDIT modules={_auditModules.Count} triangles={tris.Count}");
@@ -27,15 +28,18 @@ public partial class Gallery
             GD.Print("PROBE arg " + probeArg);
             var f = probeArg[8..].Split(',').Select(s => float.Parse(s, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
             var d = System.Numerics.Vector3.Normalize(new(f[3], f[4], f[5]));
-            foreach (var (t, tri) in new MeshAudit.Scene(tris).AllHits(new(f[0], f[1], f[2]), d, 90f))
+            var ps = new MeshAudit.Scene(tris);
+            GD.Print("PROBE first(in)=" + ps.FirstBlocker(new(f[0], f[1], f[2]), d, 90f, true)?.T + " first(out)=" + ps.FirstBlocker(new(f[0], f[1], f[2]), d, 90f, false)?.T);
+            foreach (var (t, tri) in ps.AllHits(new(f[0], f[1], f[2]), d, 90f))
                 GD.Print($"PROBE t={t:0.000} {tri.Part} n=({tri.N.X:0.0},{tri.N.Y:0.0},{tri.N.Z:0.0}) facing={System.Numerics.Vector3.Dot(tri.N, d):0.00}{(tri.TwoSided ? " glass" : "")} at=({f[0] + d.X * t:0.00},{f[1] + d.Y * t:0.00},{f[2] + d.Z * t:0.00})");
             return;
         }
         if (what is "all" or "coplanar")
         {
-            var hits = MeshAudit.CoplanarOverlaps(tris);
+            var visScene = new MeshAudit.Scene(tris);
+            var hits = MeshAudit.CoplanarOverlaps(tris, visible: visScene.CanBeSeen);
             foreach (var h in hits.Take(80))
-                GD.Print($"AUDIT coplanar {h.PartA} | {h.PartB} area={h.Area:0.000} gap={h.Gap:0.0000} at=({h.Where.X:0.00},{h.Where.Y:0.00},{h.Where.Z:0.00}) n=({h.Normal.X:0.0},{h.Normal.Y:0.0},{h.Normal.Z:0.0})");
+                GD.Print($"AUDIT coplanar {h.PartA} | {h.PartB} area={h.Area:0.000} gap={h.Gap:0.0000} at=({h.Where.X:0.00},{h.Where.Y:0.00},{h.Where.Z:0.00}) n=({h.Normal.X:0.0},{h.Normal.Y:0.0},{h.Normal.Z:0.0}) tri=[{h.Lo.X:0.00},{h.Lo.Y:0.00},{h.Lo.Z:0.00}]-[{h.Hi.X:0.00},{h.Hi.Y:0.00},{h.Hi.Z:0.00}]");
             GD.Print($"AUDIT coplanar pairs={hits.Count} totalArea={hits.Sum(h => h.Area):0.00}");
             problems += hits.Count;
         }
@@ -54,7 +58,8 @@ public partial class Gallery
                     for (float x = 0.25f; x < 7.8f; x += 0.75f * step)
                         for (float z = 0.25f; z < 7.8f; z += 0.75f * step)
                         {
-                            if (!HullProfile.Clear(shell, x, z, y, y)) continue;
+                            // a sample must stand clear of the shell (a few centimetres inside), or its own wall would be missed by the ray from it
+                            if (!HullProfile.Clear(shell, x - 0.05f, z, y, y) || !HullProfile.Clear(shell, x + 0.05f, z, y, y) || !HullProfile.Clear(shell, x, z, y - 0.05f, y + 0.05f)) continue;
                             points++;
                             var p = m.At + new Vector3(x, y, z);
                             var o = new System.Numerics.Vector3(p.X, p.Y, p.Z);
@@ -62,8 +67,8 @@ public partial class Gallery
                             {
                                 bool seesSky = scene.FirstBlocker(o, d, 90f, viewerAtOrigin: true) is null;
                                 bool seenFromOutside = scene.FirstBlocker(o, d, 90f, viewerAtOrigin: false) is null;
-                                if (seesSky) { leakIn++; if (examples.Count < 5 && examples.All(e => !e.StartsWith("in " + Octant(d)))) examples.Add($"in {Octant(d)} from ({x:0.00},{y:0.00},{z:0.00}) dir=({d.X:0.00},{d.Y:0.00},{d.Z:0.00})"); }
-                                if (seenFromOutside) { leakOut++; if (examples.Count < 9 && examples.All(e => !e.StartsWith("out " + Octant(d)))) examples.Add($"out {Octant(d)} from ({x:0.00},{y:0.00},{z:0.00}) dir=({d.X:0.00},{d.Y:0.00},{d.Z:0.00})"); }
+                                if (seesSky) { leakIn++; if (examples.Count < 5 && examples.All(e => !e.StartsWith("in " + Octant(d)))) examples.Add($"in {Octant(d)} from ({m.At.X + x:0.000},{m.At.Y + y:0.000},{m.At.Z + z:0.000}) dir=({d.X:0.0000},{d.Y:0.0000},{d.Z:0.0000})"); }
+                                if (seenFromOutside) { leakOut++; if (examples.Count < 9 && examples.All(e => !e.StartsWith("out " + Octant(d)))) examples.Add($"out {Octant(d)} from ({m.At.X + x:0.000},{m.At.Y + y:0.000},{m.At.Z + z:0.000}) dir=({d.X:0.0000},{d.Y:0.0000},{d.Z:0.0000})"); }
                             }
                         }
                 inside += leakIn; outside += leakOut;

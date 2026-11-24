@@ -181,10 +181,14 @@ public static partial class ModuleModels
         bool noseDeck = c.Ship && c.Kind == ModuleKind.Cockpit && !c.Has(Front);
         const float NoseEnd = HullProfile.NoseEnd;
         // A ship's floor ends where the lower chamfer of the hull begins (a sloped wall meets the floor a unit in from the side).
-        float xl = c.Ship && !(c.Has(Left) || c.Has(Down)) ? 1.1f : 0f, xr = c.Ship && !(c.Has(Right) || c.Has(Down)) ? W - 1.1f : W;
+        var hullRing = c.Ship ? HullProfile.Octagon(HullProfile.RoofOf(c.Kind, true), 1f, c.M) : null; // the floor stops where the hull's own lower chamfer begins (a pod's chamfer is smaller than a body module's)
+        float xl = c.Ship && !(c.Has(Left) || c.Has(Down)) ? hullRing![0].X + 0.05f : 0f, xr = c.Ship && !(c.Has(Right) || c.Has(Down)) ? hullRing![1].X - 0.05f : W;
+        // Each layer of the deck stands a hair inside the one below it where they are clipped at the hull's lower chamfer (margin), so no two layers
+        // share a side face: coplanar faces of different colours flicker.
+        float layer = 0f;
         void Blk(Vector3 ctr, Vector3 size)
         {
-            float cx0 = MathF.Max(ctr.X - size.X / 2, xl), cx1 = MathF.Min(ctr.X + size.X / 2, xr);
+            float cx0 = MathF.Max(ctr.X - size.X / 2, xl + (xl > 0f ? layer : 0f)), cx1 = MathF.Min(ctr.X + size.X / 2, xr - (xr < W ? layer : 0f));
             if (cx1 - cx0 < 0.005f) return;
             ctr = new(( cx0 + cx1) / 2, ctr.Y, ctr.Z);
             size = new(cx1 - cx0, size.Y, size.Z);
@@ -207,16 +211,20 @@ public static partial class ModuleModels
             mb.C(Dark).Extrude(Plate(0f), 0.0f, 0.08f);
             mb.C(DeckCol).Extrude(Plate(0.3f), 0.0f, 0.084f);
         }
-        mb.At(default); mb.C(Dark); Blk(new(4, 0.04f, 4), new(7.9f, 0.08f, 7.9f));
-        mb.C(DeckCol); Blk(new(4, 0.05f, 4), new(7.3f, 0.07f, 7.3f));
+        // the base plate stops a hair short of the end bulkheads of a ship (z = 0.05 and 7.95), so its end faces are not coplanar with them; on a side that touches another module it runs to the module boundary
+        layer = c.Ship ? -0.08f : 0f; // under the liner's chamfer feet: the plate reaches past the deck edge, so no slit shows between them
+        mb.At(default); mb.C(Dark); if (c.Ship) Blk(new(4, 0.04f, 4), new(W, 0.08f, D - 0.124f)); else Blk(new(4, 0.04f, 4), new(7.9f, 0.08f, 7.9f));
+        layer = 0.01f; mb.C(DeckCol); Blk(new(4, 0.05f, 4), new(7.3f, 0.07f, 7.3f));
+        layer = 0.02f;
         // plate seams every two cells, in a slightly darker tone, so the floor reads as hard-surface plating
         mb.C(new Color(0.14f, 0.16f, 0.21f));
         for (int i = 1; i < 4; i++)
         {
-            Blk(new(i * 2f, Top - 0.004f, 4), new(0.05f, 0.01f, 7.3f));
-            Blk(new(4, Top - 0.004f, i * 2f), new(7.3f, 0.01f, 0.05f));
+            Blk(new(i * 2f, Top - 0.004f, 4), new(0.05f, 0.01f, 7.2f));
+            Blk(new(4, Top - 0.004f, i * 2f), new(7.2f, 0.01f, 0.05f));
         }
         // the border line: the structure's trim colour on a ship's or a station's deck
+        layer = 0.03f;
         mb.C(c.Acc);
         foreach (float s in new[] { -1f, 1f })
         {
@@ -325,7 +333,7 @@ public static partial class ModuleModels
     /// doubled by an inner face a little inside it, facing inwards, so the shell is opaque from inside as well as from outside (a single face is
     /// culled from behind and the sky shows through). <paramref name="capSkip"/> leaves out the end-cap sectors of those edges.
     /// </summary>
-    private static void Loft(Models.Mb mb, Vector2[] a, float za, Vector2[] b, float zb, bool capA, bool capB, int skipEdges = 0, bool liner = false, int capSkip = 0, int mask = 0)
+    private static void Loft(Models.Mb mb, Vector2[] a, float za, Vector2[] b, float zb, bool capA, bool capB, int skipEdges = 0, bool liner = false, int capSkip = 0, int mask = 0, bool noLinerFloor = false)
     {
         var ca = Vector2.Zero; var cb = Vector2.Zero;
         foreach (var p in a) ca += p;
@@ -349,16 +357,16 @@ public static partial class ModuleModels
             if (capB && capOn) mb.Tri(new(cb.X, cb.Y, zb), b0, b1, inside);
             if (!liner) continue;
             mb.C(Liner);
-            if (drawn)
+            if (drawn && !(noLinerFloor && i == 0))
             {
                 var i0 = In(a[i], ca, za); var i1 = In(a[j], ca, za); var j0 = In(b[i], cb, zb); var j1 = In(b[j], cb, zb);
                 var centre = (i0 + i1 + j0 + j1) / 4f;
                 mb.Quad(i0, i1, j1, j0, centre * 2f - inside);
             }
             if (capA && capOn)
-                mb.Tri(new(ca.X, ca.Y, za + dir * LinerInset), In(a[i], ca, za + dir * LinerInset), In(a[j], ca, za + dir * LinerInset), new(ca.X, ca.Y, za - dir * 5f));
+                mb.Tri(new(ca.X, ca.Y, za), In(a[i], ca, za), In(a[j], ca, za), new(ca.X, ca.Y, za - dir * 5f));
             if (capB && capOn)
-                mb.Tri(new(cb.X, cb.Y, zb - dir * LinerInset), In(b[i], cb, zb - dir * LinerInset), In(b[j], cb, zb - dir * LinerInset), new(cb.X, cb.Y, zb + dir * 5f));
+                mb.Tri(new(cb.X, cb.Y, zb), In(b[i], cb, zb), In(b[j], cb, zb), new(cb.X, cb.Y, zb + dir * 5f));
             mb.C(col);
         }
     }
@@ -421,10 +429,12 @@ public static partial class ModuleModels
                 foreach (var w in wins)
                 {
                     float zc = (w.Z0 + w.Z1) / 2, yc = (w.Y0 + w.Y1) / 2, wl = w.Z1 - w.Z0, hh = w.Y1 - w.Y0;
-                    mb.Block(new(xc, w.Y1 + F / 2, zc), new(d, F, wl + 2 * F));
-                    mb.Block(new(xc, w.Y0 - F / 2, zc), new(d, F, wl + 2 * F));
-                    mb.Block(new(xc, yc, w.Z0 - F / 2), new(d, hh, F));
-                    mb.Block(new(xc, yc, w.Z1 + F / 2), new(d, hh, F));
+                    // the frame reaches a hair into the opening (g), so its faces never lie in the plane of the wall's own edge faces
+                    const float g = 0.012f;
+                    mb.Block(new(xc, w.Y1 + F / 2 - g / 2, zc), new(d, F + g, wl + 2 * F));
+                    mb.Block(new(xc, w.Y0 - F / 2 + g / 2, zc), new(d, F + g, wl + 2 * F));
+                    mb.Block(new(xc, yc, w.Z0 - F / 2 + g / 2), new(d, hh - 2 * g, F + g));
+                    mb.Block(new(xc, yc, w.Z1 + F / 2 - g / 2), new(d, hh - 2 * g, F + g));
                     int mullions = Math.Max(0, (int)MathF.Ceiling(wl / 2.0f) - 1); // a thin mullion about every two cells
                     for (int mi = 1; mi <= mullions; mi++) mb.Block(new(xc, yc, w.Z0 + wl * mi / (mullions + 1)), new(thick + 0.04f, hh, c.Kind == ModuleKind.Cockpit ? 0.08f : 0.1f));
                     mb.C(Steel).Block(new(xc, w.Y0 - F - 0.03f, zc), new(d + 0.06f, 0.06f, wl + 2 * F + 0.1f)); // sill
@@ -467,25 +477,26 @@ public static partial class ModuleModels
                 // exposed ends of the tube are closed by a bulkhead; ends that touch another module stay open
                 bool capFront = !nose && !c.FrontOpen && !windscreen, capRear = !tail && !c.RearOpen && !openRear;
                 bool wrap = nose && glassRoof; // a canopy round the nose: glass over the upper half and the tip
-                if (nose) Loft(mb, Oct(roofY, HullProfile.NoseTipScale, c.M, 0f), 0.05f, full, a, true, false, wrap ? skip | NoseGlassEdges : skip, true, wrap ? NoseGlassEdges : 0, c.M);
-                Loft(mb, full, a, full, b, capFront, capRear, skip, true, 0, c.M);
-                if (tail) Loft(mb, full, b, Oct(roofY, HullProfile.TailScale, c.M), HullProfile.TailEnd, false, true, skip, true, 0, c.M);
+                if (nose) Loft(mb, Oct(roofY, HullProfile.NoseTipScale, c.M, 0f), 0.05f, full, a, true, false, wrap ? skip | NoseGlassEdges : skip, true, wrap ? NoseGlassEdges : 0, c.M, noLinerFloor: true);
+                Loft(mb, full, a, full, b, capFront, capRear, skip, true, 0, c.M, noLinerFloor: true);
+                if (tail) Loft(mb, full, b, Oct(roofY, HullProfile.TailScale, c.M), HullProfile.TailEnd, false, true, skip, true, 0, c.M, noLinerFloor: true);
                 // The module on the other side of an open joint may square its section differently (a corner touching a module above, beside or below):
                 // where this module's section is the bigger one, a plate closes the step in the joint plane, so no daylight shows through the corners.
                 foreach (bool front in new[] { true, false })
                 {
                     if (front ? nose : tail) continue;
-                    if (HullProfile.NeighbourRing(c.M, front, roofY) is { } other) JointPlate(mb, full, other.Select(v => new Vector2(v.X, v.Y)).ToArray(), front ? 0f : D);
+                    if (HullProfile.NeighbourMask(c.M, front) is not { } nbMask) continue;
+                    var other = HullProfile.Octagon(roofY, 1f, nbMask);
+                    JointPlate(mb, full, other.Select(v => new Vector2(v.X, v.Y)).ToArray(), HullProfile.Liner(other, nbMask).Select(v => new Vector2(v.X, v.Y)).ToArray(), front ? 0f : D);
                 }
                 if (wallR) SideWall(mb, WallSlab(c, false).Mid, 0.12f, a, b, full[2].Y, full[3].Y, wins);
                 if (wallL) SideWall(mb, WallSlab(c, true).Mid, 0.12f, a, b, full[7].Y, full[6].Y, wins);
                 float zc = (a + b) / 2, len = b - a;
                 float spineTop = full[4].Y;
                 if (!c.Has(Up) && !glassRoof) mb.C(c.Acc).Block(new(4, spineTop + 0.02f, zc), new(1.1f, 0.06f, len - 0.1f));
-                mb.C(Dark).Block(new(4, 0.066f, zc), new(full[1].X - full[0].X - 0.4f, 0.03f, len - 0.3f)); // the bilge plate stays inside a nose or a tail
                 float mid = (full[2].Y + full[3].Y) / 2;
                 // role band along each exposed flank, and a thin trim line under it (split round a viewport)
-                foreach (float s in new[] { 0.01f, W - 0.01f })
+                foreach (float s in new[] { 0.015f, W - 0.015f })
                 {
                     if (s < 1f ? c.Has(Left) : c.Has(Right)) continue;
                     foreach (var (z0, z1) in Spans(a + 0.1f, b - 0.1f, wins))
@@ -528,10 +539,11 @@ public static partial class ModuleModels
     }
 
     /// <summary>
-    /// The ring of quads between two sections that meet at a joint (z = <paramref name="z"/>) wherever <paramref name="own"/> lies outside
-    /// <paramref name="other"/>, drawn from both sides: a flat plate that closes the step between the two outlines.
+    /// The plate across a joint (z = <paramref name="z"/>) where this module's section <paramref name="own"/> is bigger than the neighbour's
+    /// <paramref name="other"/>: the ring of quads from this module's outline in to the neighbour's inner (liner) outline, wherever the two outlines
+    /// differ, drawn from both sides. It seals the step between the hulls and the open wall cavity of the smaller one.
     /// </summary>
-    private static void JointPlate(Models.Mb mb, Vector2[] own, Vector2[] other, float z)
+    private static void JointPlate(Models.Mb mb, Vector2[] own, Vector2[] other, Vector2[] otherLiner, float z)
     {
         Vector3 V(Vector2 p) => new(p.X, p.Y, z);
         for (int i = 0; i < own.Length; i++)
@@ -541,8 +553,8 @@ public static partial class ModuleModels
             float area = ((own[i].X * own[j].Y - own[j].X * own[i].Y) + (own[j].X * other[j].Y - other[j].X * own[j].Y)
                 + (other[j].X * other[i].Y - other[i].X * other[j].Y) + (other[i].X * own[i].Y - own[i].X * other[i].Y)) / 2f;
             if (area < 1e-3f) continue;
-            mb.Quad(V(own[i]), V(own[j]), V(other[j]), V(other[i]), new(4f, 2f, z + 5f));
-            mb.Quad(V(own[i]), V(own[j]), V(other[j]), V(other[i]), new(4f, 2f, z - 5f));
+            mb.Quad(V(own[i]), V(own[j]), V(otherLiner[j]), V(otherLiner[i]), new(4f, 2f, z + 5f));
+            mb.Quad(V(own[i]), V(own[j]), V(otherLiner[j]), V(otherLiner[i]), new(4f, 2f, z - 5f));
         }
     }
 
@@ -684,6 +696,8 @@ public static partial class ModuleModels
                 for (int e = 0; e < 2; e++)
                 {
                     var sec = e == 0 ? secs[0] : secs[^1];
+                    bool jr = (e == 0 ? c.FrontOpen : c.RearOpen) && !HullProfile.IsPod(c.Kind); // a joint ring is thicker: its centre stands a little further in, so it never overlaps the neighbour's ring
+                    if (jr && (e == 0 ? sec.Z < 0.5f : sec.Z > D - 0.5f)) sec = (e == 0 ? 0.09f : D - 0.09f, sec.S);
                     bool joined = (e == 0 ? c.FrontOpen : c.RearOpen) && !(c.Ship && HullProfile.IsPod(c.Kind)); // a pod keeps a plain ring: it has no doorway
                     bool nosering = e == 0 && nose;
                     var o = Oct(roofY, sec.S, c.M, nosering ? 0f : 0.35f);
@@ -984,8 +998,8 @@ public static partial class ModuleModels
                 if (s < 0 ? c.Has(Left) : c.Has(Right)) continue;
                 float x0 = s < 0 ? 0.05f : W - 0.05f, x1 = s < 0 ? -1.9f : W + 1.9f, y = c.Kind == ModuleKind.Hull ? 1.35f : 1.0f;
                 // a swept stub wing: a plate in the trim colour with a role-colour tip
-                mb.C(White).Extrude(new[] { new Vector2(x0, 1.2f), new Vector2(x1, 4.9f), new Vector2(x1, 6.0f), new Vector2(x0, 6.6f) }, y, y + 0.14f);
-                mb.C(c.Acc).Extrude(new[] { new Vector2(x1 - s * 0.02f, 4.9f), new Vector2(x1, 4.9f), new Vector2(x1, 6.0f), new Vector2(x1 - s * 0.02f, 6.0f) }, y - 0.02f, y + 0.16f);
+                mb.C(White).Extrude(new[] { new Vector2(x0, 1.2f), new Vector2(x1, 4.9f), new Vector2(x1, 6.0f), new Vector2(x0, 6.6f) }, y, y + 0.16f);
+                mb.C(c.Acc).Extrude(new[] { new Vector2(x1 - s * 0.03f, 4.9f), new Vector2(x1 + s * 0.015f, 4.9f), new Vector2(x1 + s * 0.015f, 6.0f), new Vector2(x1 - s * 0.03f, 6.0f) }, y - 0.02f, y + 0.18f);
                 mb.C(c.Role).Block(new(x1, y + 0.07f, 5.45f), new(0.16f, 0.2f, 1.2f));
             }
         });
@@ -1205,7 +1219,7 @@ public static partial class ModuleModels
             mb.Prism(new(4, 0.15f, 4.6f), 0.14f, 0.14f, 0.5f, 8);
             mb.C(Steel).Block(new(4, 0.74f, 4.6f), new(1.3f, 0.12f, 1.2f));
             mb.C(Dark).Block(new(4, 0.86f, 4.55f), new(1.2f, 0.16f, 1.1f), 0.94f, 0.94f);
-            mb.C(c.Acc).Block(new(4, 0.935f, 4.55f), new(1.0f, 0.012f, 0.9f));
+            mb.C(c.Acc).Block(new(4, 0.9455f, 4.55f), new(1.0f, 0.012f, 0.9f));
             // the back, reclined about its foot
             mb.At(new(4, 0.9f, 5.12f), Models.Deg(12, 0, 0));
             mb.C(Dark).Block(new(0, 0.78f, 0), new(1.3f, 1.56f, 0.3f), 0.92f, 1f);
@@ -1324,7 +1338,7 @@ public static partial class ModuleModels
 
     private static void Nozzle(Cx c, float x, float y)
     {
-        Models.Add(c.R, "Nozzle", $"{c.K}.nozzle", Models.Burnt(), mb =>
+        Models.Add(c.R, "Nozzle", $"{c.K}.nozzle.{x}.{y}", Models.Burnt(), mb =>
         {
             ZPrism(mb, x, y, 5.1f, 1.05f, 1.05f, 0.5f, 10, Panel);
             ZPrism(mb, x, y, 5.6f, 0.8f, 1.3f, 1.4f, 10, new Color(0.20f, 0.22f, 0.28f));
@@ -1346,7 +1360,7 @@ public static partial class ModuleModels
         Models.Add(c.R, "GlowEngineCore", "mod.flame.core", Models.GlowPlain(new Color(0.85f, 0.97f, 1f), 5f), mb =>
         {
             mb.At(default, Models.Deg(0, 0, -90)).Prism(default, 0.55f, 0f, 0.8f, 8);
-        }, new Vector3(x, y, 7.0f), new Vector3(0, -90, 0));
+        }, new Vector3(x, y, 6.985f), new Vector3(0, -90, 0));
         // The trail is built from slices whose alpha falls off along the length, in three nested cones (a hot centre, a soft rim), so it
         // fades out instead of ending in a hard edge.
         Models.Add(c.R, "GlowEngineTrail", "mod.flame.trail", Models.GlowFade(new Color(0.35f, 0.7f, 1f), 1.4f), mb =>
@@ -1383,7 +1397,7 @@ public static partial class ModuleModels
     {
         Models.Add(c.R, "Hatch", $"{c.K}.reactorhatch", ModuleHull(), mb =>
         {
-            mb.At(default).C(Dark).Prism(new(4, roof - 0.02f, 4), 1.55f, 1.5f, 0.08f, 20);
+            mb.At(default).C(Dark).Prism(new(4, roof - 0.02f, 4), 1.55f, 1.5f, 0.07f, 20);
             mb.C(Yellow).Prism(new(4, roof + 0.04f, 4), 1.5f, 1.5f, 0.02f, 20);
             mb.C(Dark).Prism(new(4, roof + 0.05f, 4), 1.38f, 1.38f, 0.02f, 20);
         });
@@ -1436,18 +1450,19 @@ public static partial class ModuleModels
             foreach (float s in new[] { -1f, 1f })
             {
                 mb.Block(new(4 + s * 1.5f, Roof + 0.05f, 4), new(0.2f, 0.07f, 3.2f));
-                mb.Block(new(4, Roof + 0.05f, 4 + s * 1.5f), new(3.2f, 0.07f, 0.2f));
+                mb.Block(new(4, Roof + 0.05f, 4 + s * 1.5f), new(3.2f, 0.08f, 0.2f));
             }
             mb.C(Steel).Block(new(4, Roof + 0.08f, 4), new(0.5f, 0.05f, 0.5f));
-            // side cargo doors with hazard bars
+            // side cargo doors with hazard bars: one each side of the viewport, so the two never share a patch of wall
             foreach (float x in new[] { 0.0f, W })
-            {
-                float f = c.Ship ? 0.05f : StationFace;
-                float o = x == 0 ? f - 0.02f : W - f + 0.02f;
-                mb.C(Dark).Block(new(o, 1.95f, 4), new(0.06f, 1.5f, 3.4f));
-                mb.C(Yellow);
-                for (int i = 0; i < 4; i++) mb.Block(new(o + (x == 0 ? -0.02f : 0.02f), 1.95f, 2.7f + i * 0.87f), new(0.05f, 1.5f, 0.12f));
-            }
+                foreach (float dz in new[] { 1.55f, D - 1.55f })
+                {
+                    float f = c.Ship ? 0.05f : StationFace;
+                    float o = x == 0 ? f - 0.02f : W - f + 0.02f;
+                    mb.C(Dark).Block(new(o, 1.95f, dz), new(0.06f, 1.5f, 1.8f));
+                    mb.C(Yellow);
+                    for (int i = 0; i < 3; i++) mb.Block(new(o + (x == 0 ? -0.02f : 0.02f), 1.95f, dz - 0.6f + i * 0.6f), new(0.05f, 1.5f, 0.12f));
+                }
         });
         Models.Add(c.R, "Cargo", $"{c.K}.cargo", ModuleHull(), mb =>
         {

@@ -8,7 +8,7 @@ namespace Starfoundry.Ui;
 public readonly record struct AuditTri(Vector3 A, Vector3 B, Vector3 C, Vector3 N, bool TwoSided, string Part);
 
 /// <summary>Two parts whose faces lie in the same plane and overlap: they z-fight (flicker) wherever both are visible.</summary>
-public readonly record struct CoplanarOverlap(string PartA, string PartB, float Area, Vector3 Where, float Gap, Vector3 Normal = default);
+public readonly record struct CoplanarOverlap(string PartA, string PartB, float Area, Vector3 Where, float Gap, Vector3 Normal = default, Vector3 Lo = default, Vector3 Hi = default);
 
 /// <summary>A ray that finds no visible surface: a hole in the shell.</summary>
 public readonly record struct SeeThrough(Vector3 Origin, Vector3 Dir);
@@ -27,7 +27,7 @@ public static class MeshAudit
     /// <paramref name="minArea"/>. Back-to-back faces (opposite normals) are not reported: one of them is always culled. Results are merged
     /// per pair of parts (largest overlap kept, areas summed).
     /// </summary>
-    public static List<CoplanarOverlap> CoplanarOverlaps(IReadOnlyList<AuditTri> tris, float planeEps = 0.004f, float minArea = 2e-4f)
+    public static List<CoplanarOverlap> CoplanarOverlaps(IReadOnlyList<AuditTri> tris, float planeEps = 0.0015f, float minArea = 2e-4f, Func<Vector3, Vector3, bool>? visible = null)
     {
         const float q = 50f; // normal quantisation: components rounded to 0.02
         var buckets = new Dictionary<(int, int, int, int), List<int>>();
@@ -58,14 +58,15 @@ public static class MeshAudit
                                 if (j <= i) continue;
                                 var (n2, d2) = plane[j];
                                 if (Vector3.Dot(n, n2) < 0.9995f || MathF.Abs(d - d2) > planeEps) continue;
-                                float area = OverlapArea(tris[i], tris[j], n);
-                                if (area < minArea) continue;
+                                float area = OverlapArea(tris[i], tris[j], n, out var spot);
+                                if (area < minArea || (visible != null && !visible(spot, n))) continue;
                                 string a = tris[i].Part, b = tris[j].Part;
                                 var pk = string.CompareOrdinal(a, b) <= 0 ? (a, b) : (b, a);
                                 var where = (tris[i].A + tris[i].B + tris[i].C + tris[j].A + tris[j].B + tris[j].C) / 6f;
+                                var lo = Vector3.Min(Vector3.Min(tris[i].A, tris[i].B), tris[i].C); var hi = Vector3.Max(Vector3.Max(tris[i].A, tris[i].B), tris[i].C);
                                 found[pk] = found.TryGetValue(pk, out var old)
-                                    ? old with { Area = old.Area + area, Where = area > old.Area ? where : old.Where, Gap = MathF.Max(old.Gap, MathF.Abs(d - d2)), Normal = area > old.Area ? n : old.Normal }
-                                    : new CoplanarOverlap(pk.Item1, pk.Item2, area, where, MathF.Abs(d - d2), n);
+                                    ? old with { Area = old.Area + area, Where = area > old.Area ? where : old.Where, Gap = MathF.Max(old.Gap, MathF.Abs(d - d2)), Normal = area > old.Area ? n : old.Normal, Lo = area > old.Area ? lo : old.Lo, Hi = area > old.Area ? hi : old.Hi }
+                                    : new CoplanarOverlap(pk.Item1, pk.Item2, area, where, MathF.Abs(d - d2), n, lo, hi);
                             }
                         }
         }
@@ -75,7 +76,10 @@ public static class MeshAudit
     private static int R(float v) => (int)MathF.Round(v);
 
     /// <summary>The area of the intersection of two coplanar triangles (convex polygon clipping in the plane of <paramref name="n"/>).</summary>
-    public static float OverlapArea(in AuditTri a, in AuditTri b, Vector3 n)
+    public static float OverlapArea(in AuditTri a, in AuditTri b, Vector3 n) => OverlapArea(a, b, n, out _);
+
+    /// <summary>As <see cref="OverlapArea(in AuditTri, in AuditTri, Vector3)"/>, also giving the centre of the overlapping polygon.</summary>
+    public static float OverlapArea(in AuditTri a, in AuditTri b, Vector3 n, out Vector3 centre)
     {
         // an orthonormal basis of the plane
         var u = MathF.Abs(n.Y) < 0.9f ? Vector3.Normalize(Vector3.Cross(n, Vector3.UnitY)) : Vector3.Normalize(Vector3.Cross(n, Vector3.UnitX));
@@ -97,7 +101,14 @@ public static class MeshAudit
                 if (ein) subject.Add(e);
             }
         }
-        return subject.Count < 3 ? 0f : MathF.Abs(Signed(subject.ToArray()));
+        centre = default;
+        if (subject.Count < 3) return 0f;
+        var c2 = Vector2.Zero;
+        foreach (var q in subject) c2 += q;
+        c2 /= subject.Count;
+        centre = u * c2.X + v * c2.Y; // the basis is orthonormal and the plane passes through the origin offset: restore the plane distance
+        centre += n * (Vector3.Dot(n, a.A) - Vector3.Dot(n, centre));
+        return MathF.Abs(Signed(subject.ToArray()));
     }
 
     private static float Side(Vector2 a, Vector2 b, Vector2 p) => (b.X - a.X) * (p.Y - a.Y) - (b.Y - a.Y) * (p.X - a.X);
@@ -201,6 +212,26 @@ public static class MeshAudit
         }
 
         public AuditTri Tri(int i) => _tris[i];
+
+        /// <summary>
+        /// True when a viewer could see the surface at <paramref name="p"/> facing <paramref name="n"/> from somewhere in front of it: from a few
+        /// distances (0.3, 1.5 and 6 cells) and directions, the ray to the point is not stopped earlier by a surface the viewer sees. A face hidden
+        /// inside a solid (a deck plate under another, the back of a hull panel) is never seen and cannot flicker.
+        /// </summary>
+        public bool CanBeSeen(Vector3 p, Vector3 n)
+        {
+            var u = MathF.Abs(n.Y) < 0.9f ? Vector3.Normalize(Vector3.Cross(n, Vector3.UnitY)) : Vector3.Normalize(Vector3.Cross(n, Vector3.UnitX));
+            var v = Vector3.Cross(n, u);
+            foreach (float dist in new[] { 0.3f, 1.5f, 6f })
+                for (int k = 0; k < 7; k++)
+                {
+                    var dir = k == 0 ? n : Vector3.Normalize(n * 0.5f + (u * MathF.Cos(k * 1.047f) + v * MathF.Sin(k * 1.047f)) * 0.87f);
+                    var o = p + dir * dist;
+                    var hit = FirstBlocker(o, -dir, dist + 0.05f, viewerAtOrigin: true);
+                    if (hit is null || hit.Value.T >= dist - 0.02f) return true;
+                }
+            return false;
+        }
 
         private static float Intersect(Vector3 o, Vector3 d, in AuditTri t)
         {

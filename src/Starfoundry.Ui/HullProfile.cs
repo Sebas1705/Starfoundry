@@ -59,12 +59,14 @@ public static class HullProfile
     public const int FrontNbShift = 16, RearNbShift = 20;
 
     /// <summary>The section of the module in front of (<paramref name="front"/>) or behind this one at the joint, from the packed bits of <see cref="MaskOf"/>; null when that side has no body module to join.</summary>
-    public static Vector2[]? NeighbourRing(int mask, bool front, float roofY)
+    public static Vector2[]? NeighbourRing(int mask, bool front, float roofY) => NeighbourMask(mask, front) is { } m ? Octagon(roofY, 1f, m) : null;
+
+    /// <summary>The neighbour mask (left, right, up, down) of the module across a Z joint of a ship module, or null when there is no body module to join on that side.</summary>
+    public static int? NeighbourMask(int mask, bool front)
     {
         if ((mask & (front ? Front : Rear)) == 0 || (mask & (front ? PodFront : PodRear)) != 0) return null;
         int p = (mask >> (front ? FrontNbShift : RearNbShift)) & 15;
-        int m = ((p & 1) != 0 ? Left : 0) | ((p & 2) != 0 ? Right : 0) | ((p & 4) != 0 ? Up : 0) | ((p & 8) != 0 ? Down : 0);
-        return Octagon(roofY, 1f, m);
+        return ((p & 1) != 0 ? Left : 0) | ((p & 2) != 0 ? Right : 0) | ((p & 4) != 0 ? Up : 0) | ((p & 8) != 0 ? Down : 0);
     }
 
     // ---- shared dimensions ---------------------------------------------------------------------------------------------
@@ -209,6 +211,8 @@ public static class HullProfile
         var shift = Vector2.Normalize(d) * LinerInset;
         if (((mask & Left) != 0 && p.X <= 0.001f) || ((mask & Right) != 0 && p.X >= W - 0.001f)) shift.X = 0f;
         if (((mask & Down) != 0 && p.Y <= Roof - H + 0.001f) || ((mask & Up) != 0 && p.Y >= top - 0.001f)) shift.Y = 0f;
+        // the floor of a ship is its deck plating, not the liner: the liner starts at the top of the deck, where the body stands
+        if ((mask & Down) == 0 && MathF.Abs(p.Y - FloorY) < 0.001f) return new Vector2(p.X + shift.X, DeckTop);
         return p + shift;
     }
 
