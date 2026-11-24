@@ -191,6 +191,9 @@ public static class CockpitMath
 
     /// <summary>The scanline brightness of row <paramref name="y"/> of a display: every third row is a little darker.</summary>
     public static float Scanline(int y) => y % 3 == 0 ? 0.82f : 1f;
+
+    /// <summary>How bright the screens are for a power satisfaction in per mille: full at 1000 and over, dimming towards 0.45 at nothing, and 0.2 when the ship has no power at all (they stay readable, only dimmer).</summary>
+    public static float PowerDim(int powerPermille, bool hasPower) => !hasPower ? 0.2f : 0.45f + 0.55f * Fraction(powerPermille, 1000f);
 }
 
 /// <summary>The data the flight display shows, with its fractions worked out.</summary>
