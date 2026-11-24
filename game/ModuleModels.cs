@@ -162,21 +162,23 @@ public static partial class ModuleModels
         bool hole = c.Has(Down) && c.Kind is ModuleKind.Hull or ModuleKind.Cargo or ModuleKind.Workshop or ModuleKind.DroneBay
             or ModuleKind.Cockpit or ModuleKind.Engine or ModuleKind.Defence;
         const float Hx0 = 5.4f, Hx1 = 7.0f, Hz0 = 1.0f, Hz1 = 2.6f;
+        float layer = 0f; // the margin of the layer being built (see Blk below)
         void Blk0(Vector3 ctr, Vector3 size)
         {
             if (!hole) { mb.Block(ctr, size); return; }
             float x0 = ctr.X - size.X / 2, x1 = ctr.X + size.X / 2, z0 = ctr.Z - size.Z / 2, z1 = ctr.Z + size.Z / 2;
-            if (x1 <= Hx0 || x0 >= Hx1 || z1 <= Hz0 || z0 >= Hz1) { mb.Block(ctr, size); return; }
+            float lm = MathF.Max(layer, 0f), hx0 = Hx0 - lm, hx1 = Hx1 + lm, hz0 = Hz0 - lm, hz1 = Hz1 + lm; // each layer's opening is a hair bigger than the one below: the walls of the stairwell do not share a plane
+            if (x1 <= hx0 || x0 >= hx1 || z1 <= hz0 || z0 >= hz1) { mb.Block(ctr, size); return; }
             void Piece(float ax0, float ax1, float az0, float az1)
             {
                 if (ax1 - ax0 < 0.004f || az1 - az0 < 0.004f) return;
                 mb.Block(new((ax0 + ax1) / 2, ctr.Y, (az0 + az1) / 2), new(ax1 - ax0, size.Y, az1 - az0));
             }
-            float cx0 = MathF.Max(x0, Hx0), cx1 = MathF.Min(x1, Hx1);
-            Piece(x0, MathF.Min(x1, Hx0), z0, z1);
-            Piece(MathF.Max(x0, Hx1), x1, z0, z1);
-            Piece(cx0, cx1, z0, MathF.Min(z1, Hz0));
-            Piece(cx0, cx1, MathF.Max(z0, Hz1), z1);
+            float cx0 = MathF.Max(x0, hx0), cx1 = MathF.Min(x1, hx1);
+            Piece(x0, MathF.Min(x1, hx0), z0, z1);
+            Piece(MathF.Max(x0, hx1), x1, z0, z1);
+            Piece(cx0, cx1, z0, MathF.Min(z1, hz0));
+            Piece(cx0, cx1, MathF.Max(z0, hz1), z1);
         }
         // A ship cockpit's nose tapers: its floor is trimmed at the start of the full section and a tapered plate (below) follows the nose.
         bool noseDeck = c.Ship && c.Kind == ModuleKind.Cockpit && !c.Has(Front) && HullProfile.Tapers(c.M);
@@ -186,7 +188,6 @@ public static partial class ModuleModels
         float xl = c.Ship && !(c.Has(Left) || c.Has(Down)) ? hullRing![0].X + 0.05f : 0f, xr = c.Ship && !(c.Has(Right) || c.Has(Down)) ? hullRing![1].X - 0.05f : W;
         // Each layer of the deck stands a hair inside the one below it where they are clipped at the hull's lower chamfer (margin), so no two layers
         // share a side face: coplanar faces of different colours flicker.
-        float layer = 0f;
         void Blk(Vector3 ctr, Vector3 size)
         {
             float cx0 = MathF.Max(ctr.X - size.X / 2, xl + (xl > 0f ? layer : 0f)), cx1 = MathF.Min(ctr.X + size.X / 2, xr - (xr < W ? layer : 0f));
@@ -1418,7 +1419,7 @@ public static partial class ModuleModels
     {
         Models.Add(c.R, "Hatch", $"{c.K}.reactorhatch", ModuleHull(), mb =>
         {
-            mb.At(default).C(Dark).Prism(new(4, roof - 0.02f, 4), 1.55f, 1.5f, 0.07f, 20);
+            mb.At(default).C(Dark).Prism(new(4, roof - 0.02f, 4), 1.55f, 1.5f, 0.075f, 20); // its top stays 5 mm off the roof spine of the hull (3.93)
             mb.C(Yellow).Prism(new(4, roof + 0.04f, 4), 1.5f, 1.5f, 0.02f, 20);
             mb.C(Dark).Prism(new(4, roof + 0.05f, 4), 1.38f, 1.38f, 0.02f, 20);
         });
