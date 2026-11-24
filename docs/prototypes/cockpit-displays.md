@@ -71,3 +71,7 @@ None of this touches the simulation or the rules of ADR 0030: the attitude that 
 ## Not done
 
 Boost has no button (the engines read the key each frame); the mouse cannot click the screens while it is free (`Tab`); the gate shown on the nav page is still chosen on the star map (it can be picked on the page, not changed); a layout with fewer than three screens is not supported (the three slots are fixed); the auto-frame and the map drag are only scripted-tested (no hand feel); there is no sound beyond the UI click; head bob and the other easing are not checked by hand.
+Boost has no button (the engines read the key each frame); the screens are not dimmed by low power; the mouse cannot click the screens while it is free (`Tab`); the target list cannot select a port or the gate (the gate is chosen on the star map); there is no sound beyond the UI click; head bob and the other easing are not checked by hand.
+
+## HUD detail level
+Beside the HUD-mode button, the header of every display has a second button, `DETAIL MINIMAL|STANDARD|DETAILED` (`CockpitAction.CycleHudDetail`; `Shift+F3` does the same). It changes how much each family of the outside HUD says, not which families exist; the rules (`HudDetails`) and the study behind them are in [hud-information-study](hud-information-study.md). The button is left out when the page title leaves no room for it.
