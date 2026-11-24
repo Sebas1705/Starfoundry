@@ -16,24 +16,20 @@ namespace Starfoundry.Game;
 /// </summary>
 public static class CockpitScreenLayout
 {
-    public static readonly Vector3 DeckOrigin = new(4f, 1.02f, 2.55f);
-    public const float DeckTiltDegrees = 18f;
-    public static readonly Vector3 Squeeze = new(0.72f, 0.78f, 1f);
+    // The numbers live in Starfoundry.Ui (CockpitShell) so the Blender generator reads the same ones (tools/blender/shell.json).
+    public static readonly Vector3 DeckOrigin = new(CockpitShell.DeckOriginX, CockpitShell.DeckOriginY, CockpitShell.DeckOriginZ);
+    public const float DeckTiltDegrees = CockpitShell.DeckTiltDegrees;
+    public static readonly Vector3 Squeeze = new(CockpitShell.SqueezeX, CockpitShell.SqueezeY, CockpitShell.SqueezeZ);
     /// <summary>The module-local X that the squeeze keeps fixed.</summary>
-    public const float SqueezeAboutX = 4f;
+    public const float SqueezeAboutX = CockpitShell.SqueezeAboutX;
     /// <summary>The height of the screen surface above the deck plate, in deck cells (the bezel is just under it).</summary>
-    public const float SurfaceHeight = 0.13f;
-    public const float BezelHeight = 0.112f;
-    public const float BezelMargin = 0.06f;
+    public const float SurfaceHeight = CockpitShell.SurfaceHeight;
+    public const float BezelHeight = CockpitShell.BezelHeight;
+    public const float BezelMargin = CockpitShell.BezelMargin;
 
     public readonly record struct Def(CockpitScreen Screen, float X, float Z, float Width, float Depth, int PxW, int PxH);
 
-    public static readonly Def[] Screens =
-    {
-        new(CockpitScreen.Left, -1.72f, -0.01f, 1.25f, 0.74f, 496, 400),
-        new(CockpitScreen.Center, 0f, -0.02f, 1.9f, 0.78f, 720, 400),
-        new(CockpitScreen.Right, 1.72f, -0.01f, 1.25f, 0.74f, 496, 400),
-    };
+    public static readonly Def[] Screens = Array.ConvertAll(CockpitShell.Screens, s => new Def(s.Screen, s.X, s.Z, s.Width, s.Depth, s.PxW, s.PxH));
 
     public static Def Of(CockpitScreen screen) => Screens[(int)screen];
 
