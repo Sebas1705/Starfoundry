@@ -129,7 +129,7 @@ public partial class Play
             Autopilot = true, DockNear = true, DockAssist = false, ScanReady = false, HasGalaxy = true, DockDistance = 12,
             Targets = new[]
             {
-                new NavTarget(NavKind.Enemy, -1, "Raider", 38f, 12f, "enemy:core:raider"),
+                new NavTarget(NavKind.Enemy, -1, "Striker", 38f, 12f, "enemy:core:striker"),
                 new NavTarget(NavKind.Deposit, 4, "Iron ore", 120f, 95f, "item:core:iron_ore", true),
                 new NavTarget(NavKind.Gate, 2, "Gate: Vega", 640f, 140f, "status:gate"),
                 new NavTarget(NavKind.Port, -1, "Port", 26f, 30f, "status:port"),
