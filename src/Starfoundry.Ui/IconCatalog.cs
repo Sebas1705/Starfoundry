@@ -200,6 +200,7 @@ public static class IconCatalog
         "resume" => "tool:resume", "roll" => "tool:rotate", "rotate" => "tool:rotate", "run" => "tool:run", "scan" => "tool:scan", "seat" => "tool:seat",
         "start" => "tool:start", "stock" => "tool:stock", "tab" => "tool:tab", "undock" => "tool:undock", "unload" => "tool:unload",
         "walk" => "tool:walk", "weapons" => "tool:weapons", "designer" => "tool:designer", "fireGuns" => "tool:fireGuns",
+        "console" => "tool:look", "hudmode" => "tool:info", "press" => "tool:pick", "leave" => "tool:close", "nav" => "tool:pick",
         _ => null,
     };
 
