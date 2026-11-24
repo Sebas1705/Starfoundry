@@ -44,16 +44,16 @@ Every display also has the HUD-mode button in its header and a tab strip along t
 
 None of this touches the simulation or the rules of ADR 0030: the attitude that `SyncAttitude` sends is the one the ship has, still throttled as before.
 
-- **Mouse turn inertia** (`AngularInput`): the mouse motion is added up and handed to the attitude with a time constant of 45 ms, so a flick takes a few frames; nothing is ever lost (tested). Alt-look, standing, docking or the setting off apply whatever is pending at once.
-- **Roll** eases in and out (`MotionSmoothing.Damp`, 9 per second) instead of switching.
+- **One smoothing path.** The mouse-turn inertia (24 per second) and the roll ramp (7 per second) are the ones of the flight-feel work (ADR 0033, `Play.Flight.cs`); the *Smooth piloting* setting only switches them off (off: the ship follows the mouse and the roll keys at once). The cockpit work adds no second smoothing of the turn.
 - **Walking** accelerates and brakes (34 and 40 cells per second squared, about a tenth of a second) and has a faint head bob (about a hundredth of a cell) that grows with the speed.
 - **Sitting down and standing up** glide the eye (`EyeBlend`, decaying offset) instead of cutting.
-- **Field of view** eases (8 per second), widens 4 degrees while boosting and narrows for a focused display.
+- **Field of view.** The base is the flight-feel field of view (`FlightFov`: the setting plus the speed kick); only the zoom onto a focused display is eased here, and it hands back to `FlightFov` when it ends.
+- The flight display uses the flight-feel numbers: the smoothed speed against what the engines can do now, the demanded speed as a white mark on the speed bar, the thrust bar as demand over top speed, and the velocity in the ship's axes for the velocity dot. In cockpit-only and minimal modes the HUD speed gauge (in the flight readout card) and the prograde and retrograde markers are hidden along with the other markers.
 - The setting is *Smooth piloting* (Settings page, `smooth_look`, on by default). The screenshot runs snap everything (as the HUD fades do), so `--flight-shot`, `--walk-shot` and the others are unchanged.
 
 ## Tests
 
-`CockpitTests` (engine-free): the page state machine (initial layout, swap, hidden page, cycling and a 500-step random walk keeping the invariant), HUD mode rules and cycling, the settings round trip and defaults for old files, the velocity indicator maths (centre, rim, behind, still, bounds over random velocities), display data fractions and formatting in both cultures, the nav list order, truncation and selection stepping, and the easing helpers (damping without overshoot and frame-rate independence, acceleration limits, no lost mouse turn, the eye blend). `KeyHintsTests` covers the new rows and the console context. Visual check: `--cockpit-shot` (see the [play-test guide](../playtest.md)).
+`CockpitTests` (engine-free): the page state machine (initial layout, swap, hidden page, cycling and a 500-step random walk keeping the invariant), HUD mode rules and cycling, the settings round trip and defaults for old files, the velocity indicator maths (centre, rim, behind, still, bounds over random velocities), display data fractions and formatting in both cultures, the nav list order, truncation and selection stepping, and the easing helpers (damping without overshoot and frame-rate independence, acceleration limits, the eye blend). `KeyHintsTests` covers the new rows and the console context. Visual check: `--cockpit-shot` (see the [play-test guide](../playtest.md)).
 
 ## Not done
 
