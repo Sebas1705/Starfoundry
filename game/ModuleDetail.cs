@@ -141,8 +141,8 @@ public static partial class ModuleModels
             case ModuleKind.Hull:
                 {
                     mb.At(default);
-                    if (!c.Has(Left)) Lockers(mb, c, true, 0.35f, 3); // wall lockers hang only on a closed wall: an open side is a doorway into the next module
-                    if (!c.Has(Right)) Lockers(mb, c, false, 6.1f, 3);
+                    if (!c.Has(Left) && !(c.Ship && Starfoundry.Ui.HullProfile.HasWallFurniture(c.M))) Lockers(mb, c, true, 0.35f, 3); // wall lockers hang only on a closed wall: an open side is a doorway into the next module
+                    if (!c.Has(Right) && !(c.Ship && Starfoundry.Ui.HullProfile.HasWallFurniture(c.M))) Lockers(mb, c, false, 6.1f, 3);
                     // an extinguisher and a first-aid box by the left doorway
                     if (!c.Has(Left))
                     {
@@ -183,8 +183,8 @@ public static partial class ModuleModels
                 {
                     mb.At(default);
                     // tool lockers flush against the side walls (the floor cells stay free for machines)
-                    if (!c.Has(Left)) Lockers(mb, c, true, 0.35f, 3);
-                    if (!c.Has(Right)) Lockers(mb, c, false, 4.9f, 5);
+                    if (!c.Has(Left) && !(c.Ship && Starfoundry.Ui.HullProfile.HasWallFurniture(c.M))) Lockers(mb, c, true, 0.35f, 3);
+                    if (!c.Has(Right) && !(c.Ship && Starfoundry.Ui.HullProfile.HasWallFurniture(c.M))) Lockers(mb, c, false, 4.9f, 5);
                     mb.C(Yellow);
                     for (int i = 0; i < 4; i++) mb.Block(new(4, Roof - 0.35f, 1.0f + i * 2f), new(W - 3.6f, 0.05f, 0.16f)); // cable trays under the gantry
                 }

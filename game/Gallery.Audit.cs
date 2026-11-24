@@ -51,8 +51,7 @@ public partial class Gallery
             int inside = 0, outside = 0, points = 0;
             foreach (var m in _auditModules)
             {
-                if (!m.Ship) continue;
-                var shell = HullProfile.ShellOf(m.Kind, true, m.Mask);
+                var shell = HullProfile.ShellOf(m.Kind, m.Ship, m.Mask);
                 int leakIn = 0, leakOut = 0;
                 var examples = new List<string>();
                 foreach (float y in new[] { 0.3f, 1.0f, 1.7f, 2.6f, 3.4f })
@@ -95,13 +94,14 @@ public partial class Gallery
         var scene = new MeshAudit.Scene(tris);
         var parts = new Dictionary<(int Mx, int My, int Mz), ModuleKind>();
         var masks = new Dictionary<(int Mx, int My, int Mz), int>();
+        var ships = new Dictionary<(int Mx, int My, int Mz), bool>();
         foreach (var m in _auditModules)
         {
-            if (!m.Ship) continue;
             var key = ((int)MathF.Round(m.At.X / 8f), (int)MathF.Round(m.At.Y / 4f), (int)MathF.Round(m.At.Z / 8f));
-            parts[key] = m.Kind; masks[key] = m.Mask;
+            parts[key] = m.Kind; masks[key] = m.Mask; ships[key] = m.Ship;
         }
-        var vols = BodyMotion.Volumes(parts, k => masks[k], true);
+        var vols = parts.Select(kv => { var (mx, my, mz) = kv.Key; return new BodyBox(mx * 8f, my * 4f, mz * 8f, mx * 8f + 8f, my * 4f + 4f, mz * 8f + 8f, HullProfile.ShellOf(kv.Value, ships[kv.Key], masks[kv.Key])); }).ToArray();
+        var shafts = Stairwell.Links(vols);
         var body = new Dictionary<string, (int Count, string Example)>();
         var camera = new Dictionary<string, (int Count, string Example)>();
         int positions = 0;
@@ -111,6 +111,7 @@ public partial class Gallery
                 {
                     var p = new System.Numerics.Vector3(x, b.MinY, z);
                     if (!BodyMotion.Contains(p, vols)) continue;
+                    if (shafts.Any(l => (MathF.Abs(l.LowerY - b.MinY) < 0.05f || MathF.Abs(l.UpperY - b.MinY) < 0.05f) && x > l.X0 - 0.5f && x < l.X1 + 0.5f && z > l.Z0 - 0.5f && z < l.Z1 + 0.5f)) continue; // the ladder is climbed, not walked through
                     positions++;
                     foreach (int i in scene.TrianglesIn(new(x - 0.2f, b.MinY + 0.3f, z - 0.2f), new(x + 0.2f, b.MinY + 1.8f, z + 0.2f)))
                     {

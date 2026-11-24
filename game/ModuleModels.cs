@@ -191,7 +191,7 @@ public static partial class ModuleModels
         {
             float cx0 = MathF.Max(ctr.X - size.X / 2, xl + (xl > 0f ? layer : 0f)), cx1 = MathF.Min(ctr.X + size.X / 2, xr - (xr < W ? layer : 0f));
             if (cx1 - cx0 < 0.005f) return;
-            ctr = new(( cx0 + cx1) / 2, ctr.Y, ctr.Z);
+            ctr = new((cx0 + cx1) / 2, ctr.Y, ctr.Z);
             size = new(cx1 - cx0, size.Y, size.Z);
             if (noseDeck)
             {
@@ -230,8 +230,8 @@ public static partial class ModuleModels
         foreach (float s in new[] { -1f, 1f })
         {
             bool chamfered = c.Ship && !(c.Has(s < 0 ? Left : Right) || c.Has(Down)); // a ship deck stops at the lower chamfer of the hull
-            Blk(new(4 + s * (chamfered ? 2.8f : 3.5f), Top, 4), new(0.1f, 0.012f, 7.1f));
-            Blk(new(4, Top, 4 + s * 3.5f), new(7.1f, 0.0135f, 0.1f));
+            Blk(new(4 + s * (chamfered ? 2.8f : 3.5f), Top, 4), new(0.1f, 0.010f, 7.1f));
+            Blk(new(4, Top, 4 + s * 3.5f), new(7.1f, 0.0185f, 0.1f)); // decals along X are 1.75 mm taller than the ones along Z, so where they cross they share no plane
         }
         switch (c.Kind)
         {
@@ -242,7 +242,7 @@ public static partial class ModuleModels
                 break;
             case ModuleKind.Engine:
                 mb.C(Dark);
-                for (int i = 0; i < 6; i++) Blk(new(4, Top, 0.9f + i * 0.9f), new(5.6f, 0.014f, 0.32f));
+                for (int i = 0; i < 6; i++) Blk(new(4, Top, 0.9f + i * 0.9f), new(5.6f, 0.0175f, 0.32f));
                 mb.C(dim);
                 foreach (float x in new[] { 1.0f, 7.0f }) Blk(new(x, Top, 4), new(0.16f, 0.014f, 7f));
                 break;
@@ -256,13 +256,13 @@ public static partial class ModuleModels
             case ModuleKind.Cargo:
                 mb.C(role);
                 foreach (float x in new[] { 2.4f, 5.6f }) Blk(new(x, Top, 4), new(0.12f, 0.014f, 7f));
-                for (int i = 0; i < 4; i++) Blk(new(4, Top, 1.2f + i * 1.9f), new(3.1f, 0.014f, 0.1f));
+                for (int i = 0; i < 4; i++) Blk(new(4, Top, 1.2f + i * 1.9f), new(3.1f, 0.0175f, 0.1f));
                 break;
             case ModuleKind.Workshop:
                 mb.C(role);
                 foreach (float x in new[] { 2.2f, 5.8f }) Blk(new(x, Top, 4), new(0.18f, 0.014f, 7f));
                 mb.C(Dark);
-                for (int i = 0; i < 7; i++) Blk(new(4, Top, 0.9f + i), new(3.4f, 0.014f, 0.3f));
+                for (int i = 0; i < 7; i++) Blk(new(4, Top, 0.9f + i), new(3.4f, 0.0175f, 0.3f));
                 break;
             case ModuleKind.Defence:
                 mb.C(role);
@@ -275,7 +275,7 @@ public static partial class ModuleModels
                 mb.C(role);
                 foreach (float x in new[] { 2.5f, 5.5f }) Blk(new(x, Top, 4), new(0.14f, 0.014f, 7f));
                 mb.C(dim);
-                for (int i = 0; i < 5; i++) Blk(new(4, Top, 1.0f + i * 1.5f), new(3.0f, 0.014f, 0.1f));
+                for (int i = 0; i < 5; i++) Blk(new(4, Top, 1.0f + i * 1.5f), new(3.0f, 0.0175f, 0.1f));
                 break;
             case ModuleKind.Core:
                 mb.C(role).Prism(new(4, 0.072f, 4), 3.1f, 3.1f, 0.02f, 8, 22.5f);
@@ -545,6 +545,61 @@ public static partial class ModuleModels
                                 mb.Block(new(left ? HullProfile.PillarDepth / 2 + 0.16f - 0.04f : W - HullProfile.PillarDepth / 2 - 0.16f + 0.04f, 1.95f, pz), new(HullProfile.PillarDepth, 3.7f, HullProfile.PillarWidth));
                         mb.C(c.Acc).Block(new(4, 3.72f, pz), new(W - 0.9f, 0.14f, HullProfile.PillarWidth + 0.02f));
                     }
+                // Ribs, a stepped plinth and window niches / service bays (HullProfile.SkinSolids makes them solid for the walking body). All of them stand on
+                // the closed side walls, clear of the viewport band, and are built from the same numbers the collision uses.
+                {
+                    int skin = HullProfile.SkinOfMask(c.M);
+                    foreach (bool left in new[] { true, false })
+                    {
+                        if (skin is not (HullProfile.SkinRibbed or HullProfile.SkinStepped or HullProfile.SkinNiched) || (left ? c.Has(Left) : c.Has(Right))) continue;
+                        float sgn = left ? 1f : -1f, wx = left ? 0.12f : W - 0.12f; // the face of the wall, a hair inside it so no piece shows a back face
+                        int pieces = 0; // every piece sits a hair (two millimetres, over seven rotating steps) apart from the last, so no two faces of different parts share a plane
+                        Vector3 At(float depth, float y, float z) { pieces++; return new(wx + sgn * (0.002f * (pieces % 7) + depth / 2), y + 0.002f * (pieces % 5), z + 0.0017f * (pieces % 3)); }
+                        if (skin == HullProfile.SkinRibbed)
+                        {
+                            foreach (float z in HullProfile.RibStations)
+                            {
+                                mb.C(Panel).Block(At(HullProfile.RibDepth + 0.04f, 1.95f, z), new(HullProfile.RibDepth + 0.04f, 3.7f, HullProfile.RibWidth));
+                                mb.C(c.Role).Block(At(HullProfile.RibDepth + 0.06f, 1.95f, z), new(HullProfile.RibDepth + 0.06f, 0.05f, HullProfile.RibWidth + 0.02f)); // a thin lit ring half way up
+                            }
+                        }
+                        else if (skin == HullProfile.SkinStepped)
+                        {
+                            float plen = D - 2 * HullProfile.PlinthEnd;
+                            mb.C(Slab).Block(At(HullProfile.PlinthDepth + 0.04f, 0.08f + HullProfile.PlinthLow / 2, 4f), new(HullProfile.PlinthDepth + 0.04f, HullProfile.PlinthLow, plen));
+                            mb.C(Panel).Block(At(HullProfile.PlinthTopDepth + 0.04f, 0.08f + HullProfile.PlinthHigh / 2, 4f), new(HullProfile.PlinthTopDepth + 0.04f, HullProfile.PlinthHigh, plen - 0.2f));
+                            mb.C(c.Role).Block(At(HullProfile.PlinthTopDepth + 0.02f, 0.08f + HullProfile.PlinthHigh + 0.012f, 4f), new(HullProfile.PlinthTopDepth + 0.02f, 0.024f, plen - 0.4f));
+                            mb.C(c.Acc).Block(At(HullProfile.PlinthDepth + 0.06f, 0.08f + HullProfile.PlinthLow + 0.01f, 4f), new(HullProfile.PlinthDepth + 0.06f, 0.02f, plen - 0.1f));
+                        }
+                        else
+                        {
+                            const float nf = HullProfile.NicheFrame, nw = HullProfile.NicheWidth, jamb = 0.1f;
+                            foreach (float z in new[] { HullProfile.NicheWindowZ, HullProfile.NicheBayZ })
+                            {
+                                bool bay = z > 4f;
+                                float y0 = bay ? 0.75f : 1.0f, y1 = bay ? 2.0f : 2.25f, ym = (y0 + y1) / 2;
+                                // the surround: two jambs, a header and a sill standing out of the wall
+                                mb.C(Panel);
+                                mb.Block(At(nf + 0.04f, ym, z - nw / 2 + jamb / 2), new(nf + 0.04f, y1 - y0 + 0.2f, jamb));
+                                mb.Block(At(nf + 0.04f, ym, z + nw / 2 - jamb / 2), new(nf + 0.04f, y1 - y0 + 0.2f, jamb));
+                                mb.Block(At(nf + 0.04f, y1 + 0.05f, z), new(nf + 0.04f, 0.1f, nw));
+                                mb.Block(At(nf + 0.04f, y0 - 0.05f, z), new(nf + 0.04f, 0.1f, nw));
+                                // the recess: a dark back plate behind the surround's inner edge
+                                mb.C(Dark).Block(At(0.05f, ym, z), new(0.05f, y1 - y0, nw - 2 * jamb));
+                                if (!bay)
+                                {
+                                    mb.C(c.Role).Block(At(0.07f, ym, z), new(0.02f, y1 - y0 - 0.3f, nw - 2 * jamb - 0.3f)); // a lit pane
+                                }
+                                else
+                                {
+                                    mb.C(Steel).Block(At(0.09f, ym, z), new(0.05f, y1 - y0 - 0.16f, nw - 2 * jamb - 0.14f)); // the service hatch
+                                    mb.C(Yellow).Block(At(0.12f, y1 - 0.14f, z), new(0.02f, 0.1f, nw - 2 * jamb - 0.14f));
+                                    mb.C(Dark).Block(At(0.14f, ym, z + 0.18f), new(0.05f, 0.05f, 0.14f)); // the handle
+                                }
+                            }
+                        }
+                    }
+                }
                 // an exposed end of the tube carries a hatch in the role colour: the visible place where the next module would attach
                 foreach (bool front in new[] { true, false })
                 {
@@ -1445,7 +1500,7 @@ public static partial class ModuleModels
                     mb.C(Panel).Prism(new(px, 0.08f, pz), 0.26f, 0.26f, 2.7f, 8);
                     mb.C(c.Acc).Prism(new(px, 0.9f, pz), 0.3f, 0.3f, 0.14f, 8);
                     mb.C(c.Acc).Prism(new(px, 1.9f, pz), 0.3f, 0.3f, 0.14f, 8);
-                    mb.C(Steel).Beam(new(px, 0.17f, pz), new(4 + sx * 0.9f, 0.17f, 4 + sz * 0.9f), 0.2f); // a pipe lying on the floor: low enough to step over
+                    mb.C(Steel).Beam(new(px, 0.15f, pz), new(4 + sx * 0.9f, 0.15f, 4 + sz * 0.9f), 0.2f); // a pipe lying on the floor: low enough to step over
                 }
         });
         Models.Add(c.R, "GlowCore", $"{c.K}.core", Models.Glow(Green, 2.4f), mb =>
@@ -1470,7 +1525,7 @@ public static partial class ModuleModels
             mb.C(Yellow);
             foreach (float s in new[] { -1f, 1f })
             {
-                mb.Block(new(4 + s * 1.5f, Roof + 0.05f, 4), new(0.2f, 0.07f, 3.0f));
+                mb.Block(new(4 + s * 1.5f, Roof + 0.0475f, 4), new(0.2f, 0.07f, 3.0f)); // its underside 2.5 mm off the dark plate under it
                 mb.Block(new(4, Roof + 0.05f, 4 + s * 1.5f), new(3.0f, 0.08f, 0.2f));
             }
             mb.C(Steel).Block(new(4, Roof + 0.08f, 4), new(0.5f, 0.05f, 0.5f));
@@ -1773,7 +1828,7 @@ public static partial class ModuleModels
                 float px = 4 + MathF.Cos(a) * 2.8f * 1.414f, pz = 4 + MathF.Sin(a) * 2.8f * 1.414f;
                 mb.C(Panel).Prism(new(px, 0.08f, pz), 0.3f, 0.3f, 2.75f, 8);
                 mb.C(c.Acc).Prism(new(px, 1.2f, pz), 0.34f, 0.34f, 0.14f, 8);
-                mb.C(Steel).Beam(new(px, 0.17f, pz), new(4 + MathF.Cos(a) * 1.3f, 0.17f, 4 + MathF.Sin(a) * 1.3f), 0.22f);
+                mb.C(Steel).Beam(new(px, 0.14f, pz), new(4 + MathF.Cos(a) * 1.3f, 0.14f, 4 + MathF.Sin(a) * 1.3f), 0.22f);
             }
         });
         Models.Add(c.R, "GlowCore", $"{c.K}.core", Models.Glow(Cyan, 1.5f), mb =>

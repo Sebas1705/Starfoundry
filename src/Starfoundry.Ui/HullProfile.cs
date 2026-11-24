@@ -190,14 +190,41 @@ public static class HullProfile
     public static readonly float[] PillarStations = { 2.0f, 6.0f };
     public const float PillarDepth = 0.46f, PillarWidth = 0.4f;
 
-    /// <summary>The pillars of a boxy-skin module (see <see cref="SkinBoxy"/>), on the sides that are closed.</summary>
+    /// <summary>Ribbed walls: a rib at each station (cell z of its centre) on both closed sides, how deep it reaches from the wall and how wide it is. They stand clear of the viewport band (z 2.6 to 5.4).</summary>
+    public static readonly float[] RibStations = { 0.85f, 1.65f, 6.35f, 7.15f };
+    public const float RibDepth = 0.42f, RibWidth = 0.22f;
+    /// <summary>Stepped walls: a plinth along the whole closed wall, two steps (a low wide one and a high narrow one), the deeper reach of both counts as solid.</summary>
+    public const float PlinthDepth = 0.5f, PlinthTopDepth = 0.28f, PlinthLow = 0.55f, PlinthHigh = 1.05f, PlinthEnd = 0.3f;
+    /// <summary>Niched walls: a window niche and a recessed service bay (cell z of their centres), the width of each surround and how far it stands out of the wall.</summary>
+    public const float NicheWindowZ = 1.2f, NicheBayZ = 6.8f, NicheWidth = 0.9f, NicheFrame = 0.2f;
+
+    /// <summary>True for the skins whose walls carry their own furniture (ribs, a plinth, niches): the lockers stay off them.</summary>
+    public static bool HasWallFurniture(int mask) => SkinOfMask(mask) is SkinRibbed or SkinStepped or SkinNiched;
+
+    /// <summary>The wall furniture of the skins that have some (see <see cref="SkinBoxy"/>, <see cref="SkinRibbed"/>, <see cref="SkinStepped"/>, <see cref="SkinNiched"/>), on the sides that are closed: solid for the walking body, drawn by the model from the same numbers.</summary>
     public static IEnumerable<Solid> SkinSolids(int mask)
     {
-        if (SkinOfMask(mask) != SkinBoxy) yield break;
-        foreach (float z in PillarStations)
+        int skin = SkinOfMask(mask);
+        if (skin is SkinPlain or SkinWide or SkinArched) yield break;
+        foreach (bool left in new[] { true, false })
         {
-            if ((mask & Left) == 0) yield return new Solid(0f, z - PillarWidth / 2, 0.16f + PillarDepth, z + PillarWidth / 2);
-            if ((mask & Right) == 0) yield return new Solid(W - 0.16f - PillarDepth, z - PillarWidth / 2, W, z + PillarWidth / 2);
+            if ((mask & (left ? Left : Right)) != 0) continue;
+            Solid On(float depth, float z0, float z1) => left ? new Solid(0f, z0, 0.16f + depth, z1) : new Solid(W - 0.16f - depth, z0, W, z1);
+            switch (skin)
+            {
+                case SkinBoxy:
+                    foreach (float z in PillarStations) yield return On(PillarDepth, z - PillarWidth / 2, z + PillarWidth / 2);
+                    break;
+                case SkinRibbed:
+                    foreach (float z in RibStations) yield return On(RibDepth, z - RibWidth / 2, z + RibWidth / 2);
+                    break;
+                case SkinStepped:
+                    yield return On(PlinthDepth, PlinthEnd, D - PlinthEnd);
+                    break;
+                case SkinNiched:
+                    foreach (float z in new[] { NicheWindowZ, NicheBayZ }) yield return On(NicheFrame, z - NicheWidth / 2, z + NicheWidth / 2);
+                    break;
+            }
         }
     }
 
@@ -262,6 +289,7 @@ public static class HullProfile
     private static List<Solid> LockerSolids(int mask, int left, int right)
     {
         var l = new List<Solid>();
+        if (HasWallFurniture(mask)) return l; // the wall is taken by ribs, a plinth or niches
         if ((mask & Left) == 0) l.Add(new(0.1f, 0.35f, 0.7f, 0.35f + left * 0.5f + 0.1f));
         if ((mask & Right) == 0) l.Add(new(W - 0.7f, right == 3 ? 6.1f : 4.9f, W - 0.1f, (right == 3 ? 6.1f : 4.9f) + right * 0.5f + 0.1f));
         return l;
