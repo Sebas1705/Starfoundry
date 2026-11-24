@@ -513,7 +513,7 @@ public partial class Play
     /// <summary>Markers for the selected deposit, the nearest enemy and the base (the nearest cluster of machines, else the anchor).</summary>
     private void UpdateMarkers(Vector2 size)
     {
-        _markers.Visible = !_demo && !Overview && Net.HasPlayer(Player);
+        _markers.Visible = !_demo && !Overview && Net.HasPlayer(Player) && HudLayersNow.Markers;
         if (!_markers.Visible) return;
 
         var basis = _camera.GlobalTransform.Basis;
@@ -1257,7 +1257,7 @@ public partial class Play
     private void UpdateHelp()
     {
         _helpPanel.Visible = _helpOpen;
-        if (_helpOpen) _helpText.Text = L("help.text");
+        if (_helpOpen) _helpText.Text = L("help.text") + L("help.cockpit");
     }
 
     private void UpdateToasts()
@@ -1502,6 +1502,7 @@ public partial class Play
 
     private void OnMouseButton(InputEventMouseButton mb)
     {
+        if (CockpitMouse(mb)) return; // a click on a cockpit display (Play.Cockpit.cs)
         if (!mb.Pressed && mb.ButtonIndex != MouseButton.Left) return;
         // A click while the cursor is free (and no panel is open) takes the mouse back instead of acting in the world.
         if (!_mouseLook)
@@ -1625,6 +1626,7 @@ public partial class Play
 
     private void OnKey(InputEventKey k)
     {
+        if (CockpitKey(k)) return; // F3 (HUD mode), F4 (look at the displays) and the keys of a focused display
         int digit = k.Keycode is >= Key.Key1 and <= Key.Key9 ? (int)(k.Keycode - Key.Key1) : -1;
         if (k.Keycode == Key.Key0) digit = 9;
         if (k.Keycode == Key.Q) digit = 10;
@@ -1760,7 +1762,7 @@ public partial class Play
                 _dockAssist = false;
                 // Thrust follows the camera's own axes (the ship's own axes while piloting), as a world-space vector: the simulation never
                 // sees the attitude, only this integer vector (free flight).
-                var cam = CameraWorldBasis();
+                var cam = _focus is not null ? ShipBasis : CameraWorldBasis(); // looking at a display must not point the thrust at it
                 thrust = ToThrust(-cam.Z * forward + cam.X * right + cam.Y * up);
             }
         }

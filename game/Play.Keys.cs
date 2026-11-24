@@ -94,6 +94,9 @@ public partial class Play
             ResearchOpen = ResearchOpen,
             MapOpen = _mapOpen,
             InfoOpen = _detailsOpen,
+            HasConsole = ConsoleReady,
+            ConsoleFocus = _focus is not null,
+            HudMode = CurrentHudMode,
             CanWalk = CanWalk,
             Standing = Standing,
             NearSeat = Standing && BodyMotion.InSeatReach(Sys(_body), Sys(SeatPosition)),
@@ -151,7 +154,7 @@ public partial class Play
     /// <summary>Per frame: refreshes the rows of the panel and puts it in the bottom right corner.</summary>
     private void UpdateKeyPanel(Vector2 size)
     {
-        _keyPanel.Visible = !_demo && !EndOpen && Net.HasPlayer(Player);
+        _keyPanel.Visible = !_demo && !EndOpen && Net.HasPlayer(Player) && KeyPanelWanted;
         if (!_keyPanel.Visible) { _keyRect = new Rect2(size, Vector2.Zero); return; }
         if (++_keyTipFrame % 120 == 0) _keyPanel.Invalidate(); // costs and locks in the tooltip change slowly
         int sizeClass = size.Y < 800f ? 0 : size.Y < 1000f ? 1 : 2;

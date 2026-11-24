@@ -183,7 +183,7 @@ public partial class MenuScreen : Control
     {
         _panel.CustomMinimumSize = new Vector2(1000, 0);
         Header();
-        string text = Loc.T("help.text");
+        string text = Loc.T("help.text") + Loc.T("help.cockpit");
         int firstBlank = text.IndexOf("\n\n", StringComparison.Ordinal);
         if (firstBlank >= 0) text = text[(firstBlank + 2)..]; // the overlay's "(F1 to close)" title makes no sense here
         var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, 440), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FocusMode = FocusModeEnum.All, Name = "ControlsScroll" };
@@ -240,6 +240,7 @@ public partial class MenuScreen : Control
             v => Loc.T("settings.uiVolume", (int)Math.Round(v)), v => SettingsStore.Current with { UiVolume = (int)Math.Round(v) }, "settings.tip.uiVolume");
 
         AddCheck("InvertCheck", Loc.T("settings.invertY"), s.InvertMouseY, on => SettingsStore.Current with { InvertMouseY = on }, "settings.tip.invertY");
+        AddCheck("SmoothLookCheck", Loc.T("settings.smoothLook"), s.SmoothLook, on => SettingsStore.Current with { SmoothLook = on }, "settings.tip.smoothLook");
         AddCheck("FullscreenCheck", Loc.T("settings.fullscreen"), s.Fullscreen, on => SettingsStore.Current with { Fullscreen = on }, "settings.tip.fullscreen");
         AddCheck("LowTexturesCheck", Loc.T("settings.lowTextures"), s.LowTextures, on => SettingsStore.Current with { LowTextures = on }, "settings.tip.lowTextures");
 

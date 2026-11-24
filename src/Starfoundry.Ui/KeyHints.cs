@@ -8,6 +8,7 @@ public enum HintContext
     BuildMenu,
     Research,
     StarMap,
+    Console,
     Tool,
     AimMachine,
     AimSegment,
@@ -87,6 +88,13 @@ public sealed record KeyState
     public bool ResearchOpen { get; init; }
     public bool MapOpen { get; init; }
     public bool InfoOpen { get; init; }
+
+    /// <summary>The pilot looks at one cockpit display (F4): its keys replace the flying ones.</summary>
+    public bool ConsoleFocus { get; init; }
+    /// <summary>The ship has cockpit displays to look at (a seat at a console).</summary>
+    public bool HasConsole { get; init; }
+    /// <summary>How much of the outside HUD is drawn (F3).</summary>
+    public HudMode HudMode { get; init; }
 
     // body
     public bool CanWalk { get; init; }
@@ -176,6 +184,7 @@ public static class KeyHints
         new(HintContext.BuildMenu, s => s.BuildOpen, "key.ctx.build", _ => NoArgs, BuildMenuRows, false),
         new(HintContext.Research, s => s.ResearchOpen, "key.ctx.research", _ => NoArgs, ResearchRows, false),
         new(HintContext.StarMap, s => s.MapOpen && s.HasGalaxy, "key.ctx.map", _ => NoArgs, StarMapRows, false),
+        new(HintContext.Console, s => s.ConsoleFocus, "key.ctx.console", _ => NoArgs, ConsoleRows, false),
         new(HintContext.Tool, s => s.Tool != HintTool.None, "key.ctx.tool", s => new object[] { s.ToolName }, ToolRows, true),
         new(HintContext.AimMachine, s => s.Aim == HintAim.Machine, "key.ctx.aimMachine", s => new object[] { s.AimName }, AimMachineRows, true),
         new(HintContext.AimSegment, s => s.Aim == HintAim.Segment, "key.ctx.aimBelt", _ => NoArgs, AimSegmentRows, true),
@@ -249,8 +258,24 @@ public static class KeyHints
         yield return new KeyRow("roll", new[] { "Z", "X" }, "key.roll", KeyRowState.Info); // free flight: roll the ship about its own axis (the arrow keys too)
         yield return new KeyRow("look", new[] { "Alt" }, "key.look", KeyRowState.Info); // free flight: hold to look around inside the ship instead of steering
         if (s.CanWalk) yield return Row("seat", "E", "stand", "E");
+        if (s.HasConsole) yield return Row("console", "F4", "console", "F4");
+        yield return HudModeRow(s);
         yield return Row("info", "H", "info", "H", Lit(s.InfoOpen));
         yield return Row("help", "F1", "help", "F1");
+    }
+
+    /// <summary>F3: the HUD mode in force, as one row (the label names the mode; pressing it moves to the next).</summary>
+    private static KeyRow HudModeRow(KeyState s) =>
+        Row("hudmode", "F3", s.HudMode switch { HudMode.Cockpit => "hudCockpit", HudMode.Minimal => "hudMinimal", _ => "hudFull" }, "F3", Lit(s.HudMode != HudMode.Full));
+
+    /// <summary>The pilot looks at a cockpit display: click presses a button, the arrows change screen and page.</summary>
+    private static IEnumerable<KeyRow> ConsoleRows(KeyState s)
+    {
+        yield return Row("press", "@click", "consolePress", state: KeyRowState.Info);
+        yield return new KeyRow("nav", new[] { "@arrows" }, "key.consoleNav", KeyRowState.Info);
+        yield return HudModeRow(s);
+        yield return Row("leave", "F4", "consoleLeave", "F4", KeyRowState.Active);
+        yield return Row("esc", "Esc", "consoleLeave", "Escape");
     }
 
     /// <summary>
@@ -287,6 +312,7 @@ public static class KeyHints
         yield return Row("research", "T", "research", "T", Lit(s.ResearchOpen));
         if (s.StructuresOn) yield return Row("found", "I", "found", "I");
         if (s.ModuleToolAvailable) yield return Row("module", "N", "module", "N");
+        yield return HudModeRow(s);
         yield return Row("info", "H", "info", "H", Lit(s.InfoOpen));
         yield return Row("help", "F1", "help", "F1");
     }

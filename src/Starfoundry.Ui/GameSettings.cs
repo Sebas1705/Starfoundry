@@ -37,6 +37,12 @@ public sealed record GameSettings
 
     public bool InvertMouseY { get; init; }
 
+    /// <summary>How much of the outside HUD is drawn (F3 cycles it; see <see cref="Starfoundry.Ui.HudMode"/>).</summary>
+    public HudMode HudMode { get; init; } = HudModes.Default;
+
+    /// <summary>Piloting turns the ship a little behind the mouse (a short angular inertia) and eases the roll keys; off, the ship follows the mouse at once.</summary>
+    public bool SmoothLook { get; init; } = true;
+
     public bool Fullscreen { get; init; }
 
     /// <summary>Low texture quality: the procedural textures are generated at half their size (read when the game starts, so a change applies on the next launch).</summary>
@@ -55,6 +61,7 @@ public sealed record GameSettings
         Language = Enum.IsDefined(Language) ? Language : Language.Es,
         MouseSensitivity = Clamp(MouseSensitivity, MinMouseSensitivity, MaxMouseSensitivity, 1f),
         Fov = Clamp(Fov, MinFov, MaxFov, DefaultFov),
+        HudMode = Enum.IsDefined(HudMode) ? HudMode : HudModes.Default,
         MasterVolume = Clamp(MasterVolume, 0f, 1f, 0.8f),
         SfxVolume = Math.Clamp(SfxVolume, 0, 100),
         AmbienceVolume = Math.Clamp(AmbienceVolume, 0, 100),
@@ -79,6 +86,8 @@ public sealed record GameSettings
             new KeyValuePair<string, string>("ambience_volume", s.AmbienceVolume.ToString(CultureInfo.InvariantCulture)),
             new KeyValuePair<string, string>("ui_volume", s.UiVolume.ToString(CultureInfo.InvariantCulture)),
             new KeyValuePair<string, string>("invert_mouse_y", s.InvertMouseY ? "true" : "false"),
+            new KeyValuePair<string, string>("hud_mode", HudModes.Id(s.HudMode)),
+            new KeyValuePair<string, string>("smooth_look", s.SmoothLook ? "true" : "false"),
             new KeyValuePair<string, string>("fullscreen", s.Fullscreen ? "true" : "false"),
             new KeyValuePair<string, string>("low_textures", s.LowTextures ? "true" : "false"),
             new KeyValuePair<string, string>("goal_waves", s.GoalWaves.ToString(CultureInfo.InvariantCulture)),
@@ -109,6 +118,8 @@ public sealed record GameSettings
                 case "ambience_volume" when int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int av): s = s with { AmbienceVolume = av }; break;
                 case "ui_volume" when int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int uv): s = s with { UiVolume = uv }; break;
                 case "invert_mouse_y" when bool.TryParse(value, out bool i): s = s with { InvertMouseY = i }; break;
+                case "hud_mode" when HudModes.TryParse(value, out var hm): s = s with { HudMode = hm }; break;
+                case "smooth_look" when bool.TryParse(value, out bool sl): s = s with { SmoothLook = sl }; break;
                 case "fullscreen" when bool.TryParse(value, out bool fs): s = s with { Fullscreen = fs }; break;
                 case "low_textures" when bool.TryParse(value, out bool lt): s = s with { LowTextures = lt }; break;
                 case "goal_waves" when int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int gw): s = s with { GoalWaves = gw }; break;

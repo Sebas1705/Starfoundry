@@ -18,8 +18,8 @@ public class KeyHintsTests
     {
         var s = Flying();
         Assert.Equal(HintContext.Flying, KeyHints.ContextOf(s));
-        Assert.Equal(new[] { "build", "research", "map", "scan", "mine", "refine", "weapons", "found", "module", "roll", "look", "seat", "info", "help" }, Ids(s));
-        Assert.Equal(new[] { "B", "T", "G", "K", "M", "F", "V", "I", "N", "Z", "Alt", "E", "H", "F1" }, Rows(s).Select(r => r.Caps[0]).ToArray());
+        Assert.Equal(new[] { "build", "research", "map", "scan", "mine", "refine", "weapons", "found", "module", "roll", "look", "seat", "hudmode", "info", "help" }, Ids(s));
+        Assert.Equal(new[] { "B", "T", "G", "K", "M", "F", "V", "I", "N", "Z", "Alt", "E", "F3", "H", "F1" }, Rows(s).Select(r => r.Caps[0]).ToArray());
         Assert.Equal("key.ctx.flying", KeyHints.For(s).Last().TitleKey);
     }
 
@@ -27,7 +27,7 @@ public class KeyHintsTests
     public void FlyingDropsWhatTheWorldDoesNotHave()
     {
         var s = Flying() with { HasGalaxy = false, StructuresOn = false, ModuleToolAvailable = false, CanWalk = false };
-        Assert.Equal(new[] { "build", "research", "scan", "mine", "refine", "weapons", "roll", "look", "info", "help" }, Ids(s));
+        Assert.Equal(new[] { "build", "research", "scan", "mine", "refine", "weapons", "roll", "look", "hudmode", "info", "help" }, Ids(s));
     }
 
     [Fact]
@@ -71,7 +71,7 @@ public class KeyHintsTests
     {
         var s = Flying() with { Standing = true };
         Assert.Equal(HintContext.Walking, KeyHints.ContextOf(s));
-        Assert.Equal(new[] { "walk", "run", "seat", "build", "research", "found", "module", "info", "help" }, Ids(s));
+        Assert.Equal(new[] { "walk", "run", "seat", "build", "research", "found", "module", "hudmode", "info", "help" }, Ids(s));
         Assert.Equal("WASD", Find(s, "walk").Caps[0]);
         Assert.Equal(KeyRowState.Info, Find(s, "walk").State);
         Assert.Equal(KeyRowState.Disabled, Find(s, "seat").State);
@@ -226,6 +226,7 @@ public class KeyHintsTests
                 states.Add(b with { ResearchOpen = true });
                 states.Add(b with { HelpOpen = true });
                 states.Add(b with { PauseOpen = true });
+                states.Add(b with { ConsoleFocus = true, HasConsole = true, HudMode = HudMode.Cockpit });
             }
         var contexts = new HashSet<HintContext>();
         foreach (var s in states)
@@ -246,7 +247,7 @@ public class KeyHintsTests
                         Assert.NotEmpty(cap);
                         if (cap.StartsWith('@')) Assert.True(Loc.Has("key.cap." + cap[1..]), cap);
                     }
-                    if (r.ActionKey is not null) Assert.Contains(r.ActionKey, new[] { "B", "T", "G", "K", "M", "F", "V", "I", "N", "E", "H", "L", "R", "Y", "J", "F1", "F7", "Escape", "Backspace" });
+                    if (r.ActionKey is not null) Assert.Contains(r.ActionKey, new[] { "B", "T", "G", "K", "M", "F", "V", "I", "N", "E", "H", "L", "R", "Y", "J", "F1", "F3", "F4", "F7", "Escape", "Backspace" });
                 }
             }
         }
@@ -288,5 +289,28 @@ public class KeyHintsTests
         var s = Flying() with { HelpOpen = true };
         Assert.Equal(new[] { "lang", "close", "esc" }, Ids(s));
         Assert.Equal("L", Find(s, "lang").ActionKey);
+    }
+
+    [Fact]
+    public void HudModeRowNamesTheModeInForce()
+    {
+        Assert.Equal("key.hudFull", Find(Flying(), "hudmode").LabelKey);
+        Assert.Equal(KeyRowState.Normal, Find(Flying(), "hudmode").State);
+        var cockpit = Find(Flying() with { HudMode = HudMode.Cockpit }, "hudmode");
+        Assert.Equal("key.hudCockpit", cockpit.LabelKey);
+        Assert.Equal(KeyRowState.Active, cockpit.State);
+        Assert.Equal("key.hudMinimal", Find(Flying() with { HudMode = HudMode.Minimal, Standing = true }, "hudmode").LabelKey);
+        Assert.Equal("F3", Find(Flying(), "hudmode").ActionKey);
+    }
+
+    [Fact]
+    public void ConsoleRowAppearsOnlyWithADisplayAndFocusSwitchesTheContext()
+    {
+        Assert.DoesNotContain("console", Ids(Flying()));
+        Assert.Contains("console", Ids(Flying() with { HasConsole = true }));
+        var focus = Flying() with { HasConsole = true, ConsoleFocus = true };
+        Assert.Equal(HintContext.Console, KeyHints.ContextOf(focus));
+        Assert.Equal(new[] { "press", "nav", "hudmode", "leave", "esc" }, Ids(focus));
+        Assert.Equal(HintContext.Pause, KeyHints.ContextOf(focus with { PauseOpen = true })); // panels still win
     }
 }
