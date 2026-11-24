@@ -38,7 +38,9 @@
     ],
     "secondary": [
       { "id": "no_losses", "type": "keep_alive",
-        "text_es": "No pierdas ningún módulo", "text_en": "Lose no module" }
+        "text_es": "No pierdas ningún módulo", "text_en": "Lose no module" },
+      { "id": "gunnery", "type": "kill_enemies", "count": 12,
+        "text_es": "Destruye 12 naves del Remanente", "text_en": "Destroy 12 Remnant ships" }
     ]
   },
   "story": [
@@ -51,6 +53,9 @@
     { "trigger": "goal:hold_the_line",
       "text_es": "Cinco oleadas y seguimos de pie. Anota lo que ha funcionado.",
       "text_en": "Five waves and we are still standing. Make a note of what worked." },
+    { "trigger": "goal:gunnery",
+      "text_es": "Doce naves del Remanente menos. Las torretas están haciendo su trabajo; que no les falte munición.",
+      "text_en": "Twelve Remnant ships down. The turrets are earning their keep; do not let the ammo run dry." },
     { "trigger": "fail:no_losses",
       "text_es": "Perdimos un módulo. Se puede reparar, y el resto sigue en pie.",
       "text_en": "We lost a module. It can be rebuilt, and the rest is still standing." },

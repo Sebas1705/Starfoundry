@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "id": "07_hull_breach",
+  "order": 7,
+  "name_es": "Brecha en el casco",
+  "name_en": "Hull Breach",
+  "description_es": "Sin estación y con tres cañones: aguanta tres oleadas del Remanente a bordo de la nave y destruye a sus naves.",
+  "description_en": "No station and three guns: hold out three Remnant waves aboard the ship and shoot their ships down.",
+  "briefing_es": "El Remanente ha seguido el rastro de nuestra fábrica hasta aquí y no hay estación que lo frene: el blanco es la nave. Tenemos tres cañones sobre el casco. Pulsa V para elegirlos, mantén el fuego y no pares de moverte. Tres oleadas, y se acabó.",
+  "briefing_en": "The Remnant followed the trail of our factory out here and there is no station to soak it up: the ship is the target. We have three guns on the hull. Press V to pick them, hold fire and keep moving. Three waves and it is over.",
+  "rules": {
+    "preset": "normal",
+    "first_wave_grace_seconds": 60,
+    "wave_interval_percent": 25,
+    "wave_size_percent": 100,
+    "goal_waves": 3
+  },
+  "start": {
+    "structures": [ { "template": "breach_ship" } ],
+    "seed": 20261121
+  },
+  "goals": {
+    "primary": [
+      { "id": "hold_out", "type": "survive_waves", "count": 3,
+        "text_es": "Sobrevive a 3 oleadas", "text_en": "Survive 3 waves" },
+      { "id": "shoot_down", "type": "kill_enemies", "count": 8,
+        "text_es": "Destruye 8 naves del Remanente con los cañones", "text_en": "Destroy 8 Remnant ships with the guns" }
+    ],
+    "secondary": [
+      { "id": "no_losses", "type": "keep_alive",
+        "text_es": "No pierdas ningún módulo", "text_en": "Lose no module" },
+      { "id": "three_guns", "type": "have_module", "kind": "gun", "count": 3,
+        "text_es": "Mantén los tres cañones en el casco", "text_en": "Keep all three guns on the hull" }
+    ]
+  },
+  "story": [
+    { "trigger": "start",
+      "text_es": "Tres cañones y una nave sola. Pulsa V para elegir los cañones, mantén el clic para disparar y no te quedes quieto: los enemigos apuntan a los módulos.",
+      "text_en": "Three guns and a lone ship. Press V to pick the guns, hold the click to fire and do not sit still: the enemies go for the modules." },
+    { "trigger": "time:100",
+      "text_es": "Firmas del Remanente en el sensor. Si un módulo se daña, repáralo cuando pase la oleada.",
+      "text_en": "Remnant signatures on the scope. If a module is damaged, repair it once the wave has passed." },
+    { "trigger": "goal:shoot_down",
+      "text_es": "Ocho naves derribadas. Aguanta lo que queda.",
+      "text_en": "Eight ships down. Hold on for the rest." },
+    { "trigger": "fail:no_losses",
+      "text_es": "Perdimos un módulo. La nave sigue en pie; protege la cabina.",
+      "text_en": "We lost a module. The ship is still in one piece; protect the cockpit." },
+    { "trigger": "lose",
+      "text_es": "La cabina ha caído. Fin de la transmisión.",
+      "text_en": "The cockpit has fallen. End of transmission." },
+    { "trigger": "win",
+      "text_es": "Tres oleadas y seguimos de una pieza. Buen tiro, capitán.",
+      "text_en": "Three waves and we are still in one piece. Good shooting, captain." }
+  ],
+  "stars": { "two_star_seconds": 1500, "three_star_seconds": 1000, "two_star_secondary": 0, "three_star_secondary": -1 }
+}

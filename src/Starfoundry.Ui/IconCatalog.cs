@@ -165,7 +165,26 @@ public static class IconCatalog
         Objective.Lab => "machine:core:research_lab", Objective.Research => "tool:research", Objective.Scan => "tool:scan", Objective.Defend => "tool:weapons",
         Objective.Expand => "tool:found", Objective.Core => "module:core", Objective.CargoPort => "machine:core:ore_unloader",
         Objective.WatchFactory => "item:core:iron_plate", Objective.FoundStation => "tool:found", Objective.MakeFuel => "item:core:hydrogen",
-        Objective.AddModule => "tool:module", Objective.Automate => "tool:drones", Objective.FabBay => "module:workshop", _ => "status:objective",
+        Objective.AddModule => "tool:module", Objective.Automate => "tool:drones", Objective.FabBay => "module:workshop",
+        Objective.Dock => "tool:dock", Objective.Salvage => "obstacle:core:derelict_wreck", Objective.Upgrade => "module:shipyard", _ => "status:objective",
+    };
+
+    /// <summary>The icon of a goal of a scenario, from what it asks for: the item, the module, the research node or a status symbol.</summary>
+    public static string ForGoal(GoalDef g, ContentDb content) => g.Type switch
+    {
+        GoalType.SurviveWaves => "status:wave",
+        GoalType.Research => ForResearch(content.Research[g.Node].Id),
+        GoalType.Produce or GoalType.Mine or GoalType.Stock => ForItem(content.Items[g.Item].Id),
+        GoalType.VisitSystems => "status:system",
+        GoalType.FoundStations => "tool:found",
+        GoalType.BuildModule or GoalType.HaveModule => ForModule(g.Kind!.Value),
+        GoalType.KeepAlive => g.Kind is { } k ? ForModule(k) : "status:hull",
+        GoalType.KeepFuel => "status:fuel",
+        GoalType.Salvage => "obstacle:core:derelict_wreck",
+        GoalType.Dock => "tool:dock",
+        GoalType.ShipSpeed => "status:speed",
+        GoalType.KillEnemies => "status:enemy",
+        _ => "status:objective",
     };
 
     /// <summary>The icon of a key panel row (by the row's id), or null when the row has none.</summary>

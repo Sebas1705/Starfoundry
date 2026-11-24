@@ -20,7 +20,15 @@
     ],
     "secondary": [
       { "id": "build_shipyard", "type": "build_module", "kind": "shipyard", "count": 1,
-        "text_es": "Opcional: construye un astillero, atraca y pulsa F2 para añadir o mejorar un láser", "text_en": "Optional: build a shipyard, dock and press F2 to add or upgrade a laser" }
+        "text_es": "Opcional: construye un astillero, atraca y pulsa F2 para añadir o mejorar un láser", "text_en": "Optional: build a shipyard, dock and press F2 to add or upgrade a laser" },
+      { "id": "second_laser", "type": "have_module", "kind": "mining_laser", "count": 2,
+        "text_es": "Opcional: monta un segundo láser minero en el astillero", "text_en": "Optional: fit a second mining laser at the shipyard" },
+      { "id": "dock_home", "type": "dock",
+        "text_es": "Opcional: atraca la nave en tu estación (U)", "text_en": "Optional: dock the ship at your station (U)" },
+      { "id": "salvage_wreck", "type": "salvage", "count": 1,
+        "text_es": "Opcional: recupera un pecio (cristales resonantes para las lentes)", "text_en": "Optional: salvage a wreck (resonant crystals for focus lenses)" },
+      { "id": "top_speed", "type": "ship_speed", "count": 300,
+        "text_es": "Opcional: monta motores para el 300 % de velocidad", "text_en": "Optional: fit engines for 300 percent speed" }
     ]
   },
   "story": [

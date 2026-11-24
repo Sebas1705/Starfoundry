@@ -2012,6 +2012,35 @@
         { "at": [4, 0, 11], "dir": "+x", "length": 4, "tier": "mk1", "from": "assembler", "to": "depot" }
       ]
     },
+    "breach_ship": {
+      "modules": [
+        { "at": [0, 0, 0], "kind": "cockpit" },
+        { "at": [0, 0, 1], "kind": "workshop" },
+        { "at": [0, 0, 2], "kind": "cargo" },
+        { "at": [0, 0, 3], "kind": "reactor" },
+        { "at": [0, 0, 4], "kind": "engine" },
+        { "at": [0, 0, -1], "kind": "mining_laser" },
+        { "at": [0, 1, 0], "kind": "gun" },
+        { "at": [0, 1, 1], "kind": "gun" },
+        { "at": [0, 1, 2], "kind": "gun" }
+      ],
+      "hold": [{ "item": "core:hydrogen", "count": 40 }],
+      "machines": [
+        { "id": "ore_port", "machine": "core:ore_unloader", "at": [0, 0, 9] },
+        { "id": "smelter", "machine": "core:smelter", "at": [3, 0, 9], "recipe": "core:smelt_iron" },
+        { "id": "assembler", "machine": "core:assembler", "at": [3, 0, 11], "recipe": "core:iron_plate" },
+        { "id": "depot", "machine": "core:depot", "at": [7, 0, 10] },
+        { "id": "lab", "machine": "core:research_lab", "at": [5, 0, 13] },
+        { "id": "lab2", "machine": "core:research_lab", "at": [6, 0, 13] },
+        { "id": "lab3", "machine": "core:research_lab", "at": [5, 0, 14] }
+      ],
+      "belts": [
+        { "at": [1, 0, 9], "dir": "+x", "length": 2, "tier": "mk1", "from": "ore_port", "to": "smelter" },
+        { "at": [4, 0, 9], "dir": "+x", "length": 4, "tier": "mk1", "from": "smelter", "to": "depot" },
+        { "at": [3, 0, 10], "dir": "+z", "length": 1, "tier": "mk1", "from": "smelter", "to": "assembler" },
+        { "at": [4, 0, 11], "dir": "+x", "length": 4, "tier": "mk1", "from": "assembler", "to": "depot" }
+      ]
+    },
     "blank_station": {
       "modules": [
         { "at": [0, 0, 0], "kind": "core" }

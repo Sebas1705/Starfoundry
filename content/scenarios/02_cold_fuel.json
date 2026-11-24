@@ -6,8 +6,8 @@
   "name_en": "Cold Fuel",
   "description_es": "Seis unidades de hidrógeno y un reactor hambriento: fabrica combustible y da energía a una estación.",
   "description_en": "Six units of hydrogen and a hungry reactor: make fuel and power a station.",
-  "briefing_es": "El reactor quema hidrógeno y solo nos quedan seis unidades: unos tres minutos. Sin reactor no hay energía, y sin energía la bahía se arrastra. Fabrica un craqueador, mina hielo y mantén las luces encendidas. Luego, dale a una estación su propio reactor.",
-  "briefing_en": "The reactor burns hydrogen and we have six units left: about three minutes. No reactor, no power; no power, the bay crawls. Build a cracker, mine ice and keep the lights on. Then give a station a reactor of its own.",
+  "briefing_es": "El reactor quema hidrógeno y solo nos quedan seis unidades: unos tres minutos. Sin reactor no hay energía, y sin energía la bahía se arrastra. Fabrica un craqueador, mina hielo y mantén las luces encendidas. Luego, dale a una estación su propio reactor. Si te sobra tiempo, atraca en ella y deja lingotes en su almacén.",
+  "briefing_en": "The reactor burns hydrogen and we have six units left: about three minutes. No reactor, no power; no power, the bay crawls. Build a cracker, mine ice and keep the lights on. Then give a station a reactor of its own. If you have time to spare, dock at it and leave ingots in its stock.",
   "rules": { "preset": "relaxed", "threats_enabled": false },
   "start": {
     "structures": [ { "template": "cold_ship" } ],
@@ -28,7 +28,9 @@
     ],
     "secondary": [
       { "id": "never_dry", "type": "keep_fuel",
-        "text_es": "No dejes ningún reactor sin combustible", "text_en": "Never let a reactor run out of fuel" }
+        "text_es": "No dejes ningún reactor sin combustible", "text_en": "Never let a reactor run out of fuel" },
+      { "id": "dock_stock", "type": "stock", "item": "core:iron_ingot", "count": 20,
+        "text_es": "Atraca en la estación y descarga 20 lingotes de hierro en su almacén", "text_en": "Dock at the station and unload 20 iron ingots into its stock" }
     ]
   },
   "story": [
@@ -41,6 +43,9 @@
     { "trigger": "goal:make_hydrogen",
       "text_es": "Hidrógeno en la cinta. Ahora que sabemos fabricarlo, una estación necesita su propio reactor: sin uno, no tiene energía.",
       "text_en": "Hydrogen on the belt. Now that we can make it: a station needs a reactor of its own, or it has no power." },
+    { "trigger": "goal:dock_stock",
+      "text_es": "Atracados y con el almacén lleno. Lo que dejas en la estación sigue ahí aunque la nave se vaya.",
+      "text_en": "Docked and stocked. What you leave in the station stays there even when the ship leaves." },
     { "trigger": "fail:never_dry",
       "text_es": "Reactor en seco. Sobrevivimos, pero apunta el fallo.",
       "text_en": "Dry reactor. We survived, but note the failure." },

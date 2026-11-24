@@ -22,7 +22,11 @@
     ],
     "secondary": [
       { "id": "no_losses", "type": "keep_alive",
-        "text_es": "No pierdas ningún módulo", "text_en": "Lose no module" }
+        "text_es": "No pierdas ningún módulo", "text_en": "Lose no module" },
+      { "id": "second_gun", "type": "have_module", "kind": "gun", "count": 2,
+        "text_es": "Monta un segundo cañón en el astillero (F2 atracado)", "text_en": "Fit a second gun at the shipyard (F2 while docked)" },
+      { "id": "top_speed", "type": "ship_speed", "count": 300,
+        "text_es": "Monta motores para el 300 % de velocidad", "text_en": "Fit engines for 300 percent speed" }
     ]
   },
   "story": [
@@ -32,6 +36,9 @@
     { "trigger": "goal:jump",
       "text_es": "Estamos lejos de casa. Que no se te olvide que hay que volver a tiempo.",
       "text_en": "We are far from home. Do not forget we need to be back in time." },
+    { "trigger": "goal:second_gun",
+      "text_es": "Dos cañones en la nave. Cuando vuelvan, que se lleven un buen susto.",
+      "text_en": "Two guns on the ship. When they come back, they will get a nasty surprise." },
     { "trigger": "lose",
       "text_es": "Guardia terminada. No fue por falta de intentarlo.",
       "text_en": "Watch is over. It was not for lack of trying." },
@@ -39,5 +46,5 @@
       "text_es": "La guardia ha terminado y seguimos aquí. Bien hecho, capitán.",
       "text_en": "The watch is over and we are still here. Well done, captain." }
   ],
-  "stars": { "two_star_seconds": 4200, "three_star_seconds": 3300, "two_star_secondary": 0, "three_star_secondary": -1 }
+  "stars": { "two_star_seconds": 4200, "three_star_seconds": 3300, "two_star_secondary": 0, "three_star_secondary": 2 }
 }

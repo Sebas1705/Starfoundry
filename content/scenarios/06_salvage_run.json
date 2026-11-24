@@ -1,0 +1,53 @@
+{
+  "schema": 1,
+  "id": "06_salvage_run",
+  "order": 6,
+  "name_es": "Recuperación",
+  "name_en": "Salvage Run",
+  "description_es": "Un pecio a la deriva guarda cristales resonantes. Recupéralo, vuelve al muelle y deja el botín en el almacén de la estación.",
+  "description_en": "A derelict wreck drifts nearby with resonant crystals in its hold. Salvage it, fly back to the dock and leave the loot in the station stock.",
+  "briefing_es": "El sensor ha encontrado un pecio a unas setenta celdas, y dentro hay cristales resonantes: solo salen de ahí. Vuela despacio a su lado hasta que lo desguaces, vuelve al muelle de la estación, atraca y descarga el botín en su almacén. Cuidado con las minas: un roce a velocidad alta te costará módulos.",
+  "briefing_en": "The scope found a wreck about seventy cells out, and it holds resonant crystals: they come from nowhere else. Fly slowly beside it until you have stripped it, return to the station dock, dock and unload the loot into its stock. Watch for mines: a scrape at speed will cost you modules.",
+  "rules": { "preset": "relaxed", "threats_enabled": false },
+  "start": {
+    "structures": [
+      { "template": "starter_ship" },
+      { "template": "blank_station", "kind": "station", "offset": [-18, 0, 0] }
+    ],
+    "seed": 20261102
+  },
+  "goals": {
+    "primary": [
+      { "id": "salvage_wreck", "type": "salvage", "count": 1,
+        "text_es": "Recupera el pecio abandonado", "text_en": "Salvage the derelict wreck" },
+      { "id": "dock", "type": "dock",
+        "text_es": "Atraca en la estación (U)", "text_en": "Dock at the station (U)" },
+      { "id": "store_crystals", "type": "stock", "item": "core:resonant_crystal", "count": 4,
+        "text_es": "Deja 4 cristales resonantes en el almacén de la estación (,)", "text_en": "Leave 4 resonant crystals in the station stock (,)" }
+    ],
+    "secondary": [
+      { "id": "quick_run", "type": "stock", "item": "core:resonant_crystal", "count": 4, "time_limit_seconds": 600,
+        "text_es": "Termina en menos de 10 minutos", "text_en": "Finish in under 10 minutes" },
+      { "id": "clean_hull", "type": "keep_alive",
+        "text_es": "No pierdas ningún módulo", "text_en": "Lose no module" }
+    ]
+  },
+  "story": [
+    { "trigger": "start",
+      "text_es": "El pecio está a unas setenta celdas hacia el oeste. Vuela hacia él con W y baja la velocidad al acercarte: para desguazarlo hay que ir despacio.",
+      "text_en": "The wreck is about seventy cells to the west. Fly to it with W and slow down as you close in: you have to go slowly to strip it." },
+    { "trigger": "goal:salvage_wreck",
+      "text_es": "Pecio desguazado y el botín en la bodega. Ahora, de vuelta al muelle: acércate despacio a un puerto libre de la estación y pulsa U.",
+      "text_en": "Wreck stripped and the loot in the hold. Now back to the dock: fly slowly to a free port of the station and press U." },
+    { "trigger": "goal:dock",
+      "text_es": "Atracados. Pulsa , para descargar la bodega en el almacén de la estación.",
+      "text_en": "Docked. Press , to unload the hold into the station stock." },
+    { "trigger": "fail:clean_hull",
+      "text_es": "Un módulo perdido en el camino. Se puede reconstruir; la próxima vez, por encima de las minas.",
+      "text_en": "A module lost on the way. It can be rebuilt; next time, fly over the mines." },
+    { "trigger": "win",
+      "text_es": "Cristales en el almacén. Con una lente de enfoque, un láser Mk2 es cosa de tiempo.",
+      "text_en": "Crystals in the stock. With a focus lens, a Mk2 laser is only a matter of time." }
+  ],
+  "stars": { "two_star_seconds": 900, "three_star_seconds": 600, "two_star_secondary": 0, "three_star_secondary": -1 }
+}

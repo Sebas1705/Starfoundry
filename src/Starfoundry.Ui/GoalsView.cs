@@ -7,7 +7,7 @@ namespace Starfoundry.Ui;
 /// <param name="ShowBar">False for goals that only hold (keep alive, keep fuel) and for one-step goals (research).</param>
 /// <param name="RemainingSeconds">Seconds left of the goal's time limit while it is pending; null when it has none or is settled.</param>
 public sealed record GoalRow(string Id, string Text, bool Primary, GoalStatus Status, long Current, long Target, double Fraction, string ProgressText,
-    bool ShowBar, int? RemainingSeconds, string TimeText, bool Urgent);
+    bool ShowBar, int? RemainingSeconds, string TimeText, bool Urgent, string Icon = "");
 
 /// <summary>A story message ready to show.</summary>
 public sealed record StoryMessage(string Speaker, string Text, bool IsStart);
@@ -38,7 +38,7 @@ public static class GoalsView
             double fraction = g.Target <= 0 ? 0 : Math.Clamp(g.Current / (double)g.Target, 0, 1);
             if (g.Status == GoalStatus.Done) fraction = 1;
             rows.Add(new GoalRow(g.Goal.Id, g.Text(spanish), g.Primary, g.Status, g.Current, g.Target, fraction, g.ProgressText, bar, remaining,
-                remaining is { } r ? Clock(r) : "", remaining is { } u && u <= UrgentSeconds));
+                remaining is { } r ? Clock(r) : "", remaining is { } u && u <= UrgentSeconds, IconCatalog.ForGoal(g.Goal, progress.Content)));
         }
         var (sd, st) = progress.SecondaryCount;
         return new GoalsModel(rows, progress.Primary.Count(g => g.Status == GoalStatus.Done), progress.Primary.Count(), sd, st);

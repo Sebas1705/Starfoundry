@@ -4,13 +4,13 @@ using Starfoundry.Ui;
 namespace Starfoundry.Balance;
 
 /// <summary>
-/// Story levels ([ADR 0025](docs/adr/0025-scenarios-and-goals.md)): the bot plays the stated goals of levels 01, 02 and 03 with the same
+/// Story levels ([ADR 0025](docs/adr/0025-scenarios-and-goals.md)): the bot plays the stated goals of levels 01, 02, 03, 06 and 07 with the same
 /// commands a player uses. Levels 04 and 05 have no plan; they are validated by reachability analysis in the content tests.
 /// </summary>
 public sealed partial class StructureBot
 {
     /// <summary>Scenario ids this bot can play.</summary>
-    public static readonly string[] PlayableScenarios = { "01_first_light", "02_cold_fuel", "03_under_siege" };
+    public static readonly string[] PlayableScenarios = { "01_first_light", "02_cold_fuel", "03_under_siege", "06_salvage_run", "07_hull_breach" };
 
     /// <summary>The scenario's stars after the run (0 when it was not won or the bot played the standard campaign).</summary>
     public int Stars => _progress?.Stars ?? 0;
@@ -35,6 +35,7 @@ public sealed partial class StructureBot
         {
             case "01_first_light":
                 MineIron();
+                FabricationBayOnly();
                 FoundStation();
                 break;
             case "02_cold_fuel":
@@ -42,6 +43,12 @@ public sealed partial class StructureBot
                 break;
             case "03_under_siege":
                 PlaySiege();
+                break;
+            case "06_salvage_run":
+                PlaySalvageRun();
+                break;
+            case "07_hull_breach":
+                PlayHullBreach();
                 break;
             default:
                 throw new NotSupportedException($"The bot has no plan for scenario '{_scenario.Id}' (levels 04 and 05 are validated by reachability analysis only).");
@@ -55,10 +62,45 @@ public sealed partial class StructureBot
         HydrogenLoop();
         MineIron();
         FoundStation();
+        if (_station >= 0 && _progress!.Find("dock_stock") is not null) DockAndStore("core:iron_ingot", 20);
         MoreCargo(2);
         FetchCarbon(8, "the reactor module");
         Goal("a reactor module on the station");
         if (_station >= 0) PlaceModule(_station, 0, -1, 0, ModuleKind.Reactor);
+    }
+
+    // ---- 01 first light: the optional fabrication bay ----------------------------------------------------
+
+    /// <summary>The optional goal of level 01: a fabrication bay beside the hull, paid from the workbench's ingots and plates (no factory in it).</summary>
+    private void FabricationBayOnly()
+    {
+        Goal("1b a fabrication bay beside the hull (optional goal)");
+        PlaceModule(_ship, F1.X, F1.Y, F1.Z, ModuleKind.Workshop);
+    }
+
+    // ---- docking helpers (levels 02 and 06) ---------------------------------------------------------------
+
+    /// <summary>Flies the ship so that its west cockpit port lies a few cells from the station core's east port, then docks (what the assisted approach does for a player).</summary>
+    private bool DockAtStation()
+    {
+        int st = Net.Structures().First(s => s.Kind == StructureKind.Station && s.Owner == 0).Id;
+        var sp = Net.PortWorldPoint(st, 0, 0, 0, Dir.PosX);
+        var shp = Net.PortWorldPoint(_ship, 0, 0, 0, Dir.NegX);
+        var p = Net.GetPlayerInfo(0);
+        if (!FlyTo(p.X + (sp.X - shp.X) + 3L * Cell, p.Y + (sp.Y - shp.Y), p.Z + (sp.Z - shp.Z), Cell / 2)) return false;
+        return !Failed(Cmd(new DockAt(st, 0, 0, 0, Dir.PosX)), "DockAt");
+    }
+
+    /// <summary>Docks, moves <paramref name="count"/> of an item (or all of it when 0) from the hold into the station stock.</summary>
+    private void DockAndStore(string item, int count)
+    {
+        Goal("dock at the station and unload " + item);
+        if (count > 0 && !WaitUntil(() => Net.HoldCount(0, Item(item)) >= count, 240)) { Stuck($"the hold never held {count} of {item}"); return; }
+        if (!DockAtStation()) return;
+        Milestone("Docked at the station");
+        Failed(Cmd(new TransferItems(Item(item), count, true)), "TransferItems");
+        Milestone("Items stored in the station stock");
+        Cmd(new Undock());
     }
 
     // ---- 03 under siege ---------------------------------------------------------------------------------
@@ -95,5 +137,27 @@ public sealed partial class StructureBot
         Goal("siege: a repair bay");
         RepairBay(_station, 0, 0, 8, 2);
         Goal("siege: hold the line");
+    }
+    // ---- 06 salvage run and 07 hull breach ----------------------------------------------------------------
+
+    private void PlaySalvageRun()
+    {
+        Goal("salvage run: fly to the wreck, strip it, dock and unload the loot");
+        int wreck = -1;
+        foreach (int i in Net.Galaxy!.ObstaclesOf(Net.CurrentSystem(0)))
+            if (_c.World!.Kinds[Net.GetObstacle(i).Kind].Behaviour == ObstacleBehaviour.Wreck) { wreck = i; break; }
+        if (wreck < 0) { Stuck("no wreck in the home system"); return; }
+        var o = Net.GetObstacle(wreck);
+        // Stop beside the wreck, well inside the salvage reach (its radius and 12 cells), and wait for the strip to finish.
+        if (!FlyTo(o.X, o.Y, o.Z, o.Radius + 5L * Cell)) return;
+        if (!WaitUntil(() => Net.GetObstacle(wreck).Gone, 10)) { Stuck("the wreck was not salvaged"); return; }
+        Milestone("Wreck salvaged");
+        DockAndStore("core:resonant_crystal", 0);
+    }
+
+    private void PlayHullBreach()
+    {
+        Goal("hull breach: guns armed, then hold out");
+        Cmd(new SetWeapons(true));
     }
 }

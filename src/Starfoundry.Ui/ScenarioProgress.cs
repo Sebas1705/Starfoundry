@@ -58,6 +58,9 @@ public sealed class ScenarioProgress
 
     public ScenarioDef Scenario { get; }
 
+    /// <summary>The content the goals were resolved against (the icons of the goals come from it).</summary>
+    public ContentDb Content => _content;
+
     /// <summary>Every goal, primary first.</summary>
     public IReadOnlyList<GoalState> Goals => _goals;
 

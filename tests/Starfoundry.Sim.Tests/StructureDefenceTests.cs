@@ -654,7 +654,7 @@ public class StructureDefenceTests
         // The core content as it was before structure defence: no new keys, the old defence module hit points.
         var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(TestContent.LegacyPath))!.AsObject();
         // And before scenario start structures existed: the starter ship is the only template.
-        foreach (var tid in new[] { "cold_ship", "siege_ship", "siege_station", "blank_station" }) root["structure_templates"]!.AsObject().Remove(tid);
+        foreach (var tid in new[] { "cold_ship", "siege_ship", "siege_station", "blank_station", "breach_ship" }) root["structure_templates"]!.AsObject().Remove(tid);
         root["threat"]!.AsObject().Remove("module_regen_seconds");
         root["threat"]!.AsObject().Remove("first_wave_grace_seconds");
         root["structures"]!["defence"]!.AsObject().Remove("defence_bonus_percent");
@@ -708,6 +708,10 @@ public class StructureDefenceTests
         RemoveWhere("recipes", "core:make_engineering_science", "core:make_physics_science", "core:grow_biomass", "core:make_biology_science", "core:biomass_to_hydrogen");
         RemoveWhere("machines", "core:engineering_bench", "core:physics_lab", "core:greenhouse");
         RemoveWhere("items", "core:science_engineering", "core:science_biology", "core:science_physics", "core:biomass");
+        // And before the optional material chains: composite research and its two recipes, and the three items the legacy snapshot carries.
+        RemoveWhere("research", "core:composites");
+        RemoveWhere("recipes", "core:make_carbon_fiber", "core:make_composite_plate");
+        RemoveWhere("items", "core:carbon_fiber", "core:composite_plate", "core:resonant_crystal");
         // And before the Normal-mode hardening: no bulwark and the original wave table.
         TestContent.ClassicWaves(root);
         // And before the second balance pass: the small container held 60.

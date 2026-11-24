@@ -144,7 +144,7 @@ public class StructureBotTests
         var r = new StructureBot(TestContent.CoreFloor, Seed, threats: false, rules: new WorldRules { DepositRichnessPercent = 125 }) { ContinueAfterVictory = true }.Run(150 * 60);
         _out.WriteLine(r.Format());
         // The electronics branch (silicon, circuits, shields, sensors, Mk2 power) is only part of the science mode (see the next test).
-        var planned = TestContent.CoreFloor.Research.Where(n => n.Field == ResearchField.Basic && !n.Id.StartsWith("core:silicon_") && n.Id is not ("core:electronics" or "core:shielding" or "core:sensors" or "core:advanced_power" or "core:ion_thrusters" or "core:thrust_vectoring")).ToList();
+        var planned = TestContent.CoreFloor.Research.Where(n => n.Field == ResearchField.Basic && !n.Id.StartsWith("core:silicon_") && n.Id is not ("core:electronics" or "core:shielding" or "core:sensors" or "core:advanced_power" or "core:ion_thrusters" or "core:thrust_vectoring" or "core:composites" or "core:cryogenics" or "core:resonance")).ToList();
         foreach (var node in planned)
             Assert.True(r.Has("Researched " + node.Id.Replace("core:", "")), $"'{node.Id}' was never researched");
         double last = planned.Max(n => Min(r, "Researched " + n.Id.Replace("core:", "")));

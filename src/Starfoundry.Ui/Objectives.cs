@@ -41,6 +41,15 @@ public enum Objective
 
     /// <summary>Structures only: a structure of the player has a fabrication bay (or a station core), where machines and belts can be built (ADR 0031).</summary>
     FabBay,
+
+    /// <summary>Structures only: the ship has docked at a station (ADR 0029).</summary>
+    Dock,
+
+    /// <summary>Structures only: a wreck was salvaged for its loot (ADR 0028).</summary>
+    Salvage,
+
+    /// <summary>Structures only: a second laser or gun, or a Mk2 hardpoint, is fitted (ADR 0032, the shipyard).</summary>
+    Upgrade,
 }
 
 public sealed record ObjectiveState(Objective Objective, bool Done, bool StationRules = false)
@@ -80,8 +89,8 @@ public sealed class ObjectiveTracker
 
     private static readonly Objective[] StructuresOrder =
     {
-        Objective.Fly, Objective.Mine, Objective.Refine, Objective.FabBay, Objective.WatchFactory, Objective.FoundStation, Objective.MakeFuel, Objective.AddModule,
-        Objective.Research, Objective.Scan, Objective.Defend, Objective.Automate, Objective.Expand,
+        Objective.Fly, Objective.Mine, Objective.Refine, Objective.FabBay, Objective.WatchFactory, Objective.FoundStation, Objective.Dock, Objective.MakeFuel, Objective.AddModule,
+        Objective.Research, Objective.Scan, Objective.Defend, Objective.Salvage, Objective.Automate, Objective.Upgrade, Objective.Expand,
     };
 
     /// <summary>Modules of the starter ship; a player with more than this has added some.</summary>
@@ -154,6 +163,10 @@ public sealed class ObjectiveTracker
                 return total > StarterModuleCount;
             });
             Mark(Objective.Automate, () => net.Structures().Any(st => st.Owner == player && net.DroneBays(st.Id) > 0 && net.AssignedDeposit(st.Id) >= 0));
+            Mark(Objective.Dock, () => net.IsDocked(player));
+            Mark(Objective.Salvage, () => net.WrecksSalvaged() > 0);
+            Mark(Objective.Upgrade, () => ScenarioProgress.OwnModules(net, player, ModuleKind.MiningLaser) >= 2 || ScenarioProgress.OwnModules(net, player, ModuleKind.Gun) >= 2
+                || ScenarioProgress.OwnModules(net, player, ModuleKind.MiningLaserMk2) > 0 || ScenarioProgress.OwnModules(net, player, ModuleKind.GunMk2) > 0);
         }
         else if (StationRules)
         {

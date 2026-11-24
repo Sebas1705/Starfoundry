@@ -44,8 +44,8 @@ public class ScenarioContentTests
     {
         Assert.Equal(Catalog.All.Count, Catalog.All.Select(s => s.Order).Distinct().Count());
         var levels = Catalog.All.Where(s => char.IsDigit(s.Id[0])).ToList();
-        Assert.Equal(5, levels.Count);
-        Assert.Equal(new[] { 1, 2, 3, 4, 5 }, levels.Select(s => s.Order));
+        Assert.Equal(7, levels.Count);
+        Assert.Equal(new[] { 1, 2, 3, 4, 5, 6, 7 }, levels.Select(s => s.Order));
         foreach (var s in Catalog.All)
         {
             if (char.IsDigit(s.Id[0])) Assert.StartsWith(s.Order.ToString("00"), s.Id); // levels are numbered like their order
@@ -81,6 +81,8 @@ public class ScenarioContentTests
 
     private static bool HandMinable(int item) => C.Archetypes.Any(a => a.Deposits.Any(d => d.Item == item));
     private static bool HasPort(int item) => C.Machines.Any(m => m.Role == MachineRole.Unloader && m.Unloader!.Item == item);
+
+    private static bool InWrecks(int item) => C.World!.Kinds.Any(k => k.Behaviour == ObstacleBehaviour.Wreck && k.Loot.Any(l => l.Item == item));
 
     private static bool PlaceableInModule(MachineDef m) =>
         !m.SandboxOnly && m.Role != MachineRole.Ship
@@ -149,6 +151,22 @@ public class ScenarioContentTests
                     case GoalType.FoundStations:
                         foreach (var cost in C.Structures!.ModuleCost(ModuleKind.Core))
                             if (!Deliverable(cost.Item)) problems.Add($"{at}: the core costs {C.Items[cost.Item].Id}, which nothing makes");
+                        break;
+                    case GoalType.HaveModule:
+                        foreach (var cost in C.Structures!.ModuleCost(g.Kind!.Value))
+                            if (!HandMinable(cost.Item) && !Deliverable(cost.Item) && !InWrecks(cost.Item)) problems.Add($"{at}: the {g.Kind} module costs {C.Items[cost.Item].Id}, which nothing provides");
+                        break;
+                    case GoalType.Salvage:
+                        if (!C.World!.Kinds.Any(k => k.Behaviour == ObstacleBehaviour.Wreck)) problems.Add($"{at}: the world has no wrecks");
+                        break;
+                    case GoalType.Stock:
+                        if (!HandMinable(g.Item) && !Deliverable(g.Item) && !InWrecks(g.Item)) problems.Add($"{at}: nothing provides {C.Items[g.Item].Id}");
+                        break;
+                    case GoalType.ShipSpeed:
+                        if (g.Count > StructureFlight.MaxSpeedPercent || C.Structures!.EngineSpeedPercent(ModuleKind.Engine) <= 0 || g.Count > C.Structures.EngineSpeedPercent(ModuleKind.Engine) * 40) problems.Add($"{at}: engines cannot give {g.Count} percent");
+                        break;
+                    case GoalType.KillEnemies:
+                        Assert.NotNull(C.Threat);
                         break;
                     case GoalType.SurviveWaves:
                         Assert.NotNull(C.Threat);
@@ -250,7 +268,61 @@ public class ScenarioContentTests
         Assert.True(Reachable(g, new[] { 0 }, C.ItemIndex("core:ice"), richness) >= 200, "home ice for the reactors");
     }
 
-    // ---- the bot plays levels 01, 02 and 03 -----------------------------------------------------------------------
+    [Fact]
+    public void Every_goal_has_a_registered_icon_and_the_panel_rows_carry_it()
+    {
+        foreach (var s in Catalog.All)
+        {
+            var progress = new ScenarioProgress(C, s);
+            foreach (var g in s.AllGoals)
+                Assert.True(IconCatalog.IsRegistered(IconCatalog.ForGoal(g, C)), $"{s.Id}/{g.Id}: {IconCatalog.ForGoal(g, C)}");
+            var model = GoalsView.Build(progress, 0, spanish: false);
+            Assert.All(model.Rows, r => Assert.True(IconCatalog.IsRegistered(r.Icon), $"{s.Id}/{r.Id}"));
+            Assert.True(s.AllGoals.Count() <= ScenarioCatalog.MaxGoals);
+        }
+    }
+
+    [Fact]
+    public void Goal_texts_stay_short_enough_for_the_panel_at_720p()
+    {
+        // The panel is about 300 px wide with a 16 px icon, a ring and the numbers: a goal line must wrap to at most three lines of about 26 characters.
+        foreach (var s in Catalog.All)
+            foreach (var g in s.AllGoals)
+            {
+                Assert.True(g.TextEn.Length <= 80, $"{s.Id}/{g.Id} English text is {g.TextEn.Length} characters");
+                Assert.True(g.TextEs.Length <= 90, $"{s.Id}/{g.Id} Spanish text is {g.TextEs.Length} characters");
+            }
+    }
+
+    [Fact]
+    public void The_salvage_run_wreck_is_near_the_ship_and_holds_enough_crystals()
+    {
+        var def = Catalog.Get("06_salvage_run");
+        var g = Galaxy.Generate(C, def.Seed);
+        int crystal = C.ItemIndex("core:resonant_crystal");
+        var wreck = g.ObstaclesOf(0).Select(i => g.Obstacles[i]).Where(o => C.World!.Kinds[o.Kind].Behaviour == ObstacleBehaviour.Wreck).ToList();
+        Assert.Single(wreck);
+        Assert.Equal(crystal, wreck[0].LootItem);
+        int need = def.Primary.Single(p => p.Type == GoalType.Stock).Count;
+        Assert.True(wreck[0].LootCount >= need, $"the wreck holds {wreck[0].LootCount} crystals, the goal wants {need}");
+        double cells = Math.Sqrt((double)wreck[0].X * wreck[0].X + (double)wreck[0].Y * wreck[0].Y + (double)wreck[0].Z * wreck[0].Z) / Units.CellUnits;
+        _out.WriteLine($"the wreck is {cells:F0} cells from the ship");
+        Assert.InRange(cells, 20, 120);
+        // The hold must have room for the loot (the starter ship's hold is 100).
+        Assert.True(need + 20 <= 100);
+    }
+
+    [Fact]
+    public void The_deep_vein_has_a_wreck_to_salvage_within_two_jumps_of_home()
+    {
+        var def = Catalog.Get("04_deep_vein");
+        var g = Galaxy.Generate(C, def.Seed);
+        var systems = WithinHops(g, 2);
+        int wrecks = g.Obstacles.Count(o => systems.Contains(o.System) && C.World!.Kinds[o.Kind].Behaviour == ObstacleBehaviour.Wreck);
+        Assert.True(wrecks >= 2, $"only {wrecks} wrecks within two jumps");
+    }
+
+    // ---- the bot plays levels 01, 02, 03, 06 and 07 -----------------------------------------------------------------------
 
     private StructureBot Bot(string id) => new(C, Catalog.Get(id)) { ActionDelaySeconds = 6 };
 
@@ -269,9 +341,10 @@ public class ScenarioContentTests
         var r = bot.Run(30 * 60);
         Report("01", bot, r);
         Assert.Equal(OutcomeKind.Won, r.Outcome);
-        Assert.True(r.Seconds <= 12 * Minute, $"won at {StructureBotReport.Clock(r.Seconds)}"); // measured 1:51
+        Assert.True(r.Seconds <= 12 * Minute, $"won at {StructureBotReport.Clock(r.Seconds)}"); // measured 3:27 with the optional bay (1:51 before it)
         Assert.All(bot.GoalStates.Where(g => g.Primary), g => Assert.Equal(GoalStatus.Done, g.Status));
         Assert.Equal(GoalStatus.Done, bot.GoalStates.Single(g => g.Goal.Id == "quick_station").Status);
+        Assert.Equal(GoalStatus.Done, bot.GoalStates.Single(g => g.Goal.Id == "fab_bay").Status);
         Assert.Equal(3, bot.Stars);
         Assert.Equal(0, r.WavesSurvived); // threats are off
     }
@@ -283,11 +356,13 @@ public class ScenarioContentTests
         var r = bot.Run(60 * 60);
         Report("02", bot, r);
         Assert.Equal(OutcomeKind.Won, r.Outcome);
-        Assert.True(r.Seconds <= 45 * Minute, $"won at {StructureBotReport.Clock(r.Seconds)}"); // measured 23:10
+        Assert.True(r.Seconds <= 45 * Minute, $"won at {StructureBotReport.Clock(r.Seconds)}"); // measured 4:20
         Assert.All(bot.GoalStates.Where(g => g.Primary), g => Assert.Equal(GoalStatus.Done, g.Status));
         Assert.Equal(GoalStatus.Done, bot.GoalStates.Single(g => g.Goal.Id == "never_dry").Status); // the cracker came in time
         Assert.True(r.At("Goal done: make_hydrogen") <= 5 * Minute, "the hydrogen has to come before the reactor starves");
-        Assert.True(bot.Stars >= 2);
+        Assert.Equal(GoalStatus.Done, bot.GoalStates.Single(g => g.Goal.Id == "dock_stock").Status); // docked and left 20 ingots in the stock
+        Assert.True(r.Has("Docked at the station"));
+        Assert.Equal(3, bot.Stars);
     }
 
     [Fact]
@@ -301,9 +376,37 @@ public class ScenarioContentTests
         Assert.True(r.Seconds <= 45 * Minute, $"won at {StructureBotReport.Clock(r.Seconds)}"); // measured 17:35
         Assert.True(r.WavesSurvived >= 5);
         Assert.All(bot.GoalStates.Where(g => g.Primary), g => Assert.Equal(GoalStatus.Done, g.Status));
+        Assert.Equal(GoalStatus.Done, bot.GoalStates.Single(g => g.Goal.Id == "gunnery").Status); // the turrets shot twelve ships down by wave three
+        Assert.Equal(3, bot.Stars);
         Assert.True(r.Has("First turret built"));
         // The first wave must not come before the first turret stands: the 120 second grace is not the whole story, the alert meter fills too.
         Assert.True(r.At("First turret built") < r.At("Wave 1 warning"));
+    }
+
+    [Fact]
+    public void Bot_wins_level_06()
+    {
+        var bot = Bot("06_salvage_run");
+        var r = bot.Run(20 * 60);
+        Report("06", bot, r);
+        Assert.Equal(OutcomeKind.Won, r.Outcome);
+        Assert.All(bot.GoalStates.Where(g => g.Primary), g => Assert.Equal(GoalStatus.Done, g.Status));
+        Assert.True(r.Has("Wreck salvaged"));
+        Assert.True(r.Has("Docked at the station"));
+        Assert.True(r.Seconds <= 10 * Minute, $"won at {StructureBotReport.Clock(r.Seconds)}");
+        Assert.Equal(GoalStatus.Done, bot.GoalStates.Single(g => g.Goal.Id == "quick_run").Status);
+        Assert.Equal(3, bot.Stars);
+    }
+
+    [Fact]
+    public void Bot_wins_level_07()
+    {
+        var bot = Bot("07_hull_breach");
+        var r = bot.Run(40 * 60);
+        Report("07", bot, r);
+        Assert.Equal(OutcomeKind.Won, r.Outcome);
+        Assert.All(bot.GoalStates.Where(g => g.Primary), g => Assert.Equal(GoalStatus.Done, g.Status));
+        Assert.True(r.WavesSurvived >= 3);
     }
 
     [Fact]
