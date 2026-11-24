@@ -262,7 +262,7 @@ public class HydrogenTests
 
         // It sits right after FoundStation in the structures list and nowhere else.
         var order = t.States.Select(s => s.Objective).ToList();
-        Assert.Equal(order.IndexOf(Objective.FoundStation) + 1, order.IndexOf(Objective.MakeFuel));
+        Assert.Equal(order.IndexOf(Objective.Dock) + 1, order.IndexOf(Objective.MakeFuel)); // the dock step sits between the station and the fuel
         Assert.DoesNotContain(Objective.MakeFuel, new ObjectiveTracker(C, structures: false).States.Select(s => s.Objective));
         Assert.DoesNotContain(Objective.MakeFuel, new ObjectiveTracker(C, stationRules: true).States.Select(s => s.Objective));
     }

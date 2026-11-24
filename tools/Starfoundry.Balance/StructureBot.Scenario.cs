@@ -100,6 +100,7 @@ public sealed partial class StructureBot
         Milestone("Docked at the station");
         Failed(Cmd(new TransferItems(Item(item), count, true)), "TransferItems");
         Milestone("Items stored in the station stock");
+        Wait(1); // let the goals see the docked ship before it leaves
         Cmd(new Undock());
     }
 

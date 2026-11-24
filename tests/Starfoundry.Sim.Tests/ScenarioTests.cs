@@ -29,7 +29,7 @@ public class ScenarioTests
     [Fact]
     public void The_shipped_files_load_in_level_order()
     {
-        Assert.Equal(new[] { "01_first_light", "02_cold_fuel", "03_under_siege", "04_deep_vein", "05_long_watch", "campaign", "sandbox", "sandbox_station", "sandbox_siege", "custom", "custom_station", "custom_siege" },
+        Assert.Equal(new[] { "01_first_light", "02_cold_fuel", "03_under_siege", "04_deep_vein", "05_long_watch", "06_salvage_run", "07_hull_breach", "campaign", "sandbox", "sandbox_station", "sandbox_siege", "custom", "custom_station", "custom_siege" },
             Catalog.All.Select(s => s.Id).ToArray());
         Assert.True(Catalog.Contains("campaign"));
         Assert.Null(Catalog.Find("nope"));
