@@ -695,6 +695,7 @@ public static partial class ModuleModels
     private static void BoxShell(Models.Mb mb, Cx c, float roofY, bool detail, bool collars, Win[] wins, bool glassRoof, bool openRear)
     {
         const float T = 0.2f;
+        if (c.Has(Up)) roofY = HullProfile.H; // the walls of a module with another on top reach the floor above, so no slit runs round a stacked station
         float si = StationFace, y0 = 0.08f, h = roofY - y0;
         // Walls: (axis 0 = a wall across X at the left/right, axis 1 = across Z at the front/rear), side 0 or 1
         for (int axis = 0; axis < 2; axis++)
@@ -1055,8 +1056,6 @@ public static partial class ModuleModels
         float roof = c.Kind switch
         {
             ModuleKind.Shield => HullProfile.ShieldRoof, ModuleKind.Sensor => HullProfile.SensorRoof,
-            ModuleKind.Reactor or ModuleKind.ReactorMk2 or ModuleKind.Core => c.Ship ? Roof : LowRoof,
-            ModuleKind.Cockpit => c.Ship ? Roof : LowRoof,
             _ => Roof,
         };
         bool windowed = c.Kind is ModuleKind.Core or ModuleKind.Engine; // the others have real viewports
@@ -1995,8 +1994,8 @@ public static partial class ModuleModels
 
     private static void Core(Cx c)
     {
-        Skin(c, LowRoof, detail: false);
-        Frame(c, LowRoof);
+        Skin(c, Roof, detail: false);
+        Frame(c, Roof);
         Models.Add(c.R, "Pillar", $"{c.K}.pillar", ModuleStruct(), mb =>
         {
             mb.At(default).C(Dark).Prism(new(4, 0.08f, 4), 2.0f, 1.7f, 0.22f, 8);

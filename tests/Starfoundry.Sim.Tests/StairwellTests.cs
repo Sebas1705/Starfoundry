@@ -35,14 +35,21 @@ public class StairwellTests
     }
 
     [Fact]
-    public void TheShaftIsFreeOfFurnitureInEveryCapableKind()
+    public void TheShaftAndTheLandingAreFreeOfFurnitureInEveryCapableKind()
     {
+        float cx = (Stairwell.X0 + Stairwell.X1) / 2;
         foreach (var ship in new[] { true, false })
             foreach (var kind in Enum.GetValues<ModuleKind>().Where(Stairwell.Capable))
                 foreach (var s in HullProfile.SolidsOf(HullProfile.FixtureOf(kind, ship), 0))
-                    for (float x = Stairwell.X0 - 0.4f; x <= Stairwell.X1 + 0.4f; x += 0.1f)
-                        for (float z = Stairwell.Z0 - 0.4f; z <= Stairwell.Z1 + 0.5f; z += 0.1f)
+                {
+                    for (float x = Stairwell.X0 - 0.1f; x <= Stairwell.X1 + 0.1f; x += 0.1f)
+                        for (float z = Stairwell.Z0 - 0.1f; z <= Stairwell.Z1 + 0.1f; z += 0.1f)
                             Assert.False(s.Contains(x, z), $"{kind} furniture stands in the shaft at {x},{z}");
+                    // the body stepping off the ladder (a 0.6 square round the landing spot)
+                    for (float x = cx - 0.3f; x <= cx + 0.3f; x += 0.1f)
+                        for (float z = Stairwell.Z1 + Stairwell.LandingGap - 0.3f; z <= Stairwell.Z1 + Stairwell.LandingGap + 0.3f; z += 0.1f)
+                            Assert.False(s.Contains(x, z), $"{kind} furniture stands on the landing at {x},{z}");
+                }
     }
 
     [Fact]

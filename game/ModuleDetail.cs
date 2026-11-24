@@ -49,7 +49,7 @@ public static partial class ModuleModels
             return;
         }
         if (c.Kind is ModuleKind.Workshop or ModuleKind.Defence or ModuleKind.DroneBay || c.Has(Up)) return;
-        float top = c.Kind is ModuleKind.Reactor or ModuleKind.ReactorMk2 or ModuleKind.Core ? LowRoof : c.Kind == ModuleKind.Shield ? 1.2f : c.Kind == ModuleKind.Sensor ? 2.2f : Roof;
+        float top = c.Kind == ModuleKind.Shield ? 1.2f : c.Kind == ModuleKind.Sensor ? 2.2f : Roof;
         StrobeAt(c, "roof", W - 0.6f, top + 0.12f, 0.6f, new Color(1f, 0.15f, 0.12f));
     }
 
@@ -299,7 +299,7 @@ public static partial class ModuleModels
 
         // station: louvres and roof vents on the exposed walls, a red aviation strobe on a roof corner
         if (c.Kind is ModuleKind.Workshop or ModuleKind.Defence or ModuleKind.DroneBay) return;
-        float top = c.Kind is ModuleKind.Reactor or ModuleKind.ReactorMk2 or ModuleKind.Core ? LowRoof : c.Kind == ModuleKind.Shield ? 1.2f : c.Kind == ModuleKind.Sensor ? 2.2f : Roof;
+        float top = c.Kind == ModuleKind.Shield ? 1.2f : c.Kind == ModuleKind.Sensor ? 2.2f : Roof;
         {
             mb.At(default);
             foreach (float s in new[] { -1f, 1f })

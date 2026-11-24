@@ -4,7 +4,7 @@ using Starfoundry.Sim;
 namespace Starfoundry.Ui;
 
 /// <summary>The solid furniture a module carries that the walking body cannot pass through (besides its shell).</summary>
-public enum Fixture { None, Cockpit, Vessel, VesselMk2, Cargo, Engine, Hangar, DefenceShip, DefenceStation, Core, Lockers, WorkshopLockers }
+public enum Fixture { None, Cockpit, Vessel, VesselMk2, Cargo, Engine, Hangar, DefenceShip, DefenceStation, Core, Lockers, WorkshopLockers, StationLockers, StationWorkshopLockers }
 
 /// <summary>
 /// The shell of one module as the walking body sees it: whether it is a ship hull or a station box, the height of its roof, whether it
@@ -260,6 +260,8 @@ public static class HullProfile
         Fixture.Core => CoreSolids,
         Fixture.Lockers => LockerSolids(mask, 3, 3),
         Fixture.WorkshopLockers => LockerSolids(mask, 3, 5),
+        Fixture.StationLockers => LockerSolids(mask, 3, 3, true),
+        Fixture.StationWorkshopLockers => LockerSolids(mask, 3, 5, true),
         Fixture.Vessel => (mask & Rear) != 0 ? VesselOpenSolids : VesselSolids,
         Fixture.VesselMk2 => (mask & Rear) != 0 ? VesselMk2OpenSolids : VesselMk2Solids,
         _ => Array.Empty<Solid>(),
@@ -293,9 +295,11 @@ public static class HullProfile
     private static readonly Solid[] DefenceStationSolids =
     {
         Disc(2.5f, 2.5f, 0.95f), Disc(5.5f, 2.5f, 0.95f), Disc(2.5f, 5.5f, 0.95f), Disc(5.5f, 5.5f, 0.95f), new(0.5f, D - 1.45f, 1.5f, D - 0.55f), new(W - 1.5f, D - 1.45f, W - 0.5f, D - 0.55f),
+        new(2.5f - 0.4f, 2.5f - 1.85f, 2.5f + 0.4f, 2.5f), new(5.5f - 0.4f, 2.5f - 1.85f, 5.5f + 0.4f, 2.5f), new(2.5f - 0.4f, 5.5f - 1.85f, 2.5f + 0.4f, 5.5f), new(5.5f - 0.4f, 5.5f - 1.85f, 5.5f + 0.4f, 5.5f), // the barrels, at rest, aimed to the front
         new(0f, 0f, 2.2f, ParapetDepth), new(W - 2.2f, 0f, W, ParapetDepth), new(0f, D - ParapetDepth, 2.2f, D), new(W - 2.2f, D - ParapetDepth, W, D),
     };
-    private static readonly Solid[] CoreSolids = { Disc(4f, 4f, 1.1f) };
+    // the pillar, and the four braces that rise from the floor to the pillar (they are above knee height inside 2.4 cells from the middle), as discs along each diagonal
+    private static readonly Solid[] CoreSolids = new[] { Disc(4f, 4f, 1.1f) }.Concat(new[] { (-1f, -1f), (1f, -1f), (-1f, 1f), (1f, 1f) }.SelectMany(d => new[] { 1.45f, 1.75f, 2.05f, 2.35f }.Select(r => Disc(4f + d.Item1 * r * 0.7071f, 4f + d.Item2 * r * 0.7071f, 0.25f)))).ToArray();
     private static readonly Solid[] VesselSolids = MakeVessel(VesselRadius, new[] { (1.2f, 1.2f), (6.8f, 1.2f), (1.2f, 6.8f), (6.8f, 6.8f) }, 0.3f);
     private static readonly Solid[] VesselMk2Solids = MakeVessel(VesselMk2Radius, new[] { (1.2f, 1.2f), (6.8f, 1.2f), (1.2f, 6.8f), (6.8f, 6.8f) }, 0.3f);
     // with a module behind, the rear wall is a doorway and carries no console
@@ -303,12 +307,13 @@ public static class HullProfile
     private static readonly Solid[] VesselMk2OpenSolids = VesselMk2Solids.Where(s => s.Round).ToArray();
 
     /// <summary>The wall lockers of a hull or a workshop (see <c>ModuleDetail</c>): banks of 0.5-cell boxes hung on a closed wall, a left bank from the front and a right bank from the back.</summary>
-    private static List<Solid> LockerSolids(int mask, int left, int right)
+    private static List<Solid> LockerSolids(int mask, int left, int right, bool station = false)
     {
         var l = new List<Solid>();
-        if (HasWallFurniture(mask)) return l; // the wall is taken by ribs, a plinth or niches
-        if ((mask & Left) == 0) l.Add(new(0.1f, 0.35f, 0.7f, 0.35f + left * 0.5f + 0.1f));
-        if ((mask & Right) == 0) l.Add(new(W - 0.7f, right == 3 ? 6.1f : 4.9f, W - 0.1f, (right == 3 ? 6.1f : 4.9f) + right * 0.5f + 0.1f));
+        if (!station && HasWallFurniture(mask)) return l; // the wall of a ship is taken by ribs, a plinth or niches
+        float lx0 = station ? 0.41f : 0.1f, lx1 = station ? 0.87f : 0.7f; // a ship hangs them on the wall, a station stands them on the floor
+        if ((mask & Left) == 0) l.Add(new(lx0, 0.35f, lx1, 0.35f + left * 0.5f + 0.1f));
+        if ((mask & Right) == 0) l.Add(new(W - lx1, right == 3 ? 6.1f : 4.9f, W - lx0, (right == 3 ? 6.1f : 4.9f) + right * 0.5f + 0.1f));
         return l;
     }
 
@@ -326,18 +331,14 @@ public static class HullProfile
     /// <summary>
     /// The roof height of a module kind (cells above the module floor). Every kind that makes up the body of a ship (hull, cargo, workshop,
     /// reactors, cockpit, engine, defence, drone bay, dock) shares the full <see cref="Roof"/>, so the sections line up at every joint; only the
-    /// pods (hardpoints, shield, sensor) and the station-only kinds are lower.
+    /// pods (hardpoints, shield, sensor) are lower. Stations use the same height for every kind (a core, a reactor and a shipyard used to be 3.0 and 3.2), so levels and joints line up.
     /// </summary>
     public static float RoofOf(ModuleKind kind, bool ship) => kind switch
     {
         ModuleKind.Shield => ShieldRoof,
         ModuleKind.Sensor => SensorRoof,
-        ModuleKind.Reactor or ModuleKind.ReactorMk2 => ship ? Roof : LowRoof,
-        ModuleKind.Core => LowRoof,
-        ModuleKind.Cockpit => ship ? Roof : LowRoof,
         ModuleKind.MiningLaser or ModuleKind.MiningLaserMk2 => MiningRoof,
         ModuleKind.Gun or ModuleKind.GunMk2 => GunRoof,
-        ModuleKind.Shipyard => ShipyardRoof,
         _ => Roof,
     };
 
@@ -359,8 +360,8 @@ public static class HullProfile
         ModuleKind.DroneBay => Fixture.Hangar,
         ModuleKind.Defence => ship ? Fixture.DefenceShip : Fixture.DefenceStation,
         ModuleKind.Core => Fixture.Core,
-        ModuleKind.Hull => ship ? Fixture.Lockers : Fixture.None,
-        ModuleKind.Workshop => ship ? Fixture.WorkshopLockers : Fixture.None,
+        ModuleKind.Hull => ship ? Fixture.Lockers : Fixture.StationLockers,
+        ModuleKind.Workshop => ship ? Fixture.WorkshopLockers : Fixture.StationWorkshopLockers,
         _ => Fixture.None,
     };
 

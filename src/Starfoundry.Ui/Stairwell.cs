@@ -24,7 +24,7 @@ public readonly record struct StairMove(bool Up, Vector3 Destination, StairLink 
 public static class Stairwell
 {
     /// <summary>The opening in the upper deck, in cells from the back-left corner of the module (at the front, clear of the furniture of every capable kind).</summary>
-    public const float X0 = 3.2f, X1 = 4.8f, Z0 = 0.7f, Z1 = 2.3f;
+    public const float X0 = 3.2f, X1 = 4.8f, Z0 = 0.6f, Z1 = 2.0f;
     /// <summary>How far from the opening the body still reaches the ladder.</summary>
     public const float Reach = 0.6f;
     /// <summary>The distance behind the opening where the body steps off the ladder onto the upper deck.</summary>
