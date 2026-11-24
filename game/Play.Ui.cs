@@ -195,7 +195,7 @@ public partial class Play
         _btnRefine = MakeButton("", ToggleRefinery, toggle: true, minWidth: 170);
         _btnScan = MakeButton("", () => Send(new Scan()), minWidth: 170);
         _btnMap = MakeButton("", () => _mapOpen = !_mapOpen, toggle: true, minWidth: 170);
-        _btnWeapons = MakeButton("", ToggleWeapons, toggle: true, minWidth: 170);
+        _btnWeapons = MakeButton("", () => PickWeaponGroup(WeaponGroup.Guns), toggle: true, minWidth: 170);
         _btnResearch = MakeButton("", ToggleResearchPanel, toggle: true, minWidth: 170);
         _btnRepair = MakeButton("", RepairAll, minWidth: 170);
         foreach (var b in new[] { _btnMine, _btnRefine, _btnScan, _btnMap, _btnWeapons, _btnRepair, _btnResearch }) actions.AddChild(b);
@@ -648,7 +648,7 @@ public partial class Play
 
     /// <summary>True while a mining order is active but the hold is at the mining limit, so nothing is mined.</summary>
     private bool MiningPausedByLimit =>
-        _structuresOn && Net.LaserFiring(Player)
+        _structuresOn && Net.Rules.LegacyFeel && Net.LaserFiring(Player) // with the new feel (ADR 0036) the laser never stops: it slows and the surplus floats
         && HudFormat.MiningLimitReached(Net.HoldTotal(Player), Net.HoldCapacity(Player));
 
     private void UpdateStatus()
@@ -1103,10 +1103,10 @@ public partial class Play
 
         // Actions.
         var player = Net.GetPlayerInfo(Player);
-        bool mining = _laserOn;
-        _btnMine.Text = mining ? L("btn.mineStop") : L("btn.mine");
-        _btnMine.SetPressedNoSignal(mining);
-        _btnMine.TooltipText = MiningPausedByLimit ? L("tip.minePaused") : L("tip.mine");
+        bool laserInHand = _weaponGroup == WeaponGroup.Laser; // ADR 0036: the buttons take a weapon in hand (M cycles, the click fires)
+        _btnMine.Text = L("btn.groupLaser");
+        _btnMine.SetPressedNoSignal(laserInHand);
+        _btnMine.TooltipText = L("tip.groupLaser");
 
         bool refining = player.ShipRecipe >= 0;
         string benchName = refining ? L("bench." + _content.Recipes[player.ShipRecipe].Id) : "";
@@ -1124,10 +1124,10 @@ public partial class Play
         _btnMap.Visible = Net.Galaxy is not null;
         _btnMap.TooltipText = L("tip.map");
 
-        _btnWeapons.Visible = Net.ThreatActive;
-        _btnWeapons.Text = player.Armed ? L("btn.weaponsOff") : L("btn.weapons");
-        _btnWeapons.SetPressedNoSignal(player.Armed);
-        _btnWeapons.TooltipText = L("tip.weapons");
+        _btnWeapons.Visible = Net.HasGun(Player);
+        _btnWeapons.Text = L("btn.groupGuns");
+        _btnWeapons.SetPressedNoSignal(_weaponGroup == WeaponGroup.Guns);
+        _btnWeapons.TooltipText = L("tip.groupGuns");
 
         var damagedNow = DamagedInRange();
         _damagedCount = damagedNow.Count;
@@ -1676,7 +1676,7 @@ public partial class Play
             case Key.R: _dir = _dir switch { Dir.PosX => Dir.PosZ, Dir.PosZ => Dir.NegX, Dir.NegX => Dir.NegZ, _ => Dir.PosX }; Toast(L("toast.beltFacing", _dir.ToString())); break;
             case Key.Z when _tool == ToolMode.Build && !(FloorRule && !ModuleSelected): _cursorY--; break; // flying: Z and X roll the ship instead; on the floor rule only the module tool has layers
             case Key.X when _tool == ToolMode.Build && !(FloorRule && !ModuleSelected): _cursorY++; break;
-            case Key.M: ToggleMining(); break;
+            case Key.M: CycleWeaponGroup(); break; // ADR 0036: M switches the weapon in hand; the click fires it
             case Key.E: ToggleSeat(); break;
             case Key.U: DockKey(); break;
             case Key.Comma: UnloadKey(); break;
@@ -1780,21 +1780,8 @@ public partial class Play
         SendThrust(thrust, force: thrust == (0, 0, 0) && _throttle.LastSent != (0, 0, 0));
     }
 
-    /// <summary>The M key and the Mine button: take the mining laser in hand, or stow it. Mining itself is firing it (see <see cref="UpdateLaser"/>).</summary>
-    private void ToggleMining()
-    {
-        if (_laserOn)
-        {
-            SetLaser(false);
-            ToastProduction(L("toast.laserStowed"), 4.0);
-            return;
-        }
-        if (Standing) { ToastLogistics(L("toast.sitToFly")); return; }
-        if (HardpointsOn && !Net.HasMiningLaser(Player)) { ToastLogistics(L("toast.reject.noLaser")); return; }
-        if (HardpointsOn && _weaponGroup != WeaponGroup.Laser) SetWeaponGroup(WeaponGroup.Laser);
-        SetLaser(true);
-        ToastProduction(L("toast.laserReady"), 6.0);
-    }
+    /// <summary>The Mine button and the cockpit weapon card: take the mining laser in hand (M cycles). Mining itself is firing it (see <see cref="UpdateLaser"/>).</summary>
+    private void ToggleMining() => PickWeaponGroup(WeaponGroup.Laser);
 
     private void SetLaser(bool on)
     {
@@ -1809,6 +1796,7 @@ public partial class Play
     private void UpdateLaser()
     {
         UpdateGuns();
+        SyncLaserInHand();
         if (!_laserOn) return;
         if (Standing || _tool == ToolMode.Build || PanelOpen()) { SetLaser(false); return; }
         bool fire = (_mouseLook && Input.IsMouseButtonPressed(MouseButton.Left));

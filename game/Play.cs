@@ -1109,6 +1109,7 @@ void fragment() {
             _world.Step();
             CollectResults();
             WatchThreat();
+            WatchFeel();
             WatchDefence();
             WatchObstacles();
             AudioTick();
@@ -1213,6 +1214,7 @@ void fragment() {
 
         UpdateHover();
         UpdateLaserFx();
+        UpdateWeaponFx((float)delta);
         UpdateGhost();
         UpdateDefenceUi((float)delta);
         UpdateUi((float)delta);
@@ -1433,12 +1435,7 @@ void fragment() {
         if (Net.ShipsLost > _lastShipsLost) { ToastThreat(L(_structuresOn ? "toast.shipLostCockpit" : "toast.shipLost"), 10.0); _lastShipsLost = Net.ShipsLost; }
     }
 
-    private void ToggleWeapons()
-    {
-        if (HardpointsOn) { CycleWeaponGroup(); return; } // ADR 0032: V picks the weapon group the fire button uses
-        bool on = Net.HasPlayer(Player) && Net.GetPlayerInfo(Player).Armed;
-        Send(new SetWeapons(!on));
-    }
+    private void ToggleWeapons() => CycleWeaponGroup(); // ADR 0036: V and the weapons button switch the weapon in hand too
 
 
     // ---- threat demo -------------------------------------------------------------------------------

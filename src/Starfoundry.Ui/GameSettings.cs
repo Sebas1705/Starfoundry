@@ -37,6 +37,9 @@ public sealed record GameSettings
 
     public bool InvertMouseY { get; init; }
 
+    /// <summary>Optional aim assist (ADR 0036): while the guns fire, an enemy inside a narrow cone around the crosshair is aimed at. Off by default: shots go where the crosshair points.</summary>
+    public bool AimAssist { get; init; }
+
     /// <summary>How much of the outside HUD is drawn (F3 cycles it; see <see cref="Starfoundry.Ui.HudMode"/>).</summary>
     public HudMode HudMode { get; init; } = HudModes.Default;
 
@@ -96,6 +99,7 @@ public sealed record GameSettings
             new KeyValuePair<string, string>("ambience_volume", s.AmbienceVolume.ToString(CultureInfo.InvariantCulture)),
             new KeyValuePair<string, string>("ui_volume", s.UiVolume.ToString(CultureInfo.InvariantCulture)),
             new KeyValuePair<string, string>("invert_mouse_y", s.InvertMouseY ? "true" : "false"),
+            new KeyValuePair<string, string>("aim_assist", s.AimAssist ? "true" : "false"),
             new KeyValuePair<string, string>("hud_mode", HudModes.Id(s.HudMode)),
             new KeyValuePair<string, string>("smooth_look", s.SmoothLook ? "true" : "false"),
             new KeyValuePair<string, string>("ship_inertia", ShipInertias.Id(s.ShipInertia)),
@@ -133,6 +137,7 @@ public sealed record GameSettings
                 case "ambience_volume" when int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int av): s = s with { AmbienceVolume = av }; break;
                 case "ui_volume" when int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int uv): s = s with { UiVolume = uv }; break;
                 case "invert_mouse_y" when bool.TryParse(value, out bool i): s = s with { InvertMouseY = i }; break;
+                case "aim_assist" when bool.TryParse(value, out bool aa): s = s with { AimAssist = aa }; break;
                 case "hud_mode" when HudModes.TryParse(value, out var hm): s = s with { HudMode = hm }; break;
                 case "smooth_look" when bool.TryParse(value, out bool sl): s = s with { SmoothLook = sl }; oldSmooth = sl; break;
                 case "ship_inertia" when ShipInertias.TryParse(value, out var si): s = s with { ShipInertia = si }; sawInertia = true; break;

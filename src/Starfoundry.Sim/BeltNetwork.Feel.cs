@@ -133,6 +133,9 @@ public sealed partial class BeltNetwork
         return sq >= (long)(FeelRules.AimScale / 2) * (FeelRules.AimScale / 2);
     }
 
+    /// <summary>True when the player's guns fire along an aim: the world has the new feel and an aim is set.</summary>
+    private bool FreeFireAims(Player p) => !Rules.LegacyFeel && _aim.ContainsKey(p.Id);
+
     /// <summary>Sets (or with a zero vector clears) the player's aim, in the ship's frame. Commands validate with <see cref="AimInRange"/>.</summary>
     public void SetAim(int player, int dx, int dy, int dz)
     {
@@ -153,6 +156,15 @@ public sealed partial class BeltNetwork
 
     private (long X, long Y, long Z) WorldAim(int player, (int X, int Y, int Z) a) =>
         _players.TryGetValue(player, out var p) && _structures.TryGetValue(p.ShipStructure, out var s) ? s.Attitude.Rotate(a.X, a.Y, a.Z) : (a.X, a.Y, a.Z);
+
+    /// <summary>The recoil of one volley of the player's guns, in thousandths of a unit per tick at the reference mass: the sum of each gun's recoil times its strength (0 for the main guns).</summary>
+    public int GunRecoil(int player)
+    {
+        if (!_players.TryGetValue(player, out var p) || !_structures.TryGetValue(p.ShipStructure, out var s) || Content?.Structures is not { } kinds) return 0;
+        long total = 0;
+        foreach (var g in MountsOf(s, false)) total += (long)kinds.Recoil(g.Kind) * g.Percent / 100;
+        return (int)total;
+    }
 
     // ---- hand mining past the limit ---------------------------------------------------------------------------
 
@@ -262,10 +274,11 @@ public sealed partial class BeltNetwork
                 if (p.RespawnRemaining > 0) continue;
                 int room = HoldCapacityOf(p) - p.HoldTotal - p.ShipReserved;
                 if (room <= 0) continue;
-                long dx = p.X - k.X, dy = p.Y - k.Y, dz = p.Z - k.Z, d2 = dx * dx + dy * dy + dz * dz;
+                var (hx, hy, hz) = NearestHullPoint(p, k.X, k.Y, k.Z); // the ship is long: the tractor reaches from its nearest module, not from the seat
+                long dx = hx - k.X, dy = hy - k.Y, dz = hz - k.Z, d2 = dx * dx + dy * dy + dz * dz;
                 if (d2 > (long)FeelRules.TractorRangeUnits * FeelRules.TractorRangeUnits) continue;
                 long dist = IntMath.ISqrt(d2);
-                if (dist <= FeelRules.CollectRadiusUnits)
+                if (dist <= FeelRules.CollectRadiusUnits + FeelRules.TractorStepUnits) // one more pull and it is aboard: take it now (a step shorter than the gap could stall on integer rounding)
                 {
                     int take = Math.Min(room, k.Count);
                     AddToHold(p, k.Item, take);
@@ -275,12 +288,27 @@ public sealed partial class BeltNetwork
                 }
                 else
                 {
-                    long step = Math.Min(FeelRules.TractorStepUnits, dist - FeelRules.CollectRadiusUnits);
+                    long step = FeelRules.TractorStepUnits;
                     k.X += (int)(dx * step / dist); k.Y += (int)(dy * step / dist); k.Z += (int)(dz * step / dist);
                 }
                 break;
             }
         }
+    }
+
+    /// <summary>The centre of the module of the player's ship nearest to a point (units), or the ship's reference point when it has none.</summary>
+    private (long X, long Y, long Z) NearestHullPoint(Player p, long x, long y, long z)
+    {
+        if (!_structures.TryGetValue(p.ShipStructure, out var s) || s.ModuleMap.Count == 0) return (p.X, p.Y, p.Z);
+        (long X, long Y, long Z) best = (p.X, p.Y, p.Z);
+        long bestD = long.MaxValue;
+        foreach (var key in s.ModuleMap.Keys)
+        {
+            var c = ModuleWorldCentre(s.Id, key.Mx, key.My, key.Mz);
+            long dx = c.X - x, dy = c.Y - y, dz = c.Z - z, d2 = dx * dx + dy * dy + dz * dz;
+            if (d2 < bestD) { bestD = d2; best = (c.X, c.Y, c.Z); }
+        }
+        return best;
     }
 
     // ---- guns ----------------------------------------------------------------------------------------------------

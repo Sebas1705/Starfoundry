@@ -252,6 +252,7 @@ public partial class MenuScreen : Control
         WithTip(inertia, "settings.tip.inertia");
         _body.AddChild(inertia);
         AddCheck("FlightAssistCheck", Loc.T("settings.flightAssist"), s.FlightAssist, on => SettingsStore.Current with { FlightAssist = on }, "settings.tip.flightAssist");
+        AddCheck("AimAssistCheck", Loc.T("settings.aimAssist"), s.AimAssist, on => SettingsStore.Current with { AimAssist = on }, "settings.tip.aimAssist");
         AddCheck("SmoothLookCheck", Loc.T("settings.smoothLook"), s.SmoothLook, on => SettingsStore.Current with { SmoothLook = on }, "settings.tip.smoothLook");
         AddCheck("FullscreenCheck", Loc.T("settings.fullscreen"), s.Fullscreen, on => SettingsStore.Current with { Fullscreen = on }, "settings.tip.fullscreen");
         AddCheck("LowTexturesCheck", Loc.T("settings.lowTextures"), s.LowTextures, on => SettingsStore.Current with { LowTextures = on }, "settings.tip.lowTextures");

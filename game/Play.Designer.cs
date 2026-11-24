@@ -68,41 +68,7 @@ public partial class Play
         }
     }
 
-    // ---- the weapon group --------------------------------------------------------------------------------------
-
-    /// <summary>V: with hardpoints, picks the weapon group the fire button uses (the mining laser or the guns).</summary>
-    private void CycleWeaponGroup()
-    {
-        if (!HardpointsOn) return;
-        var next = _weaponGroup == WeaponGroup.Laser ? WeaponGroup.Guns : WeaponGroup.Laser;
-        if (next == WeaponGroup.Guns && !Net.HasGun(Player)) { Toast(L("toast.reject.noGun"), 5.0); return; }
-        SetWeaponGroup(next);
-    }
-
-    private void SetWeaponGroup(WeaponGroup group)
-    {
-        _weaponGroup = group;
-        if (group == WeaponGroup.Guns)
-        {
-            SetLaser(false);
-            Toast(L("toast.weaponGroupGuns", "V"), 3.0);
-        }
-        else
-        {
-            if (Net.GetPlayerInfo(Player).Armed) Send(new SetWeapons(false));
-            Toast(L("toast.weaponGroupLaser", "V"), 3.0);
-        }
-    }
-
-    /// <summary>Per frame: with the guns in hand the fire button arms the guns while it is held and disarms them on release.</summary>
-    private void UpdateGuns()
-    {
-        if (!HardpointsOn || _weaponGroup != WeaponGroup.Guns) return;
-        if (!Net.HasGun(Player)) { _weaponGroup = WeaponGroup.Laser; if (Net.GetPlayerInfo(Player).Armed) Send(new SetWeapons(false)); return; }
-        if (_world.PendingCommands > 0) return;
-        bool fire = _mouseLook && !Standing && !PanelOpen() && _tool != ToolMode.Build && Input.IsMouseButtonPressed(MouseButton.Left);
-        if (fire != Net.GetPlayerInfo(Player).Armed) Send(new SetWeapons(fire));
-    }
+    // The weapon group in hand, free fire and the guide are in Play.Weapons.cs.
 
     // ---- the beams ---------------------------------------------------------------------------------------------
 

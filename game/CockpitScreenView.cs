@@ -724,9 +724,8 @@ public partial class CockpitScreenView : Control
     private void DrawGroupButton(Rect2 r)
     {
         var w = Snapshot.Weapons;
-        string group = w.Hardpoints ? (w.Group == WeaponGroup.Guns ? Loc.T("cp.wpn.guns") : Loc.T("cp.wpn.laser")) : (w.Armed ? Loc.T("cp.wpn.guns") : Loc.T("cp.wpn.laser"));
-        bool can = w.Hardpoints ? w.HasGun : w.ThreatActive;
-        Button(r, $"{Loc.T("cp.wpn.group")}: {group}", "tool:weapons", w.Hardpoints ? CockpitAction.ToggleWeaponGroup : CockpitAction.ToggleArmed, 0, w.ActiveGroup == WeaponGroup.Guns, can, Red, 14);
+        string group = w.ActiveGroup == WeaponGroup.Guns ? Loc.T("cp.wpn.guns") : Loc.T("cp.wpn.laser"); // ADR 0036: the group in hand, whatever the world
+        Button(r, $"{Loc.T("cp.wpn.group")}: {group}", "tool:weapons", CockpitAction.ToggleWeaponGroup, 0, w.ActiveGroup == WeaponGroup.Guns, w.HasGun && w.HasLaser, Red, 14);
     }
 
     // ---- weapons -------------------------------------------------------------------------------------------
@@ -737,7 +736,8 @@ public partial class CockpitScreenView : Control
         float half = (size.X - 24f - 8f) / 2f;
         float y = 54f;
         DrawWeaponCard(new Rect2(12, y, half, 112), Loc.T("cp.wpn.laser"), "tool:mine", !w.Hardpoints || w.HasLaser, w.ActiveGroup == WeaponGroup.Laser,
-            w.LaserFiring ? Loc.T("cp.wpn.firing") : w.Mining ? Loc.T("cp.wpn.mining") : Loc.T("cp.wpn.ready"), w.LaserFiring || w.Mining ? Green : UiTheme.Muted);
+            w.LaserFiring ? Loc.T("cp.wpn.firing") : w.Mining ? Loc.T("cp.wpn.mining") : Loc.T("cp.wpn.ready"), w.LaserFiring || w.Mining ? Green : UiTheme.Muted,
+            MiningDetail(w));
         DrawWeaponCard(new Rect2(12 + half + 8, y, half, 112), Loc.T("cp.wpn.guns"), "tool:fireGuns", !w.Hardpoints || w.HasGun, w.ActiveGroup == WeaponGroup.Guns,
             w.Armed ? Loc.T("cp.wpn.armed") : Loc.T("cp.wpn.safe"), w.Armed ? Red : UiTheme.Muted);
         y += 126f;
@@ -750,7 +750,15 @@ public partial class CockpitScreenView : Control
         Txt(Fit(Loc.T("cp.wpn.hint"), 12, size.X - 28f), 14, y + 22, 12, UiTheme.Dim);
     }
 
-    private void DrawWeaponCard(Rect2 r, string name, string icon, bool fitted, bool active, string status, Color statusColor)
+    /// <summary>The third line of the laser card: items per second and what is left in the deposit; the slowdown past the hold limit says so instead.</summary>
+    private static string MiningDetail(WeaponsDisplayData w)
+    {
+        if (w.DepositLeft < 0) return Loc.T("cp.wpn.noDeposit");
+        string rate = Loc.T("cp.wpn.rate", (w.MineTenthsPerSecond / 10f).ToString("0.0", Loc.Culture));
+        return w.Slowed ? rate + " · " + Loc.T("cp.wpn.slowed") : rate + " · " + Loc.T("cp.wpn.depositLeft", w.DepositLeft);
+    }
+
+    private void DrawWeaponCard(Rect2 r, string name, string icon, bool fitted, bool active, string status, Color statusColor, string? detail = null)
     {
         Color edge = active ? Red : new Color(1f, 1f, 1f, 0.2f);
         Fill(r, active ? new Color(Red, 0.16f) : new Color(0.06f, 0.08f, 0.12f), 6);
@@ -758,5 +766,6 @@ public partial class CockpitScreenView : Control
         Icon(icon, r.Position.X + 10, r.Position.Y + 10, 30, fitted ? (active ? Red : UiTheme.Text) : UiTheme.Dim);
         Txt(Fit(name, 14, r.Size.X - 20), r.Position.X + 10, r.Position.Y + 50, 14, fitted ? UiTheme.Text : UiTheme.Dim);
         Txt(Fit(fitted ? status : Loc.T("cp.wpn.missing"), 15, r.Size.X - 20), r.Position.X + 10, r.Position.Y + 76, 15, fitted ? statusColor : UiTheme.Dim);
+        if (detail is not null && fitted) Txt(Fit(detail, 12, r.Size.X - 20), r.Position.X + 10, r.Position.Y + 94, 12, active ? UiTheme.Text : UiTheme.Muted);
     }
 }

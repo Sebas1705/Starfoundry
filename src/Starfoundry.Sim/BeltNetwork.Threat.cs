@@ -381,6 +381,7 @@ public sealed partial class BeltNetwork
         foreach (var p in _players.Values)
         {
             if (!p.Armed || p.RespawnRemaining > 0 || p.WeaponCooldown > 0) continue;
+            if (FreeFireAims(p)) continue; // ADR 0036: with an aim set the guns fire projectiles (StepFeel), not at the enemy the sim picks
             if (HardpointsRequired(p)) { FireGuns(p, rules); continue; } // ADR 0032: the ship shoots with its gun modules
             var target = NearestEnemy(p.X, p.Y, p.Z, (long)rules.ShipWeaponRangeCells * Units.CellUnits);
             if (target is null) continue;

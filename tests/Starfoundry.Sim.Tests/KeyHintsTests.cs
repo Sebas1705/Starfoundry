@@ -18,8 +18,8 @@ public class KeyHintsTests
     {
         var s = Flying();
         Assert.Equal(HintContext.Flying, KeyHints.ContextOf(s));
-        Assert.Equal(new[] { "build", "research", "map", "scan", "mine", "refine", "weapons", "found", "module", "roll", "look", "seat", "hudmode", "info", "help" }, Ids(s));
-        Assert.Equal(new[] { "B", "T", "G", "K", "M", "F", "V", "I", "N", "Z", "Alt", "E", "F3", "H", "F1" }, Rows(s).Select(r => r.Caps[0]).ToArray());
+        Assert.Equal(new[] { "build", "research", "map", "scan", "refine", "weapons", "mineFire", "found", "module", "roll", "look", "seat", "hudmode", "info", "help" }, Ids(s)); // ADR 0036: M switches the weapon in hand, the click fires it
+        Assert.Equal(new[] { "B", "T", "G", "K", "F", "M", "@hold", "I", "N", "Z", "Alt", "E", "F3", "H", "F1" }, Rows(s).Select(r => r.Caps[0]).ToArray());
         Assert.Equal("key.ctx.flying", KeyHints.For(s).Last().TitleKey);
     }
 
@@ -27,31 +27,37 @@ public class KeyHintsTests
     public void FlyingDropsWhatTheWorldDoesNotHave()
     {
         var s = Flying() with { HasGalaxy = false, StructuresOn = false, ModuleToolAvailable = false, CanWalk = false };
-        Assert.Equal(new[] { "build", "research", "scan", "mine", "refine", "weapons", "roll", "look", "hudmode", "info", "help" }, Ids(s));
+        Assert.Equal(new[] { "build", "research", "scan", "refine", "weapons", "mineFire", "roll", "look", "hudmode", "info", "help" }, Ids(s));
     }
 
     [Fact]
     public void ActiveStatesLightTheRows()
     {
-        var s = Flying() with { Mining = true, Refining = true, Armed = true, MapOpen = false };
-        Assert.Equal(KeyRowState.Active, Find(s, "mine").State);
-        Assert.Equal("key.mineStop", Find(s, "mine").LabelKey);
-        Assert.Equal(KeyRowState.Active, Find(s, "refine").State);
+        var s = Flying() with { WeaponGroup = WeaponGroup.Guns, Refining = true, Armed = true, MapOpen = false };
         Assert.Equal(KeyRowState.Active, Find(s, "weapons").State);
-        Assert.Equal(KeyRowState.Normal, Find(Flying(), "mine").State);
+        Assert.Equal("key.weaponGuns", Find(s, "weapons").LabelKey);
+        Assert.Equal(KeyRowState.Active, Find(s, "refine").State);
+        Assert.Equal(KeyRowState.Active, Find(s, "fireGuns").State);
+        Assert.Equal(KeyRowState.Normal, Find(Flying(), "weapons").State);
+        Assert.Equal("key.weaponLaser", Find(Flying(), "weapons").LabelKey);
     }
 
     [Fact]
-    public void TheMiningLaserInHandAddsAFireRow()
+    public void TheWeaponInHandAddsItsFireRow()
     {
-        Assert.DoesNotContain("mineFire", Ids(Flying()));
-        var held = Flying() with { Mining = true };
+        // ADR 0036: no stow or deploy step: the laser is the group in hand until M switches to the guns, and the row says what the click does.
+        var held = Flying();
         Assert.Contains("mineFire", Ids(held));
+        Assert.DoesNotContain("fireGuns", Ids(held));
         Assert.Equal("@hold", Find(held, "mineFire").Caps[0]);
         Assert.Equal(KeyRowState.Info, Find(held, "mineFire").State);
         Assert.Equal(KeyRowState.Active, Find(held with { LaserFiring = true }, "mineFire").State);
+        var guns = held with { WeaponGroup = WeaponGroup.Guns };
+        Assert.Contains("fireGuns", Ids(guns));
+        Assert.DoesNotContain("mineFire", Ids(guns));
         var aimed = held with { Aim = HintAim.Deposit };
-        Assert.Equal(new[] { "choose", "mine", "mineFire", "drones", "build" }, Ids(aimed));
+        Assert.Equal(new[] { "choose", "mineFire", "drones", "build" }, Ids(aimed));
+        Assert.Equal(new[] { "choose", "weapons", "drones", "build" }, Ids(guns with { Aim = HintAim.Deposit })); // at a deposit with the guns out: M takes the laser
     }
 
     [Fact]
@@ -62,7 +68,7 @@ public class KeyHintsTests
         Assert.Equal(KeyRowState.Disabled, scan.State);
         Assert.Equal("key.why.scanWait", scan.ReasonKey);
         Assert.False(scan.Clickable);
-        Assert.Equal("key.why.noThreats", Find(s, "weapons").ReasonKey);
+        Assert.Equal("key.why.noGun", Find(s with { Hardpoints = true, HasLaserModule = false, HasGunModule = false }, "weapons").ReasonKey); // the weapon row is not tied to threats any more: the guns fire at rocks too
         Assert.True(Find(Flying(), "scan").Clickable);
     }
 
@@ -134,7 +140,7 @@ public class KeyHintsTests
     {
         var s = Flying() with { Aim = HintAim.Deposit };
         Assert.Equal(HintContext.AimDeposit, KeyHints.ContextOf(s));
-        Assert.Equal(new[] { "choose", "mine", "drones", "build" }, Ids(s));
+        Assert.Equal(new[] { "choose", "mineFire", "drones", "build" }, Ids(s));
         Assert.Equal("key.why.noBay", Find(s, "drones").ReasonKey);
         Assert.Equal("key.why.droneLocked", Find(s with { DroneBayLocked = true }, "drones").ReasonKey);
         Assert.True(Find(s with { DroneBayBuilt = true }, "drones").Clickable);
@@ -192,7 +198,7 @@ public class KeyHintsTests
         Assert.Equal(new[] { "weapons", "repair" }, groups[0].Rows.Select(r => r.Id).ToArray());
         Assert.All(groups[0].Rows, r => Assert.Equal(KeyRowState.Alert, r.State));
         Assert.DoesNotContain("weapons", groups[1].Rows.Select(r => r.Id));
-        Assert.Equal(KeyRowState.Active, KeyHints.For(s with { Armed = true })[0].Rows[0].State);
+        Assert.Equal(KeyRowState.Active, KeyHints.For(s with { WeaponGroup = WeaponGroup.Guns })[0].Rows[0].State);
         Assert.Equal(KeyRowState.Disabled, KeyHints.For(s with { AnythingDamaged = false })[0].Rows[1].State);
     }
 
