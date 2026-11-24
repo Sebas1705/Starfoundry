@@ -192,4 +192,10 @@ Same seed (20261121), 6 s per action, the content with inertia (36 ticks to full
 
 Caveats: the base still falls to wave 17 or 18 after the win (about minute 66 to 76 with the compressed economy; the bot then no longer researches). With the new order (expedition after the win) titanium smelting is researched at 65:19 and nickel smelting at 69:42 on that seed, close to that limit. The science mode runs without waves.
 
-Re-measured after rebasing onto the glazed cockpit and sampled-body collision (#77), same seed and pace: Normal 50:34, Relaxed 55:35, Hard 53:21 (all won). Relaxed came out slower than before the rebase (47:17); the cause was not investigated.
+Re-measured after rebasing onto the glazed cockpit and sampled-body collision (#77): Relaxed came out at 55:35, slower than Normal. The cause was the bot, not a rule. With solid deposit rocks the station has to stand clear of the rock (the footprint check used a 4 cell margin and a 40 by 20 by 40 box), so the ship's mining spot is about 17 cells from the build site and every placement became a round trip (47 trips against 18 before, about 9 s each, with the hand mining stopped meanwhile). Fixes, all in the bot (no rule weakened): the station spot is the clear one nearest to the ship, the footprint margin is 1 cell (the sim checks the real overlap), a leg that starts beside a rock and moves away from it no longer detours over the rock (the detour test is in 3D), and a free flight that makes no headway for 10 s (a wing pressed against a rock that the cockpit point would clear; seed 777 Normal lost 3 minutes that way) climbs out and goes on. Result, 6 s per action, all won:
+
+| Seed | Relaxed | Normal | Hard |
+|---|---|---|---|
+| 20261121 | 48:34 | 49:31 | 52:36 |
+| 20261120 | 48:04 | 49:20 | 55:18 |
+| 777 | 46:15 | 48:42 | 53:26 |
