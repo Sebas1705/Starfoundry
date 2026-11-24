@@ -8,7 +8,7 @@ namespace Starfoundry.Ui;
 public readonly record struct AuditTri(Vector3 A, Vector3 B, Vector3 C, Vector3 N, bool TwoSided, string Part);
 
 /// <summary>Two parts whose faces lie in the same plane and overlap: they z-fight (flicker) wherever both are visible.</summary>
-public readonly record struct CoplanarOverlap(string PartA, string PartB, float Area, Vector3 Where, float Gap);
+public readonly record struct CoplanarOverlap(string PartA, string PartB, float Area, Vector3 Where, float Gap, Vector3 Normal = default);
 
 /// <summary>A ray that finds no visible surface: a hole in the shell.</summary>
 public readonly record struct SeeThrough(Vector3 Origin, Vector3 Dir);
@@ -64,8 +64,8 @@ public static class MeshAudit
                                 var pk = string.CompareOrdinal(a, b) <= 0 ? (a, b) : (b, a);
                                 var where = (tris[i].A + tris[i].B + tris[i].C + tris[j].A + tris[j].B + tris[j].C) / 6f;
                                 found[pk] = found.TryGetValue(pk, out var old)
-                                    ? old with { Area = old.Area + area, Where = area > old.Area ? where : old.Where, Gap = MathF.Max(old.Gap, MathF.Abs(d - d2)) }
-                                    : new CoplanarOverlap(pk.Item1, pk.Item2, area, where, MathF.Abs(d - d2));
+                                    ? old with { Area = old.Area + area, Where = area > old.Area ? where : old.Where, Gap = MathF.Max(old.Gap, MathF.Abs(d - d2)), Normal = area > old.Area ? n : old.Normal }
+                                    : new CoplanarOverlap(pk.Item1, pk.Item2, area, where, MathF.Abs(d - d2), n);
                             }
                         }
         }
@@ -153,25 +153,51 @@ public static class MeshAudit
         public (float T, int Tri)? FirstBlocker(Vector3 o, Vector3 d, float maxT, bool viewerAtOrigin)
         {
             float best = float.MaxValue; int bi = -1;
-            // walk the grid cells along the ray in small steps of half a cell, testing each cell once
-            var seen = new HashSet<(int, int, int)>();
-            for (float t = 0; t <= maxT + Cell; t += Cell * 0.5f)
+            // exact grid walk (Amanatides and Woo): every cell the ray passes through, in order
+            int cx = (int)MathF.Floor(o.X / Cell), cy = (int)MathF.Floor(o.Y / Cell), cz = (int)MathF.Floor(o.Z / Cell);
+            int sx = d.X > 0 ? 1 : -1, sy = d.Y > 0 ? 1 : -1, sz = d.Z > 0 ? 1 : -1;
+            float tx = Next(o.X, d.X, cx, sx), ty = Next(o.Y, d.Y, cy, sy), tz = Next(o.Z, d.Z, cz, sz);
+            float dx = MathF.Abs(d.X) < 1e-9f ? float.MaxValue : Cell / MathF.Abs(d.X), dy = MathF.Abs(d.Y) < 1e-9f ? float.MaxValue : Cell / MathF.Abs(d.Y), dz = MathF.Abs(d.Z) < 1e-9f ? float.MaxValue : Cell / MathF.Abs(d.Z);
+            while (true)
             {
-                var p = o + d * t;
-                var key = ((int)MathF.Floor(p.X / Cell), (int)MathF.Floor(p.Y / Cell), (int)MathF.Floor(p.Z / Cell));
-                if (!seen.Add(key) || !_grid.TryGetValue(key, out var list)) continue;
-                foreach (int i in list)
-                {
-                    var tri = _tris[i];
-                    float facing = Vector3.Dot(tri.N, d);
-                    bool blocks = tri.TwoSided || (viewerAtOrigin ? facing < 0f : facing > 0f);
-                    if (!blocks || Math.Abs(facing) < 1e-6f) continue;
-                    float hit = Intersect(o, d, tri);
-                    if (hit > 1e-3f && hit < best && hit <= maxT) { best = hit; bi = i; }
-                }
-                if (bi >= 0 && best <= t + Cell * 0.5f) break;
+                if (_grid.TryGetValue((cx, cy, cz), out var list))
+                    foreach (int i in list)
+                    {
+                        var tri = _tris[i];
+                        float facing = Vector3.Dot(tri.N, d);
+                        bool blocks = tri.TwoSided || (viewerAtOrigin ? facing < 0f : facing > 0f);
+                        if (!blocks) continue;
+                        float hit = Intersect(o, d, tri);
+                        if (hit > 1e-3f && hit < best && hit <= maxT) { best = hit; bi = i; }
+                    }
+                float exit = MathF.Min(tx, MathF.Min(ty, tz));
+                if (bi >= 0 && best <= exit) break; // nothing nearer can lie in a later cell
+                if (exit > maxT) break;
+                if (tx <= ty && tx <= tz) { cx += sx; tx += dx; }
+                else if (ty <= tz) { cy += sy; ty += dy; }
+                else { cz += sz; tz += dz; }
             }
             return bi < 0 ? null : (best, bi);
+        }
+
+        private static float Next(float o, float d, int cell, int s)
+        {
+            if (MathF.Abs(d) < 1e-9f) return float.MaxValue;
+            float edge = (s > 0 ? cell + 1 : cell) * Cell;
+            return (edge - o) / d;
+        }
+
+        /// <summary>Every triangle the line from <paramref name="o"/> along <paramref name="d"/> crosses within <paramref name="maxT"/> (both sides), nearest first; for debugging a hole.</summary>
+        public List<(float T, AuditTri Tri)> AllHits(Vector3 o, Vector3 d, float maxT)
+        {
+            var hits = new List<(float, AuditTri)>();
+            for (int i = 0; i < _tris.Length; i++)
+            {
+                float t = Intersect(o, d, _tris[i]);
+                if (t > 1e-3f && t <= maxT) hits.Add((t, _tris[i]));
+            }
+            hits.Sort((a, b) => a.Item1.CompareTo(b.Item1));
+            return hits;
         }
 
         public AuditTri Tri(int i) => _tris[i];

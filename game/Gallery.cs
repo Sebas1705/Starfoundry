@@ -105,7 +105,10 @@ public partial class Gallery : Node3D
         else if (focus == "framing") BuildFramingGallery();
         else if (focus == "workbench") BuildWorkbenchGallery(Arg("--bench") ?? "plate", Arg("--wall") == "right", Enum.TryParse<ModuleKind>(Arg("--module"), true, out var mk) ? mk : ModuleKind.Hull);
         else BuildModels();
+        if (Arg("--audit") is { } audit) { SetProcess(false); RunAudit(audit, F("--step", 1f)); GetTree().Quit(); }
     }
+
+    private readonly List<(ModuleKind Kind, bool Ship, Vector3 At, int Mask, Node3D Node)> _auditModules = new();
 
     /// <summary>
     /// --focus=materials: every material of the library on a sphere (back row) and a box (front row), with the tint the game gives it,
@@ -242,6 +245,7 @@ public partial class Gallery : Node3D
             var m = ModuleModels.Build(kind, ship, variant, neighbours);
             m.Position = at;
             AddChild(m);
+            _auditModules.Add((kind, ship, at, neighbours, m));
             _animated.Add(m);
             if (label != null) Label(label, at + new Vector3(4, -0.2f, 9.5f));
         }
