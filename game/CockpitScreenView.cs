@@ -132,7 +132,7 @@ public partial class CockpitScreenView : Control
         float barX = x + 28 + 92;
         float barW = Math.Max(30f, w - (barX - x) - valueW - 8f);
         Bar(new Rect2(barX, y + 7, barW, 10), fraction, c);
-        Txt(value, x + w, y + 1, 16, c, HorizontalAlignment.Right, valueW);
+        Txt(value, x + w - valueW, y + 1, 16, c, HorizontalAlignment.Right, valueW);
     }
 
     /// <summary>A button: drawn lit when active, dim when disabled, highlighted when the crosshair is on it. Registers its rectangle.</summary>
@@ -244,7 +244,7 @@ public partial class CockpitScreenView : Control
         var s = Snapshot;
         var f = s.Flight;
         bool wide = size.X > 560f;
-        float colW = wide ? 318f : size.X - 24f;
+        float colW = wide ? size.X * 0.5f - 10f : size.X - 24f;
         Txt(Loc.T("cp.speed"), 16, 50, 13, UiTheme.Muted);
         string speed = CockpitMath.Speed(f.Speed, Loc.Culture);
         Color speedColor = f.Boosting ? Cyan : UiTheme.Text;
@@ -276,7 +276,7 @@ public partial class CockpitScreenView : Control
         y += step;
         GaugeLine(16, y, colW - 4, "status:cargo", Loc.T("cp.hold"), f.HoldFraction, f.HoldFraction > 0.95f ? UiTheme.Warn : accent, $"{f.HoldUsed}/{f.HoldCapacity}");
 
-        if (wide) DrawAttitude(new Vector2(size.X - 160f, 188f), 98f, accent);
+        if (wide) DrawAttitude(new Vector2(size.X - 170f, 190f), 100f, accent);
         else DrawAttitude(new Vector2(size.X - 64f, 100f), 42f, accent, compact: true);
         if (s.Docked) Banner(size, Loc.T("cp.docked"), UiTheme.Good);
         else if (s.Jumping) Banner(size, $"{Loc.T("cp.jumping")} {s.JumpSeconds}s", UiTheme.Warn);

@@ -30,9 +30,9 @@ public static class CockpitScreenLayout
 
     public static readonly Def[] Screens =
     {
-        new(CockpitScreen.Left, -1.72f, -0.05f, 1.25f, 0.82f, 448, 400),
-        new(CockpitScreen.Center, 0f, -0.07f, 1.9f, 0.86f, 640, 400),
-        new(CockpitScreen.Right, 1.72f, -0.05f, 1.25f, 0.82f, 448, 400),
+        new(CockpitScreen.Left, -1.72f, -0.01f, 1.25f, 0.74f, 496, 400),
+        new(CockpitScreen.Center, 0f, -0.02f, 1.9f, 0.78f, 720, 400),
+        new(CockpitScreen.Right, 1.72f, -0.01f, 1.25f, 0.74f, 496, 400),
     };
 
     public static Def Of(CockpitScreen screen) => Screens[(int)screen];
@@ -64,6 +64,9 @@ public static class CockpitScreenLayout
 /// </summary>
 public partial class CockpitDisplays : Node
 {
+    /// <summary>Over 1 so that the brightest parts of a display glow.</summary>
+    private const float ScreenBrightness = 1.4f;
+
     public readonly CockpitPages Pages = new();
     private readonly SubViewport[] _viewports = new SubViewport[3];
     private readonly CockpitScreenView[] _views = new CockpitScreenView[3];
@@ -91,20 +94,22 @@ public partial class CockpitDisplays : Node
             AddChild(vp);
             _viewports[i] = vp;
             _views[i] = view;
+            // Unshaded and a little over-bright: the screen is its own light (the sun and the sky must not wash it out, which an emissive material
+            // did), and its bright lines and text pass the environment's glow threshold, so they bloom.
             _materials[i] = new StandardMaterial3D
             {
-                AlbedoColor = new Color(0.02f, 0.025f, 0.035f),
-                EmissionEnabled = true,
-                Emission = Colors.White,
-                EmissionEnergyMultiplier = 1.35f,
-                EmissionTexture = vp.GetTexture(),
-                Roughness = 0.25f,
-                TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                AlbedoColor = new Color(ScreenBrightness, ScreenBrightness, ScreenBrightness),
+                AlbedoTexture = vp.GetTexture(),
+                TextureFilter = BaseMaterial3D.TextureFilterEnum.Linear, // a render target has no mip levels
             };
         }
     }
 
     public CockpitScreenView View(CockpitScreen screen) => _views[(int)screen];
+
+    /// <summary>The picture a display shows now (for the screenshot runs).</summary>
+    public Image Capture(CockpitScreen screen) => _viewports[(int)screen].GetTexture().GetImage();
 
     /// <summary>The cockpit module the displays are on, or null.</summary>
     public Node3D? Module => _module is not null && GodotObject.IsInstanceValid(_module) ? _module : null;

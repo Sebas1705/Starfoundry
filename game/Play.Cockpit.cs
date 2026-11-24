@@ -32,7 +32,7 @@ public partial class Play
     private HudMode CurrentHudMode => _hudModeShot ?? SettingsStore.Current.HudMode;
 
     /// <summary>Which families of the outside overlay show now: the mode and whether the pilot sits.</summary>
-    private HudLayers HudLayersNow => HudModes.Layers(CurrentHudMode, ShipHudContext);
+    private HudLayers HudLayersNow => HudModes.Layers(_focus is not null && CurrentHudMode == HudMode.Full ? HudMode.Cockpit : CurrentHudMode, ShipHudContext); // looking at a display: its data is not repeated outside
 
     /// <summary>The ship has cockpit displays to look at.</summary>
     /// <summary>The crosshair works as a pointer: the mouse is captured (or a screenshot run drives it).</summary>

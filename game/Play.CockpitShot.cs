@@ -68,7 +68,7 @@ public partial class Play
             case 81: _hudModeShot = HudMode.Minimal; break;
             case 105: Shot("seat.minimal"); break;
             case 106: _hudModeShot = HudMode.Full; SetFocus(CockpitScreen.Center); _cockpit?.Pages.Show(CockpitScreen.Center, CockpitPage.Flight); break;
-            case 150: Shot("flight"); _cockpit!.Pages.Show(CockpitScreen.Center, CockpitPage.Nav); break;
+            case 150: Shot("flight"); foreach (var sc in new[] { CockpitScreen.Left, CockpitScreen.Center, CockpitScreen.Right }) _cockpit!.Capture(sc).SavePng(path + ".tex." + sc + ".png"); _cockpit!.Pages.Show(CockpitScreen.Center, CockpitPage.Nav); break;
             case 175: Shot("nav"); _cockpit!.Pages.Show(CockpitScreen.Center, CockpitPage.Systems); break;
             case 200: Shot("systems"); _cockpit!.Pages.Show(CockpitScreen.Center, CockpitPage.Weapons); break;
             case 225: Shot("weapons"); ShowAll(); SetFocus(CockpitScreen.Left); break;
