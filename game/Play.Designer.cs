@@ -54,7 +54,7 @@ public partial class Play
     private void UpdateDesigner()
     {
         if (!DesignerOpen) return;
-        if (!ShipyardDocked) { CloseDesigner(); return; }
+        if (!ShipyardDocked && !_uiAudit) { CloseDesigner(); return; }
         if (_designerAwait && _world.PendingCommands == 0)
         {
             _designerAwait = false;

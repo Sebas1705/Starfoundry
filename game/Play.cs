@@ -132,6 +132,7 @@ public partial class Play : Node3D
         _saveTest = args.Contains("--save-test");
         if (args.Contains("--load-bench")) { RunLoadBench(); GetTree().Quit(); return; } // measures the command log and the load time, then quits
         _uiShotPath = args.FirstOrDefault(a => a.StartsWith("--ui-shot="))?["--ui-shot=".Length..];
+        _uiAudit = args.Contains("--ui-audit");
         _layoutShotPath = args.FirstOrDefault(a => a.StartsWith("--layout-shot="))?["--layout-shot=".Length..];
         _keysShotPath = args.FirstOrDefault(a => a.StartsWith("--keys-shot="))?["--keys-shot=".Length..];
         // --continue=slot (quicksave, autosave, ...): continue that save, as the Continue button does; the galaxy comes from its header.
@@ -204,8 +205,9 @@ public partial class Play : Node3D
         BuildDroneVisuals();
         RebuildGeometry();
         if (_stationDemo) StationDemoSelect(args);
-        if (!_demo && !_stationDemo && !_structuresShot && Launch.MenuShotPath is null && _uiShotPath is null && _layoutShotPath is null && _keysShotPath is null) StartPlayLog();
-        if (_uiShotPath is not null) UiShotSetup(args);
+        if (!_demo && !_stationDemo && !_structuresShot && Launch.MenuShotPath is null && _uiShotPath is null && !_uiAudit && _layoutShotPath is null && _keysShotPath is null) StartPlayLog();
+        if (_uiShotPath is not null || _uiAudit) UiShotSetup(args);
+        if (_uiAudit) UiAuditSetup(args);
         if (_layoutShotPath is not null) LayoutShotSetup(args);
         if (_keysShotPath is not null) KeysShotSetup(args);
         if (!_demo) Toast(L("toast.welcome"));
@@ -1198,6 +1200,7 @@ void fragment() {
         EndShotFrame();
         GoalsShotFrame();
         UiShotFrame();
+        UiAuditFrame();
         LayoutShotFrame();
         KeysShotFrame();
         DefenceShotFrame();

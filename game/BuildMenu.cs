@@ -26,6 +26,7 @@ public partial class BuildMenu : Control
     private PanelContainer _panel = null!;
     private HBoxContainer _tabs = null!;
     private GridContainer _grid = null!;
+    private ScrollWithHint _scroll = null!;
     private Label _title = null!, _empty = null!;
     private readonly Dictionary<BuildCategory, Button> _tabButtons = new();
     private readonly List<Tile> _cells = new();
@@ -37,7 +38,8 @@ public partial class BuildMenu : Control
     // The detail pane.
     private IconRect _dIcon = null!;
     private BuildPreview _dPreview = null!;
-    private Label _dName = null!, _dRole = null!, _dDesc = null!, _dStatus = null!;
+    private PanelContainer _dPane = null!;
+    private FitLabel _dName = null!, _dRole = null!, _dDesc = null!, _dStatus = null!;
     private HFlowContainer _dCost = null!;
     private IconCount _dPower = null!;
     private IconRect _dStatusIcon = null!;
@@ -48,7 +50,9 @@ public partial class BuildMenu : Control
     {
         public BuildEntry Entry = null!;
         public Button Button = null!;
-        public Label Name = null!, Key = null!;
+        public FitLabel Name = null!;
+        public Label Key = null!;
+        public CostStrip Cost = null!;
         public IconRect Icon = null!, Badge = null!;
     }
 
@@ -114,9 +118,9 @@ public partial class BuildMenu : Control
         _grid = new GridContainer { Columns = 1 };
         _grid.AddThemeConstantOverride("h_separation", 8);
         _grid.AddThemeConstantOverride("v_separation", 8);
-        var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true, Name = "EntryScroll", SizeFlagsVertical = SizeFlags.ExpandFill };
-        scroll.AddChild(_grid);
-        root.AddChild(scroll);
+        _scroll = new ScrollWithHint(_grid);
+        _scroll.Scroll.Name = "EntryScroll";
+        root.AddChild(_scroll);
         _empty = UiKit.Text(14, Muted);
         root.AddChild(_empty);
         root.AddChild(BuildDetailPane());
@@ -125,7 +129,7 @@ public partial class BuildMenu : Control
 
     private Control BuildDetailPane()
     {
-        var pane = new PanelContainer { MouseFilter = MouseFilterEnum.Pass, CustomMinimumSize = new Vector2(0, 118) };
+        var pane = _dPane = new PanelContainer { MouseFilter = MouseFilterEnum.Pass, CustomMinimumSize = new Vector2(0, 118) };
         pane.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color(0.07f, 0.1f, 0.16f, 0.95f), new Color(0.3f, 0.4f, 0.6f, 0.6f), 6, 8f));
         var row = new HBoxContainer();
         row.AddThemeConstantOverride("separation", 10);
@@ -137,11 +141,12 @@ public partial class BuildMenu : Control
         var col = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         col.AddThemeConstantOverride("separation", 3);
         row.AddChild(col);
-        _dName = UiKit.Text(UiTheme.Heading + 2, Colors.White);
-        _dName.ClipText = true;
-        _dRole = UiKit.Text(UiTheme.Small, Muted);
-        _dDesc = UiKit.Text(UiTheme.Small + 1, UiTheme.Text);
-        _dDesc.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _dName = new FitLabel(1, UiTheme.Heading + 2, UiTheme.Body) { AutowrapMode = TextServer.AutowrapMode.Off };
+        _dName.AddThemeColorOverride("font_color", Colors.White);
+        _dRole = new FitLabel(2, UiTheme.Small, UiTheme.Caption);
+        _dRole.AddThemeColorOverride("font_color", Muted);
+        _dDesc = new FitLabel(3, UiTheme.Small + 1, UiTheme.Caption);
+        _dDesc.AddThemeColorOverride("font_color", UiTheme.Text);
         _dCost = new HFlowContainer { MouseFilter = MouseFilterEnum.Pass };
         _dCost.AddThemeConstantOverride("h_separation", 12);
         _dCost.AddThemeConstantOverride("v_separation", 2);
@@ -149,8 +154,8 @@ public partial class BuildMenu : Control
         var status = new HBoxContainer();
         status.AddThemeConstantOverride("separation", 5);
         _dStatusIcon = new IconRect("status:locked", 16, UiTheme.Warn, tooltip: false);
-        _dStatus = UiKit.Text(UiTheme.Small + 1, UiTheme.Warn);
-        _dStatus.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _dStatus = new FitLabel(2, UiTheme.Small + 1, UiTheme.Caption);
+        _dStatus.AddThemeColorOverride("font_color", UiTheme.Warn);
         _dStatus.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         status.AddChild(_dStatusIcon);
         status.AddChild(_dStatus);
@@ -204,9 +209,22 @@ public partial class BuildMenu : Control
         SetTab(tabs[((i + step) % tabs.Count + tabs.Count) % tabs.Count]);
     }
 
-    private const float TileHeight = 100f, TileMinWidth = 92f, Gap = 8f;
+    private const float TileMinWidth = 92f, Gap = 8f, TilePad = 5f, IconArea = 38f, CostHeight = 14f, NameLines = 2;
 
-    private float InnerWidth => _dock.Size.X - 24f - 14f; // panel margins and the scroll bar
+    /// <summary>The tile height comes from its content (padding, icon row, two name lines at the largest name size, the price row), so no tile can be too short for its text.</summary>
+    private static float TileHeight
+    {
+        get
+        {
+            var font = UiFit.DefaultFont;
+            return TilePad * 2 + IconArea + 2 + UiFit.Height(font, UiTheme.Small, (int)NameLines) + 2 + CostHeight;
+        }
+    }
+
+    /// <summary>Test hook of the text audit: appended to every name so the tiles are checked against names longer than the real ones.</summary>
+    public static string? StressSuffix;
+
+    private float InnerWidth => _dock.Size.X - 24f - 16f; // panel margins and the scroll bar
 
     /// <summary>As many columns as fit at the minimum tile width.</summary>
     private int Columns() => Math.Max(2, (int)((InnerWidth + Gap) / (TileMinWidth + Gap)));
@@ -232,7 +250,7 @@ public partial class BuildMenu : Control
             _signature = signature;
             Rebuild(categories, all);
         }
-        foreach (var kv in _tabButtons) { kv.Value.Text = Loc.T(TabKey(kv.Key)); kv.Value.SetPressedNoSignal(kv.Key == _tab); }
+        foreach (var kv in _tabButtons) { kv.Value.SetPressedNoSignal(kv.Key == _tab); }
         foreach (var cell in _cells) Update(cell);
         _empty.Text = _cells.Count == 0 ? Loc.T("build.empty") : "";
         _empty.Visible = _cells.Count == 0;
@@ -243,12 +261,12 @@ public partial class BuildMenu : Control
     {
         foreach (var child in _tabs.GetChildren()) { _tabs.RemoveChild(child); child.QueueFree(); }
         _tabButtons.Clear();
+        float tabWidth = categories.Count == 0 ? 0f : (_dock.Size.X - 24f - 4f * (categories.Count - 1)) / categories.Count;
         foreach (var c in categories)
         {
             var category = c;
-            var b = UiKit.Button(Loc.T(TabKey(c)), () => SetTab(category), 14);
+            var b = UiKit.Button("", () => SetTab(category), 14);
             b.ToggleMode = true;
-            b.ClipText = true;
             b.Icon = Icons.Get(IconCatalog.ForBuildTab(c), 20);
             b.ExpandIcon = false;
             b.IconAlignment = HorizontalAlignment.Left;
@@ -259,7 +277,7 @@ public partial class BuildMenu : Control
             b.AddThemeConstantOverride("icon_max_width", 20);
             b.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             b.FocusMode = FocusModeEnum.None; // PgUp and PgDn (or a click) change tab; the arrows stay on the tiles
-            b.TooltipText = Loc.T(TabKey(c));
+            UiFit.ShrinkButton(b, Loc.T(TabKey(c)), tabWidth, 14, 10, iconWidth: 20f + 4f);
             _tabButtons[c] = b;
             _tabs.AddChild(b);
         }
@@ -268,55 +286,64 @@ public partial class BuildMenu : Control
         _cells.Clear();
         int cols = Columns();
         float width = (InnerWidth - Gap * (cols - 1)) / cols;
+        float inner = width - TilePad * 2 - 2f; // the tile's border takes a pixel on each side
         foreach (var entry in all.Where(e => e.Category == _tab))
         {
             var tile = new Tile { Entry = entry };
             var b = UiKit.Button("", () => { }, 13);
             b.CustomMinimumSize = new Vector2(width, TileHeight);
+            b.ClipContents = true; // nothing a tile holds can draw over its neighbour
             var e = entry;
             b.Pressed += () => Chosen?.Invoke(e);
             b.FocusEntered += () => { _detailId = e.Id; FillDetail(); };
             b.MouseEntered += () => { _detailId = e.Id; FillDetail(); };
+            // Keyboard focus: a white ring (the gold edge already means "the tool in your hand").
+            var ring = UiTheme.FocusRing();
+            ring.BorderColor = Colors.White;
+            b.AddThemeStyleboxOverride("focus", ring);
             var box = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
-            box.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, 5);
-            box.AddThemeConstantOverride("separation", 1);
-            var top = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
+            box.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, (int)TilePad);
+            box.AddThemeConstantOverride("separation", 2);
+            // Icon row: the quick key at the left corner, the state badge at the right, the icon in the middle.
+            var iconRow = new Control { MouseFilter = MouseFilterEnum.Ignore, CustomMinimumSize = new Vector2(inner, IconArea) };
             tile.Key = UiKit.Text(UiTheme.Caption, UiTheme.Muted);
-            tile.Key.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            tile.Badge = new IconRect("status:locked", 14, UiTheme.Warn, tooltip: false) { Visible = false };
-            top.AddChild(tile.Key);
-            top.AddChild(tile.Badge);
-            box.AddChild(top);
-            tile.Icon = new IconRect("generic", 38, null, tooltip: false) { SizeFlagsHorizontal = SizeFlags.ShrinkCenter };
-            box.AddChild(tile.Icon);
-            tile.Name = UiKit.Text(UiTheme.Small, UiTheme.Text);
-            tile.Name.HorizontalAlignment = HorizontalAlignment.Center;
-            tile.Name.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-            tile.Name.MaxLinesVisible = 3;
-            tile.Name.CustomMinimumSize = new Vector2(width - 10f, 0);
-            tile.Name.SizeFlagsVertical = SizeFlags.ExpandFill;
+            tile.Key.Position = new Vector2(1, 0);
+            tile.Badge = new IconRect("status:locked", 14, UiTheme.Warn, tooltip: false) { Visible = false, Position = new Vector2(inner - 14, 0) };
+            tile.Icon = new IconRect("generic", 36, null, tooltip: false) { Position = new Vector2((inner - 36) / 2f, 1) };
+            iconRow.AddChild(tile.Icon);
+            iconRow.AddChild(tile.Key);
+            iconRow.AddChild(tile.Badge);
+            box.AddChild(iconRow);
+            tile.Name = new FitLabel((int)NameLines, UiTheme.Small, UiTheme.Caption - 1) { FitWidth = inner, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
             box.AddChild(tile.Name);
+            tile.Cost = new CostStrip(inner, CostHeight);
+            box.AddChild(tile.Cost);
             b.AddChild(box);
             tile.Button = b;
             _grid.AddChild(b);
             _cells.Add(tile);
         }
+        _scroll.UpdateHints();
     }
 
     private void Update(Tile cell)
     {
         var v = _view(cell.Entry);
+        string name = Capitalise(v.Name) + StressSuffix;
         cell.Key.Text = v.Key;
-        cell.Name.Text = Capitalise(v.Name);
-        cell.Name.AddThemeColorOverride("font_color", v.Locked ? UiTheme.Dim : v.Selected ? UiTheme.Gold : UiTheme.Text);
-        cell.Icon.Set(v.IconId.Length > 0 ? v.IconId : "generic", v.Locked ? new Color(0.5f, 0.54f, 0.64f) : null);
+        cell.Name.SetFit(name);
+        // Locked tiles stay readable: the name keeps the muted blue (not the old near-black grey) and the padlock badge says why.
+        cell.Name.AddThemeColorOverride("font_color", v.Locked ? UiTheme.Muted : v.Selected ? UiTheme.Gold : UiTheme.Text);
+        cell.Icon.Set(v.IconId.Length > 0 ? v.IconId : "generic", v.Locked ? new Color(0.55f, 0.6f, 0.72f) : null);
         // The corner badge: a padlock when locked, a red cross when the hold cannot pay.
         cell.Badge.Visible = v.Locked || !v.Affordable;
         if (cell.Badge.Visible) cell.Badge.Set(v.Locked ? "status:locked" : "status:cross", v.Locked ? UiTheme.Warn : UiTheme.Bad);
+        cell.Cost.Set(v.Locked ? null : v.CostItems, v.Locked ? "" : Loc.T("ui.free"));
         var b = cell.Button;
         b.AddThemeStyleboxOverride("normal", UiTheme.Tile(v.Selected, v.Locked));
         b.AddThemeStyleboxOverride("hover", UiTheme.Tile(v.Selected, v.Locked, hover: true));
-        b.TooltipText = Capitalise(v.Name) + (v.Role.Length > 0 ? "  -  " + v.Role : "") + (v.Status.Length > 0 ? "\n" + v.Status : "");
+        // The tooltip always carries the full name, so a name that had to be cut is still readable.
+        b.TooltipText = name + (v.Role.Length > 0 ? "  -  " + v.Role : "") + (v.Status.Length > 0 ? "\n" + v.Status : "");
     }
 
     private BuildEntry? DetailEntry()
@@ -335,11 +362,11 @@ public partial class BuildMenu : Control
         var entry = DetailEntry();
         if (entry is null)
         {
-            _dName.Text = "";
-            _dRole.Text = "";
-            _dDesc.Text = "";
+            _dName.SetFit("");
+            _dRole.SetFit("");
+            _dDesc.SetFit("");
             _dCost.Visible = false;
-            _dStatus.Text = "";
+            _dStatus.SetFit("");
             _dStatusIcon.Visible = false;
             return;
         }
@@ -348,10 +375,11 @@ public partial class BuildMenu : Control
         bool model = _dPreview.Show(entry); // a turning model of machines and modules; belts keep the big icon
         _dPreview.Visible = model;
         _dIcon.Visible = !model;
-        _dName.Text = (v.Key.Length > 0 ? $"[{v.Key}]  " : "") + Capitalise(v.Name);
+        string full = (v.Key.Length > 0 ? $"[{v.Key}]  " : "") + Capitalise(v.Name) + StressSuffix;
+        _dName.SetFit(full);
         _dName.AddThemeColorOverride("font_color", v.Locked ? UiTheme.Dim : v.Selected ? UiTheme.Gold : Colors.White);
-        _dRole.Text = v.Role;
-        _dDesc.Text = v.Description;
+        _dRole.SetFit(v.Role);
+        _dDesc.SetFit(v.Description == v.Role ? "" : v.Description); // the role line already says it when both are the same
 
         // Cost as icons with counts; the power it draws or makes after them.
         var items = v.CostItems ?? Array.Empty<(string Icon, int Need, int Have)>();
@@ -371,10 +399,11 @@ public partial class BuildMenu : Control
         _dCost.Visible = items.Count > 0 || _dPower.Visible;
 
         bool problem = v.Status.Length > 0;
-        _dStatus.Text = v.Status;
+        _dStatus.SetFit(v.Status);
         _dStatusIcon.Visible = problem;
         if (problem) _dStatusIcon.Set(v.Locked ? "status:locked" : "status:cross", v.Locked ? UiTheme.Warn : UiTheme.Bad);
         _dStatus.AddThemeColorOverride("font_color", v.Locked ? UiTheme.Warn : UiTheme.Bad);
+        _dPane.TooltipText = string.Join((char)10, new[] { full, v.Role, v.Description == v.Role ? "" : v.Description, v.Status }.Where(t => t.Length > 0));
     }
 
     public override void _Input(InputEvent ev)

@@ -102,6 +102,14 @@ public static class UiTheme
         t.SetStylebox("slider", "HSlider", Box(Track, null, 3, 0f));
         t.SetStylebox("grabber_area", "HSlider", Box(Accent, null, 3, 0f));
         t.SetStylebox("grabber_area_highlight", "HSlider", Box(Accent.Lightened(0.15f), null, 3, 0f));
+        // Scroll bars: a visible rail and a grabber you can find (the default ones are a few pixels of grey).
+        foreach (var bar in new[] { "VScrollBar", "HScrollBar" })
+        {
+            t.SetStylebox("scroll", bar, Box(new Color(0.12f, 0.14f, 0.2f, 0.8f), null, 5, 4f));
+            t.SetStylebox("grabber", bar, Box(new Color(0.45f, 0.58f, 0.82f, 0.75f), null, 5, 4f));
+            t.SetStylebox("grabber_highlight", bar, Box(Accent, null, 5, 4f));
+            t.SetStylebox("grabber_pressed", bar, Box(Gold, null, 5, 4f));
+        }
         return t;
     }
 

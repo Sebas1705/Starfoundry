@@ -305,6 +305,7 @@ public partial class Play
         _helpPanel = MakePanel(_helpScroll);
         _helpPanel.AddThemeStyleboxOverride("panel", Box(new Color(0.04f, 0.06f, 0.1f, 0.97f), PanelEdge, 8, 10f)); // opaque: the HUD must not show through the text
         _helpPanel.Visible = false;
+        _helpPanel.SetMeta(UiAudit.ModalMeta, true);
 
         _crosshair = new Crosshair { Visible = false };
         _uiRoot.AddChild(_crosshair);
