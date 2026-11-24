@@ -63,7 +63,7 @@ Fields: URL, license, Godot support, C# support, activity (GitHub API, 2026-11-2
 - MIT, C#, last push 2026-06-28, 185 stars. Aims at C# games with ENet multiplayer and visual debugging. Menu coverage described as main menu, options, credits; pause menu not mentioned in what I read. Godot floor stated as .NET SDK 8.0.400; **Godot version support unverified**. Small and opinionated (multiplayer). Verdict **LEARN** only.
 
 **Chickensoft GameDemo / GodotGame template** ([GameDemo](https://github.com/chickensoft-games/GameDemo), MIT, 641 stars, pushed 2026-11-23; `Chickensoft.GodotGame` on [NuGet](https://www.nuget.org/packages/Chickensoft.GodotGame))
-- A third-person C# demo showing their architecture (LogicBlocks, AutoInject, save files, tests). A reference, not a drop-in. Verdict **LEARN**: read it before deciding on items 11 in the retrospective.
+- A third-person C# demo showing their architecture (LogicBlocks, AutoInject, save files, tests). A reference, not a drop-in. Verdict **LEARN**: read it before deciding on item 11 of the retrospective.
 
 **brettchalupa/godot_skeleton** ([repo](https://github.com/brettchalupa/godot_skeleton)): public domain per search snippet, language not stated. Only seen in a search result; **everything else unverified**. IGNORE.
 
@@ -119,7 +119,7 @@ Fields: URL, license, Godot support, C# support, activity (GitHub API, 2026-11-2
 ### First-person controllers and flight
 - **FPS Player Controller [C#]** ([repo](https://github.com/PolarBears-studio/player-controller)): MIT, 4.4+, last push 2025-07-21, 35 stars. Basic walking.
 - **Simplified Flight Simulation** ([repo](https://github.com/fbcosentino/godot-simplified-flightsim)): MIT, GDScript, last push 2025-08-24, 312 stars; engines, fuel tanks, thrusters, instruments. Not described as 6DOF; asset-library entry lists Godot 4.1.
-- Search found no maintained 6DOF newtonian ship addon for Godot 4 ([search](https://github.com/fbcosentino/godot-simplified-flightsim) is the best hit; others were paid arcade controllers or editor space-mouse plugins).
+- Search found no maintained 6DOF newtonian ship addon for Godot 4 (the best hit is the addon above; the others were paid arcade controllers or editor space-mouse plugins).
 - Our controller has inertia, attitude in the sim (ADR 0030), oriented collision and chamfer-aware walking. A generic addon would be a downgrade. Verdict **IGNORE**. Nothing exists for 6DOF with a deterministic sim; this stays ours.
 
 ### HUD, markers, compass, minimap
