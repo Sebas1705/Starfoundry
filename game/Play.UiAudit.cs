@@ -53,6 +53,10 @@ public partial class Play
         s.Add(("hud", () => { CloseAllPanels(); Toasts(); }));
         s.Add(("hud.details", () => { CloseAllPanels(); _detailsOpen = true; _mapOpen = true; }));
         s.Add(("hud.help", () => { CloseAllPanels(); _helpOpen = true; }));
+        s.Add(("keys.flying", () => { CloseAllPanels(); _yaw = 0f; _pitch = 0.25f; }));
+        s.Add(("keys.aim", () => { CloseAllPanels(); if (!LookAtMachine("core:smelter")) GD.Print("UIAUDIT note: no machine to aim at"); }));
+        s.Add(("keys.walking", () => { CloseAllPanels(); _seated = true; ToggleSeat(); _body = new Vector3(4f, 0f, 20f); _yaw = MathF.PI * 0.8f; _pitch = -0.1f; }));
+        s.Add(("keys.map", () => { CloseAllPanels(); _body = StandSpot; ToggleSeat(); _yaw = MathF.PI; _pitch = -0.35f; _mapOpen = true; }));
         foreach (var cat in BuildCatalog.Categories)
         {
             var category = cat;
@@ -134,6 +138,14 @@ public partial class Play
             string ctx = $"{_auditSizes[_auditSize]}/{step.Name}";
             if (step.Name == "settle") { _auditStep++; return; }
             var findings = UiAudit.Run(GetTree().Root, vp);
+            // Marker labels are drawn, not nodes: check the boxes the layer recorded.
+            if (_markers.Visible)
+            {
+                float limit = _markers.RightLimit > 0f ? Math.Min(_markers.RightLimit, vp.Size.X) : vp.Size.X;
+                foreach (var (rect, text) in _markers.LastLabels)
+                    if (rect.Position.X < -1f || rect.Position.Y < -1f || rect.End.X > limit + 1f || rect.End.Y > vp.Size.Y + 1f)
+                        findings.Add(new UiAudit.Finding("MARKER_OFFSCREEN", "MarkerLayer", text, $"[{rect.Position.X:0},{rect.Position.Y:0} {rect.Size.X:0}x{rect.Size.Y:0}] limit {limit:0}", true));
+            }
             if (_auditShots is not null) { System.IO.Directory.CreateDirectory(_auditShots); GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(_auditShots, ctx.Replace("/", "_").Replace(":", "_") + ".png")); }
             int errors = UiAudit.Report(ctx, findings);
             _auditErrors += errors;

@@ -185,7 +185,7 @@ public static class UiAudit
     /// <summary>Prints the findings as <c>UIAUDIT</c> lines and returns the number of errors.</summary>
     public static int Report(string context, List<Finding> findings)
     {
-        foreach (var f in findings.OrderByDescending(f => f.Error)) GD.Print($"UIAUDIT {context} {f}");
+        foreach (var f in findings.OrderByDescending(f => f.Error)) if (f.Error || !context.EndsWith(".stress")) GD.Print($"UIAUDIT {context} {f}"); // the stress pass cuts text on purpose: counted, not listed
         return findings.Count(f => f.Error);
     }
 }
