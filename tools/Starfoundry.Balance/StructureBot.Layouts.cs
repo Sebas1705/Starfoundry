@@ -221,6 +221,25 @@ public sealed partial class StructureBot
             return true;
         }
 
+        // First choice: straight in from where the ship is, stopping 8 cells out along the same line, if that whole path is clear (the common case: no detour, no extra leg).
+        {
+            double ddx = ox0 - cx, ddy = oy0 - cy, ddz = oz0 - cz, dd = Math.Sqrt(ddx * ddx + ddy * ddy + ddz * ddz);
+            if (dd > 1)
+            {
+                double ux = ddx / dd, uy = ddy / dd, uz = ddz / dd;
+                long Lx = (long)(cx + ux * 8.0 * Cell), Ly = (long)(cy + uy * 8.0 * Cell), Lz = (long)(cz + uz * 8.0 * Cell);
+                long Ox = Lx - lx, Oy = Ly - ly, Oz = Lz - lz;
+                double run = Math.Sqrt((double)(Ox - ox0) * (Ox - ox0) + (double)(Oy - oy0) * (Oy - oy0) + (double)(Oz - oz0) * (Oz - oz0));
+                bool ok = true;
+                for (int s = 0; s <= 40 && ok; s++)
+                {
+                    double k = s / 40.0;
+                    ok = Clear((long)(ox0 + (Ox - ox0) * k), (long)(oy0 + (Oy - oy0) * k), (long)(oz0 + (Oz - oz0) * k));
+                }
+                if (ok && 8.0 * Cell <= reach) return new Approach(ox0, oy0, oz0, Ox, Oy, Oz);
+            }
+        }
+
         Approach? best = null;
         double bestScore = double.MaxValue;
         var dirs = new List<(double X, double Y, double Z)>();
@@ -242,11 +261,11 @@ public sealed partial class StructureBot
                 for (int s = 0; s <= 30 && ok; s++)
                 {
                     double k = s / 30.0;
-                    long sx = (long)(Ox + ux * 24 * Cell * (1 - k)), sy = (long)(Oy + uy * 24 * Cell * (1 - k)), sz = (long)(Oz + uz * 24 * Cell * (1 - k));
+                    long sx = (long)(Ox + ux * 14 * Cell * (1 - k)), sy = (long)(Oy + uy * 14 * Cell * (1 - k)), sz = (long)(Oz + uz * 14 * Cell * (1 - k));
                     ok = Clear(sx, sy, sz);
                 }
                 if (!ok) continue;
-                long Wx = (long)(Ox + ux * 24 * Cell), Wy = (long)(Oy + uy * 24 * Cell), Wz = (long)(Oz + uz * 24 * Cell);
+                long Wx = (long)(Ox + ux * 14 * Cell), Wy = (long)(Oy + uy * 14 * Cell), Wz = (long)(Oz + uz * 14 * Cell);
                 double score = Math.Sqrt((double)(Wx - cur.X) * (Wx - cur.X) + (double)(Wy - cur.Y) * (Wy - cur.Y) + (double)(Wz - cur.Z) * (Wz - cur.Z)) + Math.Sqrt((double)(Ox - Wx) * (Ox - Wx) + (double)(Oy - Wy) * (Oy - Wy) + (double)(Oz - Wz) * (Oz - Wz));
                 if (score < bestScore) { bestScore = score; best = new Approach(Wx, Wy, Wz, Ox, Oy, Oz); }
             }
