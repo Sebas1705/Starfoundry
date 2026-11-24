@@ -424,7 +424,7 @@ void sky() {
         // The exposure of the line: the distance the ship covers in a short time, so a streak is longer the faster the ship flies.
         float length = Mathf.Clamp(speed * StreakExposure, StreakMinLength, StreakMaxLength);
         float half = StreakHalfWidth + StreakHalfWidthFast * Mathf.Clamp(speed / 24f, 0f, 1f);
-        _streakMesh.SurfaceBegin(Mesh.PrimitiveType.Triangles);
+        bool began = false; // a surface with no vertices is an engine error, so it is begun with the first quad
         float box = 2f * StreakBox;
         for (int i = 0; i < StreakCount; i++)
         {
@@ -443,6 +443,7 @@ void sky() {
             var side = rel.Cross(dir);
             if (side.LengthSquared() < 1e-6f) continue; // exactly ahead or behind: it is a point, not a line
             DebugSegments?.Add((p0, p1));
+            if (!began) { _streakMesh.SurfaceBegin(Mesh.PrimitiveType.Triangles); began = true; }
             side = side.Normalized() * half * Mathf.Clamp(dist / 10f, 0.7f, 3f);
             var head = new Color(0.82f, 0.9f, 1f, a);
             var tail = new Color(0.82f, 0.9f, 1f, 0f);
@@ -454,7 +455,7 @@ void sky() {
             _streakMesh.SurfaceSetColor(tail); _streakMesh.SurfaceAddVertex(p1 + side);
             _streakMesh.SurfaceSetColor(tail); _streakMesh.SurfaceAddVertex(p1 - side);
         }
-        _streakMesh.SurfaceEnd();
+        if (began) _streakMesh.SurfaceEnd();
     }
 
     /// <summary>A scripted shot sets the world velocity the streaks use (units per second); null in play.</summary>
