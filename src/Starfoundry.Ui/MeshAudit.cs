@@ -18,7 +18,7 @@ public readonly record struct SeeThrough(Vector3 Origin, Vector3 Dir);
 /// and rays that pass the shell without meeting a surface that would be drawn (holes, culled back faces, light leaks). The game builds the soup
 /// from the real module meshes (<c>Gallery --audit</c>); the unit tests feed it small hand-made meshes.
 /// </summary>
-public static class MeshAudit
+public static partial class MeshAudit
 {
     // ---- coplanar overlaps (z-fighting) ----------------------------------------------------------------------------------
 

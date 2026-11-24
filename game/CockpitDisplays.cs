@@ -158,6 +158,13 @@ public partial class CockpitDisplays : Node
     }
 
     /// <summary>Redraws every display once (the viewports render in the next frame).</summary>
+    /// <summary>Dims the three screens (1 = full brightness); a ship low on power has duller displays. The values above 1 that make the text bloom are kept in proportion.</summary>
+    public void SetDim(float factor)
+    {
+        float b = ScreenBrightness * Math.Clamp(factor, 0.1f, 1f);
+        foreach (var m in _materials) if (m is not null) m.AlbedoColor = new Color(b, b, b);
+    }
+
     public void Refresh()
     {
         for (int i = 0; i < 3; i++)

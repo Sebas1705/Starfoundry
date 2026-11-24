@@ -97,6 +97,7 @@ public partial class Play
         {
             _cockpitClock = 1f / 15f;
             _snap = BuildCockpitSnapshot();
+            _cockpit?.SetDim(CockpitMath.PowerDim(_snap.Flight.PowerPermille, _snap.HasReactor || _snap.Flight.PowerProduction > 0));
             refreshAll = true;
         }
         for (int i = 0; i < 3; i++)

@@ -12,7 +12,7 @@ namespace Starfoundry.Game;
 /// <summary>
 /// Review scene for the procedural models. Run with user args after "--":
 /// --shot=path.png (save a screenshot after --frames=N frames and quit), --export-models=dir (write .glb files and quit),
-/// --focus=machines|machines2|belts|units|all|framing|modules|ship-demo|station-demo|workbench (workbench = the ship workbench in a hull module, --bench=ingot|plate|ammo|off, --wall=right, --module=Hull|Cargo|Workshop|Cockpit; machines2 = the cracker, greenhouse, bench, physics lab, refinery and ports; belts = belt tiers and every item shape), --state=work|idle|off (machine lamps), --variant=N, --at=x,y,z (look-at point), --angle=deg, --pitch=deg, --dist=units, --fov=deg. Without --angle the camera orbits slowly.
+/// --focus=ship-tower (three decks with stairwells) |/// --focus=machines|machines2|belts|units|all|framing|modules|ship-demo|station-demo|workbench (workbench = the ship workbench in a hull module, --bench=ingot|plate|ammo|off, --wall=right, --module=Hull|Cargo|Workshop|Cockpit; machines2 = the cracker, greenhouse, bench, physics lab, refinery and ports; belts = belt tiers and every item shape), --state=work|idle|off (machine lamps), --variant=N, --at=x,y,z (look-at point), --angle=deg, --pitch=deg, --dist=units, --fov=deg. Without --angle the camera orbits slowly.
 /// </summary>
 public partial class Gallery : Node3D
 {
@@ -84,6 +84,8 @@ public partial class Gallery : Node3D
             case "ship-demo": _focusPoint = new Vector3(4f, 2f, 20f); defDist = 40f; break;
             case "ship-starter": _focusPoint = new Vector3(4f, 2f, 16f); defDist = 40f; break;
             case "ship-nose": _focusPoint = new Vector3(8f, 2f, 16f); defDist = 45f; break;
+            case "ship-tower": _focusPoint = new Vector3(8f, 6f, 24f); defDist = 70f; break;
+            case "ship-skins": _focusPoint = new Vector3(88f, 2f, 40f); defDist = 160f; break;
             case "ship-row": _focusPoint = new Vector3(4f, 2f, 40f); defDist = 90f; break;
             case "ship-big": _focusPoint = new Vector3(8f, 4f, 24f); defDist = 90f; break;
             case "station-demo": _focusPoint = new Vector3(12f, 3f, 8f); defDist = 40f; break;
@@ -99,7 +101,7 @@ public partial class Gallery : Node3D
         if (Arg("--at") is { } at && at.Split(',') is { Length: 3 } p) _focusPoint = new Vector3(float.Parse(p[0], CultureInfo.InvariantCulture), float.Parse(p[1], CultureInfo.InvariantCulture), float.Parse(p[2], CultureInfo.InvariantCulture));
 
         BuildScene();
-        if (focus is "modules" or "ship-demo" or "station-demo" or "ship-starter" or "ship-row" or "ship-big" or "ship-nose") BuildModuleGallery(focus, (int)F("--variant", 0));
+        if (focus is "modules" or "ship-demo" or "station-demo" or "ship-starter" or "ship-row" or "ship-big" or "ship-nose" or "ship-tower" or "ship-skins") BuildModuleGallery(focus, (int)F("--variant", 0));
         else if (focus == "deposits") BuildDepositGallery();
         else if (focus == "materials") BuildMaterialGallery();
         else if (focus == "belts") BuildBeltGallery();
@@ -259,7 +261,7 @@ public partial class Gallery : Node3D
                 Put(kinds[i], false, new Vector3(i * 9.5f, 0, 16f), kinds[i] + " (station)");
             }
         }
-        else if (focus is "ship-starter" or "ship-row" or "ship-big" or "ship-nose")
+        else if (focus is "ship-starter" or "ship-row" or "ship-big" or "ship-nose" or "ship-tower" or "ship-skins")
         {
             // Ships built from the real masks (the same HullProfile.MaskOf the game uses): the starter ship with its pods, a row of every body kind of a
             // ship end to end (cockpit, hull, cargo, workshop, both reactors, defence, drone bay, dock, engine) and a big demo ship with wings of cargo.
@@ -279,6 +281,27 @@ public partial class Gallery : Node3D
                 parts[(0, 1, 0)] = ModuleKind.Gun;
                 parts[(1, 0, 0)] = ModuleKind.Cockpit;
                 parts[(1, 0, 1)] = ModuleKind.Hull;
+            }
+            else if (focus == "ship-tower")
+            {
+                // three decks of body kinds with stairwells (Stairwell.Capable): the audit of the ladders, the coamings and the lower decks under the openings
+                ModuleKind[] low = { ModuleKind.Cockpit, ModuleKind.Hull, ModuleKind.Cargo, ModuleKind.Workshop, ModuleKind.Reactor, ModuleKind.Engine };
+                for (int i = 0; i < low.Length; i++) parts[(0, 0, i)] = low[i];
+                ModuleKind[] mid = { ModuleKind.Hull, ModuleKind.Workshop, ModuleKind.Cargo, ModuleKind.Hull };
+                for (int i = 0; i < mid.Length; i++) { parts[(0, 1, i + 1)] = mid[i]; parts[(0, 2, i + 1)] = mid[(i + 1) % mid.Length]; }
+                parts[(1, 1, 2)] = ModuleKind.Hull; parts[(1, 2, 2)] = ModuleKind.Cargo;
+            }
+            else if (focus == "ship-skins")
+            {
+                // twelve separate rows of corridor kinds (the skin follows from the place, so every pair of skins meets at some joint), a cockpit in front of every other one and an engine behind
+                ModuleKind[] kinds = { ModuleKind.Hull, ModuleKind.Cargo, ModuleKind.Workshop, ModuleKind.Reactor, ModuleKind.DroneBay, ModuleKind.Hull, ModuleKind.Workshop, ModuleKind.Cargo };
+                for (int col = 0; col < 12; col++)
+                {
+                    int x = col * 2;
+                    for (int i = 0; i < kinds.Length; i++) parts[(x, 0, i + 1)] = kinds[(i + col) % kinds.Length];
+                    if (col % 2 == 0) parts[(x, 0, 0)] = ModuleKind.Cockpit;
+                    parts[(x, 0, kinds.Length + 1)] = ModuleKind.Engine;
+                }
             }
             else if (focus == "ship-row")
             {

@@ -97,11 +97,35 @@ public partial class Play
         return list.ToArray();
     }
 
+    private bool _climbJump;
+
+    /// <summary>Which way E climbs when a ladder is within reach: up when only the way up exists or the view looks up, else down; null when there is no ladder.</summary>
+    private bool? LadderWay()
+    {
+        var (up, down) = Stairwell.Reachable(Sys(_body), _bodyVolumes);
+        if (up && down) return _pitch > 0.05f;
+        if (up) return true;
+        return down ? false : null;
+    }
+
+    /// <summary>E at a ladder: moves the body to the other deck (the eye glides), or says the landing is blocked. False when there is no ladder within reach.</summary>
+    private bool TryClimb()
+    {
+        RefreshBodyVolumes();
+        if (LadderWay() is not { } up) return false;
+        if (Stairwell.Try(Sys(_body), up, _bodyVolumes, _bodySolids) is not { } move) { ToastLogistics(L("toast.ladderBlocked")); return true; }
+        _body = FromSys(move.Destination);
+        _climbJump = true;
+        _audio?.Play(Sfx.Airlock);
+        return true;
+    }
+
     /// <summary>E: sit down when standing within reach of the seat; stand up when seated.</summary>
     private void ToggleSeat()
     {
         if (!CanWalk) return;
         if (_seated) StandUp();
+        else if (TryClimb()) { }
         else if (BodyMotion.InSeatReach(Sys(_body), Sys(SeatPosition))) Sit();
         else ToastLogistics(L("toast.seatTooFar"));
     }
@@ -133,7 +157,8 @@ public partial class Play
     {
         UpdateBodyWalk(dt);
         bool smooth = SettingsStore.Current.SmoothLook && !_hudSnap;
-        bool jumped = _seated != _wasSeated;
+        bool jumped = _seated != _wasSeated || _climbJump;
+        _climbJump = false;
         _wasSeated = _seated;
         if (jumped) _walkVelocity = System.Numerics.Vector3.Zero;
         var wanted = RawEyeLocal();
@@ -189,6 +214,7 @@ public partial class Play
     {
         if (!CanWalk || _demo) return "";
         if (_seated) return ""; // the key panel already says E stands you up
+        if (LadderWay() is { } way) return L(way ? "hint.climbUp" : "hint.climbDown");
         return BodyMotion.InSeatReach(Sys(_body), Sys(SeatPosition)) ? L("hint.sit") : "";
     }
 
@@ -209,6 +235,7 @@ public partial class Play
         _walkShotFrame++;
         if (_walkShotFrame >= 251 && StoryOpen) CloseStory(); // a scenario opens its briefing first
         if (BevelShotFrame()) return;
+        if (StairsShotFrame()) return;
         void Save(string p) { GetViewport().GetTexture().GetImage().SavePng(p); GD.Print("SHOT saved " + p); }
         switch (_walkShotFrame)
         {

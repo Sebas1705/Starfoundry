@@ -369,6 +369,8 @@ void sky() {
     private const float StreakStartSpeed = 1.2f, StreakFullSpeed = 16f;
     private const int StreakCount = 260;
     private const float StreakBox = 30f;
+    /// <summary>Tunable look of the streaks: the exposure (seconds of travel drawn as a line), the shortest and longest line, the half width at rest and the extra at speed, and the peak brightness. Raised in round 8: inside the cockpit windows the lines were thin and short.</summary>
+    public const float StreakExposure = 0.2f, StreakMinLength = 0.6f, StreakMaxLength = 16f, StreakHalfWidth = 0.035f, StreakHalfWidthFast = 0.02f, StreakPeak = 1.0f;
 
     /// <summary>Where the motion streaks stand (offsets of the specks inside a box that follows the camera) and how they are drawn.</summary>
     private static Vector3[] _streakSeeds = Array.Empty<Vector3>();
@@ -420,9 +422,9 @@ void sky() {
         if (fade <= 0.01f || speed < 0.2f) return;
         var dir = velocity / speed;
         // The exposure of the line: the distance the ship covers in a short time, so a streak is longer the faster the ship flies.
-        float length = Mathf.Clamp(speed * 0.12f, 0.35f, 12f);
-        float half = 0.02f + 0.01f * Mathf.Clamp(speed / 24f, 0f, 1f);
-        _streakMesh.SurfaceBegin(Mesh.PrimitiveType.Triangles);
+        float length = Mathf.Clamp(speed * StreakExposure, StreakMinLength, StreakMaxLength);
+        float half = StreakHalfWidth + StreakHalfWidthFast * Mathf.Clamp(speed / 24f, 0f, 1f);
+        bool began = false; // a surface with no vertices is an engine error, so it is begun with the first quad
         float box = 2f * StreakBox;
         for (int i = 0; i < StreakCount; i++)
         {
@@ -434,13 +436,14 @@ void sky() {
             // Fade at the edge of the box (a speck wraps there) and very close to the eye.
             float edge = Mathf.Clamp((StreakBox - Mathf.Max(Mathf.Abs(rel.X), Mathf.Max(Mathf.Abs(rel.Y), Mathf.Abs(rel.Z)))) / 5f, 0f, 1f);
             float near = Mathf.Clamp((dist - 2.5f) / 4f, 0f, 1f);
-            float a = 0.85f * fade * edge * near * (0.45f + 0.55f * (seed.X * 7.31f % 1f));
+            float a = StreakPeak * fade * edge * near * (0.45f + 0.55f * (seed.X * 7.31f % 1f));
             if (a < 0.01f) continue;
             var p0 = cam + rel;                 // where the speck is
             var p1 = p0 + dir * length;         // the line points towards where the ship is heading: the speck slides back along it
             var side = rel.Cross(dir);
             if (side.LengthSquared() < 1e-6f) continue; // exactly ahead or behind: it is a point, not a line
             DebugSegments?.Add((p0, p1));
+            if (!began) { _streakMesh.SurfaceBegin(Mesh.PrimitiveType.Triangles); began = true; }
             side = side.Normalized() * half * Mathf.Clamp(dist / 10f, 0.7f, 3f);
             var head = new Color(0.82f, 0.9f, 1f, a);
             var tail = new Color(0.82f, 0.9f, 1f, 0f);
@@ -452,7 +455,7 @@ void sky() {
             _streakMesh.SurfaceSetColor(tail); _streakMesh.SurfaceAddVertex(p1 + side);
             _streakMesh.SurfaceSetColor(tail); _streakMesh.SurfaceAddVertex(p1 - side);
         }
-        _streakMesh.SurfaceEnd();
+        if (began) _streakMesh.SurfaceEnd();
     }
 
     /// <summary>A scripted shot sets the world velocity the streaks use (units per second); null in play.</summary>

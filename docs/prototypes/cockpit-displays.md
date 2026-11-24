@@ -57,4 +57,4 @@ None of this touches the simulation or the rules of ADR 0030: the attitude that 
 
 ## Not done
 
-Boost has no button (the engines read the key each frame); the screens are not dimmed by low power; the mouse cannot click the screens while it is free (`Tab`); the target list cannot select a port or the gate (the gate is chosen on the star map); there is no sound beyond the UI click; head bob and the other easing are not checked by hand.
+Boost has no button (the engines read the key each frame); the mouse cannot click the screens while it is free (`Tab`); the target list cannot select a port or the gate (the gate is chosen on the star map); there is no sound beyond the UI click; head bob and the other easing are not checked by hand.

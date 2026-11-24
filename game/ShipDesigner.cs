@@ -353,6 +353,7 @@ public partial class ShipDesigner : Control
                 : Loc.T("designer.invalid", RejectTexts.Key(report.Reject) is { } k ? Loc.T(k) : report.Reject.ToString());
             _status.AddThemeColorOverride("font_color", ok ? Good : Bad);
             _status.SetIcon(ok ? "status:check" : "status:cross", ok ? Good : Bad);
+            if (DesignWarnings.ViewBlockers(_editor.Modules) is { Count: > 0 } blockers) _status.Text += "  -  " + Loc.T("designer.viewWarn", blockers.Count); // a pod on the cockpit, in front of it or beside it
             // The price as icons with counts (red when the hold lacks them), the refund after it in green.
             _cost.Text = report.Cost.Length == 0 ? Loc.T("designer.free") : Loc.T("designer.cost", "").TrimEnd();
             foreach (var c in report.Cost)

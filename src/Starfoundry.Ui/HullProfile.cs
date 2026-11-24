@@ -4,7 +4,7 @@ using Starfoundry.Sim;
 namespace Starfoundry.Ui;
 
 /// <summary>The solid furniture a module carries that the walking body cannot pass through (besides its shell).</summary>
-public enum Fixture { None, Cockpit, Vessel, VesselMk2, Cargo, Engine, Hangar, DefenceShip, DefenceStation, Core, Lockers, WorkshopLockers }
+public enum Fixture { None, Cockpit, Vessel, VesselMk2, Cargo, Engine, Hangar, DefenceShip, DefenceStation, Core, Lockers, WorkshopLockers, StationLockers, StationWorkshopLockers }
 
 /// <summary>
 /// The shell of one module as the walking body sees it: whether it is a ship hull or a station box, the height of its roof, whether it
@@ -47,9 +47,10 @@ public static class HullProfile
         int Lrud(int x, int y, int z) =>
             (kindAt(x - 1, y, z) is null ? 0 : 1) | (kindAt(x + 1, y, z) is null ? 0 : 2) | (kindAt(x, y + 1, z) is null ? 0 : 4) | (kindAt(x, y - 1, z) is null ? 0 : 8);
         int NbFront = 0, NbRear = 0;
-        if (kindAt(mx, my, mz - 1) is { } fk && !IsPod(fk)) NbFront = (Lrud(mx, my, mz - 1) << FrontNbShift) | (SkinOf(fk, mx, my, mz - 1) << FrontSkinShift);
-        if (kindAt(mx, my, mz + 1) is { } rk && !IsPod(rk)) NbRear = (Lrud(mx, my, mz + 1) << RearNbShift) | (SkinOf(rk, mx, my, mz + 1) << RearSkinShift);
-        int own = kindAt(mx, my, mz) is { } me ? SkinOf(me, mx, my, mz) << SkinShift : 0;
+        if (kindAt(mx, my, mz - 1) is { } fk && !IsPod(fk)) NbFront = (Lrud(mx, my, mz - 1) << FrontNbShift) | (SectionClassOf(SkinOf(fk, mx, my, mz - 1)) << FrontSkinShift);
+        if (kindAt(mx, my, mz + 1) is { } rk && !IsPod(rk)) NbRear = (Lrud(mx, my, mz + 1) << RearNbShift) | (SectionClassOf(SkinOf(rk, mx, my, mz + 1)) << RearSkinShift);
+        int own = kindAt(mx, my, mz) is { } me ? SkinBits(SkinOf(me, mx, my, mz)) : 0;
+        if (kindAt(mx, my, mz) is { } upper && kindAt(mx, my - 1, mz) is { } lower && Stairwell.Capable(upper) && Stairwell.Capable(lower)) own |= StairDown;
         return Bit(-1, 0, 0, Left) | Bit(1, 0, 0, Right) | Bit(0, 0, -1, Front, PodFront) | Bit(0, 0, 1, Rear, PodRear) | Bit(0, 1, 0, Up) | Bit(0, -1, 0, Down) | NbFront | NbRear | own;
     }
 
@@ -62,8 +63,19 @@ public static class HullProfile
     /// pillars and frames). The skin is chosen per module by <see cref="SkinOf"/>, from its kind and place, so the model and the walking body agree.
     /// </summary>
     public const int SkinShift = 24, FrontSkinShift = 26, RearSkinShift = 28;
-    public const int SkinMask = (3 << SkinShift) | (3 << FrontSkinShift) | (3 << RearSkinShift);
+    public const int SkinMask = (3 << SkinShift) | (3 << FrontSkinShift) | (3 << RearSkinShift) | unchecked((int)0x80000000);
     public const int SkinPlain = 0, SkinWide = 1, SkinArched = 2, SkinBoxy = 3;
+    /// <summary>Skins that share a section with one of the four above and differ only in what stands along the walls: ribs, a plinth and window niches.</summary>
+    public const int SkinRibbed = 4, SkinStepped = 5, SkinNiched = 6;
+    /// <summary>Bit 30 of a mask: the module has a stairwell down to the module below (see <see cref="Stairwell"/>). Bit 31 is the high bit of the own skin.</summary>
+    public const int StairDown = 1 << 30;
+    private const int SkinHigh = 1 << 31;
+
+    /// <summary>The own-skin bits of a mask for a skin number 0 to 7: the low two in <see cref="SkinShift"/>, the third in bit 31.</summary>
+    public static int SkinBits(int skin) => ((skin & 3) << SkinShift) | ((skin & 4) != 0 ? SkinHigh : 0);
+
+    /// <summary>The section family (0 to 3) a skin cuts: ribbed and stepped walls use the boxy section, niched ones the arched one.</summary>
+    public static int SectionClassOf(int skin) => skin switch { SkinRibbed or SkinStepped => SkinBoxy, SkinNiched => SkinArched, _ => skin };
 
     /// <summary>
     /// The skin of a ship module of <paramref name="kind"/> at (mx, my, mz): the cockpit is always the wide pilot section; the corridor kinds (hull, cargo,
@@ -75,11 +87,14 @@ public static class HullProfile
         if (kind is not (ModuleKind.Hull or ModuleKind.Cargo or ModuleKind.Workshop or ModuleKind.Reactor or ModuleKind.ReactorMk2 or ModuleKind.DroneBay)) return SkinPlain;
         uint h = unchecked((uint)(mx * 73856093) ^ (uint)(my * 19349663) ^ (uint)(mz * 83492791) ^ ((uint)(int)kind * 2654435761u));
         unchecked { h ^= h >> 13; h *= 0x5bd1e995; h ^= h >> 15; }
-        return (h % 10) switch { < 4 => SkinPlain, < 7 => SkinArched, _ => SkinBoxy };
+        return (h % 20) switch { < 5 => SkinPlain, < 8 => SkinArched, < 10 => SkinBoxy, < 13 => SkinRibbed, < 16 => SkinStepped, _ => SkinNiched };
     }
 
-    /// <summary>The own skin of a module from its mask.</summary>
-    public static int SkinOfMask(int mask) => (mask >> SkinShift) & 3;
+    /// <summary>The own skin of a module from its mask (0 to 7).</summary>
+    public static int SkinOfMask(int mask) => ((mask >> SkinShift) & 3) | (((mask >> 31) & 1) << 2);
+
+    /// <summary>The section family of the own skin of a mask: what <see cref="Octagon"/> cuts.</summary>
+    public static int SectionOfMask(int mask) => SectionClassOf(SkinOfMask(mask));
 
     /// <summary>The lower and upper chamfer of a section of a skin with a body-height roof, in cells (before the squaring of a side that touches a module).</summary>
     public static (float Low, float Up) ChamfersOf(int skin, float defaultChamfer) => skin switch
@@ -144,6 +159,23 @@ public static class HullProfile
     /// <summary>The height of the body's head above the floor, a little over the eye.</summary>
     public const float BodyHeight = 1.8f;
 
+    // ---- skylights and wings -----------------------------------------------------------------------------------------------
+
+    /// <summary>The two glazed panes in the floor of a gun deck that stands on another module (x and z in cells from the module's back-left corner), either side of the line of gun mounts.</summary>
+    public static readonly (float X0, float X1, float Z0, float Z1)[] SkylightPanes = { (1.0f, 2.9f, 0.9f, 7.1f), (5.1f, 7.0f, 0.9f, 7.1f) };
+
+    /// <summary>True for the kinds that stand on top of a ship and carry a glass roof of their own: a skylight in their floor lets the module below see out.</summary>
+    public static bool SkylightKinds(ModuleKind kind) => kind is ModuleKind.Gun or ModuleKind.GunMk2;
+
+    /// <summary>A ship module of <paramref name="kind"/> with a module below it (<paramref name="mask"/>) has skylight panes in its floor.</summary>
+    public static bool HasSkylight(ModuleKind kind, bool ship, int mask) => ship && SkylightKinds(kind) && (mask & Down) != 0;
+
+    /// <summary>
+    /// The stub wings of a ship (hull, cargo and reactor modules) stand with their root this high above the deck: below the sill of every window (the lowest
+    /// is 1.3) and above the lower chamfer, so a wing never crosses the glazing. <see cref="WingThickness"/> is the plate, <see cref="WingTop"/> its top face.
+    /// </summary>
+    public const float WingY = 0.55f, WingThickness = 0.10f, WingTop = WingY + WingThickness + 0.02f;
+
     // ---- the cockpit furniture: solid for the walking body -------------------------------------------------------------
 
     /// <summary>The footprint of a ship cockpit's console (a low desk across the front) and of the pilot seat with its armrests, from the module's back-left corner.</summary>
@@ -175,14 +207,41 @@ public static class HullProfile
     public static readonly float[] PillarStations = { 2.0f, 6.0f };
     public const float PillarDepth = 0.46f, PillarWidth = 0.4f;
 
-    /// <summary>The pillars of a boxy-skin module (see <see cref="SkinBoxy"/>), on the sides that are closed.</summary>
+    /// <summary>Ribbed walls: a rib at each station (cell z of its centre) on both closed sides, how deep it reaches from the wall and how wide it is. They stand clear of the viewport band (z 2.6 to 5.4).</summary>
+    public static readonly float[] RibStations = { 0.85f, 1.65f, 6.35f, 7.15f };
+    public const float RibDepth = 0.42f, RibWidth = 0.22f;
+    /// <summary>Stepped walls: a plinth along the whole closed wall, two steps (a low wide one and a high narrow one), the deeper reach of both counts as solid.</summary>
+    public const float PlinthDepth = 0.5f, PlinthTopDepth = 0.28f, PlinthLow = 0.55f, PlinthHigh = 1.05f, PlinthEnd = 0.3f;
+    /// <summary>Niched walls: a window niche and a recessed service bay (cell z of their centres), the width of each surround and how far it stands out of the wall.</summary>
+    public const float NicheWindowZ = 1.2f, NicheBayZ = 6.8f, NicheWidth = 0.9f, NicheFrame = 0.2f;
+
+    /// <summary>True for the skins whose walls carry their own furniture (ribs, a plinth, niches): the lockers stay off them.</summary>
+    public static bool HasWallFurniture(int mask) => SkinOfMask(mask) is SkinRibbed or SkinStepped or SkinNiched;
+
+    /// <summary>The wall furniture of the skins that have some (see <see cref="SkinBoxy"/>, <see cref="SkinRibbed"/>, <see cref="SkinStepped"/>, <see cref="SkinNiched"/>), on the sides that are closed: solid for the walking body, drawn by the model from the same numbers.</summary>
     public static IEnumerable<Solid> SkinSolids(int mask)
     {
-        if (SkinOfMask(mask) != SkinBoxy) yield break;
-        foreach (float z in PillarStations)
+        int skin = SkinOfMask(mask);
+        if (skin is SkinPlain or SkinWide or SkinArched) yield break;
+        foreach (bool left in new[] { true, false })
         {
-            if ((mask & Left) == 0) yield return new Solid(0f, z - PillarWidth / 2, 0.16f + PillarDepth, z + PillarWidth / 2);
-            if ((mask & Right) == 0) yield return new Solid(W - 0.16f - PillarDepth, z - PillarWidth / 2, W, z + PillarWidth / 2);
+            if ((mask & (left ? Left : Right)) != 0) continue;
+            Solid On(float depth, float z0, float z1) => left ? new Solid(0f, z0, 0.16f + depth, z1) : new Solid(W - 0.16f - depth, z0, W, z1);
+            switch (skin)
+            {
+                case SkinBoxy:
+                    foreach (float z in PillarStations) yield return On(PillarDepth, z - PillarWidth / 2, z + PillarWidth / 2);
+                    break;
+                case SkinRibbed:
+                    foreach (float z in RibStations) yield return On(RibDepth, z - RibWidth / 2, z + RibWidth / 2);
+                    break;
+                case SkinStepped:
+                    yield return On(PlinthDepth, PlinthEnd, D - PlinthEnd);
+                    break;
+                case SkinNiched:
+                    foreach (float z in new[] { NicheWindowZ, NicheBayZ }) yield return On(NicheFrame, z - NicheWidth / 2, z + NicheWidth / 2);
+                    break;
+            }
         }
     }
 
@@ -201,6 +260,8 @@ public static class HullProfile
         Fixture.Core => CoreSolids,
         Fixture.Lockers => LockerSolids(mask, 3, 3),
         Fixture.WorkshopLockers => LockerSolids(mask, 3, 5),
+        Fixture.StationLockers => LockerSolids(mask, 3, 3, true),
+        Fixture.StationWorkshopLockers => LockerSolids(mask, 3, 5, true),
         Fixture.Vessel => (mask & Rear) != 0 ? VesselOpenSolids : VesselSolids,
         Fixture.VesselMk2 => (mask & Rear) != 0 ? VesselMk2OpenSolids : VesselMk2Solids,
         _ => Array.Empty<Solid>(),
@@ -234,9 +295,11 @@ public static class HullProfile
     private static readonly Solid[] DefenceStationSolids =
     {
         Disc(2.5f, 2.5f, 0.95f), Disc(5.5f, 2.5f, 0.95f), Disc(2.5f, 5.5f, 0.95f), Disc(5.5f, 5.5f, 0.95f), new(0.5f, D - 1.45f, 1.5f, D - 0.55f), new(W - 1.5f, D - 1.45f, W - 0.5f, D - 0.55f),
+        new(2.5f - 0.4f, 2.5f - 1.85f, 2.5f + 0.4f, 2.5f), new(5.5f - 0.4f, 2.5f - 1.85f, 5.5f + 0.4f, 2.5f), new(2.5f - 0.4f, 5.5f - 1.85f, 2.5f + 0.4f, 5.5f), new(5.5f - 0.4f, 5.5f - 1.85f, 5.5f + 0.4f, 5.5f), // the barrels, at rest, aimed to the front
         new(0f, 0f, 2.2f, ParapetDepth), new(W - 2.2f, 0f, W, ParapetDepth), new(0f, D - ParapetDepth, 2.2f, D), new(W - 2.2f, D - ParapetDepth, W, D),
     };
-    private static readonly Solid[] CoreSolids = { Disc(4f, 4f, 1.1f) };
+    // the pillar, and the four braces that rise from the floor to the pillar (they are above knee height inside 2.4 cells from the middle), as discs along each diagonal
+    private static readonly Solid[] CoreSolids = new[] { Disc(4f, 4f, 1.1f) }.Concat(new[] { (-1f, -1f), (1f, -1f), (-1f, 1f), (1f, 1f) }.SelectMany(d => new[] { 1.45f, 1.75f, 2.05f, 2.35f }.Select(r => Disc(4f + d.Item1 * r * 0.7071f, 4f + d.Item2 * r * 0.7071f, 0.25f)))).ToArray();
     private static readonly Solid[] VesselSolids = MakeVessel(VesselRadius, new[] { (1.2f, 1.2f), (6.8f, 1.2f), (1.2f, 6.8f), (6.8f, 6.8f) }, 0.3f);
     private static readonly Solid[] VesselMk2Solids = MakeVessel(VesselMk2Radius, new[] { (1.2f, 1.2f), (6.8f, 1.2f), (1.2f, 6.8f), (6.8f, 6.8f) }, 0.3f);
     // with a module behind, the rear wall is a doorway and carries no console
@@ -244,11 +307,13 @@ public static class HullProfile
     private static readonly Solid[] VesselMk2OpenSolids = VesselMk2Solids.Where(s => s.Round).ToArray();
 
     /// <summary>The wall lockers of a hull or a workshop (see <c>ModuleDetail</c>): banks of 0.5-cell boxes hung on a closed wall, a left bank from the front and a right bank from the back.</summary>
-    private static List<Solid> LockerSolids(int mask, int left, int right)
+    private static List<Solid> LockerSolids(int mask, int left, int right, bool station = false)
     {
         var l = new List<Solid>();
-        if ((mask & Left) == 0) l.Add(new(0.1f, 0.35f, 0.7f, 0.35f + left * 0.5f + 0.1f));
-        if ((mask & Right) == 0) l.Add(new(W - 0.7f, right == 3 ? 6.1f : 4.9f, W - 0.1f, (right == 3 ? 6.1f : 4.9f) + right * 0.5f + 0.1f));
+        if (!station && HasWallFurniture(mask)) return l; // the wall of a ship is taken by ribs, a plinth or niches
+        float lx0 = station ? 0.41f : 0.1f, lx1 = station ? 0.87f : 0.7f; // a ship hangs them on the wall, a station stands them on the floor
+        if ((mask & Left) == 0) l.Add(new(lx0, 0.35f, lx1, 0.35f + left * 0.5f + 0.1f));
+        if ((mask & Right) == 0) l.Add(new(W - lx1, right == 3 ? 6.1f : 4.9f, W - lx0, (right == 3 ? 6.1f : 4.9f) + right * 0.5f + 0.1f));
         return l;
     }
 
@@ -266,18 +331,14 @@ public static class HullProfile
     /// <summary>
     /// The roof height of a module kind (cells above the module floor). Every kind that makes up the body of a ship (hull, cargo, workshop,
     /// reactors, cockpit, engine, defence, drone bay, dock) shares the full <see cref="Roof"/>, so the sections line up at every joint; only the
-    /// pods (hardpoints, shield, sensor) and the station-only kinds are lower.
+    /// pods (hardpoints, shield, sensor) are lower. Stations use the same height for every kind (a core, a reactor and a shipyard used to be 3.0 and 3.2), so levels and joints line up.
     /// </summary>
     public static float RoofOf(ModuleKind kind, bool ship) => kind switch
     {
         ModuleKind.Shield => ShieldRoof,
         ModuleKind.Sensor => SensorRoof,
-        ModuleKind.Reactor or ModuleKind.ReactorMk2 => ship ? Roof : LowRoof,
-        ModuleKind.Core => LowRoof,
-        ModuleKind.Cockpit => ship ? Roof : LowRoof,
         ModuleKind.MiningLaser or ModuleKind.MiningLaserMk2 => MiningRoof,
         ModuleKind.Gun or ModuleKind.GunMk2 => GunRoof,
-        ModuleKind.Shipyard => ShipyardRoof,
         _ => Roof,
     };
 
@@ -299,8 +360,8 @@ public static class HullProfile
         ModuleKind.DroneBay => Fixture.Hangar,
         ModuleKind.Defence => ship ? Fixture.DefenceShip : Fixture.DefenceStation,
         ModuleKind.Core => Fixture.Core,
-        ModuleKind.Hull => ship ? Fixture.Lockers : Fixture.None,
-        ModuleKind.Workshop => ship ? Fixture.WorkshopLockers : Fixture.None,
+        ModuleKind.Hull => ship ? Fixture.Lockers : Fixture.StationLockers,
+        ModuleKind.Workshop => ship ? Fixture.WorkshopLockers : Fixture.StationWorkshopLockers,
         _ => Fixture.None,
     };
 
@@ -327,7 +388,7 @@ public static class HullProfile
         // a side that touches another module has no wall: the hull runs out to the module boundary there, so the two hulls meet with no slit
         float x0 = (mask & Left) != 0 ? 0f : HullEdge, x1 = (mask & Right) != 0 ? W : W - HullEdge, y0 = (mask & Down) != 0 ? Roof - H : FloorY; // a module above another starts where the lower one ends
         float ch = MathF.Min(MaxChamfer, (roofY - FloorY) * ChamferShare);
-        var (chLow, chUp) = roofY >= Roof - 0.01f ? ChamfersOf(SkinOfMask(mask), ch) : (ch, ch); // only the body-height sections have skins
+        var (chLow, chUp) = roofY >= Roof - 0.01f ? ChamfersOf(SectionOfMask(mask), ch) : (ch, ch); // only the body-height sections have skins
         float bl = (mask & (Left | Down)) != 0 ? 0f : chLow, br = (mask & (Right | Down)) != 0 ? 0f : chLow;
         float tl = (mask & (Left | Up)) != 0 ? 0f : chUp, tr = (mask & (Right | Up)) != 0 ? 0f : chUp;
         var p = new[]

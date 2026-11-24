@@ -248,11 +248,11 @@ public partial class CockpitScreenView : Control
         Txt(Loc.T("cp.speed"), 16, 50, 13, UiTheme.Muted);
         string speed = CockpitMath.Speed(f.Speed, Loc.Culture);
         Color speedColor = f.Boosting ? Cyan : UiTheme.Text;
-        Txt(speed, 14, 64, wide ? 66 : 54, speedColor);
-        float numW = Measure(speed, wide ? 66 : 54);
-        Txt(Loc.T("cp.unit"), 20 + numW, wide ? 106 : 96, 15, UiTheme.Muted);
-        Bar(new Rect2(16, wide ? 140 : 126, colW - 4, 10), f.SpeedFraction, f.Boosting ? Cyan : accent, f.TargetFraction); // the white mark is the demanded speed (the HUD gauge's target)
-        Txt("/ " + CockpitMath.Speed(f.MaxSpeed, Loc.Culture), colW - 80, wide ? 106 : 96, 13, UiTheme.Dim, HorizontalAlignment.Right, 76);
+        Txt(speed, 14, 64, wide ? 76 : 62, speedColor); // the key number: big enough to read from the seat at 720p, where the screen is about 150 pixels wide
+        float numW = Measure(speed, wide ? 76 : 62);
+        Txt(Loc.T("cp.unit"), 20 + numW, wide ? 118 : 106, 16, UiTheme.Muted);
+        Bar(new Rect2(16, wide ? 158 : 142, colW - 4, 10), f.SpeedFraction, f.Boosting ? Cyan : accent, f.TargetFraction); // the white mark is the demanded speed (the HUD gauge's target)
+        Txt("/ " + CockpitMath.Speed(f.MaxSpeed, Loc.Culture), colW - 80, wide ? 118 : 106, 13, UiTheme.Dim, HorizontalAlignment.Right, 76);
         // the boost chip
         if (f.BoostAvailable)
         {
@@ -262,7 +262,7 @@ public partial class CockpitScreenView : Control
             Icon("tool:boost", chip.Position.X + 6, chip.Position.Y + 3, 20, f.Boosting ? Colors.White : UiTheme.Dim);
             Txt(Loc.T("cp.boost"), chip.Position.X + 30, chip.Position.Y + 5, 13, f.Boosting ? Colors.White : UiTheme.Dim);
         }
-        float y = wide ? 160f : 142f;
+        float y = wide ? 178f : 160f;
         float step = wide ? 28f : 29f;
         GaugeLine(16, y, colW - 4, "status:speed", Loc.T("cp.thrust"), f.Thrust, accent, $"{Mathf.RoundToInt(f.Thrust * 100f)}%");
         y += step;
