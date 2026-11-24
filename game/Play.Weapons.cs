@@ -68,6 +68,7 @@ public partial class Play
     /// </summary>
     private void SyncLaserInHand()
     {
+        if (_overflowShotPath is not null) return; // --overflow-shot mines from the script: there is no mouse to hold the trigger
         bool want = _weaponGroup == WeaponGroup.Laser && !Standing && _tool != ToolMode.Build && !PanelOpen() && Net.HasPlayer(Player) && Net.HasMiningLaser(Player);
         if (want == _laserOn) return;
         if (want) { _laserOn = true; _laserOutOfRangeToasted = false; }
@@ -86,7 +87,7 @@ public partial class Play
         var info = Net.GetPlayerInfo(Player);
         if (!Net.HasGun(Player)) { _weaponGroup = WeaponGroup.Laser; if (info.Armed) Send(new SetWeapons(false)); return; }
         if (_world.PendingCommands > 0) return;
-        bool fire = _mouseLook && !Standing && !PanelOpen() && _tool != ToolMode.Build && _focus is null && Input.IsMouseButtonPressed(MouseButton.Left);
+        bool fire = _feelShotFire || (_mouseLook && !Standing && !PanelOpen() && _tool != ToolMode.Build && _focus is null && Input.IsMouseButtonPressed(MouseButton.Left)); // _feelShotFire: --gun-shot holds the trigger
         var commands = new List<Command>(2);
         if (fire && !Net.Rules.LegacyFeel && AimIsDue(out var aim)) commands.Add(new SetAim(aim.X, aim.Y, aim.Z));
         if (fire != info.Armed) commands.Add(new SetWeapons(fire));
@@ -269,7 +270,7 @@ public partial class Play
         {
             while (_tracers.Count <= i)
             {
-                var n = new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(0.09f, 0.09f, 1f) }, MaterialOverride = _tracerMat, Visible = false, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+                var n = new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(0.13f, 0.13f, 1f) }, MaterialOverride = _tracerMat, Visible = false, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
                 AddChild(n);
                 _tracers.Add(n);
             }
@@ -315,7 +316,7 @@ public partial class Play
                 _pickupNodes[k.Id] = node;
             }
             // Bigger for a bigger heap, smaller as it fades in the last ten seconds, turning slowly.
-            float size = 0.35f + Math.Min(0.6f, MathF.Sqrt(k.Count) * 0.05f);
+            float size = 0.7f + Math.Min(0.9f, MathF.Sqrt(k.Count) * 0.08f);
             float fade = Math.Clamp(k.Life / (10f * Units.TicksPerSecond), 0f, 1f);
             node.Position = new Vector3(k.X, k.Y, k.Z) / CellUnits;
             node.Scale = Vector3.One * size * fade;
@@ -402,7 +403,8 @@ public partial class Play
         _weaponLabel.AddThemeColorOverride("font_color", guns ? new Color(1f, 0.6f, 0.55f) : new Color(0.6f, 1f, 0.75f));
         var size = GetViewport().GetVisibleRect().Size;
         _weaponLabel.Size = new Vector2(size.X, 24f);
-        _weaponLabel.Position = new Vector2(0f, size.Y - 74f);
+        _weaponLabel.HorizontalAlignment = HorizontalAlignment.Center;
+        _weaponLabel.Position = new Vector2(0f, 150f); // under the frame gizmo at the top centre: clear of the middle of the view, the toasts and the hold strip
     }
 
     /// <summary>

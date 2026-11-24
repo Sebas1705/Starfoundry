@@ -29,6 +29,7 @@ public static partial class Loc
         // hold overflow
         ["toast.holdOverflow"] = ("Bodega llena: el sobrante flota junto a la roca. Acércate para recogerlo cuando haya sitio.", "Hold full: the surplus floats beside the rock. Fly close to collect it when there is room."),
         ["toast.pickupCollected"] = ("Recogido: {0}", "Picked up: {0}"),
+        ["toast.holdFullFloat"] = ("¡Bodega llena! El láser sigue rompiendo rocas y el sobrante flota junto a ellas; gasta o descarga objetos para hacer sitio y recógelo.", "Hold full! The laser still breaks rocks and the surplus floats beside them; spend or unload items to make room, then pick it up."),
         ["toast.holdSoftLimit"] = ("Bodega casi llena: el láser va más lento", "Hold nearly full: the laser slows down"),
 
         // the mining readout on the weapon card

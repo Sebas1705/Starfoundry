@@ -633,7 +633,7 @@ public partial class Play
         double now = Time.GetTicksMsec() / 1000.0;
         if (full && (!_holdWasFull || now >= _holdFullAgain))
         {
-            ToastLogistics(L("toast.holdFull"), 8.0);
+            ToastLogistics(L(Net.Rules.LegacyFeel ? "toast.holdFull" : "toast.holdFullFloat"), 8.0);
             _holdFullAgain = now + 25.0;
         }
         _holdWasFull = full;
