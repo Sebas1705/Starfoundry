@@ -17,6 +17,17 @@ public partial class Play
     private KeyPanel _keyPanel = null!;
     private bool _keyPanelBuilt;
     private Vector2 _keyMin;
+    private bool _keyTrimmed;
+    private float _keyFullH;
+
+    /// <summary>The right column (the info card, the star map with its list and the jump button) ends below where the full key panel would begin.</summary>
+    private bool KeyTight(Vector2 size)
+    {
+        float bottom = 0f;
+        if (_detailsOpen && _objectivesPanel.Visible) bottom = Math.Max(bottom, _objectivesPanel.Position.Y + _objectivesPanel.Size.Y);
+        if (_mapOpen && _map.Visible) bottom = Math.Max(bottom, Math.Max(_mapList.Position.Y + _mapList.Size.Y, _btnJump.Visible ? _btnJump.Position.Y + _btnJump.Size.Y : 0f));
+        return bottom > 0f && _keyFullH > 0f && bottom > size.Y - 8f - _keyFullH - 6f;
+    }
     private Rect2 _keyRect;
     private int _keyTipFrame;
     private int _damagedCount;
@@ -162,14 +173,18 @@ public partial class Play
         if (!_keyPanel.Visible) { _keyRect = new Rect2(size, Vector2.Zero); _keyPanelBuilt = false; return; }
         if (++_keyTipFrame % 120 == 0) _keyPanel.Invalidate(); // costs and locks in the tooltip change slowly
         int sizeClass = size.Y < 800f ? 0 : size.Y < 1000f ? 1 : 2;
+        // While the info card or the star map fills the right column and the full key panel would run into it, the panel drops the rows of the first-minutes actions.
+        bool tight = KeyTight(size);
+        if (tight != _keyTrimmed) { _keyTrimmed = tight; _keyPanelBuilt = false; }
         bool rebuilt = false;
         if (_hudDue || !_keyPanelBuilt)
         {
             rebuilt = _keyPanelBuilt = true; // the rows are worked out at most 15 times a second (and when the context changes)
-            _keyPanel.Set(HudDetails.TrimKeys(KeyHints.For(KeyStateNow()), CurrentHudDetail), sizeClass, KeyTip); // the minimal level drops the rows of the first-minutes actions
+            _keyPanel.Set(HudDetails.TrimKeys(KeyHints.For(KeyStateNow()), tight ? HudDetail.Minimal : CurrentHudDetail), sizeClass, KeyTip); // the minimal level drops the rows of the first-minutes actions
         }
         if (rebuilt || _keyMin == Vector2.Zero) { _keyPanel.ResetSize(); _keyMin = _keyPanel.GetCombinedMinimumSize(); _keyPanel.Size = _keyMin; }
         var panel = _keyMin;
+        if (!tight) _keyFullH = panel.Y;
         _keyPanel.Position = new Vector2(size.X - panel.X - 10f, size.Y - panel.Y - 8f);
         _keyRect = new Rect2(_keyPanel.Position, panel);
     }

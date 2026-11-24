@@ -359,6 +359,7 @@ public partial class Play
         _hudShotPath = userArgs.FirstOrDefault(a => a.StartsWith("--hud-shot="))?["--hud-shot=".Length..];
         _detailsOpen = userArgs.Contains("--hud-details");
         if (userArgs.Any(a => a.StartsWith("--hud-sweep="))) HudSweepSetup(userArgs);
+        if (userArgs.FirstOrDefault(a => a.StartsWith("--hud-level="))?["--hud-level=".Length..] is { } lvl && HudDetails.TryParse(lvl, out var shotLevel)) _hudDetailShot = shotLevel; // --hud-shot at a chosen detail level
 
         // Directional markers go last so they are never hidden under a panel.
         _markers = new MarkerLayer { Visible = false };
@@ -1423,10 +1424,10 @@ public partial class Play
         float y = _detailsOpen && _objectivesPanel.Visible ? _objectivesPanel.Position.Y + objSize.Y + 10 : 10f; // the steps card is only there with the info panels open
         if (_mapOpen && Net.Galaxy is not null)
         {
-            // The map shrinks (down to 160 px) so that the map, the system list and the Jump button all end above the key panel.
+            // The map shrinks (down to 100 px) so that the map, the system list and the Jump button all end above the key panel.
             var listSize = _mapList.GetCombinedMinimumSize();
             var jumpSize = _btnJump.GetCombinedMinimumSize();
-            float side = Math.Clamp(keyTop - 4f - y - listSize.Y - jumpSize.Y - 12f, 160f, 320f);
+            float side = Math.Clamp(keyTop - 4f - y - listSize.Y - jumpSize.Y - 12f, 100f, 320f); // down to 100 px when a tall info card leaves little room
             _map.CustomMinimumSize = new Vector2(side, side);
             _map.Size = _map.CustomMinimumSize;
             _map.Position = new Vector2(size.X - side - 12, y);
