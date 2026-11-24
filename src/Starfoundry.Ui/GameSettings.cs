@@ -48,6 +48,9 @@ public sealed record GameSettings
     /// <summary>Low texture quality: the procedural textures are generated at half their size (read when the game starts, so a change applies on the next launch).</summary>
     public bool LowTextures { get; init; }
 
+    /// <summary>Debug option (docs/prototypes/blender-pipeline.md): the starter cockpit's console, seat, frames and glass come from the Blender-authored glTF instead of the procedural meshes. The <c>--blender-cockpit</c> flag turns it on for one run.</summary>
+    public bool BlenderCockpit { get; init; }
+
     /// <summary>Legacy: the goal-waves slider of older versions. It is still parsed and written so an old settings file round-trips, but no screen shows it and no game reads it: the difficulty preset or scenario (<c>WorldRules.GoalWaves</c>) decides the goal.</summary>
     public int GoalWaves { get; init; } = GoalSettings.DefaultWaves;
 
@@ -90,6 +93,7 @@ public sealed record GameSettings
             new KeyValuePair<string, string>("smooth_look", s.SmoothLook ? "true" : "false"),
             new KeyValuePair<string, string>("fullscreen", s.Fullscreen ? "true" : "false"),
             new KeyValuePair<string, string>("low_textures", s.LowTextures ? "true" : "false"),
+            new KeyValuePair<string, string>("blender_cockpit", s.BlenderCockpit ? "true" : "false"),
             new KeyValuePair<string, string>("goal_waves", s.GoalWaves.ToString(CultureInfo.InvariantCulture)),
         };
     }
@@ -122,6 +126,7 @@ public sealed record GameSettings
                 case "smooth_look" when bool.TryParse(value, out bool sl): s = s with { SmoothLook = sl }; break;
                 case "fullscreen" when bool.TryParse(value, out bool fs): s = s with { Fullscreen = fs }; break;
                 case "low_textures" when bool.TryParse(value, out bool lt): s = s with { LowTextures = lt }; break;
+                case "blender_cockpit" when bool.TryParse(value, out bool bc): s = s with { BlenderCockpit = bc }; break;
                 case "goal_waves" when int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int gw): s = s with { GoalWaves = gw }; break;
             }
         }

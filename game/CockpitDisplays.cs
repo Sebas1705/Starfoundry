@@ -125,6 +125,7 @@ public partial class CockpitDisplays : Node
         }
         _module = module;
         if (module is null) return;
+        bool recessed = BlenderCockpit.IsOn(module); // the Blender console has recessed wells with their own bezels
         var bezelMat = new StandardMaterial3D { AlbedoColor = new Color(0.05f, 0.055f, 0.07f), Metallic = 0.6f, Roughness = 0.4f };
         for (int i = 0; i < 3; i++)
         {
@@ -139,6 +140,7 @@ public partial class CockpitDisplays : Node
             };
             module.AddChild(quad);
             _quads[i] = quad;
+            if (recessed) continue;
             var bezel = new MeshInstance3D
             {
                 Name = "CockpitBezel" + def.Screen,
