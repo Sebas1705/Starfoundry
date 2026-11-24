@@ -331,6 +331,10 @@ public partial class ShipDesigner : Control
 
         var (lasers, lp, guns, gp) = _editor.Hardpoints(_content);
         _weapons.Text = Loc.T("designer.weapons", lasers, lp, guns, gp);
+        if (_editor.Flight(_content, net.Network.BonusPercent(BonusKind.EngineSpeed), net.Network.BonusPercent(BonusKind.EngineAccel)) is { } fl)
+            _weapons.Text += "\n" + (fl.SecondsToTop > 0
+                ? Loc.T("designer.flight", fl.Engines, fl.TopCellsPerSecond.ToString("F1", Loc.Culture), fl.SecondsToTop.ToString("F1", Loc.Culture))
+                : Loc.T("designer.flightPlain", fl.Engines, fl.TopCellsPerSecond.ToString("F1", Loc.Culture)));
 
         // the verdict and the price
         var report = _editor.Check(net, _player);

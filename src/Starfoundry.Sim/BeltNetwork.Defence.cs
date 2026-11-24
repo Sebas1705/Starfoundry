@@ -243,8 +243,7 @@ public sealed partial class BeltNetwork
     private void LoseShip(Player p)
     {
         p.ShipLost = true;
-        p.MoveX = p.MoveY = p.MoveZ = 0;
-        p.ClearThrust();
+        p.ClearMotion();
         p.Boost = false;
         ClearMining(p);
         p.JumpTarget = -1;

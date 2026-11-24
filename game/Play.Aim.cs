@@ -363,6 +363,8 @@ public partial class Play
         {
             var (wx, wy, wz) = ModuleCentreUnits(st, mx, my, mz);
             if (!Net.WorldPointInRange(Player, wx, wy, wz, PlayerRules.BuildRangeCells)) return Why(Reject.OutOfRange);
+            long cu = Units.CellUnits, bx = st.OriginX + (long)mx * StationGrid.ModuleX * cu, by = st.OriginY + (long)my * StationGrid.ModuleY * cu, bz = st.OriginZ + (long)mz * StationGrid.ModuleZ * cu;
+            if (Net.BoxTouchesDepositRock(bx, by, bz, bx + StationGrid.ModuleX * cu, by + StationGrid.ModuleY * cu, bz + StationGrid.ModuleZ * cu)) return Why(Reject.OverlapsDeposit); // ADR 0033
         }
         if (_gameMode == GameMode.Campaign && _content.Structures is { } kinds)
         {
@@ -426,6 +428,7 @@ public partial class Play
                     && oz < mz0 + StationGrid.ModuleZ * cu && mz0 < ez)
                     return Why(Reject.Overlap);
             }
+        if (Net.BoxTouchesDepositRock(ox, oy, oz, ex, ey, ez)) return Why(Reject.OverlapsDeposit); // ADR 0033: the rock of a deposit is solid
         if (_gameMode == GameMode.Campaign && _content.Structures is { } kinds)
         {
             var cost = kinds.ModuleCost(ModuleKind.Core);

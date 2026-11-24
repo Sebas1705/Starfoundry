@@ -309,6 +309,9 @@ public enum Reject
 
     /// <summary>The ship is not docked at a station of its owner that has a shipyard module, so it cannot be redesigned.</summary>
     NoShipyard,
+
+    /// <summary>The module or core would stand inside the rock of a deposit (ADR 0033: deposits are solid): found or extend the station beside it.</summary>
+    OverlapsDeposit,
 }
 
 /// <summary>Outcome of one submitted command.</summary>

@@ -68,6 +68,8 @@ flowchart LR
 | `power_output` | `StepPower` (before the world rule percent) |
 | `jump_discount` | `JumpCost()` (items off every stack, never below 1) |
 | `mining_rate` | `MineTicksFor` (ticks per item of the ship's mining laser; two Basic nodes, [ADR 0027](../adr/0027-mining-laser-rules.md)) |
+| `engine_speed` | `EnginePercent` (the top speed of the ship, past the engine cap; ion thrusters and the plasma drive, [ADR 0033](../adr/0033-flight-inertia-solid-deposits-and-hit-volumes.md)); only in worlds with flight inertia |
+| `engine_accel` | `AccelRate` and `BrakeRate` (the acceleration and braking limits; thrust vectoring and the plasma drive); only in worlds with flight inertia |
 
 ## The research panel (logic)
 `ResearchEntry.Field`, `ResearchView.BuildByField` (basic, engineering, biology, physics; inside a field the usual state order), `FieldName`, and `ScienceColour` (amber `#F2A93B`, green `#5FC27A`, blue `#58A6FF`) for tinting the cost lines and icons. Item names, field names and bonus names are Loc keys in Spanish and English; points and item-count bonuses ("+10 points", "-1 carbon") have their own unlock texts. The game panel is not changed here.

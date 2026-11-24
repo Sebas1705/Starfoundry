@@ -960,6 +960,7 @@ public sealed partial class SimWorld
         if (ModuleKindIds.RequiredAbility(p.Kind) is { } needed && Campaign && !Network.HasAbility(needed)) return Reject.Locked;
         if (s!.Modules.ContainsKey((p.Mx, p.My, p.Mz))) return Reject.Overlap;
         if (Network.ModuleOverlapsDocked(p.Structure, p.Mx, p.My, p.Mz)) return Reject.Overlap; // a docked ship sits in that space
+        if (s.Kind == StructureKind.Station && ModuleTouchesDepositRock(s, p.Mx, p.My, p.Mz)) return Reject.OverlapsDeposit; // ADR 0033: a deposit's rock is solid
         if (s.Modules.Count > 0)
         {
             if (!Network.StructureModuleTouches(p.Structure, p.Mx, p.My, p.Mz)) return Reject.NotAdjacent;
@@ -1043,6 +1044,7 @@ public sealed partial class SimWorld
                     return Reject.Overlap;
             }
         }
+        if (Network.BoxTouchesDepositRock(ox, oy, oz, ex, ey, ez)) return Reject.OverlapsDeposit; // ADR 0033: a deposit's rock is solid
 
         var cost = kinds.ModuleCost(ModuleKind.Core);
         if (Campaign)
@@ -1054,6 +1056,13 @@ public sealed partial class SimWorld
         Network.AddStructureModuleUnchecked(id, 0, 0, 0, ModuleKind.Core);
         Network.CountStationFounded();
         return Reject.None;
+    }
+
+    private bool ModuleTouchesDepositRock(Structure s, int mx, int my, int mz)
+    {
+        long cu = Units.CellUnits;
+        long x0 = s.OriginX + (long)mx * StationGrid.ModuleX * cu, y0 = s.OriginY + (long)my * StationGrid.ModuleY * cu, z0 = s.OriginZ + (long)mz * StationGrid.ModuleZ * cu;
+        return Network.BoxTouchesDepositRock(x0, y0, z0, x0 + StationGrid.ModuleX * cu, y0 + StationGrid.ModuleY * cu, z0 + StationGrid.ModuleZ * cu);
     }
 
     private (long X, long Y, long Z) ModuleCentre(Structure s, int mx, int my, int mz)

@@ -133,6 +133,12 @@ public enum BonusKind
 
     /// <summary>The ship's mining laser mines faster: the ticks per item shrink (ADR 0027). 100 doubles the rate.</summary>
     MiningRate = 14,
+
+    /// <summary>The engines reach a higher top speed, also past the engine count cap (ADR 0033; only in worlds with flight inertia).</summary>
+    EngineSpeed = 15,
+
+    /// <summary>The ship accelerates and brakes harder (ADR 0033; only in worlds with flight inertia).</summary>
+    EngineAccel = 16,
 }
 
 /// <summary>The field a research node belongs to; shown grouped in the research panel. Basic is the original plate-only tier.</summary>
@@ -203,6 +209,19 @@ public static class DepositRules
     public const int DefaultDensity = 100;
     public const int MinDensity = 25;
     public const int MaxDensity = 200;
+
+    /// <summary>Radius of the rock model of a deposit at scale 1, in units (1.3 cells: what the model builder makes on average).</summary>
+    public const int BaseRockRadiusUnits = 312;
+
+    /// <summary>
+    /// How big the rock of a deposit is drawn, in thousandths: bigger deposits are bigger rocks, from 0.6 to 1.6 (0.55 + 0.6 * sqrt(initial / 600)).
+    /// The one source of truth: the game scales the rock by it and the collision uses it (ADR 0033).
+    /// </summary>
+    public static int RockScalePermille(int initial) =>
+        (int)Math.Clamp(550 + 600 * IntMath.ISqrt(Math.Max(0L, initial) * 1_000_000L / 600) / 1000, 600, 1600);
+
+    /// <summary>The nominal radius of the rock of a deposit in units (the drawn rock reaches further: see <see cref="WorldGenRules.DepositHitPercent"/>).</summary>
+    public static int NominalRadiusUnits(int initial) => RockScalePermille(initial) * BaseRockRadiusUnits / 1000;
 
     /// <summary>Ticks a time of <paramref name="baseTicks"/> takes at a density: base * 100 / density, never below 1.</summary>
     public static int Scale(int baseTicks, int density) => Math.Max(1, (int)((long)baseTicks * 100 / density));
@@ -578,6 +597,8 @@ public sealed class ContentDb
                                 "power_output" => BonusKind.PowerOutput,
                                 "jump_discount" => BonusKind.JumpDiscount,
                                 "mining_rate" => BonusKind.MiningRate,
+                                "engine_speed" => BonusKind.EngineSpeed,
+                                "engine_accel" => BonusKind.EngineAccel,
                                 _ => throw new InvalidDataException($"Research '{id}' has an unknown bonus kind."),
                             };
                             if (bonuses.Any(x => x.Kind == kind)) throw new InvalidDataException($"Research '{id}' lists a bonus kind twice.");

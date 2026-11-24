@@ -103,6 +103,8 @@ public partial class Play
         _engineLevel = AudioMix.Approach(_engineLevel, thrusting ? 1f : 0f, thrusting ? 1.5f : 0.9f, dt);
         float eng = ShipStruct >= 0 ? Net.ShipSpeedUnitsPerTick(Player) / (float)PlayerRules.MoveUnitsPerTick : 1f;
         float speed01 = _engineLevel * Math.Clamp(eng / 2f, 0f, 1f);
+        // With inertia the pitch follows the real speed and rises while the engines push hard (the speed is smoothed in Play.FlightFeel.cs).
+        if (Net.HasFlightInertia) speed01 = Math.Clamp(_speedCps / (3f * BaseCps) + 0.12f * _accelNorm, 0f, 1f) * Math.Max(_engineLevel, Math.Clamp(_speedCps / BaseCps, 0f, 1f) * 0.6f);
         _audio.SetLoop(Sfx.EngineLoop, AudioMix.EngineDb(_engineLevel, speed01), AudioMix.EnginePitch(speed01));
         _audio.SetLoop(Sfx.RoomTone, 0f);
 

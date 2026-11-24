@@ -154,8 +154,19 @@ public sealed partial class BeltNetwork
         return x;
     }
 
-    /// <summary>How fast the player's ship is commanded to go, in thousandths of a unit per tick (0 without a ship structure, thrust or movement).</summary>
+    /// <summary>
+    /// How fast the player's ship goes, in thousandths of a unit per tick (0 without a ship structure): the commanded speed, and with flight inertia
+    /// (ADR 0033) at least the real speed, so a ship that still coasts after the thrust was released is too fast to dock.
+    /// </summary>
     public int ShipSpeedMilli(int player)
+    {
+        int commanded = CommandedSpeedMilli(player);
+        if (!FlightInertia || !_players.TryGetValue(player, out var p) || !p.HasVelocity) return commanded;
+        long real = ISqrt((long)p.VelX * p.VelX + (long)p.VelY * p.VelY + (long)p.VelZ * p.VelZ);
+        return (int)Math.Max(commanded, real);
+    }
+
+    private int CommandedSpeedMilli(int player)
     {
         if (!_players.TryGetValue(player, out var p) || p.ShipStructure < 0 || !_structures.TryGetValue(p.ShipStructure, out var s)) return 0;
         long full = (long)PlayerRules.MoveUnitsPerTick * EnginePercent(s) * s.Satisfaction / StructureFlight.PercentScale; // thousandths of a unit per tick at full thrust
@@ -295,8 +306,7 @@ public sealed partial class BeltNetwork
         ship.OriginX = pose.X; ship.OriginY = pose.Y; ship.OriginZ = pose.Z;
         ship.Attitude = Attitude.Identity; // the ship settles onto the port's axes: the pose is lattice aligned
         SyncPlayerToStructure(p, ship);
-        p.MoveX = p.MoveY = p.MoveZ = 0;
-        p.ClearThrust();
+        p.ClearMotion();
         ship.DockedTo = d.Station;
         ship.DockShipModule = (c.ShipMx, c.ShipMy, c.ShipMz); ship.DockShipFace = DockRules.Opposite(d.Face);
         ship.DockStationModule = (d.Mx, d.My, d.Mz); ship.DockStationFace = d.Face;

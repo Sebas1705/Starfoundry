@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using Starfoundry.Sim;
 
 namespace Starfoundry.Game;
 
@@ -32,7 +33,7 @@ public sealed partial class DepositView : Node3D
     public static int Bucket(int density) => density < 60 ? 0 : density <= 120 ? 1 : 2;
 
     /// <summary>Rock size multiplier from the initial amount: bigger deposits are bigger rocks.</summary>
-    public static float RockScale(int initial) => Mathf.Clamp(0.55f + 0.6f * MathF.Sqrt(MathF.Max(0, initial) / 600f), 0.6f, 1.6f);
+    public static float RockScale(int initial) => DepositRules.RockScalePermille(initial) / 1000f; // the simulation's size: its collision uses the same rock (ADR 0033)
 
     /// <summary>Number of chunks a full deposit shows: 2 at density 25, about 9 at 100, about 22 at 200.</summary>
     public static int ChunkCount(int density) => Mathf.Clamp((int)MathF.Round(0.1f * density - 0.5f + density * density * 0.00022f), 2, 26);

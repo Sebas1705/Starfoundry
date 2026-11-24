@@ -32,9 +32,13 @@ public sealed partial class StructureBot
         foreach (var (x, y, z) in new[] { (0, -1, 1), (1, -1, 1) })
             if (Need(new[] { new ItemStack(Item("core:carbon"), 8) }, "carbon for a wing reactor")) PlaceModule(_station, x, y, z, ModuleKind.Reactor);
 
+        // The plasma drive (ADR 0033) needs thrust vectoring, which needs ion thrusters: both are plates and carbon, so they come first.
+        ResearchNow("core:ion_thrusters");
+        FetchCarbon(24, "carbon for the thrust vectoring");
+        ResearchNow("core:thrust_vectoring", CarbonRaw);
         // Engineering: circuits (silicon and nickel plates) and iron plates into the bench.
         BuildWing(1, 2, EngineeringWing, "engineering");
-        foreach (var (id, science) in new[] { ("core:structural_plating", 10), ("core:alloy_hulls", 15), ("core:repair_drones", 20), ("core:automated_turrets", 25), ("core:cargo_expansion", 30) })
+        foreach (var (id, science) in new[] { ("core:structural_plating", 10), ("core:alloy_hulls", 15), ("core:repair_drones", 20), ("core:automated_turrets", 25), ("core:cargo_expansion", 30), ("core:plasma_drive", 35) })
         {
             EnsureMetals(science);
             ResearchNow(id);

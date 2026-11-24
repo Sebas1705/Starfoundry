@@ -192,7 +192,7 @@ void sky() {
     private static DirectionalLight3D? _sun, _fill;
     private static GpuParticles3D? _dust;
     private static Godot.Environment? _environment;
-    private static GpuParticles3D? _streaks;
+    private static MeshInstance3D? _streaks;
     private static StandardMaterial3D? _streakMaterial;
     private static Vector3 _tracked;
 
@@ -260,7 +260,7 @@ void sky() {
         root.AddChild(_streaks);
         var lastPos = Vector3.Zero;
         bool hasLast = false;
-        float speed = 0f;
+        var velocity = Vector3.Zero;
         void Update()
         {
             Follow();
@@ -270,21 +270,20 @@ void sky() {
             var p = _tracked;
             if (hasLast && dt > 1e-4 && (p - lastPos).Length() < 120f * (float)dt) // a bigger step is a teleport (a jump, a respawn), not flight
             {
+                // The velocity vector in the world, smoothed so a sudden start or stop eases in and the streaks never snap.
                 var v = (p - lastPos) / (float)dt;
-                speed = Mathf.Lerp(speed, v.Length(), (float)Math.Min(1.0, dt * 4.0));
-                if (v.Length() > 0.5f)
-                {
-                    // The specks hang in the world and the ship moves through them, so streaks lie along the travel direction.
-                    ((ParticleProcessMaterial)_streaks.ProcessMaterial).Direction = v.Normalized();
-                }
+                velocity = velocity.Lerp(v, (float)Math.Min(1.0, dt * 8.0));
             }
-            _streaks.GlobalPosition = cam.GlobalPosition;
+            else if (hasLast) velocity = Vector3.Zero;
+            if (ForcedVelocity is { } forced) velocity = forced; // scripted shots (--streak-shot)
             lastPos = p;
             hasLast = true;
+            float speed = velocity.Length();
             float k = Mathf.Clamp((speed - StreakStartSpeed) / (StreakFullSpeed - StreakStartSpeed), 0f, 1f);
-            _streaks.Emitting = k > 0.02f;
-            _streaks.Visible = k > 0.02f;
-            if (_streakMaterial is not null) _streakMaterial.AlbedoColor = new Color(0.8f, 0.88f, 1f, 0.5f * k);
+            k = k * k * (3f - 2f * k); // eased fade in with speed
+            _streaks.Visible = k > 0.01f;
+            _streaks.GlobalTransform = Transform3D.Identity; // the mesh is built in world space
+            DrawStreaks(cam.GlobalPosition, velocity, k);
             if (_environment is not null) _environment.FogDensity = 0.0012f + 0.0012f * k;
         }
         tree.ProcessFrame += Update;
@@ -367,45 +366,102 @@ void sky() {
         }
     }
 
-    private const float StreakStartSpeed = 4f, StreakFullSpeed = 22f;
+    private const float StreakStartSpeed = 1.2f, StreakFullSpeed = 16f;
+    private const int StreakCount = 260;
+    private const float StreakBox = 30f;
 
-    /// <summary>Long thin specks aligned with the travel direction, faded in with speed (the dust seen as motion lines).</summary>
-    private static GpuParticles3D BuildStreaks()
+    /// <summary>Where the motion streaks stand (offsets of the specks inside a box that follows the camera) and how they are drawn.</summary>
+    private static Vector3[] _streakSeeds = Array.Empty<Vector3>();
+    private static ImmediateMesh? _streakMesh;
+
+    /// <summary>
+    /// The motion streaks: fixed specks of the world seen from the moving ship (ADR 0033). Each one is a thin quad drawn from the speck towards
+    /// the direction of travel, so the lines converge on the point the ship is heading to and flow past opposite to the motion. They are built
+    /// in world space from the velocity vector and the camera position, so nothing about them depends on the camera's up or on a particle's own
+    /// velocity (the particle version aligned to a nearly zero velocity and drew vertical lines).
+    /// </summary>
+    private static MeshInstance3D BuildStreaks()
     {
-        var process = new ParticleProcessMaterial
-        {
-            EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Box,
-            EmissionBoxExtents = new Vector3(26f, 18f, 26f),
-            Direction = new Vector3(0f, 0f, -1f),
-            Spread = 0f,
-            InitialVelocityMin = 0.01f,
-            InitialVelocityMax = 0.02f,
-            Gravity = Vector3.Zero,
-            ParticleFlagAlignY = true,
-            ScaleMin = 0.6f,
-            ScaleMax = 1.6f,
-        };
         _streakMaterial = new StandardMaterial3D
         {
             ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
             Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-            BillboardMode = BaseMaterial3D.BillboardModeEnum.Particles,
-            AlbedoColor = new Color(0.8f, 0.88f, 1f, 0f),
             BlendMode = BaseMaterial3D.BlendModeEnum.Add,
+            VertexColorUseAsAlbedo = true,
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            NoDepthTest = false,
         };
-        return new GpuParticles3D
+        var rng = new Random(7741);
+        _streakSeeds = new Vector3[StreakCount];
+        for (int i = 0; i < StreakCount; i++)
+            _streakSeeds[i] = new Vector3((float)rng.NextDouble(), (float)rng.NextDouble(), (float)rng.NextDouble()) * (2f * StreakBox);
+        _streakMesh = new ImmediateMesh();
+        return new MeshInstance3D
         {
-            Amount = 220,
-            Lifetime = 2.5,
-            Preprocess = 2.5,
-            LocalCoords = false,
-            Emitting = false,
-            ProcessMaterial = process,
-            DrawPass1 = new QuadMesh { Size = new Vector2(0.025f, 2.4f), Material = _streakMaterial },
+            Mesh = _streakMesh,
+            MaterialOverride = _streakMaterial,
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-            VisibilityAabb = new Aabb(new Vector3(-32f, -22f, -32f), new Vector3(64f, 44f, 64f)),
+            ExtraCullMargin = 4096f,
+            Visible = false,
+            Name = "MotionStreaks",
         };
     }
+
+    /// <summary>
+    /// Rebuilds the streak quads for the camera at <paramref name="cam"/> and the world velocity <paramref name="velocity"/> (units per second).
+    /// <paramref name="fade"/> is 0 at rest and 1 from <see cref="StreakFullSpeed"/> on. Public so a headless shot can check the geometry.
+    /// </summary>
+    public static void DrawStreaks(Vector3 cam, Vector3 velocity, float fade)
+    {
+        if (_streakMesh is null) return;
+        _streakMesh.ClearSurfaces();
+        DebugSegments?.Clear();
+        float speed = velocity.Length();
+        if (fade <= 0.01f || speed < 0.2f) return;
+        var dir = velocity / speed;
+        // The exposure of the line: the distance the ship covers in a short time, so a streak is longer the faster the ship flies.
+        float length = Mathf.Clamp(speed * 0.12f, 0.35f, 12f);
+        float half = 0.02f + 0.01f * Mathf.Clamp(speed / 24f, 0f, 1f);
+        _streakMesh.SurfaceBegin(Mesh.PrimitiveType.Triangles);
+        float box = 2f * StreakBox;
+        for (int i = 0; i < StreakCount; i++)
+        {
+            var seed = _streakSeeds[i];
+            // The speck is fixed in the world: its offset from the camera wraps inside the box, so the field is endless and never moves with the ship.
+            var rel = new Vector3(Wrap(seed.X - cam.X, box), Wrap(seed.Y - cam.Y, box), Wrap(seed.Z - cam.Z, box)) - new Vector3(StreakBox, StreakBox, StreakBox);
+            float dist = rel.Length();
+            if (dist < 2.5f) continue;
+            // Fade at the edge of the box (a speck wraps there) and very close to the eye.
+            float edge = Mathf.Clamp((StreakBox - Mathf.Max(Mathf.Abs(rel.X), Mathf.Max(Mathf.Abs(rel.Y), Mathf.Abs(rel.Z)))) / 5f, 0f, 1f);
+            float near = Mathf.Clamp((dist - 2.5f) / 4f, 0f, 1f);
+            float a = 0.85f * fade * edge * near * (0.45f + 0.55f * (seed.X * 7.31f % 1f));
+            if (a < 0.01f) continue;
+            var p0 = cam + rel;                 // where the speck is
+            var p1 = p0 + dir * length;         // the line points towards where the ship is heading: the speck slides back along it
+            var side = rel.Cross(dir);
+            if (side.LengthSquared() < 1e-6f) continue; // exactly ahead or behind: it is a point, not a line
+            DebugSegments?.Add((p0, p1));
+            side = side.Normalized() * half * Mathf.Clamp(dist / 10f, 0.7f, 3f);
+            var head = new Color(0.82f, 0.9f, 1f, a);
+            var tail = new Color(0.82f, 0.9f, 1f, 0f);
+            // p0 is the bright end (the speck), p1 fades out.
+            _streakMesh.SurfaceSetColor(head); _streakMesh.SurfaceAddVertex(p0 - side);
+            _streakMesh.SurfaceSetColor(head); _streakMesh.SurfaceAddVertex(p0 + side);
+            _streakMesh.SurfaceSetColor(tail); _streakMesh.SurfaceAddVertex(p1 + side);
+            _streakMesh.SurfaceSetColor(head); _streakMesh.SurfaceAddVertex(p0 - side);
+            _streakMesh.SurfaceSetColor(tail); _streakMesh.SurfaceAddVertex(p1 + side);
+            _streakMesh.SurfaceSetColor(tail); _streakMesh.SurfaceAddVertex(p1 - side);
+        }
+        _streakMesh.SurfaceEnd();
+    }
+
+    /// <summary>A scripted shot sets the world velocity the streaks use (units per second); null in play.</summary>
+    public static Vector3? ForcedVelocity;
+
+    /// <summary>When not null, <see cref="DrawStreaks"/> records each line it draws (the speck and the far end), for the streak shot to check against the view.</summary>
+    public static System.Collections.Generic.List<(Vector3 From, Vector3 To)>? DebugSegments;
+
+    private static float Wrap(float v, float size) => v - size * Mathf.Floor(v / size);
 
     private static GpuParticles3D BuildDust()
     {

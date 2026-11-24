@@ -14,6 +14,9 @@ In space there is no up. The old cockpit camera was a yaw and a pitch about a wo
 - **Docking.** A docking port is axis-aligned, so the simulation docks only within about 15 degrees of its axes (see below); once docked the ship settles onto the port's axes (about a second).
 - **Removed.** The compass strip (`Compass`, `_flightHeading`), the artificial ground rings of the build and mine range (now drawn only in the scripted overview camera) and the world-"down" offset of the mining beam (it is the camera's down now).
 
+## Inertia (ADR 0033)
+Since ADR 0033 the thrust vector is a throttle, not a speed: it sets the velocity the ship is asked for (its length is the share of the top speed) and the simulation's velocity follows it with an acceleration limit and a stronger braking limit, so the ship builds speed over about a second, keeps coasting when the keys are released and brakes in about half a second (one engine; boost and engine research shorten both). Nothing in the client's steering changes, but what it shows does: the speed card has a gauge (the real speed against the thrust's target, see [flight feel](flight-feel.md)), two rings on the 3D view mark where the ship is going and where it came from, and the dust streaks, the field of view, the flame and the sound follow the speed. Flying hands-off at speed and braking by pointing at the amber cross and thrusting is the intended way to stop at a rock.
+
 ## Keys
 
 | Key | Action |

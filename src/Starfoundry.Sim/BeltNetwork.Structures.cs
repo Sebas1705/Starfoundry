@@ -72,7 +72,61 @@ public sealed partial class BeltNetwork
         if (kinds is null) return 0;
         long total = 0;
         foreach (var k in s.ModuleMap.Values) if (k == ModuleKind.Engine) total += kinds.EngineSpeedPercent(k);
-        return (int)Math.Min(total, StructureFlight.MaxSpeedPercent);
+        long percent = Math.Min(total, StructureFlight.MaxSpeedPercent);
+        if (FlightInertia) percent = percent * (100 + _bonus[(int)BonusKind.EngineSpeed]) / 100; // ADR 0033: engine research raises the top speed past the engine cap
+        return (int)percent;
+    }
+
+    /// <summary>True when ships of this world have inertia: structure rules, content that defines it and not <see cref="WorldRules.LegacyFlight"/> (ADR 0033).</summary>
+    public bool HasFlightInertia => FlightInertia;
+
+    /// <summary>True when ships of this world have inertia: structure rules, content that defines it and not <see cref="WorldRules.LegacyFlight"/> (ADR 0033).</summary>
+    internal bool FlightInertia => StructureRules && !Rules.LegacyFlight && WorldGen is { HasInertia: true };
+
+    /// <summary>The engine percent of a ship in flight: engines (and their research), boost and clouds. What the target velocity is made of.</summary>
+    private int FlightPercent(Structure s, int structure)
+    {
+        int percent = EnginePercent(s);
+        if (WorldGen is { } wg)
+        {
+            // Clouds slow the engines; boost multiplies them (ADR 0028). Both are stateless: computed from the positions of now.
+            foreach (var q in _players.Values) if (q.ShipStructure == structure && q.Boost) { percent = percent * wg.BoostPercent / 100; break; }
+            int slow = CloudEffectOf(structure).SlowPercent;
+            if (slow > 0) percent = percent * (100 - slow) / 100;
+        }
+        return percent;
+    }
+
+    private const int MinVelocityRate = 4;
+
+    /// <summary>Full engine speed in thousandths of a unit per tick for an engine percent: the length of the target velocity at full thrust.</summary>
+    private long FullSpeedMilli(Structure s, int percent) =>
+        (long)PlayerRules.MoveUnitsPerTick * percent * s.Satisfaction / StructureFlight.PercentScale;
+
+    /// <summary>The acceleration limit (thousandths of a unit per tick, per tick) at an engine percent, with the engine research bonus.</summary>
+    private long AccelRate(Structure s, int percent) =>
+        Math.Max(MinVelocityRate, FullSpeedMilli(s, percent) / WorldGen!.AccelTicks * (100 + _bonus[(int)BonusKind.EngineAccel]) / 100);
+
+    /// <summary>The braking limit: stronger than the acceleration limit (also with the engine research bonus).</summary>
+    private long BrakeRate(Structure s, int percent) =>
+        Math.Max(MinVelocityRate, FullSpeedMilli(s, percent) / WorldGen!.BrakeTicks * (100 + _bonus[(int)BonusKind.EngineAccel]) / 100);
+
+    /// <summary>The ship's velocity in thousandths of a unit per tick (zero without inertia: there the position follows the thrust at once).</summary>
+    public (int X, int Y, int Z) ShipVelocityMilli(int player) =>
+        _players.TryGetValue(player, out var p) ? (p.VelX, p.VelY, p.VelZ) : (0, 0, 0);
+
+    /// <summary>The speed the ship's engines reach at full thrust right now (boost, clouds and power included), in thousandths of a unit per tick. 0 when it cannot fly.</summary>
+    public int ShipTopSpeedMilli(int player)
+    {
+        if (!_players.TryGetValue(player, out var p) || p.ShipStructure < 0 || !_structures.TryGetValue(p.ShipStructure, out var s) || s.DockedTo >= 0) return 0;
+        return (int)FullSpeedMilli(s, FlightPercent(s, p.ShipStructure));
+    }
+
+    /// <summary>The acceleration limit of the ship now, in thousandths of a unit per tick per tick (0 without inertia or without a ship).</summary>
+    public int ShipAccelMilli(int player)
+    {
+        if (!FlightInertia || !_players.TryGetValue(player, out var p) || p.ShipStructure < 0 || !_structures.TryGetValue(p.ShipStructure, out var s) || s.DockedTo >= 0) return 0;
+        return (int)AccelRate(s, FlightPercent(s, p.ShipStructure));
     }
 
     /// <summary>Ship speed along one axis in units per tick for the player's ship structure: the base speed times the engines' percent
@@ -123,8 +177,7 @@ public sealed partial class BeltNetwork
         if (s.DockedTo >= 0 || !CanFlyStructure(s))
         {
             // The last engine or cockpit is gone: the ship stops where it is.
-            p.MoveX = p.MoveY = p.MoveZ = 0;
-            p.ClearThrust();
+            p.ClearMotion();
             return;
         }
 
@@ -136,6 +189,7 @@ public sealed partial class BeltNetwork
             int slow = CloudEffectOf(structure).SlowPercent;
             if (slow > 0) percent = percent * (100 - slow) / 100;
         }
+        if (FlightInertia) { MoveInertial(p, s, percent); return; }
         static int Advance(long numerator, ref int rem, int denominator)
         {
             long acc = numerator + rem;
@@ -170,6 +224,61 @@ public sealed partial class BeltNetwork
         nx = (int)ClampToWorld(nx); ny = (int)ClampToWorld(ny); nz = (int)ClampToWorld(nz);
         s.OriginX += nx - p.X; s.OriginY += ny - p.Y; s.OriginZ += nz - p.Z;
         p.X = nx; p.Y = ny; p.Z = nz;
+    }
+
+    /// <summary>
+    /// Flight with inertia (ADR 0033): the thrust or axis intent sets a target velocity; the velocity then approaches it by at most the acceleration
+    /// limit per tick (the braking limit when it slows down or turns round), and the position moves by the velocity. All integers, the sub-unit
+    /// remainder carried, so it is deterministic and loses nothing.
+    /// </summary>
+    private void MoveInertial(Player p, Structure s, int percent)
+    {
+        long tx, ty, tz;
+        if (p.HasThrust)
+        {
+            long k = (long)PlayerRules.MoveUnitsPerTick * percent * s.Satisfaction;
+            long den = (long)PlayerRules.ThrustScale * StructureFlight.PercentScale;
+            tx = p.ThrustX * k / den; ty = p.ThrustY * k / den; tz = p.ThrustZ * k / den;
+        }
+        else
+        {
+            int axes = Math.Abs(p.MoveX) + Math.Abs(p.MoveY) + Math.Abs(p.MoveZ);
+            int speed = axes switch { 0 => 0, 1 => PlayerRules.MoveUnitsPerTick, 2 => PlayerRules.MoveUnitsPerTickDiagonal2, _ => PlayerRules.MoveUnitsPerTickDiagonal3 };
+            long k = (long)speed * percent * s.Satisfaction / StructureFlight.PercentScale;
+            tx = p.MoveX * k; ty = p.MoveY * k; tz = p.MoveZ * k;
+        }
+
+        long dx = tx - p.VelX, dy = ty - p.VelY, dz = tz - p.VelZ;
+        long d2 = dx * dx + dy * dy + dz * dz;
+        if (d2 != 0)
+        {
+            long v2 = (long)p.VelX * p.VelX + (long)p.VelY * p.VelY + (long)p.VelZ * p.VelZ;
+            long t2 = tx * tx + ty * ty + tz * tz, dot = tx * p.VelX + ty * p.VelY + tz * p.VelZ;
+            bool braking = t2 < v2 || dot < 0;
+            long rate = braking ? BrakeRate(s, percent) : AccelRate(s, percent);
+            long full = FullSpeedMilli(s, percent);
+            if (braking && v2 > full * full) rate = Math.Max(rate, IntMath.ISqrt(v2) / (2L * WorldGen!.BrakeTicks)); // over the engine speed (a boost that ended, a cloud): shed it faster
+            if (d2 <= rate * rate) { p.VelX = (int)tx; p.VelY = (int)ty; p.VelZ = (int)tz; }
+            else
+            {
+                long len = IntMath.ISqrt(d2);
+                p.VelX += (int)(dx * rate / len); p.VelY += (int)(dy * rate / len); p.VelZ += (int)(dz * rate / len);
+            }
+        }
+
+        static int Advance(int velocity, ref int rem)
+        {
+            int acc = velocity + rem;
+            rem = acc % 1000;
+            return acc / 1000;
+        }
+        long nx = p.X + Advance(p.VelX, ref p.VelRemX), ny = p.Y + Advance(p.VelY, ref p.VelRemY), nz = p.Z + Advance(p.VelZ, ref p.VelRemZ);
+        long cx = ClampToWorld(nx), cy = ClampToWorld(ny), cz = ClampToWorld(nz);
+        if (cx != nx) { p.VelX = 0; p.VelRemX = 0; }
+        if (cy != ny) { p.VelY = 0; p.VelRemY = 0; }
+        if (cz != nz) { p.VelZ = 0; p.VelRemZ = 0; }
+        s.OriginX += cx - p.X; s.OriginY += cy - p.Y; s.OriginZ += cz - p.Z;
+        p.X = (int)cx; p.Y = (int)cy; p.Z = (int)cz;
     }
 
     /// <summary>True if the drill's cell centre is within <see cref="ExplorationRules.DrillRangeCells"/> of the deposit centre (world positions, so

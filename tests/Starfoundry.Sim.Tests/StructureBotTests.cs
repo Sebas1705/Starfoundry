@@ -60,6 +60,24 @@ public class StructureBotTests
     }
 
     [Fact]
+    public void Relaxed_wins_before_Normal_and_inside_its_band()
+    {
+        // After ADR 0033 the solid deposit rocks pushed the station away from the mining spot and Relaxed came out slower than Normal (55:35); the bot now keeps the trips short.
+        const string win = "VICTORY: waves survived with a station standing";
+        double Run(string preset)
+        {
+            var r = new StructureBot(TestContent.CoreFloor, Seed, threats: true, rules: WorldRules.Preset(preset)!) { ActionDelaySeconds = 6 }.Run(120 * 60);
+            Assert.True(r.Has(win), $"{preset}: no win");
+            return Min(r, win);
+        }
+        double relaxed = Run("relaxed"), normal = Run("normal");
+        _out.WriteLine($"relaxed {relaxed:F1}, normal {normal:F1}");
+        Assert.True(relaxed < normal, $"Relaxed {relaxed:F1} must win before Normal {normal:F1}");
+        Assert.InRange(relaxed, 40, 52);
+        Assert.InRange(normal, 45, 55);
+    }
+
+    [Fact]
     public void Bot_wins_the_campaign()
     {
         var r = Play();
@@ -120,15 +138,17 @@ public class StructureBotTests
     [Fact]
     public void Bot_researches_the_whole_tree_with_drones_when_left_alone()
     {
-        // No waves: the economy alone. Measured (seed 20261121): the last of the 17 nodes (advanced plating, with three feeds on the two free faces of the lab, included) at about minute 95, the first drone at 35.
-        var r = Play(continueAfterWin: true, minutes: 140, threats: false);
+        // No waves: the economy alone. Flight with inertia, the deposit rocks and the planned approach poses make the bot's trips about 15 percent slower than before ADR 0033
+        // (the last of the 17 nodes, the beam collimator, was done at minute 119 and is now at about 132 with the same iron), and the 12000 iron of the home deposit is gone by about minute 126:
+        // the home deposits hold 125 percent here so the plan can finish (the win and the other tests are not affected). The two engine nodes of ADR 0033 (plates and carbon) are left to the science mode.
+        var r = new StructureBot(TestContent.CoreFloor, Seed, threats: false, rules: new WorldRules { DepositRichnessPercent = 125 }) { ContinueAfterVictory = true }.Run(150 * 60);
         _out.WriteLine(r.Format());
         // The electronics branch (silicon, circuits, shields, sensors, Mk2 power) is only part of the science mode (see the next test).
-        var planned = TestContent.CoreFloor.Research.Where(n => n.Field == ResearchField.Basic && !n.Id.StartsWith("core:silicon_") && n.Id is not ("core:electronics" or "core:shielding" or "core:sensors" or "core:advanced_power")).ToList();
+        var planned = TestContent.CoreFloor.Research.Where(n => n.Field == ResearchField.Basic && !n.Id.StartsWith("core:silicon_") && n.Id is not ("core:electronics" or "core:shielding" or "core:sensors" or "core:advanced_power" or "core:ion_thrusters" or "core:thrust_vectoring")).ToList();
         foreach (var node in planned)
             Assert.True(r.Has("Researched " + node.Id.Replace("core:", "")), $"'{node.Id}' was never researched");
         double last = planned.Max(n => Min(r, "Researched " + n.Id.Replace("core:", "")));
-        Assert.True(last <= 120, $"the last node came at minute {last:F1}");
+        Assert.True(last <= 140, $"the last node came at minute {last:F1}");
         Assert.True(Min(r, "First drone bay built") <= 45, $"the first drone bay came at minute {Min(r, "First drone bay built"):F1}");
         Assert.True(r.MinedByDrones > 2000, $"drones mined only {r.MinedByDrones}");
         // Hydrogen holds: the ice deposit of home (1500 to 2000) lasts, so no reactor ran dry for more than a few minutes in two hours.

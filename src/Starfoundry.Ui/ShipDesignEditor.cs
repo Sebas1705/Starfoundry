@@ -155,6 +155,27 @@ public sealed class ShipDesignEditor
         return ((x0 - margin, y0 - margin, z0 - margin), (x1 + margin, y1 + margin, z1 + margin));
     }
 
+    /// <summary>
+    /// What the layout's engines give (ADR 0033): how many there are, the top speed in cells per second and the seconds from rest to the top speed. The engine
+    /// percent is capped like the simulation's, then raised by the research bonuses; the time is the content's acceleration time shortened by the acceleration bonus.
+    /// Null without engines or when the world has no flight inertia (the time is then 0).
+    /// </summary>
+    public (int Engines, double TopCellsPerSecond, double SecondsToTop)? Flight(ContentDb content, int speedBonusPercent, int accelBonusPercent)
+    {
+        if (content.Structures is not { } kinds) return null;
+        int engines = 0;
+        long percent = 0;
+        foreach (var k in _staged.Values)
+            if (k == ModuleKind.Engine) { engines++; percent += kinds.EngineSpeedPercent(k); }
+        if (engines == 0) return null;
+        bool inertia = content.World is { HasInertia: true };
+        percent = Math.Min(percent, StructureFlight.MaxSpeedPercent);
+        if (inertia) percent = percent * (100 + speedBonusPercent) / 100;
+        double top = PlayerRules.MoveUnitsPerTick * (double)Units.TicksPerSecond / Units.CellUnits * percent / StructureFlight.PercentScale;
+        double seconds = inertia ? content.World!.AccelTicks * 100.0 / (100 + accelBonusPercent) / Units.TicksPerSecond : 0.0;
+        return (engines, top, seconds);
+    }
+
     /// <summary>What the layout's hardpoints add up to: lasers, their summed strength in percent, guns and their summed strength.</summary>
     public (int Lasers, int LaserPercent, int Guns, int GunPercent) Hardpoints(ContentDb content)
     {

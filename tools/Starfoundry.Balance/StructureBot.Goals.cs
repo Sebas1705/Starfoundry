@@ -250,8 +250,34 @@ public sealed partial class StructureBot
         var core = _c.Structures!.ModuleCost(ModuleKind.Core);
         if (!Need(core, "the station core")) return;
         var p = Net.GetPlayerInfo(0);
-        int wx = FloorCell(p.X), wy = FloorCell(p.Y), wz = FloorCell(p.Z) - 16; // ahead of the cockpit, past the nose laser module (ADR 0032), inside build range of everything
-        var r = Act(new FoundStation(wx, wy, wz));
+        // Ahead of the cockpit, past the nose laser module (ADR 0032), inside build range of everything. A deposit's rock is solid (ADR 0033): the station grows to about
+        // 40 by 20 by 40 cells (four modules along x, the defence and the wings), so a player looks for a spot whose whole footprint is clear of the rocks (the green volume
+        // would turn red), and so does the bot: the clear spot nearest to the default one, with the core inside build range and clear of the ship.
+        int px = FloorCell(p.X), py = FloorCell(p.Y), pz = FloorCell(p.Z);
+        var ship = Net.GetStructure(Net.ShipStructure(0));
+        var shipBoxes = ship.Modules.Keys.Select(k => Net.ModuleWorldBounds(ship, k)).ToArray();
+        bool Footprint(int cx, int cy, int cz) =>
+            Net.BoxTouchesDepositRock(cx * (long)Cell, (cy - 8) * (long)Cell, (cz - 20) * (long)Cell, (cx + 40) * (long)Cell, (cy + 12) * (long)Cell, (cz + 20) * (long)Cell, 1L * Cell);
+        bool ClearOfShip(int cx, int cy, int cz) =>
+            shipBoxes.All(bx => !(cx * (long)Cell < bx.Max.X && bx.Min.X < (cx + 8) * (long)Cell && cy * (long)Cell < bx.Max.Y && bx.Min.Y < (cy + 4) * (long)Cell && cz * (long)Cell < bx.Max.Z && bx.Min.Z < (cz + 8) * (long)Cell));
+        var candidates = new List<(int X, int Y, int Z)>();
+        for (int dx = -24; dx <= 24; dx += 2)
+            for (int dy = -8; dy <= 8; dy += 4)
+                for (int dz = -34; dz <= 8; dz += 2)
+                {
+                    double ex = dx + 4, ey = dy + 2, ez = dz + 4; // from the ship to the centre of the core
+                    if (ex * ex + ey * ey + ez * ez > 21.0 * 21.0) continue;
+                    candidates.Add((px + dx, py + dy, pz + dz));
+                }
+        // The nearest clear spot to the ship, which hand mines beside its rock: every later build trip starts from there, so a closer station means shorter trips.
+        var order = candidates.OrderBy(c => (c.X + 4 - px) * (c.X + 4 - px) + (c.Y + 2 - py) * (c.Y + 2 - py) * 4 + (c.Z + 4 - pz) * (c.Z + 4 - pz)).ToList();
+        CommandResult r = null!;
+        foreach (var c in order.Where(c => ClearOfShip(c.X, c.Y, c.Z) && !Footprint(c.X, c.Y, c.Z)).Concat(new List<(int X, int Y, int Z)> { (px, py, pz - 16) }))
+        {
+            r = Cmd(new FoundStation(c.X, c.Y, c.Z));
+            if (r.Ok || r.Reject is not (Reject.OverlapsDeposit or Reject.Overlap or Reject.OutOfRange)) break;
+        }
+        Wait(ActionDelaySeconds);
         if (Failed(r, "FoundStation")) return;
         _station = Net.Structures().First(s => s.Kind == StructureKind.Station && s.Owner == 0).Id;
     }

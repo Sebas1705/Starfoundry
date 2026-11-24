@@ -205,7 +205,7 @@ public class HardpointTests
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, new List<LoggedCommand> { new(0, 0, inBatch) }, C.Hash, GameMode.Sandbox, Seed, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(14, bytes[4]);
+        Assert.Equal(15, bytes[4]);
         CommandCodec.ReadLog(new MemoryStream(bytes), out _, out _, out _, out _, out _, out _, out var rules);
         Assert.False(rules.LegacyHardpoints);
         bytes[4] = 13;
@@ -217,7 +217,7 @@ public class HardpointTests
         old[4] = 13;
         CommandCodec.ReadLog(new MemoryStream(old), out _, out _, out _, out _, out _, out _, out var oldRules);
         Assert.True(oldRules.LegacyHardpoints);
-        Assert.True(oldRules.WithLegacyHardpoints(false).IsDefault);
+        Assert.True(oldRules.WithoutLegacyFlags().IsDefault);
         Assert.Throws<InvalidDataException>(() => CommandCodec.FromBytes(new byte[] { 46, 0xFF, 0xFF, 0xFF, 0x7F }));
     }
 

@@ -20,6 +20,10 @@ public partial class Play
     private const float RollRate = 1.5f; // radians per second while a roll key is held
     private const float DockAlignRate = 3.5f; // how fast an attitude eases back to the port's axes once docked (per second)
     private const float HeadRelaxRate = 9f; // how fast the head returns to the nose when piloting
+    private const float LookEase = 24f; // how fast the pending mouse turn is fed into the ship (per second): about 40 ms of lag
+    private const float RollEase = 7f; // how fast the roll rate follows the keys (per second)
+    private Vector2 _lookPending; // mouse turn not yet applied: x yaw, y pitch (radians)
+    private float _rollSpeed; // the current roll rate (radians per second)
 
     private Basis ShipBasis => new(new Quaternion(_shipQuat.X, _shipQuat.Y, _shipQuat.Z, _shipQuat.W));
 
@@ -70,7 +74,8 @@ public partial class Play
         float vertical = relative.Y * sens * (settings.InvertMouseY ? -1f : 1f);
         if (Piloting)
         {
-            _shipQuat = FlightOrientation.Rotate(_shipQuat, -vertical, relative.X * sens, 0f);
+            // The turn is not applied at once: it joins a pending turn that the attitude control feeds into the ship over a few frames (a little angular inertia).
+            _lookPending += new Vector2(relative.X * sens, -vertical);
             return;
         }
         _yaw -= relative.X * sens;
@@ -83,12 +88,21 @@ public partial class Play
     /// </summary>
     private void UpdateAttitude(float dt)
     {
-        if (Overview || _demo) return;
+        if (Overview || _demo) { _lookPending = Vector2.Zero; _rollSpeed = 0f; return; }
+        if (!Piloting) { _lookPending = Vector2.Zero; _rollSpeed = 0f; }
         if (Piloting)
         {
             float roll = ((Input.IsPhysicalKeyPressed(Key.X) || Input.IsPhysicalKeyPressed(Key.Right)) ? 1f : 0f)
                        - ((Input.IsPhysicalKeyPressed(Key.Z) || Input.IsPhysicalKeyPressed(Key.Left)) ? 1f : 0f);
-            if (roll != 0f) _shipQuat = FlightOrientation.Rotate(_shipQuat, 0f, 0f, roll * RollRate * dt);
+            // The roll rate eases towards the keys (and back to rest when they are released) instead of switching on and off.
+            _rollSpeed = Mathf.Lerp(_rollSpeed, roll * RollRate, 1f - MathF.Exp(-RollEase * dt));
+            if (roll == 0f && MathF.Abs(_rollSpeed) < 0.004f) _rollSpeed = 0f;
+            if (_rollSpeed != 0f) _shipQuat = FlightOrientation.Rotate(_shipQuat, 0f, 0f, _rollSpeed * dt);
+            float lookAmount = 1f - MathF.Exp(-LookEase * dt);
+            var lookStep = _lookPending * lookAmount;
+            _lookPending -= lookStep;
+            if (_lookPending.LengthSquared() < 1e-10f) { lookStep += _lookPending; _lookPending = Vector2.Zero; }
+            if (lookStep != Vector2.Zero) _shipQuat = FlightOrientation.Rotate(_shipQuat, lookStep.Y, lookStep.X, 0f);
             float k = 1f - MathF.Exp(-HeadRelaxRate * dt);
             _yaw = Mathf.LerpAngle(_yaw, 0f, k);
             _pitch = Mathf.Lerp(_pitch, 0f, k);

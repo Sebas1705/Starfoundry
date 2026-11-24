@@ -187,4 +187,15 @@ Bot, so that it plays the whole tree again:
 
 The table with every preset and seed is in [difficulty](difficulty.md#rebalance-after-the-construction-rework-2026-11-23). On other seeds (Normal): seed 1 46:38, seed 2 47:36, seed 20261120 48:59; pace 0 s 48:10, 3 s 48:35, 15 s 59:22, 30 s 88:16.
 
+### After flight inertia, solid deposits and hit volumes (ADR 0033, 2026-11-24)
+Same seed (20261121), 6 s per action, the content with inertia (36 ticks to full speed, 18 to stop), solid deposit rocks and padded hit volumes: Normal 48:51, Relaxed 47:17, Hard 54:03 (all won; the baseline above and in [difficulty](difficulty.md) was 48:45, about 46 and about 53). The bot flies to a deposit until its laser reaches it (it cannot reach the rock's centre any more), detours around deposit rocks like asteroids, and looks for a spot for its station that is not inside a deposit's rock. See [flight feel](flight-feel.md).
+
 Caveats: the base still falls to wave 17 or 18 after the win (about minute 66 to 76 with the compressed economy; the bot then no longer researches). With the new order (expedition after the win) titanium smelting is researched at 65:19 and nickel smelting at 69:42 on that seed, close to that limit. The science mode runs without waves.
+
+Re-measured after rebasing onto the glazed cockpit and sampled-body collision (#77): Relaxed came out at 55:35, slower than Normal. The cause was the bot, not a rule. With solid deposit rocks the station has to stand clear of the rock (the footprint check used a 4 cell margin and a 40 by 20 by 40 box), so the ship's mining spot is about 17 cells from the build site and every placement became a round trip (47 trips against 18 before, about 9 s each, with the hand mining stopped meanwhile). Fixes, all in the bot (no rule weakened): the station spot is the clear one nearest to the ship, the footprint margin is 1 cell (the sim checks the real overlap), a leg that starts beside a rock and moves away from it no longer detours over the rock (the detour test is in 3D), and a free flight that makes no headway for 10 s (a wing pressed against a rock that the cockpit point would clear; seed 777 Normal lost 3 minutes that way) climbs out and goes on. Result, 6 s per action, all won:
+
+| Seed | Relaxed | Normal | Hard |
+|---|---|---|---|
+| 20261121 | 48:34 | 49:31 | 52:36 |
+| 20261120 | 48:04 | 49:20 | 55:18 |
+| 777 | 46:15 | 48:42 | 53:26 |

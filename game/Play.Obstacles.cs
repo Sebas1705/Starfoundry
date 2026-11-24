@@ -136,9 +136,22 @@ public partial class Play
         var world = _content.World;
         foreach (var e in Net.ObstacleEvents)
         {
-            var info = Net.GetObstacle(e.Obstacle);
-            string name = world is null ? "" : Loc.Name("obstacle", world.Kinds[info.Kind].Id);
-            var at = new Vector3(info.X, info.Y, info.Z) / CellUnits;
+            // The rock of a deposit (ADR 0033) is hit like an obstacle; it has no obstacle record.
+            ObstacleInfo info = default;
+            string name;
+            Vector3 at;
+            if (e.Deposit >= 0)
+            {
+                var dp = Net.DepositPosition(e.Deposit);
+                at = new Vector3(dp.X, dp.Y, dp.Z);
+                name = L("obstacle.depositRock", ItemName(Net.DepositItem(e.Deposit)));
+            }
+            else
+            {
+                info = Net.GetObstacle(e.Obstacle);
+                name = world is null ? "" : Loc.Name("obstacle", world.Kinds[info.Kind].Id);
+                at = new Vector3(info.X, info.Y, info.Z) / CellUnits;
+            }
             switch (e.Kind)
             {
                 case ObstacleEventKind.Impact:
@@ -183,8 +196,8 @@ public partial class Play
     /// <summary>A small random offset for the camera while the ship shakes after an impact (zero when calm).</summary>
     private Vector3 ShakeOffset()
     {
-        if (_shake <= 0.001f) return Vector3.Zero;
+        if (_shake <= 0.001f) return RumbleOffset();
         float t = (float)_animTime * 53f;
-        return new Vector3(MathF.Sin(t * 1.3f), MathF.Sin(t * 1.7f + 2f), MathF.Sin(t * 1.1f + 4f)) * (_shake * 0.35f);
+        return new Vector3(MathF.Sin(t * 1.3f), MathF.Sin(t * 1.7f + 2f), MathF.Sin(t * 1.1f + 4f)) * (_shake * 0.35f) + RumbleOffset();
     }
 }

@@ -19,14 +19,22 @@ public sealed partial class StructureBot
     }
 
     /// <summary>Flies the ship to a point (world units) and stops within <paramref name="tolUnits"/>. Time passes as it flies.</summary>
-    private bool FlyTo(long tx, long ty, long tz, long tolUnits, int maxSeconds = 240)
+    private bool FlyTo(long tx, long ty, long tz, long tolUnits, int maxSeconds = 240, Func<bool>? done = null)
     {
         _flying++;
+        _flyDone = done;
+        double before = FlightSeconds;
         try { return FlyToCore(tx, ty, tz, tolUnits, maxSeconds); }
-        finally { _flying--; }
+        finally { _flying--; _flyDone = null; Say($"flight of {FlightSeconds - before:F0} s to ({tx / Cell},{ty / Cell},{tz / Cell}){(done is null ? "" : " (until the laser reaches)")}"); }
     }
 
+    /// <summary>Ends the flight early when true (ADR 0033: a deposit is a solid rock, so the ship cannot reach its centre; it stops where its laser reaches).</summary>
+    private Func<bool>? _flyDone;
+
     private int _flying;
+
+    /// <summary>The distance in cells above which the bot flies boosted (a player holds the key on every longer hop).</summary>
+    private const long BoostFromCells = 30;
 
     /// <summary>Seconds of game time the bot spent flying (all legs, boosted or not), for the report.</summary>
     public static double FlightSeconds;
@@ -37,30 +45,46 @@ public sealed partial class StructureBot
     /// </summary>
     private (long X, long Y, long Z)? DetourOver(long fx, long fy, long fz, long tx, long ty, long tz)
     {
-        if (Net.Galaxy is null || Net.ObstacleCount == 0) return null;
+        if (Net.Galaxy is null) return null;
         int sys = Net.CurrentSystem(0);
         if (sys < 0) return null;
         long sx = tx - fx, sy = ty - fy, sz = tz - fz;
-        long len2 = Math.Max(1, sx * sx + sy * sy + sz * sz);
-        int worst = -1; double worstT = 2;
-        long worstClear = 0;
+        double worstT = 2;
+        (long X, long Y, long Z, long Clear)? worst = null;
+
+        // One candidate: a sphere the ship must not enter, with the reach to clear (the radius it hits plus a margin).
+        void Consider(long ox, long oy, long oz, long reach)
+        {
+            // Closest point of the segment to the obstacle in 3D: a leg that starts beside a rock and moves away from it, or passes it with room to spare, needs no hop over it.
+            double len2 = Math.Max(1, (double)sx * sx + (double)sy * sy + (double)sz * sz);
+            double t = Math.Clamp(((ox - fx) * (double)sx + (oy - fy) * (double)sy + (oz - fz) * (double)sz) / len2, 0, 1);
+            if (t <= 0 && (ox - fx) * (double)sx + (oy - fy) * (double)sy + (oz - fz) * (double)sz <= 0) return; // moving away from it
+            double cx = fx + sx * t - ox, cz = fz + sz * t - oz, cy = fy + sy * t - oy;
+            if (cx * cx + cy * cy + cz * cz > (double)reach * reach) return;
+            if (t < worstT) { worstT = t; worst = (ox, oy, oz, reach); }
+        }
+
         foreach (int i in Net.Galaxy.ObstaclesOf(sys))
         {
             var o = Net.GetObstacle(i);
             if (o.Gone || o.Behaviour is ObstacleBehaviour.Cloud or ObstacleBehaviour.Wreck) continue;
             var def = _c.World!.Kinds[o.Kind];
-            long reach = o.Radius + (def.Behaviour == ObstacleBehaviour.Mine ? Math.Max(def.TriggerCells, def.BlastCells) * (long)Cell : 0) + 6L * Cell;
-            // Closest point of the segment to the obstacle, in the horizontal plane (the ship passes above, so height does not count here).
-            double t = Math.Clamp(((o.X - fx) * (double)sx + (o.Z - fz) * (double)sz) / Math.Max(1, (double)sx * sx + (double)sz * sz), 0, 1);
-            double cx = fx + sx * t - o.X, cz = fz + sz * t - o.Z, cy = fy + sy * t - o.Y;
-            double reachH = reach + 4L * Cell;
-            if (cx * cx + cz * cz > reachH * reachH) continue;
-            if (cy > reach) continue; // already flying above it
-            if (t < worstT) { worstT = t; worst = i; worstClear = reach; }
+            long reach = Net.ObstacleHitRadius(i) + (def.Behaviour == ObstacleBehaviour.Mine ? Math.Max(def.TriggerCells, def.BlastCells) * (long)Cell : 0) + 6L * Cell;
+            Consider(o.X, o.Y, o.Z, reach);
         }
-        if (worst < 0) return null;
-        var w = Net.GetObstacle(worst);
-        return (w.X, w.Y + worstClear + 2L * Cell, w.Z);
+        // The rocks of deposits are solid too (ADR 0033). The one the flight ends at is not avoided: the leg stops once the laser reaches it.
+        for (int d = 0; d < Net.DepositCount && !_ignoreDeposits; d++)
+        {
+            if (!Net.IsDepositRevealed(d) || Net.DepositRemaining(d) <= 0 || Net.DepositRockRadius(d) == 0) continue;
+            var (px, py, pz) = Net.DepositPosition(d);
+            long ox = px * (long)Cell, oy = py * (long)Cell, oz = pz * (long)Cell;
+            long reach = Net.DepositRockRadius(d) + 6L * Cell;
+            long ex = tx - ox, ey = ty - oy, ez = tz - oz;
+            if (ex * ex + ey * ey + ez * ez <= (long)Cell * Cell) continue; // the flight ends at this very deposit
+            Consider(ox, oy, oz, reach);
+        }
+        if (worst is not { } w) return null;
+        return (w.X, w.Y + w.Clear + 2L * Cell, w.Z);
     }
 
     private bool FlyToCore(long tx, long ty, long tz, long tolUnits, int maxSeconds)
@@ -78,15 +102,34 @@ public sealed partial class StructureBot
     private bool FlyLeg(long tx, long ty, long tz, long tolUnits, int maxSeconds)
     {
         bool boosting = false;
+        double bestDistance = double.MaxValue;
+        int lastGain = 0;
         for (int i = 0; i < maxSeconds * 6; i++)
         {
             var p = Net.GetPlayerInfo(0);
             long dx = tx - p.X, dy = ty - p.Y, dz = tz - p.Z;
             long d2 = dx * dx + dy * dy + dz * dz;
+            // No headway for ten seconds: a rock the straight line cannot get round (a deposit beside another, a rock under the target). The caller looks for another way in.
+            double distance = Math.Sqrt(d2);
+            if (distance < bestDistance - Cell) { bestDistance = distance; lastGain = i; }
+            // No headway for ten seconds on a free flight: a wing or the hull is pressed against a rock the point of the cockpit would clear. Climb out of it (the world is flat, up is free) and go on.
+            else if (i - lastGain > 60 && _flyDone is null && !boosting)
+            {
+                Say($"pinned at ship ({p.X},{p.Y},{p.Z}) on the way to ({tx},{ty},{tz}): climbing out");
+                for (int c = 0; c < 36; c++) { _w.Submit(0, new SetThrust(0, 1000, 0)); _w.Step(5); FlightSeconds += 5.0 / Tps; EverySecondIfDue(ref _flyTicks, 5); }
+                bestDistance = double.MaxValue; lastGain = i;
+            }
+            else if (i - lastGain > 60 && _flyDone is not null)
+            {
+                Say($"blocked at ship ({p.X},{p.Y},{p.Z}) on the way to ({tx},{ty},{tz}); solids near: {NearSolids(p.X, p.Y, p.Z)}");
+                Cmd(new SetThrust(0, 0, 0));
+                if (boosting) Cmd(new SetBoost(false));
+                return false;
+            }
             // Boost over long distances (as a player holding the key would); off well before the target so the stop is clean.
-            bool wantBoost = _c.World is not null && d2 > (long)30 * Cell * 30 * Cell;
+            bool wantBoost = _c.World is not null && d2 > (long)BoostFromCells * Cell * BoostFromCells * Cell;
             if (wantBoost != boosting) { Cmd(new SetBoost(wantBoost)); boosting = wantBoost; }
-            if (d2 <= tolUnits * tolUnits) { Cmd(new SetThrust(0, 0, 0)); if (boosting) Cmd(new SetBoost(false)); return true; }
+            if (d2 <= tolUnits * tolUnits || (_flyDone is not null && _flyDone())) { Cmd(new SetThrust(0, 0, 0)); if (boosting) Cmd(new SetBoost(false)); return true; }
             if (!Net.CanFly(0)) { Stuck("the ship cannot fly (no cockpit/engine or lost)"); Cmd(new SetThrust(0, 0, 0)); if (boosting) Cmd(new SetBoost(false)); return false; }
             long len = (long)Math.Sqrt(d2);
             // Slow down near the target so a step cannot overshoot the tolerance.
@@ -108,6 +151,136 @@ public sealed partial class StructureBot
 
     private int _flyTicks;
 
+    /// <summary>Debug text: the solid rocks and deposits within 40 cells of a point (cells, hit radius in cells).</summary>
+    private string NearSolids(long x, long y, long z)
+    {
+        var parts = new List<string>();
+        if (Net.Galaxy is not null)
+        {
+            int sys = Net.CurrentSystem(0);
+            if (sys >= 0)
+                foreach (int i in Net.Galaxy.ObstaclesOf(sys))
+                {
+                    var o = Net.GetObstacle(i);
+                    if (o.Behaviour is not (ObstacleBehaviour.Solid or ObstacleBehaviour.Drifter)) continue;
+                    if (Math.Abs(o.X - x) < 40L * Cell && Math.Abs(o.Y - y) < 40L * Cell && Math.Abs(o.Z - z) < 40L * Cell)
+                        parts.Add($"rock {i} at ({o.X / Cell},{o.Y / Cell},{o.Z / Cell}) hit {Net.ObstacleHitRadius(i) / (double)Cell:F1}");
+                }
+        }
+        for (int d = 0; d < Net.DepositCount; d++)
+        {
+            var (px, py, pz) = Net.DepositPosition(d);
+            if (Net.DepositRockRadius(d) > 0 && Net.IsDepositRevealed(d) && Net.DepositRemaining(d) > 0 && Math.Abs(px * (long)Cell - x) < 40L * Cell && Math.Abs(py * (long)Cell - y) < 40L * Cell && Math.Abs(pz * (long)Cell - z) < 40L * Cell)
+                parts.Add($"deposit {d} at ({px},{py},{pz}) hit {Net.DepositRockRadius(d) / (double)Cell:F1}");
+        }
+        return string.Join("; ", parts);
+    }
+
+    /// <summary>
+    /// Flies until the laser reaches a deposit (ADR 0033). A deposit is a solid rock and the ship is 48 cells long, so the bot plans a pose as a player
+    /// would: a place beside the rock where the laser reaches it and no module box touches any deposit's rock, reached by a straight run in from outside
+    /// that has been checked against every rock on the way. It tries the poses nearest to where the ship is first; the straight line to the centre is the fallback.
+    /// </summary>
+    private bool ApproachDeposit(int deposit)
+    {
+        if (Net.InMineRange(0, deposit)) return true;
+        var plan = PlanApproach(deposit);
+        if (plan is { } p)
+        {
+            try
+            {
+                _ignoreDeposits = false; // the way to the start of the run goes round the rocks as before; the run itself is checked clear of every deposit rock
+                if (FlyTo(p.Wx, p.Wy, p.Wz, 3L * Cell))
+                {
+                    _ignoreDeposits = true;
+                    if (FlyTo(p.Ox, p.Oy, p.Oz, Cell / 2, done: () => Net.InMineRange(0, deposit)) && Net.InMineRange(0, deposit)) return true;
+                }
+            }
+            finally { _ignoreDeposits = false; }
+        }
+        var (x, y, z) = DepositCentre(deposit);
+        if (FlyTo(x, y, z, 3L * Cell, done: () => Net.InMineRange(0, deposit))) return true;
+        if (!Net.InMineRange(0, deposit)) Stuck("no way in to the deposit");
+        return false;
+    }
+
+    private bool _ignoreDeposits;
+
+    /// <summary>A pose for the mining run: where the run starts (outside the rock) and where the ship's origin stops (units).</summary>
+    private readonly record struct Approach(long Wx, long Wy, long Wz, long Ox, long Oy, long Oz);
+
+    private Approach? PlanApproach(int deposit)
+    {
+        var lasers = Net.MiningLasers(0);
+        if (lasers.Count == 0) return null;
+        var laser = lasers[0];
+        var ship = Net.GetStructure(Net.ShipStructure(0));
+        var cur = Net.GetPlayerInfo(0);
+        long ox0 = ship.OriginX, oy0 = ship.OriginY, oz0 = ship.OriginZ;
+        var (cx, cy, cz) = DepositCentre(deposit);
+        var boxes = ship.Modules.Keys.Select(k => Net.ModuleWorldBounds(ship, k)).ToArray();
+        // The laser's offset from the ship's origin: the pose is chosen by where the laser has to be.
+        long lx = laser.X - ox0, ly = laser.Y - oy0, lz = laser.Z - oz0;
+        double reach = Math.Min(laser.RangeCells, 9) * (double)Cell;
+
+        bool Clear(long ox, long oy, long oz)
+        {
+            long dx = ox - ox0, dy = oy - oy0, dz = oz - oz0;
+            foreach (var (min, max) in boxes)
+                if (Net.BoxTouchesDepositRock(min.X + dx, min.Y + dy, min.Z + dz, max.X + dx, max.Y + dy, max.Z + dz, 160)) return false;
+            return true;
+        }
+
+        // First choice: straight in from where the ship is, stopping 8 cells out along the same line, if that whole path is clear (the common case: no detour, no extra leg).
+        {
+            double ddx = ox0 - cx, ddy = oy0 - cy, ddz = oz0 - cz, dd = Math.Sqrt(ddx * ddx + ddy * ddy + ddz * ddz);
+            if (dd > 1)
+            {
+                double ux = ddx / dd, uy = ddy / dd, uz = ddz / dd;
+                long Lx = (long)(cx + ux * 8.0 * Cell), Ly = (long)(cy + uy * 8.0 * Cell), Lz = (long)(cz + uz * 8.0 * Cell);
+                long Ox = Lx - lx, Oy = Ly - ly, Oz = Lz - lz;
+                double run = Math.Sqrt((double)(Ox - ox0) * (Ox - ox0) + (double)(Oy - oy0) * (Oy - oy0) + (double)(Oz - oz0) * (Oz - oz0));
+                bool ok = true;
+                for (int s = 0; s <= 40 && ok; s++)
+                {
+                    double k = s / 40.0;
+                    ok = Clear((long)(ox0 + (Ox - ox0) * k), (long)(oy0 + (Oy - oy0) * k), (long)(oz0 + (Oz - oz0) * k));
+                }
+                if (ok && 8.0 * Cell <= reach) return new Approach(ox0, oy0, oz0, Ox, Oy, Oz);
+            }
+        }
+
+        Approach? best = null;
+        double bestScore = double.MaxValue;
+        var dirs = new List<(double X, double Y, double Z)>();
+        for (int ix = -1; ix <= 1; ix++) for (int iy = -1; iy <= 1; iy++) for (int iz = -1; iz <= 1; iz++)
+        {
+            if (ix == 0 && iy == 0 && iz == 0) continue;
+            double n = Math.Sqrt(ix * ix + iy * iy + iz * iz);
+            dirs.Add((ix / n, iy / n, iz / n));
+        }
+        foreach (var (ux, uy, uz) in dirs)
+            foreach (double r in new[] { 7.0, 8.5 })
+            {
+                // The laser sits r cells out from the deposit's centre along (ux, uy, uz); the ship's origin follows from the laser's offset.
+                long Lx = (long)(cx + ux * r * Cell), Ly = (long)(cy + uy * r * Cell), Lz = (long)(cz + uz * r * Cell);
+                if (r * Cell > reach) continue;
+                long Ox = Lx - lx, Oy = Ly - ly, Oz = Lz - lz;
+                // The run in: from 24 cells further out along the same ray to the pose, every step clear of the rocks.
+                bool ok = true;
+                for (int s = 0; s <= 30 && ok; s++)
+                {
+                    double k = s / 30.0;
+                    long sx = (long)(Ox + ux * 14 * Cell * (1 - k)), sy = (long)(Oy + uy * 14 * Cell * (1 - k)), sz = (long)(Oz + uz * 14 * Cell * (1 - k));
+                    ok = Clear(sx, sy, sz);
+                }
+                if (!ok) continue;
+                long Wx = (long)(Ox + ux * 14 * Cell), Wy = (long)(Oy + uy * 14 * Cell), Wz = (long)(Oz + uz * 14 * Cell);
+                double score = Math.Sqrt((double)(Wx - cur.X) * (Wx - cur.X) + (double)(Wy - cur.Y) * (Wy - cur.Y) + (double)(Wz - cur.Z) * (Wz - cur.Z)) + Math.Sqrt((double)(Ox - Wx) * (Ox - Wx) + (double)(Oy - Wy) * (Oy - Wy) + (double)(Oz - Wz) * (Oz - Wz));
+                if (score < bestScore) { bestScore = score; best = new Approach(Wx, Wy, Wz, Ox, Oy, Oz); }
+            }
+        return best;
+    }
     private void EverySecondIfDue(ref int counter, int ticks)
     {
         counter += ticks;
@@ -131,7 +304,7 @@ public sealed partial class StructureBot
         {
             Cmd(new StopMining());
             var (x, y, z) = DepositCentre(deposit);
-            if (!FlyTo(x, y, z, 3L * Cell)) return false;
+            if (!ApproachDeposit(deposit)) return false;
         }
         var r = Cmd(new StartMining(deposit));
         if (!r.Ok && r.Reject != Reject.Depleted) { Stuck($"StartMining was rejected: {r.Reject}"); return false; }
@@ -177,6 +350,7 @@ public sealed partial class StructureBot
     {
         var (wx, wy, wz) = WorldCellOf(structure, x, y, z);
         if (Net.CellInRange(0, (int)wx, (int)wy, (int)wz, PlayerRules.BuildRangeCells - 2)) return;
+        _lastBuildTrip = Now;
         Say($"out of build range of cell ({x},{y},{z}) in structure {structure}: flying closer");
         var (tx, ty, tz) = (wx * Cell, wy * Cell, wz * Cell);
         // Stop a little short, towards the ship.

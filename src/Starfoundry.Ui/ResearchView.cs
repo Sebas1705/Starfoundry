@@ -116,6 +116,8 @@ public static class ResearchView
         BonusKind.PowerOutput => "power_output",
         BonusKind.JumpDiscount => "jump_discount",
         BonusKind.MiningRate => "mining_rate",
+        BonusKind.EngineSpeed => "engine_speed",
+        BonusKind.EngineAccel => "engine_accel",
         _ => kind.ToString(),
     };
 

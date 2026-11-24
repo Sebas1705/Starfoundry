@@ -34,7 +34,7 @@ Star types scale the veins (90 to 160 percent) and the density of rocks (50 to 1
 ### Guarantees that keep the campaign winnable (tested over 200 seeds)
 - Home always holds 12000 iron, 1500 carbon and 1500 to 2000 ice, 36 to 60 cells out; every system is on one connected lane graph; titanium, nickel, quartz and carbon exist outside home.
 - Solid rocks keep 70 cells from the anchor (the arrival point) and 60 from every deposit, mines and debris 80; two rocks leave 10 cells between their surfaces; clouds never cover an anchor. The ship is 8 by 4 by 40 cells, so a gap always exists and above the rocks is always free.
-- Deposits are not solid.
+- Deposits were not solid here; since [ADR 0033](../adr/0033-flight-inertia-solid-deposits-and-hit-volumes.md) the rock of a revealed deposit is solid like an asteroid (the keep-clear distance above already keeps rocks 60 cells from a deposit, so the two never overlap), and rocks and debris are hit by their drawn size plus the hull padding ([flight feel](flight-feel.md)).
 
 ## Collision damage and balance
 With a turned ship ([ADR 0030](../adr/0030-ship-attitude-in-the-simulation.md)) the module boxes are tested where the attitude puts them; the rules below are unchanged.

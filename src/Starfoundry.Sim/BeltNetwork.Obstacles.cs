@@ -19,7 +19,8 @@ public enum ObstacleEventKind
     Bump = 4,
 }
 
-public readonly record struct ObstacleEvent(ObstacleEventKind Kind, int Obstacle, int Structure, int Damage, int Speed, int Item = -1, int Count = 0);
+/// <param name="Deposit">The deposit a ship hit (ADR 0033: deposits are solid); <c>Obstacle</c> is -1 then. -1 for everything else.</param>
+public readonly record struct ObstacleEvent(ObstacleEventKind Kind, int Obstacle, int Structure, int Damage, int Speed, int Item = -1, int Count = 0, int Deposit = -1);
 
 /// <summary>Read-only view of an obstacle: its place now (units), radius (units) and what became of it.</summary>
 public readonly record struct ObstacleInfo(
@@ -151,7 +152,9 @@ public sealed partial class BeltNetwork
     private void StepObstacles()
     {
         _obstacleEvents.Clear();
-        if (!StructureRules || Galaxy is null || Galaxy.Obstacles.Count == 0 || WorldGen is not { } w || _structures.Count == 0) return;
+        if (!StructureRules || Galaxy is null || WorldGen is not { } w || _structures.Count == 0) return;
+        bool solidDeposits = SolidDeposits;
+        if (Galaxy.Obstacles.Count == 0 && !solidDeposits) return;
 
         foreach (var s in _structures.Values)
         {
@@ -201,7 +204,76 @@ public sealed partial class BeltNetwork
             }
         }
 
+        // The rocks of deposits are solid for the ships that fly (ADR 0033); a station never moves into one, and a docked ship is held by its port.
+        if (solidDeposits)
+            foreach (var s in _structures.Values.ToArray())
+            {
+                if (!_structures.ContainsKey(s.Id) || s.Kind != StructureKind.Ship || s.DockedTo >= 0 || s.ModuleMap.Count == 0) continue;
+                Player? pilot = null;
+                foreach (var p in _players.Values) if (p.ShipStructure == s.Id) { pilot = p; break; }
+                if (pilot is null) continue;
+                int sys = SystemOfStructure(s);
+                if (sys < 0) continue;
+                long near = (long)DepositSearchCells * Units.CellUnits;
+                for (int i = 0; i < _deposits.Count; i++)
+                {
+                    var dep = _deposits[i];
+                    if (!dep.Revealed || dep.Remaining <= 0) continue;
+                    long cx = (long)dep.X * Units.CellUnits, cy = (long)dep.Y * Units.CellUnits, cz = (long)dep.Z * Units.CellUnits;
+                    if (Math.Abs(cx - pilot.X) > near || Math.Abs(cy - pilot.Y) > near || Math.Abs(cz - pilot.Z) > near) continue;
+                    CollideCore(s, pilot, -1, i, (cx, cy, cz), (0, 0, 0), DepositHitRadius(dep, s), w.DepositDamage, push: true, w);
+                }
+            }
+
         foreach (int i in exploding) Explode(i, w);
+    }
+
+    /// <summary>Deposits farther than this from the pilot (per axis) are not tested: more than any ship's reach plus the biggest rock (systems are further apart than that, so no system check is needed).</summary>
+    private const int DepositSearchCells = 80;
+
+    /// <summary>True when the rocks of deposits are solid in this world (ADR 0033): structure rules, content that says so and not <see cref="WorldRules.LegacyCollisions"/>.</summary>
+    internal bool SolidDeposits => StructureRules && !Rules.LegacyCollisions && WorldGen is { DepositsSolid: true } && Galaxy is not null;
+
+    /// <summary>The padding a ship adds to the hit radius of what it meets: the hull is drawn a little beyond its module boxes. None for stations, docked ships and legacy worlds.</summary>
+    private long HullPad(Structure s, WorldGenRules w) => Rules.LegacyCollisions || s.Kind != StructureKind.Ship || s.DockedTo >= 0 ? 0 : w.HullPadUnits;
+
+    /// <summary>The radius within which a module of the ship hits the rock of a deposit, in units: the drawn rock (nominal radius times the hit percent) plus the hull padding.</summary>
+    private long DepositHitRadius(Deposit dep, Structure ship) =>
+        (long)DepositRules.NominalRadiusUnits(dep.Initial) * WorldGen!.DepositHitPercent / 100 + HullPad(ship, WorldGen!);
+
+    /// <summary>
+    /// The radius within which a module of a ship hits an obstacle, in units: the generated radius scaled by the kind's hit percent (the drawn size) and
+    /// padded for the hull. With <see cref="WorldRules.LegacyCollisions"/> it is the generated radius.
+    /// </summary>
+    public long ObstacleHitRadius(int id, bool padded = true)
+    {
+        var g = Galaxy!.Obstacles[id];
+        if (Rules.LegacyCollisions) return g.Radius;
+        long r = (long)g.Radius * WorldGen!.Kinds[g.Kind].HitPercent / 100;
+        return padded ? r + WorldGen.HullPadUnits : r;
+    }
+
+    /// <summary>The hit radius of the rock of a deposit without hull padding, in units (zero in a world where deposits are not solid).</summary>
+    public long DepositRockRadius(int deposit) =>
+        WorldGen is { DepositsSolid: true } w && !Rules.LegacyCollisions ? (long)DepositRules.NominalRadiusUnits(GetDeposit(deposit).Initial) * w.DepositHitPercent / 100 : 0;
+
+    /// <summary>
+    /// True when a box (world units) comes within <paramref name="margin"/> of the rock of a deposit that is solid: a station module or core may not be
+    /// put there (ADR 0033). False in worlds where deposits are not solid.
+    /// </summary>
+    public bool BoxTouchesDepositRock(long minX, long minY, long minZ, long maxX, long maxY, long maxZ, long margin = 0)
+    {
+        if (!SolidDeposits) return false;
+        for (int i = 0; i < _deposits.Count; i++)
+        {
+            var dep = _deposits[i];
+            if (!dep.Revealed || dep.Remaining <= 0) continue;
+            long cx = (long)dep.X * Units.CellUnits, cy = (long)dep.Y * Units.CellUnits, cz = (long)dep.Z * Units.CellUnits;
+            long dx = Math.Clamp(cx, minX, maxX) - cx, dy = Math.Clamp(cy, minY, maxY) - cy, dz = Math.Clamp(cz, minZ, maxZ) - cz;
+            long r = DepositRockRadius(i) + margin;
+            if (dx * dx + dy * dy + dz * dz < r * r) return true;
+        }
+        return false;
     }
 
     private void Collide(Structure s, Player? pilot, int id, ObstacleKindDef def, WorldGenRules w)
@@ -209,13 +281,21 @@ public sealed partial class BeltNetwork
         var g = Galaxy!.Obstacles[id];
         var c = ObstacleCentreAt(id, Tick);
         var c2 = ObstacleCentreAt(id, Tick + 1);
-        long ovx = c2.X - c.X, ovy = c2.Y - c.Y, ovz = c2.Z - c.Z;
+        long r = Rules.LegacyCollisions ? g.Radius : (long)g.Radius * def.HitPercent / 100 + HullPad(s, w);
+        CollideCore(s, pilot, id, -1, c, (c2.X - c.X, c2.Y - c.Y, c2.Z - c.Z), r, def.Damage, def.Behaviour == ObstacleBehaviour.Solid, w);
+    }
+
+    /// <summary>
+    /// A sphere of <paramref name="r"/> units at <paramref name="c"/> against the module boxes of a structure: the deepest module is hurt, a rock pushes the
+    /// ship out and (with inertia) takes the velocity into it. <paramref name="id"/> is the obstacle or -1 for the rock of the deposit <paramref name="deposit"/>.
+    /// </summary>
+    private void CollideCore(Structure s, Player? pilot, int id, int deposit, (long X, long Y, long Z) c, (long X, long Y, long Z) ov, long r, int baseDamage, bool push, WorldGenRules w)
+    {
+        long ovx = ov.X, ovy = ov.Y, ovz = ov.Z;
         long svx = pilot?.StepDx ?? 0, svy = pilot?.StepDy ?? 0, svz = pilot?.StepDz ?? 0;
-        bool push = def.Behaviour == ObstacleBehaviour.Solid;
 
         // The deepest module is the one that hits.
         (int, int, int) hitKey = default; long hitPen = 0; (long X, long Y, long Z) hitDir = default; long hitDist = 0;
-        long r = g.Radius;
         foreach (var key in s.ModuleMap.Keys)
         {
             var box = BoxToPoint(s, key, c.X, c.Y, c.Z);
@@ -250,21 +330,34 @@ public sealed partial class BeltNetwork
             long px = hitDir.X * hitPen / len, py = hitDir.Y * hitPen / len, pz = hitDir.Z * hitPen / len;
             if (px == 0 && py == 0 && pz == 0) py = 1;
             PushShip(pilot, s, px + Math.Sign(px), py + Math.Sign(py), pz + Math.Sign(pz));
+            if (FlightInertia) CancelVelocityInto(pilot, hitDir, hitDist);
         }
 
         if (s.ImpactCooldown > 0 || closing <= 0) return;
         if (closing <= w.SafeSpeedUnits)
         {
-            _obstacleEvents.Add(new ObstacleEvent(ObstacleEventKind.Bump, id, s.Id, 0, (int)closing));
+            _obstacleEvents.Add(new ObstacleEvent(ObstacleEventKind.Bump, id, s.Id, 0, (int)closing, Deposit: deposit));
             return;
         }
         long c2s = closing * closing - (long)w.SafeSpeedUnits * w.SafeSpeedUnits, span = (long)w.ReferenceSpeedUnits * w.ReferenceSpeedUnits - (long)w.SafeSpeedUnits * w.SafeSpeedUnits;
-        long damage = Math.Min((long)def.Damage * ObstacleRules.MaxDamageFactor, Math.Max(1, (long)def.Damage * c2s / span));
+        long damage = Math.Min((long)baseDamage * ObstacleRules.MaxDamageFactor, Math.Max(1, (long)baseDamage * c2s / span));
         s.ImpactCooldown = w.ImpactCooldownTicks;
         int hits = _moduleHits.Count;
         DamageModule(s.Id, hitKey, (int)damage);
         int dealt = _moduleHits.Count > hits ? _moduleHits[^1].Damage : 0; // after the shields
-        _obstacleEvents.Add(new ObstacleEvent(ObstacleEventKind.Impact, id, s.Id, dealt, (int)closing));
+        _obstacleEvents.Add(new ObstacleEvent(ObstacleEventKind.Impact, id, s.Id, dealt, (int)closing, Deposit: deposit));
+    }
+
+    /// <summary>A rock stops a ship: the part of its velocity that points into the rock is lost (ADR 0033); the rest slides along it.</summary>
+    private static void CancelVelocityInto(Player p, (long X, long Y, long Z) normal, long length)
+    {
+        long n2 = normal.X * normal.X + normal.Y * normal.Y + normal.Z * normal.Z;
+        if (n2 == 0) return;
+        // The normal points from the rock towards the module: velocity against it is movement into the rock.
+        long dot = p.VelX * normal.X + p.VelY * normal.Y + p.VelZ * normal.Z;
+        if (dot >= 0) return;
+        p.VelX -= (int)(normal.X * dot / n2); p.VelY -= (int)(normal.Y * dot / n2); p.VelZ -= (int)(normal.Z * dot / n2);
+        p.VelRemX = p.VelRemY = p.VelRemZ = 0;
     }
 
     private void PushShip(Player p, Structure s, long dx, long dy, long dz)
