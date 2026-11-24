@@ -73,7 +73,7 @@ public partial class Play
         EnsureCockpit();
         var module = Seat.FromCockpit ? _stationView.ModuleNode(ShipStruct, Seat.Module) : null;
         _cockpit!.Attach(module);
-        if (!_cockpit.IsAttached) { _focus = null; return; }
+        if (!_cockpit.IsAttached || PanelOpen()) { _focus = null; if (!_cockpit.IsAttached) return; } // a menu or the map needs the whole view
         _cockpitTime += dt;
 
         // what the crosshair is on
@@ -111,6 +111,7 @@ public partial class Play
 
     private CockpitSnapshot BuildCockpitSnapshot()
     {
+        if (_syntheticSnapshot is { } fake) return fake;
         var snap = new CockpitSnapshot { HudMode = CurrentHudMode, Online = Net.HasPlayer(Player) && !Net.ShipLost(Player) };
         if (!snap.Online) return snap;
         int ship = ShipStruct;

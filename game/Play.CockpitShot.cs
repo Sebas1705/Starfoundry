@@ -76,6 +76,8 @@ public partial class Play
             case 285: Shot("right"); SetFocus(null); _yaw = 0f; _pitch = -0.62f; break;
             case 320: Shot("console"); break;
             case 321: ShowAll(); SetFocus(CockpitScreen.Center); _cockpit!.Pages.Show(CockpitScreen.Center, CockpitPage.Nav); break;
+            case 340: CockpitLook(new Vector2(260f, 150f)); break; // the mouse moves over the focused display
+            case 355: Shot("pan"); CockpitLook(new Vector2(-260f, -150f)); break;
             case 360:
             {
                 // A click with the crosshair: the centre of the nav display is on a row of the list; pressing selects that deposit.
@@ -92,10 +94,47 @@ public partial class Play
                 GD.Print($"COCKPITSHOT hud mode after the button: {CurrentHudMode}");
                 break;
             }
-            case 361: _hudModeShot = HudMode.Cockpit; SetFocus(null); _cockpit?.Pages.Show(CockpitScreen.Center, CockpitPage.Flight); break;
-            case 362: ToggleSeat(); _yaw = 0f; _pitch = -0.45f; break; // stand up: the overlay for walking stays in cockpit mode
-            case 420: Shot("standing"); break;
-            case 421: GetTree().Quit(); break;
+            case 361: // every warning state at once, from made-up data: low hull, strained power, low fuel, full hold, a wave, boost, a port, a gate and an enemy
+                _syntheticSnapshot = SyntheticAlertSnapshot();
+                ShowAll(); SetFocus(CockpitScreen.Center); _cockpit!.Pages.Show(CockpitScreen.Center, CockpitPage.Flight);
+                break;
+            case 400: Shot("alert.flight"); _cockpit!.Pages.Show(CockpitScreen.Center, CockpitPage.Systems); break;
+            case 425: Shot("alert.systems"); _cockpit!.Pages.Show(CockpitScreen.Center, CockpitPage.Weapons); break;
+            case 450: Shot("alert.weapons"); _cockpit!.Pages.Show(CockpitScreen.Center, CockpitPage.Nav); break;
+            case 475: Shot("alert.nav"); break;
+            case 500: _syntheticSnapshot = null; _hudModeShot = HudMode.Cockpit; SetFocus(null); _cockpit?.Pages.Show(CockpitScreen.Center, CockpitPage.Flight); break;
+            case 501: ToggleSeat(); _yaw = 0f; _pitch = -0.45f; break; // stand up: the overlay for walking stays in cockpit mode
+            case 560: Shot("standing"); break;
+            case 561: GetTree().Quit(); break;
         }
+    }
+
+    private CockpitSnapshot? _syntheticSnapshot;
+
+    /// <summary>Made-up data in every warning state, to look at how the displays draw trouble (the screenshot run only).</summary>
+    private CockpitSnapshot SyntheticAlertSnapshot()
+    {
+        var axes = NavFrame.Project(new CameraBasis(new Vec3(0.5f, 0.3f, -0.8f), new Vec3(0.8f, 0f, 0.6f), new Vec3(-0.2f, 0.95f, 0.1f), 1.4f));
+        return new CockpitSnapshot
+        {
+            Online = true,
+            HasReactor = true,
+            HudMode = HudMode.Cockpit,
+            Flight = new FlightDisplayData(18.4f, 24f, 0.8f, true, true, 22, 100, 31, 40, 420, 2, 60 * 25, 100, 100),
+            Systems = new SystemsDisplayData(9, 3, 22, 100, 100, 100, 4, true),
+            Weapons = new WeaponsDisplayData(true, true, true, WeaponGroup.Guns, true, false, true, true, 3),
+            Axes = axes,
+            Velocity = CockpitMath.Velocity(0.4f, 0.2f, 5f),
+            SystemName = "Kepler",
+            Autopilot = true, DockNear = true, DockAssist = false, ScanReady = false, HasGalaxy = true, DockDistance = 12,
+            Targets = new[]
+            {
+                new NavTarget(NavKind.Enemy, -1, "Raider", 38f, 12f, "enemy:core:raider"),
+                new NavTarget(NavKind.Deposit, 4, "Iron ore", 120f, 95f, "item:core:iron_ore", true),
+                new NavTarget(NavKind.Gate, 2, "Gate: Vega", 640f, 140f, "status:gate"),
+                new NavTarget(NavKind.Port, -1, "Port", 26f, 30f, "status:port"),
+                new NavTarget(NavKind.Deposit, 7, "Ice", 1450f, 170f, "item:core:ice"),
+            },
+        };
     }
 }

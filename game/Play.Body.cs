@@ -76,6 +76,7 @@ public partial class Play
     {
         RefreshBodyVolumes();
         _seated = false;
+        _focus = null; // walking: the view is the player's again
         SetLaser(false);
         _body = StandSpot;
         if (!BodyMotion.Contains(Sys(_body), _bodyVolumes)) _body = FromSys(BodyMotion.Nearest(Sys(_body), _bodyVolumes));
