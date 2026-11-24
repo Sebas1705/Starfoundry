@@ -32,7 +32,7 @@ public partial class MainMenu : Control
         // Any other flag means a scripted run or a screenshot: no menu.
         // --content=path only says where core.json is; it does not make the run scripted.
         _newGameShotPath = args.FirstOrDefault(a => a.StartsWith("--newgame-shot="))?["--newgame-shot=".Length..];
-        if (args.Any(a => !a.StartsWith("--menu-shot=") && !a.StartsWith("--newgame-shot=") && !a.StartsWith(ContentLocator.ContentFlag) && !a.StartsWith("--ui-lang=")))
+        if (args.Any(a => !a.StartsWith("--menu-shot=") && !a.StartsWith("--newgame-shot=") && a != "--ui-audit-menu" && !a.StartsWith("--audit-sizes=") && !a.StartsWith("--audit-shots=") && !a.StartsWith(ContentLocator.ContentFlag) && !a.StartsWith("--ui-lang=")))
         {
             Launch.Mode = Launch.Intent.New;
             CallDeferred(MethodName.StartGame);
@@ -64,6 +64,7 @@ public partial class MainMenu : Control
         _menu.AddEntry(() => Loc.T("menu.quit"), () => GetTree().Quit());
         _menu.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(_menu);
+        if (args.Contains("--ui-audit-menu")) MenuAuditSetup(args);
     }
 
     private ContentDb? _content;
@@ -128,6 +129,7 @@ public partial class MainMenu : Control
     {
         _time += delta;
         if (_camera is not null) _camera.Rotation = new Vector3(0.12f * MathF.Sin((float)_time * 0.13f), (float)_time * 0.05f, 0f);
+        if (_menuAudit) { MenuAuditFrame(); return; }
         if (_newGameShotPath is not null) { NewGameShotFrame(); return; }
         if (_menuShotPath is null) return;
         _frame++;

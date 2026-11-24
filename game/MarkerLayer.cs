@@ -19,6 +19,12 @@ public partial class MarkerLayer : Control
     /// <summary>Labels stay left of this x (the build and research panels dock at the right and would hide them); 0 means the whole width.</summary>
     public float RightLimit;
 
+    /// <summary>The label boxes drawn by the last frame (for the text audit: none may leave the viewport or cross <see cref="RightLimit"/>).</summary>
+    public List<(Rect2 Rect, string Text)> LastLabels { get; } = new();
+
+    /// <summary>Screen rectangles that labels must not cover (text cards over the view); the marks themselves are still drawn.</summary>
+    public List<Rect2> KeepOut { get; } = new();
+
     public MarkerLayer()
     {
         MouseFilter = MouseFilterEnum.Ignore;
@@ -43,7 +49,8 @@ public partial class MarkerLayer : Control
         // spot where it would sit, and when every slot is taken only its diamond or arrow is drawn.
         var order = new List<Item>(_items);
         order.Sort((a, b) => a.Priority != b.Priority ? b.Priority.CompareTo(a.Priority) : a.Place.Distance.CompareTo(b.Place.Distance));
-        var taken = new List<Rect2>();
+        var taken = new List<Rect2>(KeepOut);
+        LastLabels.Clear();
         foreach (var item in order)
         {
             var p = item.Place;
@@ -99,6 +106,7 @@ public partial class MarkerLayer : Control
                 foreach (var t in taken) if (t.Intersects(rect)) { free = false; break; }
                 if (!free) continue;
                 taken.Add(rect);
+                LastLabels.Add((rect, text));
                 textPos = pos;
                 break;
             }

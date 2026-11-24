@@ -311,12 +311,11 @@ public partial class NewGameScreen : Control
             _tabContent.AddChild(none);
             return;
         }
-        var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, 446), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, Name = "StoryScroll" };
-        scroll.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         var list = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         list.AddThemeConstantOverride("separation", 6);
-        scroll.AddChild(list);
-        _tabContent.AddChild(scroll);
+        var hinted = new ScrollWithHint(list) { CustomMinimumSize = new Vector2(0, 446) }; // the arrow at the edge says there are more levels below
+        hinted.Scroll.Name = "StoryScroll";
+        _tabContent.AddChild(hinted);
 
         bool es = Loc.Lang == Language.Es;
         var ids = story.Select(s => s.Id).ToList();
@@ -359,18 +358,17 @@ public partial class NewGameScreen : Control
             var name = UiKit.Text(18, unlocked ? Colors.White : new Color(0.55f, 0.58f, 0.65f));
             name.Text = def.Name(es);
             mid.AddChild(name);
-            var text = UiKit.Text(13, Muted);
-            text.Text = def.Description(es);
-            text.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-            text.CustomMinimumSize = new Vector2(700, 0);
-            text.MaxLinesVisible = 2;
+            // The description and the goals wrap to two lines each at a size that fits, and the card is as tall as they need (no more "..." cut).
+            const float midWidth = 770f;
+            var text = new FitLabel(2, 13, 11) { FitWidth = midWidth };
+            text.AddThemeColorOverride("font_color", Muted);
+            text.SetFit(def.Description(es));
             mid.AddChild(text);
-            var goals = UiKit.Text(12, new Color(0.75f, 0.85f, 1f));
-            goals.Text = Loc.T("ng.story.goals") + " " + string.Join("  -  ", def.Primary.Select(g => es ? g.TextEs : g.TextEn));
-            goals.ClipText = true;
-            goals.CustomMinimumSize = new Vector2(760, 0);
-            goals.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+            var goals = new FitLabel(2, 12, 11) { FitWidth = midWidth };
+            goals.AddThemeColorOverride("font_color", new Color(0.75f, 0.85f, 1f));
+            goals.SetFit(Loc.T("ng.story.goals") + " " + string.Join("  -  ", def.Primary.Select(g => es ? g.TextEs : g.TextEn)));
             mid.AddChild(goals);
+            card.CustomMinimumSize = new Vector2(1060, Math.Max(82f, 20f + 24f + 4f + text.CustomMinimumSize.Y + goals.CustomMinimumSize.Y));
             h.AddChild(mid);
 
             var right = new VBoxContainer { CustomMinimumSize = new Vector2(190, 0), MouseFilter = MouseFilterEnum.Ignore };

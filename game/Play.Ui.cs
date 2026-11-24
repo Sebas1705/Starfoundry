@@ -305,6 +305,7 @@ public partial class Play
         _helpPanel = MakePanel(_helpScroll);
         _helpPanel.AddThemeStyleboxOverride("panel", Box(new Color(0.04f, 0.06f, 0.1f, 0.97f), PanelEdge, 8, 10f)); // opaque: the HUD must not show through the text
         _helpPanel.Visible = false;
+        _helpPanel.SetMeta(UiAudit.ModalMeta, true);
 
         _crosshair = new Crosshair { Visible = false };
         _uiRoot.AddChild(_crosshair);
@@ -524,6 +525,10 @@ public partial class Play
         if (_modeHint.Text.Length > 0) textTop = Math.Min(textTop, _modeHint.Position.Y);
         float bottom = Math.Max(24f, size.Y - textTop + 10f);
         _markers.RightLimit = ResearchOpen || BuildOpen ? DockRect(size).Position.X - 6f : 0f;
+        // Marker labels keep off the cards that carry text over the view (the full info card, the steps card, the star map and its list).
+        _markers.KeepOut.Clear();
+        if (_detailsOpen) foreach (var card in new Control[] { _statusPanel, _objectivesPanel }) if (card.Visible) _markers.KeepOut.Add(new Rect2(card.Position, card.Size).Grow(4f));
+        if (_mapOpen && _map.Visible) { _markers.KeepOut.Add(new Rect2(_map.Position, _map.Size).Grow(4f)); _markers.KeepOut.Add(new Rect2(_mapList.Position, _mapList.GetCombinedMinimumSize()).Grow(4f)); }
         var items = new List<MarkerLayer.Item>();
 
         void Add(string label, Color color, Vector3 target, float hideBelow = 4f, string? distanceText = null, int priority = 1, string? icon = null)
@@ -1394,6 +1399,8 @@ public partial class Play
             _map.Position = new Vector2(size.X - side - 12, y);
             _mapList.Position = new Vector2(size.X - 380, y + side + 6);
             _btnJump.Position = new Vector2(size.X - 162, _mapList.Position.Y + listSize.Y + 6);
+            // When the column does not fit above the key panel (a tall steps card), the Jump button moves to the left of the map.
+            if (_btnJump.Position.Y + jumpSize.Y > keyTop - 4f) _btnJump.Position = new Vector2(_map.Position.X - jumpSize.X - 8f, _map.Position.Y + side - jumpSize.Y);
         }
         _map.Visible = _mapOpen && Net.Galaxy is not null;
         _mapList.Visible = _map.Visible;
