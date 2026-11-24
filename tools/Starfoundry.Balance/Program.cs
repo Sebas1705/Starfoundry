@@ -63,8 +63,10 @@ if (args.Contains("--structures"))
             EnemyDamagePercent = rules.EnemyDamagePercent, EnemyHpPercent = rules.EnemyHpPercent, WaveSizePercent = rules.WaveSizePercent,
             WaveIntervalPercent = rules.WaveIntervalPercent, FirstWaveGraceSeconds = rules.FirstWaveGraceSeconds,
             DepositRichnessPercent = int.Parse(rich), PowerOutputPercent = rules.PowerOutputPercent, GoalWaves = rules.GoalWaves,
-            ThreatsEnabled = rules.ThreatsEnabled, FreeBuild = rules.FreeBuild, StartingItems = rules.StartingItems,
+            ThreatsEnabled = rules.ThreatsEnabled, FreeBuild = rules.FreeBuild, StartingItems = rules.StartingItems, ResourceDensityPercent = rules.ResourceDensityPercent,
         };
+    // --density=N plays with that resource density (50..300 percent, ADR 0036); the presets carry 150, 140, 120 and 100.
+    if (Value("--density") is { } dens) rules = rules.WithResourceDensity(int.Parse(dens));
     var bot = new StructureBot(content, sSeed, threats: !args.Contains("--no-threats"), rules: rules)
     {
         ActionDelaySeconds = args.Any(a => a.StartsWith("--delay=")) ? delay : 6,

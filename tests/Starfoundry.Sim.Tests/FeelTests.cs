@@ -545,12 +545,20 @@ public class FeelTests
 
     // ---- regrowth --------------------------------------------------------------------------------------------------------
 
+    private static void FlyAway(SimWorld w, int cells = 200)
+    {
+        int ship = w.Network.ShipStructure(0);
+        var o = w.Network.GetStructure(ship);
+        w.Network.SetStructureOrigin(ship, o.OriginX + (long)cells * Cell, o.OriginY, o.OriginZ);
+    }
+
     [Fact]
     public void An_emptied_deposit_regrows_a_little_after_a_long_delay_and_never_in_a_legacy_world()
     {
         var (w, dep) = MiningWorld(40);
         Run(w, new StartMining(dep));
         for (int i = 0; i < 2000 && w.Network.DepositRemaining(dep) > 0; i++) w.Step();
+        FlyAway(w);
         Assert.Equal(0, w.Network.DepositRemaining(dep));
         w.Step(FeelRules.RegrowDelayTicks - 30);
         Assert.Equal(0, w.Network.DepositRemaining(dep));                       // not yet
@@ -560,8 +568,10 @@ public class FeelTests
         w.ValidateInvariants();                                                  // extracted + regrown = mined
 
         // It can be mined again and regrows again.
+        FlyAway(w, -200); // back to the rock
         Run(w, new StartMining(dep));
         for (int i = 0; i < 2000 && w.Network.DepositRemaining(dep) > 0; i++) w.Step();
+        FlyAway(w);
         Assert.Equal(0, w.Network.DepositRemaining(dep));
         w.Step(FeelRules.RegrowDelayTicks + 10);
         Assert.Equal(2L * FeelRules.RegrowMinimum, w.Network.RegrownTotal);
@@ -576,12 +586,30 @@ public class FeelTests
     }
 
     [Fact]
+    public void A_rock_does_not_regrow_inside_a_ship_but_waits_until_it_is_clear()
+    {
+        var (w, dep) = MiningWorld(40);
+        Run(w, new StartMining(dep));
+        for (int i = 0; i < 2000 && w.Network.DepositRemaining(dep) > 0; i++) w.Step();
+        Assert.Equal(0, w.Network.DepositRemaining(dep));
+        w.Step(FeelRules.RegrowDelayTicks + 3 * FeelRules.RegrowRetryTicks); // the ship still sits beside the old rock
+        Assert.Equal(0, w.Network.DepositRemaining(dep));
+        Assert.Equal(0, w.Network.RegrownTotal);
+        w.ValidateInvariants();
+        FlyAway(w);
+        w.Step(2 * FeelRules.RegrowRetryTicks);
+        Assert.Equal(FeelRules.RegrowMinimum, w.Network.DepositRemaining(dep)); // clear: it comes back
+        w.ValidateInvariants();
+    }
+
+    [Fact]
     public void A_big_deposit_regrows_twelve_percent_and_the_timer_is_part_of_the_state()
     {
         var (w, dep) = MiningWorld(250);
         Run(w, new StartMining(dep));
         for (int i = 0; i < 9000 && w.Network.DepositRemaining(dep) > 0; i++) w.Step();
         Assert.Equal(0, w.Network.DepositRemaining(dep));
+        FlyAway(w);
         w.Step(10);
         ulong counting = w.Checksum();
         w.Step(FeelRules.RegrowDelayTicks + 20);

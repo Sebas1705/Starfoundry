@@ -41,6 +41,9 @@ public static class FeelRules
 
     /// <summary>An emptied deposit regrows after twelve minutes, with 12 percent of its first size (at least 10 items).</summary>
     public const int RegrowDelayTicks = 12 * 60 * Units.TicksPerSecond, RegrowPercent = 12, RegrowMinimum = 10;
+
+    /// <summary>A regrowth held back by a ship or station inside the rock tries again every second; the rock needs this much room around it (8 cells).</summary>
+    public const int RegrowRetryTicks = Units.TicksPerSecond, RegrowClearUnits = 8 * Units.CellUnits;
 }
 
 /// <summary>What a projectile hit, for sparks and sounds.</summary>
@@ -249,11 +252,23 @@ public sealed partial class BeltNetwork
             if (d.Remaining > 0) continue;
             if (d.RegrowTicks == 0) { d.RegrowTicks = FeelRules.RegrowDelayTicks; continue; }
             if (--d.RegrowTicks > 0) continue;
+            if (RegrowthBlocked(d)) { d.RegrowTicks = FeelRules.RegrowRetryTicks; continue; } // a rock may not come back inside a ship or station: wait until they are clear
             int amount = Math.Min(d.Initial, Math.Max(FeelRules.RegrowMinimum, d.Initial * FeelRules.RegrowPercent / 100));
             d.Remaining = amount;
             RegrownTotal += amount;
             StructureVersion++;
         }
+    }
+
+    /// <summary>True when a module of a ship or station is within the rock of the deposit (as it would be at its first size) plus a margin of <see cref="FeelRules.RegrowClearUnits"/>.</summary>
+    private bool RegrowthBlocked(Deposit d)
+    {
+        long cu = Units.CellUnits, cx = d.X * cu, cy = d.Y * cu, cz = d.Z * cu;
+        long r = (long)DepositRules.NominalRadiusUnits(d.Initial) * (WorldGen?.DepositHitPercent ?? 100) / 100 + FeelRules.RegrowClearUnits;
+        foreach (var s in _structures.Values)
+            foreach (var key in s.ModuleMap.Keys)
+                if (BoxToPoint(s, key, cx, cy, cz).D2 < r * r) return true;
+        return false;
     }
 
     private void StepPickups()
