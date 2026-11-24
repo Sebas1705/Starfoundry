@@ -440,10 +440,10 @@ public static partial class Models
     internal static StandardMaterial3D Body() => Materials.Machine();
 
     /// <summary>Plating at module scale: ship and station modules.</summary>
-    internal static StandardMaterial3D HullMat() => Materials.Hull();
+    internal static StandardMaterial3D HullMat() => Materials.ModuleHull();
 
     /// <summary>Dark structural metal: trusses, rails, masts, frames.</summary>
-    internal static StandardMaterial3D Struct() => Materials.Structural();
+    internal static StandardMaterial3D Struct() => Materials.ModuleStruct();
 
     /// <summary>Burnt metal: nozzles and barrels.</summary>
     internal static StandardMaterial3D Burnt() => Materials.Burnt();

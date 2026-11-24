@@ -58,28 +58,46 @@ internal static class FaceUv
             l.Add(t);
         }
 
-        foreach (var tl in islands.Values) Frame(v, n, tl, tile, uv, tangent);
+        foreach (var tl in islands.Values) Frame(v, n, vid, tl, tile, uv, tangent);
     }
 
     private static int Q(float x) => (int)MathF.Round(x * 1000f);
 
     /// <summary>The u and v axes of a face with normal <paramref name="nrm"/> (before the longer side is chosen).</summary>
-    internal static (Vector3 U, Vector3 V) Axes(Vector3 nrm)
+    internal static (Vector3 U, Vector3 V) Axes(Vector3 nrm, IReadOnlyList<Vector3> v, int[] vid, List<int> tris)
     {
         float ax = MathF.Abs(nrm.X), ay = MathF.Abs(nrm.Y), az = MathF.Abs(nrm.Z);
         if (ax >= 0.9995f) return (Vector3.Back, Vector3.Up);
         if (ay >= 0.9995f) return (Vector3.Right, Vector3.Back);
         if (az >= 0.9995f) return (Vector3.Right, Vector3.Up);
-        // a slope: u along its horizontal contour line, v up the slant
+        // a slope (chamfer, nose, taper): u along the longest border edge of the face, so at least that border is a panel seam
+        var count = new Dictionary<(int, int), int>();
+        foreach (int t in tris)
+            for (int e = 0; e < 3; e++)
+            {
+                int a = vid[t * 3 + e], b = vid[t * 3 + (e + 1) % 3];
+                var key = a < b ? (a, b) : (b, a);
+                count[key] = count.TryGetValue(key, out int c) ? c + 1 : 1;
+            }
+        float best = 0f;
         var tu = Vector3.Up.Cross(nrm).Normalized();
-        var tv = nrm.Cross(tu).Normalized();
-        return (tu, tv);
+        foreach (int t in tris)
+            for (int e = 0; e < 3; e++)
+            {
+                int a = vid[t * 3 + e], b = vid[t * 3 + (e + 1) % 3];
+                if (count[a < b ? (a, b) : (b, a)] != 1) continue;
+                var d = v[t * 3 + (e + 1) % 3] - v[t * 3 + e];
+                d -= nrm * d.Dot(nrm);
+                float len = d.Length();
+                if (len > best + 1e-4f) { best = len; tu = d / len; }
+            }
+        return (tu, nrm.Cross(tu).Normalized());
     }
 
-    private static void Frame(IReadOnlyList<Vector3> v, IReadOnlyList<Vector3> n, List<int> tris, float tile, Vector2[] uv, float[] tangent)
+    private static void Frame(IReadOnlyList<Vector3> v, IReadOnlyList<Vector3> n, int[] vid, List<int> tris, float tile, Vector2[] uv, float[] tangent)
     {
         var nrm = n[tris[0] * 3];
-        var (tu, tv) = Axes(nrm);
+        var (tu, tv) = Axes(nrm, v, vid, tris);
         Measure(v, tris, tu, tv, out float u0, out float u1, out float v0, out float v1);
         if (v1 - v0 > (u1 - u0) * 1.001f)
         {

@@ -98,7 +98,7 @@ public static class Materials
 
     /// <summary>The same plating at machine scale (a panel is a quarter to half a unit): machines, drones, enemies, the player ship.</summary>
     public static StandardMaterial3D Machine() => Cached("machine", () =>
-        Build(Set("machine", () => Gen.HullPlating(N(512), 2, 2202, 5.0f * N(512) / 512f), 3.0f), 1f, 0.80f, 0.32f, 0.9f));
+        BuildPlanar(Set("panel", () => Gen.FramedPanel(N(512), 1101, 6.5f * N(512) / 512f), 3.0f), 0.3f, 0.80f, 0.32f, 0.9f));
 
     /// <summary>Dark structural metal for trusses, rails, masts and frames: brushed, bolted, grooved.</summary>
     public static StandardMaterial3D Structural() => Cached("struct", () =>
