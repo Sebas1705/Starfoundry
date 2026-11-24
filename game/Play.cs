@@ -121,6 +121,12 @@ public partial class Play : Node3D
         var content = ContentSource.Load(args, out var contentLookup, out string? contentError);
         if (content is null) { ContentSource.ShowError(this, contentLookup, contentError); SetProcess(false); SetPhysicsProcess(false); SetProcessUnhandledInput(false); return; }
         _content = content;
+        if (args.Contains("--ui-lang=es")) Loc.Lang = Language.Es; // any screenshot or scripted run may pin the language (after the settings load)
+        if (args.Contains("--ui-lang=en")) Loc.Lang = Language.En;
+        // --window=WxH puts any scripted run or screenshot in a window of that size (the shots saw the maximised window before, so 1024x600 was never looked at).
+        if (args.FirstOrDefault(a => a.StartsWith("--window="))?["--window=".Length..].Split('x') is { Length: 2 } wh
+            && int.TryParse(wh[0], out int ww) && int.TryParse(wh[1], out int wht) && ww >= 320 && wht >= 240)
+            SetWindowSize(GetWindow(), ww, wht);
         _scenarios = ScenarioStore.Catalog(content, contentLookup.Path);
         _exploreDemo = args.Contains("--explore-demo");
         _saveTest = args.Contains("--save-test");
@@ -891,6 +897,7 @@ void fragment() {
         foreach (var r in _world.LastResults)
         {
             AudioResult(r);
+            if (r.Command is DesignerApply) { _designerRejected = !r.Ok; if (!r.Ok) ToastLogistics(Why(r.Reject)); continue; } // the designer panel says "applied" only when it was
             if (r.Command is DockAt or Undock or TransferItems) { DockResult(r); continue; }
             if (!r.Ok)
             {

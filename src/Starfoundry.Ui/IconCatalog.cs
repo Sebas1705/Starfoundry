@@ -100,7 +100,7 @@ public static class IconCatalog
         ("store", "upload"), ("cancel", "cross"), ("close", "cross"), ("found", "station"), ("pick", "cursor"), ("inspect", "magnifier"),
         ("recipe", "cycle"), ("kind", "tag"), ("tab", "tabs"), ("start", "play"), ("info", "info"), ("stock", "depot"), ("module", "cargo"),
         ("drones", "drone"), ("place", "build"), ("quick", "bolt"), ("run", "bolt"), ("hp", "heart"), ("menu", "tabs"), ("resume", "play"),
-        ("hold", "cargo"), ("designer", "shipyard"), ("fireGuns", "gun"), ("belt", "belt"), ("machine", "arm"), ("target", "crosshair"), ("designer", "shipyard"), ("fireGuns", "gun"), ("add", "plus"),
+        ("hold", "cargo"), ("designer", "shipyard"), ("fireGuns", "gun"), ("belt", "belt"), ("machine", "arm"), ("target", "crosshair"), ("add", "plus"),
     };
 
     /// <summary>Status icons by id (the part after <c>status:</c>).</summary>

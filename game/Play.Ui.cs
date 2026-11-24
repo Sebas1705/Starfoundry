@@ -70,6 +70,9 @@ public partial class Play
     private PanelContainer _flightPanel = null!, _targetPanel = null!;
     private VBoxContainer _toastBox = null!;
     private readonly Label[] _toastLabels = new Label[ToastQueue.MaxVisible];
+    private float _toastMax = 600f;
+    private readonly IconRect[] _toastIcons = new IconRect[ToastQueue.MaxVisible];
+    private readonly HBoxContainer[] _toastRows = new HBoxContainer[ToastQueue.MaxVisible];
     private MarkerLayer _markers = null!;
     private Button _btnDetails = null!;
     private Crosshair _crosshair = null!;
@@ -94,7 +97,7 @@ public partial class Play
     private string MachineName(int type) => Loc.Name("machine", _content.Machines[type].Id);
 
     private string Stacks(ItemStack[] stacks) =>
-        stacks.Length == 0 ? L("ui.free") : string.Join(", ", stacks.Select(s => $"{s.Count} {ItemName(s.Item)}"));
+        stacks.Length == 0 ? L("ui.free") : string.Join(", ", stacks.Select(s => $"{ItemName(s.Item)} x{s.Count}")); // "iron ingot x2": the names have no plural form, so the count goes after
 
     // ---- building the interface ---------------------------------------------------------------------
 
@@ -225,7 +228,15 @@ public partial class Play
             l.AddThemeConstantOverride("outline_size", 5);
             l.Visible = false;
             _toastLabels[i] = l;
-            _toastBox.AddChild(l);
+            // A small icon of the category before the text (the colour alone does not say it to everyone).
+            var row = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore, Alignment = BoxContainer.AlignmentMode.Center, Visible = false };
+            row.AddThemeConstantOverride("separation", 6);
+            var icon = new IconRect("status:objective", 20, null, tooltip: false);
+            _toastIcons[i] = icon;
+            _toastRows[i] = row;
+            row.AddChild(icon);
+            row.AddChild(l);
+            _toastBox.AddChild(row);
         }
         _uiRoot.AddChild(_toastBox);
 
@@ -1249,17 +1260,29 @@ public partial class Play
         for (int i = 0; i < _toastLabels.Length; i++)
         {
             var label = _toastLabels[i];
-            label.Visible = i < visible.Count;
+            label.Visible = _toastRows[i].Visible = i < visible.Count;
             if (i >= visible.Count) continue;
             var t = visible[i];
-            label.Text = (t.Category == ToastCategory.Threat ? "! " : "") + t.Display;
-            label.AddThemeColorOverride("font_color", t.Category switch
+            label.Text = t.Display;
+            float textWidth = ThemeDB.FallbackFont.GetStringSize(t.Display, HorizontalAlignment.Left, -1, 16).X + 14f;
+            label.CustomMinimumSize = new Vector2(Math.Min(_toastMax, textWidth), 0f);
+            label.HorizontalAlignment = textWidth > _toastMax ? HorizontalAlignment.Left : HorizontalAlignment.Center; // a wrapped toast reads from its icon
+            _toastIcons[i].SizeFlagsVertical = Control.SizeFlags.ShrinkBegin;
+            var color = t.Category switch
             {
                 ToastCategory.Production => ToastProductionColor,
                 ToastCategory.Logistics => ToastLogisticsColor,
                 ToastCategory.Threat => ToastThreatColor,
                 _ => ToastInfo,
-            });
+            };
+            label.AddThemeColorOverride("font_color", color);
+            _toastIcons[i].Set(t.Category switch
+            {
+                ToastCategory.Production => "tool:refine",
+                ToastCategory.Logistics => "tool:belt",
+                ToastCategory.Threat => "status:alert",
+                _ => "tool:info",
+            }, color);
         }
     }
 
@@ -1351,7 +1374,8 @@ public partial class Play
         else toastWidth = Math.Min(toastWidth, Math.Max(300f, 2f * (keyLeft - 12f - size.X / 2f))); // not under the key panel
         // With the star map open the column narrows so it does not run under the map and its list on the right.
         if (_mapOpen && Net.Galaxy is not null) toastWidth = Math.Min(toastWidth, Math.Max(300f, size.X - 784f));
-        foreach (var l in _toastLabels) l.CustomMinimumSize = new Vector2(toastWidth, 0);
+        _toastMax = toastWidth - 30f; // minus the category icon; each label shrinks to its own text up to this width
+        _toastBox.CustomMinimumSize = new Vector2(toastWidth, 0);
         _toastBox.ResetSize();
         _toastBox.Position = new Vector2(toastCentre - toastWidth / 2f, _modeHint.Position.Y - 8 - _toastBox.Size.Y);
 

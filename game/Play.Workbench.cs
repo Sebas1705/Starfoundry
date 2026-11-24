@@ -112,7 +112,7 @@ public partial class Play
         _uiRoot.AddChild(_benchCard);
     }
 
-    private string BenchStacks(ItemStack[] stacks) => string.Join(", ", stacks.Select(s => $"{s.Count} {Loc.Name("item", _content.Items[s.Item].Id)}"));
+    private string BenchStacks(ItemStack[] stacks) => string.Join(", ", stacks.Select(s => $"{Loc.Name("item", _content.Items[s.Item].Id)} x{s.Count}"));
 
     private void UpdateBenchCard(PlayerInfo pi, string? recipeId)
     {
@@ -149,7 +149,7 @@ public partial class Play
             _benchBar.AddThemeStyleboxOverride("fill", new StyleBoxFlat { BgColor = Models.BenchColour(kind) });
             _benchBar.AddThemeStyleboxOverride("background", new StyleBoxFlat { BgColor = new Color(0.12f, 0.14f, 0.2f) });
             _benchIn.Visible = _benchOut.Visible = true;
-            string held = string.Join(", ", r.Inputs.Select(i => $"{Net.HoldCount(Player, i.Item)} {Loc.Name("item", _content.Items[i.Item].Id)}"));
+            string held = string.Join(", ", r.Inputs.Select(i => $"{Loc.Name("item", _content.Items[i.Item].Id)} x{Net.HoldCount(Player, i.Item)}"));
             _benchIn.Text = L("bench.card.in", BenchStacks(r.Inputs), held);
             _benchOut.Text = L("bench.card.out", BenchStacks(r.Outputs));
         }

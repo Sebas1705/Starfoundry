@@ -172,7 +172,9 @@ public partial class ShipDesigner : Control
             _palette.Add((k, b));
         }
         palScroll.AddChild(pal);
+        palScroll.CustomMinimumSize = new Vector2(0, 120);
         right.AddChild(palScroll);
+        right.AddChild(new HSeparator { CustomMinimumSize = new Vector2(0, 10) }); // keeps the selection text off the clipped end of the list
         _selected = UiKit.Text(14, Colors.White); _selected.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         right.AddChild(_selected);
         var row = new HBoxContainer();

@@ -36,6 +36,7 @@ public partial class BuildMenu : Control
 
     // The detail pane.
     private IconRect _dIcon = null!;
+    private BuildPreview _dPreview = null!;
     private Label _dName = null!, _dRole = null!, _dDesc = null!, _dStatus = null!;
     private HFlowContainer _dCost = null!;
     private IconCount _dPower = null!;
@@ -131,6 +132,8 @@ public partial class BuildMenu : Control
         pane.AddChild(row);
         _dIcon = new IconRect("tool:build", 56, null, tooltip: false) { SizeFlagsVertical = SizeFlags.ShrinkBegin };
         row.AddChild(_dIcon);
+        _dPreview = new BuildPreview(104) { Visible = false };
+        row.AddChild(_dPreview);
         var col = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         col.AddThemeConstantOverride("separation", 3);
         row.AddChild(col);
@@ -342,6 +345,9 @@ public partial class BuildMenu : Control
         }
         var v = _view(entry);
         _dIcon.Set(v.IconId.Length > 0 ? v.IconId : "generic", v.Locked ? new Color(0.5f, 0.54f, 0.64f) : null);
+        bool model = _dPreview.Show(entry); // a turning model of machines and modules; belts keep the big icon
+        _dPreview.Visible = model;
+        _dIcon.Visible = !model;
         _dName.Text = (v.Key.Length > 0 ? $"[{v.Key}]  " : "") + Capitalise(v.Name);
         _dName.AddThemeColorOverride("font_color", v.Locked ? UiTheme.Dim : v.Selected ? UiTheme.Gold : Colors.White);
         _dRole.Text = v.Role;
