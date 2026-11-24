@@ -19,6 +19,8 @@ public partial class Play
     private int _obsFrame, _obsSaveAt = -1;
     private (int X, int Y, int Z) _obsThrust;
     private bool _obsImpact;
+    private int _obsStopAt = -1;
+    private long _obsSaveTick = -1, _obsStopTick = -1; // the speed scenes count simulation ticks, not frames: the frames run faster than the ticks
 
     private void ObstacleShotSetup(string[] args)
     {
@@ -56,14 +58,58 @@ public partial class Play
         if (_obsShotPath is null || ShipStruct < 0) return;
         _obsFrame++;
         if (_obsFrame == 4) SetUpObsScene();
+        if (_obsStopTick > 0 && Net.Tick >= _obsStopTick) { _obsStopTick = -1; _obsThrust = default; Send(new SetThrust(0, 0, 0)); } // the brake scene lets go of the throttle here
+        if (_obsSaveTick > 0 && Net.Tick >= _obsSaveTick)
+        {
+            if (_obsScene is "depositrock" or "rockmargin") PrintHitMargin();
+            Save(_obsShotPath); _obsSaveTick = -1; GetTree().Quit();
+        }
         // The seat controls send "no thrust" when nothing is held; the scripted flights keep their thrust by sending it every frame.
         if (_obsFrame > 4 && _obsThrust != default && _world.PendingCommands == 0) Send(new SetThrust(_obsThrust.X, _obsThrust.Y, _obsThrust.Z));
-        if (_obsScene == "hit" && _obsImpact && _obsSaveAt > _obsFrame + 5) _obsSaveAt = _obsFrame + 5; // a few frames after the first impact
+        if (_obsScene is "hit" && _obsImpact && _obsSaveAt > _obsFrame + 5) _obsSaveAt = _obsFrame + 5; // a few frames after the first impact
+        if (_obsScene is "depositrock" or "rockmargin" && _obsImpact && _obsSaveTick > Net.Tick + 10) _obsSaveTick = Net.Tick + 10; // ten ticks after the first impact
         if (_obsSaveAt > 0 && _obsFrame >= _obsSaveAt)
         {
             Save(_obsShotPath);
             _obsSaveAt = -1;
             GetTree().Quit();
+        }
+    }
+
+    /// <summary>
+    /// ADR 0033: after the ship has hit a rock, how close the drawn rock comes to the ship's module boxes: the smallest distance from any vertex of the
+    /// rock model (in the world, as drawn) to any module box, in cells. Positive: the rock does not enter the boxes; the hull is drawn within its boxes
+    /// plus a little, which the padding covers. Printed as <c>MARGIN ...</c>.
+    /// </summary>
+    private void PrintHitMargin()
+    {
+        var views = new System.Collections.Generic.List<Node3D>();
+        if (_obsScene == "rockmargin") { if (_obstacleLayer?.GetNodeOrNull<Node3D>("Obstacle" + FindObstacle("core:asteroid_big", 0)) is { } v) views.Add(v); }
+        else { int d = DefaultDeposit(); if (d >= 0 && d < _depositNodes.Count) views.Add(_depositNodes[d]); }
+        var s = Net.GetStructure(ShipStruct);
+        float best = float.MaxValue;
+        foreach (var view in views)
+            foreach (var mi in EnumerateMeshes(view))
+                foreach (var vert in mi.Mesh.GetFaces())
+                {
+                    var w = mi.GlobalTransform * vert;
+                    foreach (var key in s.Modules.Keys)
+                    {
+                        var (min, max) = Net.ModuleWorldBounds(s, key);
+                        var lo = new Vector3(min.X, min.Y, min.Z) / CellUnits; var hi = new Vector3(max.X, max.Y, max.Z) / CellUnits;
+                        float dx = MathF.Max(MathF.Max(lo.X - w.X, 0f), w.X - hi.X), dy = MathF.Max(MathF.Max(lo.Y - w.Y, 0f), w.Y - hi.Y), dz = MathF.Max(MathF.Max(lo.Z - w.Z, 0f), w.Z - hi.Z);
+                        best = MathF.Min(best, MathF.Sqrt(dx * dx + dy * dy + dz * dz));
+                    }
+                }
+        GD.Print($"MARGIN {_obsScene}: nearest drawn rock vertex to a module box {best:F3} cells (hull pad {_content.World!.HullPadUnits / (float)CellUnits:F2} cells)");
+    }
+
+    private static System.Collections.Generic.IEnumerable<MeshInstance3D> EnumerateMeshes(Node n)
+    {
+        foreach (var c in n.GetChildren())
+        {
+            if (c is MeshInstance3D mi && mi.Mesh is not null && c.Name != "Blast") yield return mi;
+            foreach (var m in EnumerateMeshes(c)) yield return m;
         }
     }
 
@@ -155,6 +201,40 @@ public partial class Play
                 _shotCam = (c + new Vector3(-8f, 3f, -10f), c);
                 _shotOutside = true;
                 _obsSaveAt = _obsFrame + 8;
+                break;
+            }
+            // Speed feel (ADR 0033): the cockpit view and the HUD a moment after the throttle goes full (the ramp), at cruise, at boost and while braking.
+            case "ramp": case "cruise": case "boostcruise": case "brake":
+            {
+                _yaw = 0f; _pitch = 0f; _shotOutside = false;
+                if (_obsScene == "boostcruise") Send(new SetBoost(true));
+                _obsThrust = (0, 0, -1024);
+                _obsSaveTick = Net.Tick + _obsScene switch { "ramp" => 16, "cruise" => 70, "boostcruise" => 80, _ => 62 };
+                if (_obsScene == "brake") _obsStopTick = Net.Tick + 50; // full speed after the ramp, then the throttle is released: the shot is 12 ticks into the braking
+                break;
+            }
+            // Solid deposits and the hit volume (ADR 0033): the ship dives onto the rock of a deposit, seen from the side a few frames after the first impact.
+            case "depositrock":
+            {
+                var (dx, dy, dz) = Net.DepositPosition(DefaultDeposit());
+                var c = new Vector3(dx, dy, dz);
+                Teleport(c + new Vector3(-4f, 14f, -4f));
+                _shotCam = (c + new Vector3(-16f, 5f, 12f), c + new Vector3(0f, 2f, 0f));
+                _shotOutside = true;
+                _obsThrust = (0, -1024, 0);
+                _obsSaveTick = Net.Tick + 600; // shortened to a few ticks after the first impact (see ObstacleShotFrame)
+                break;
+            }
+            case "rockmargin":
+            {
+                var o = Net.GetObstacle(FindObstacle("core:asteroid_big", 0));
+                var c = P(o);
+                float r = o.Radius / (float)CellUnits;
+                Teleport(c + new Vector3(-4f, r + 14f, -4f));
+                _shotCam = (c + new Vector3(-6f, r * 1.55f + 1f, 16f), c + new Vector3(0f, r * 1.4f, 0f));
+                _shotOutside = true;
+                _obsThrust = (0, -1024, 0);
+                _obsSaveTick = Net.Tick + 600; // shortened to a few ticks after the first impact (see ObstacleShotFrame)
                 break;
             }
             case "boost":

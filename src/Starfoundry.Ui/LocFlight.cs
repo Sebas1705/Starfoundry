@@ -9,6 +9,8 @@ public static partial class Loc
         ["hud.flightSpeedOf"] = ("{0} / {1} celdas/s", "{0} / {1} cells/s"),
         ["hud.flightGaugeTip"] = ("Velocidad frente a la máxima de los motores ahora. La marca blanca es la velocidad que pide el empuje ({0} celdas/s); la nave la alcanza con una aceleración de {1} celdas/s².", "Speed against what the engines can do now. The white tick is the speed the thrust asks for ({0} cells/s); the ship gets there at {1} cells/s² of acceleration."),
         ["obstacle.depositRock"] = ("roca de {0}", "{0} rock"),
+        ["designer.flight"] = ("Motores: {0}  -  velocidad máxima {1} celdas/s, {2} s en alcanzarla", "Engines: {0}  -  top speed {1} cells/s, {2} s to reach it"),
+        ["designer.flightPlain"] = ("Motores: {0}  -  velocidad máxima {1} celdas/s", "Engines: {0}  -  top speed {1} cells/s"),
         ["bonus.engine_speed"] = ("velocidad máxima de la nave", "ship top speed"),
         ["bonus.engine_accel"] = ("aceleración y frenada de la nave", "ship acceleration and braking"),
         ["research.core:ion_thrusters"] = ("Propulsores iónicos", "Ion thrusters"),

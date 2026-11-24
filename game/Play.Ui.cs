@@ -1420,6 +1420,9 @@ public partial class Play
             if (new Rect2(fp, fs).Intersects(o)) fp.Y = Math.Max(fp.Y, o.End.Y + 6f);
         }
         _flightPanel.Position = fp;
+        // The boost and hazard banners hang below the readout, wherever it ended up (the gauge made the card taller).
+        if (_boostLabel is not null) _boostLabel.OffsetTop = fp.Y + fs.Y + 4f;
+        if (_hazardLabel is not null) _hazardLabel.OffsetTop = fp.Y + fs.Y + (Net.IsBoosting(Player) ? 34f : 6f);
 
         // The help overlay fills the view left of the key panel (it scrolls when the text is taller than the window).
         float helpWidth = Math.Clamp(keyLeft - 36f, 320f, 1000f);
