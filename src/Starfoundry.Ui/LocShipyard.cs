@@ -55,6 +55,7 @@ public static partial class Loc
         ["designer.revert"] = ("Deshacer cambios", "Revert changes"),
         ["designer.close"] = ("Cerrar (Esc)", "Close (Esc)"),
         ["designer.valid"] = ("Diseño válido", "Valid design"),
+        ["designer.viewWarn"] = ("Aviso: {0} pieza(s) tapan la vista del piloto", "Warning: {0} attachment(s) block the pilot view"),
         ["designer.unchanged"] = ("Sin cambios", "No changes"),
         ["designer.invalid"] = ("No se puede aplicar: {0}", "Cannot apply: {0}"),
         ["designer.changes"] = ("{0} nuevos, {1} quitados, {2} movidos", "{0} new, {1} removed, {2} moved"),

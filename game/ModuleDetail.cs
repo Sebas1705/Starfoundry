@@ -45,7 +45,7 @@ public static partial class ModuleModels
         {
             if (c.Kind is ModuleKind.Hull or ModuleKind.Cargo or ModuleKind.Reactor)
                 foreach (float s in new[] { -1f, 1f })
-                    if (!(s < 0 ? c.Has(Left) : c.Has(Right))) StrobeAt(c, s < 0 ? "wingL" : "wingR", s < 0 ? -1.9f : W + 1.9f, (c.Kind == ModuleKind.Hull ? 1.35f : 1.0f) + 0.25f, 5.45f);
+                    if (!(s < 0 ? c.Has(Left) : c.Has(Right))) StrobeAt(c, s < 0 ? "wingL" : "wingR", s < 0 ? -1.9f : W + 1.9f, Starfoundry.Ui.HullProfile.WingY + 0.25f, 5.45f);
             return;
         }
         if (c.Kind is ModuleKind.Workshop or ModuleKind.Defence or ModuleKind.DroneBay || c.Has(Up)) return;

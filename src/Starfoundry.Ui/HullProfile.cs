@@ -159,6 +159,23 @@ public static class HullProfile
     /// <summary>The height of the body's head above the floor, a little over the eye.</summary>
     public const float BodyHeight = 1.8f;
 
+    // ---- skylights and wings -----------------------------------------------------------------------------------------------
+
+    /// <summary>The two glazed panes in the floor of a gun deck that stands on another module (x and z in cells from the module's back-left corner), either side of the line of gun mounts.</summary>
+    public static readonly (float X0, float X1, float Z0, float Z1)[] SkylightPanes = { (1.0f, 2.9f, 0.9f, 7.1f), (5.1f, 7.0f, 0.9f, 7.1f) };
+
+    /// <summary>True for the kinds that stand on top of a ship and carry a glass roof of their own: a skylight in their floor lets the module below see out.</summary>
+    public static bool SkylightKinds(ModuleKind kind) => kind is ModuleKind.Gun or ModuleKind.GunMk2;
+
+    /// <summary>A ship module of <paramref name="kind"/> with a module below it (<paramref name="mask"/>) has skylight panes in its floor.</summary>
+    public static bool HasSkylight(ModuleKind kind, bool ship, int mask) => ship && SkylightKinds(kind) && (mask & Down) != 0;
+
+    /// <summary>
+    /// The stub wings of a ship (hull, cargo and reactor modules) stand with their root this high above the deck: below the sill of every window (the lowest
+    /// is 1.3) and above the lower chamfer, so a wing never crosses the glazing. <see cref="WingThickness"/> is the plate, <see cref="WingTop"/> its top face.
+    /// </summary>
+    public const float WingY = 0.55f, WingThickness = 0.10f, WingTop = WingY + WingThickness + 0.02f;
+
     // ---- the cockpit furniture: solid for the walking body -------------------------------------------------------------
 
     /// <summary>The footprint of a ship cockpit's console (a low desk across the front) and of the pilot seat with its armrests, from the module's back-left corner.</summary>
