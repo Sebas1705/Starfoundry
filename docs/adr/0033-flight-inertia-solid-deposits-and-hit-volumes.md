@@ -13,7 +13,7 @@ Hand-testing the flight after [ADR 0028](0028-world-generation-obstacles-and-col
 2. Approaching an asteroid, part of the ship was drawn inside the rock before the collision fired: the hit volume was the generated radius against the module boxes, and neither the drawn rock nor the drawn hull matches them.
 3. Thrust was instantaneous: the velocity went from zero to 5.7 cells a second in one tick, so flying had no weight and a speed readout showed nothing to watch.
 4. Nothing in the game made the ship faster or more agile.
-5. The view gave little sense of speed (a gizmo and a number, dust streaks of one fixed length that faded in only above 4 cells a second).
+5. The view gave little sense of speed (a gizmo and a number, dust streaks of one fixed length that faded in only above 4 cells a second). (Fixed afterwards: the streaks are now built in world space along the velocity vector, see the flight feel prototype.)
 
 The simulation is deterministic and integer only ([ADR 0002](0002-deterministic-simulation-core.md)); every change is a logged command ([ADR 0003](0003-commands-as-the-only-way-to-change-the-world.md)); old command logs must replay as recorded and the golden checksums of the legacy worlds must not move; the scripted player ([structure bot](../prototypes/structure-bot.md)) must still win Relaxed, Normal and Hard at about the same time.
 

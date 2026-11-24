@@ -13,6 +13,7 @@ namespace Starfoundry.Game;
 /// </summary>
 public partial class Play
 {
+    private float _targetShown; // the demanded speed as the gauge shows it: eased, so a key press or release does not snap it
     private float _speedCps, _topCps, _targetCps, _accelNorm, _fovKick, _flameLevel, _rumble;
     private Vector3 _velCps;
     private (int X, int Y, int Z) _lastVelMilli;
@@ -39,7 +40,7 @@ public partial class Play
     {
         if (!Net.HasPlayer(Player) || _demo || Overview)
         {
-            _speedCps = _topCps = _targetCps = _accelNorm = _fovKick = _flameLevel = _rumble = 0f;
+            _speedCps = _topCps = _targetCps = _targetShown = _accelNorm = _fovKick = _flameLevel = _rumble = 0f;
             _velCps = Vector3.Zero;
             return;
         }
@@ -76,6 +77,7 @@ public partial class Play
         _velCps = v;
         _topCps = top;
         _targetCps = Net.CanFly(Player) ? Math.Min(demand, 1f) * top * jump : 0f;
+        _targetShown = Mathf.Lerp(_targetShown, _targetCps, 1f - MathF.Exp(-12f * dt));
         float k = 1f - MathF.Exp(-9f * dt);
         _speedCps = Mathf.Lerp(_speedCps, v.Length(), k);
         _accelNorm = Mathf.Lerp(_accelNorm, accelNormRaw, 1f - MathF.Exp(-7f * dt));
@@ -117,7 +119,7 @@ public partial class Play
         if (!show) return;
         string cur = _speedCps.ToString("F1", Loc.Culture), top = _topCps.ToString("F1", Loc.Culture);
         _flightSpeed.SetText("status:speed", L("hud.flightSpeedOf", cur, top), UiTheme.Text, Icons.Name("status:speed"));
-        _speedGauge.Set(_speedCps / _topCps, _targetCps / _topCps, Net.IsBoosting(Player));
+        _speedGauge.Set(_speedCps / _topCps, _targetShown / _topCps, Net.IsBoosting(Player));
         float accelCps2 = Net.ShipAccelMilli(Player) * (float)Units.TicksPerSecond * Units.TicksPerSecond / (1000f * Units.CellUnits);
         _speedGauge.TooltipText = L("hud.flightGaugeTip", _targetCps.ToString("F1", Loc.Culture), accelCps2.ToString("F1", Loc.Culture));
 
