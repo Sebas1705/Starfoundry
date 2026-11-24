@@ -38,6 +38,7 @@ public partial class Play
         _wantCapture = false;
         var win = GetWindow();
         var args = OS.GetCmdlineUserArgs();
+        if (args.Contains("--cockpit-bench")) { CockpitBenchFrame(win, args); return; }
         var sizeArg = args.FirstOrDefault(a => a.StartsWith("--cockpit-size="))?["--cockpit-size=".Length..].Split('x');
         void Shot(string name)
         {
@@ -107,6 +108,42 @@ public partial class Play
             case 560: Shot("standing"); break;
             case 561: GetTree().Quit(); break;
         }
+    }
+
+    private readonly System.Collections.Generic.List<double> _benchWall = new(), _benchCpu = new(), _benchGpu = new();
+    private ulong _benchLast;
+
+    /// <summary>
+    /// <c>--cockpit-shot=path --cockpit-bench [--cockpit-size=WxH] [--blender-cockpit]</c>: instead of the screenshots, seats the pilot looking at the console, switches vertical sync off,
+    /// skips 70 frames while the scene builds and times 300: average, 95th percentile and worst frame time, the render thread's CPU and GPU time and the draw calls, objects and
+    /// primitives in the frame (<c>COCKPITBENCH ...</c>), then quits. Used to compare the procedural cockpit with the Blender one (docs/prototypes/blender-pipeline.md).
+    /// </summary>
+    private void CockpitBenchFrame(Window win, string[] args)
+    {
+        var sizeArg = args.FirstOrDefault(a => a.StartsWith("--cockpit-size="))?["--cockpit-size=".Length..].Split('x');
+        switch (_cockpitShotFrame)
+        {
+            case 3:
+                if (sizeArg is { Length: 2 } && int.TryParse(sizeArg[0], out int w) && int.TryParse(sizeArg[1], out int h)) SetWindowSize(win, w, h);
+                else SetWindowSize(win, 1280, 720);
+                DisplayServer.WindowSetVsyncMode(DisplayServer.VSyncMode.Disabled);
+                RenderingServer.ViewportSetMeasureRenderTime(GetViewport().GetViewportRid(), true);
+                break;
+            case 12: _hudModeShot = HudMode.Full; _yaw = 0f; _pitch = -0.5f; _focus = null; break;
+        }
+        ulong now = Time.GetTicksUsec();
+        if (_cockpitShotFrame > 70)
+        {
+            _benchWall.Add((now - _benchLast) / 1000.0);
+            var rid = GetViewport().GetViewportRid();
+            _benchCpu.Add(RenderingServer.ViewportGetMeasuredRenderTimeCpu(rid));
+            _benchGpu.Add(RenderingServer.ViewportGetMeasuredRenderTimeGpu(rid));
+        }
+        _benchLast = now;
+        if (_benchWall.Count < 300) return;
+        var sorted = _benchWall.OrderBy(x => x).ToList();
+        GD.Print($"COCKPITBENCH blender={BlenderCockpit.Enabled} size={GetViewport().GetVisibleRect().Size} frames={sorted.Count} avg_ms={sorted.Average():F3} p95_ms={sorted[(int)(sorted.Count * 0.95)]:F3} worst_ms={sorted[^1]:F3} render_cpu_ms={_benchCpu.Average():F3} render_gpu_ms={_benchGpu.Average():F3} draw_calls={Performance.GetMonitor(Performance.Monitor.RenderTotalDrawCallsInFrame)} objects={Performance.GetMonitor(Performance.Monitor.RenderTotalObjectsInFrame)} primitives={Performance.GetMonitor(Performance.Monitor.RenderTotalPrimitivesInFrame)} video_mem_mb={Performance.GetMonitor(Performance.Monitor.RenderVideoMemUsed) / 1048576.0:F0}");
+        GetTree().Quit();
     }
 
     private CockpitSnapshot? _syntheticSnapshot;
