@@ -128,6 +128,7 @@ public static class IconCatalog
         ("bio_sensors", "dish"), ("symbiotic_drones", "drone"), ("field_theory", "atom"), ("efficient_reactors", "reactor"), ("long_range_jump", "jump"),
         ("targeting_lasers", "laser"), ("quantum_sensors", "radar"), ("laser_focusing", "laser"), ("beam_collimator", "crosshair"),
         ("composites", "plateStack"), ("cryogenics", "drop"), ("resonance", "crystal"),
+        ("ion_thrusters", "engine"), ("thrust_vectoring", "gauge"), ("plasma_drive", "bolt"),
     };
 
     /// <summary>Every registered id, for the gallery and the tests.</summary>
