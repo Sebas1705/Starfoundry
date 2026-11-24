@@ -162,8 +162,10 @@ public class WorldRulesTests
         Assert.Throws<InvalidDataException>(() => WorldRules.Deserialize(badVersion));
         var badValue = (byte[])bytes.Clone(); badValue[1] = 1; badValue[2] = badValue[3] = badValue[4] = 0; // enemy damage 1
         Assert.Throws<InvalidDataException>(() => WorldRules.Deserialize(badValue));
-        var badFlags = (byte[])bytes.Clone(); badFlags[1 + 8 * 4] = 64;
-        Assert.Throws<InvalidDataException>(() => WorldRules.Deserialize(badFlags));
+        // Every flag bit is used now (bit 6 legacy collisions, bit 7 legacy flight, ADR 0033): any flags byte reads back.
+        var both = new WorldRules().WithLegacyCollisions(true).WithLegacyFlight(true);
+        Assert.Equal(both, WorldRules.Deserialize(both.Serialize()));
+        Assert.Equal(64 | 128, both.Serialize()[1 + 8 * 4]);
     }
 
     // ---- defaults change nothing ----------------------------------------------------------------------
@@ -526,7 +528,7 @@ public class WorldRulesTests
         byte[] plain = LogBytes(log, null);
         byte[] normal = LogBytes(log, WorldRules.Normal);
         Assert.Equal(plain, normal); // default rules write no block
-        Assert.Equal(14, plain[4]); // version 14 added DesignerApply and the hardpoints; the rules block is unchanged
+        Assert.Equal(15, plain[4]); // version 15 added solid deposits, padded hit volumes and flight inertia (legacy flags); the rules block is unchanged
         Assert.Equal(0, plain[4 + 1 + 8 + 1 + 8] & 8);
 
         byte[] hard = LogBytes(log, WorldRules.Hard);
