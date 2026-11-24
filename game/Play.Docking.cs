@@ -260,8 +260,8 @@ public partial class Play
     {
         var st = Net.GetStructure(structure);
         var dock = StationView.DockBits(Net, st);
-        bool Has(int x, int y, int z) => st.Modules.ContainsKey((x, y, z));
-        int Mask((int Mx, int My, int Mz) k) => ModuleModels.NeighbourMask(Has, k.Mx, k.My, k.Mz) | dock.GetValueOrDefault(k);
+        ModuleKind? KindAt(int x, int y, int z) => st.Modules.TryGetValue((x, y, z), out var kind) ? kind : null;
+        int Mask((int Mx, int My, int Mz) k) => ModuleModels.NeighbourMask(KindAt, k.Mx, k.My, k.Mz) | dock.GetValueOrDefault(k);
         return BodyMotion.Volumes(st.Modules, Mask, st.Kind == StructureKind.Ship);
     }
 

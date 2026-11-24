@@ -3,11 +3,14 @@ using Starfoundry.Sim;
 
 namespace Starfoundry.Ui;
 
+/// <summary>The solid furniture a module carries that the walking body cannot pass through (besides its shell).</summary>
+public enum Fixture { None, Cockpit, Vessel, VesselMk2 }
+
 /// <summary>
 /// The shell of one module as the walking body sees it: whether it is a ship hull or a station box, the height of its roof, whether it
 /// carries a tapered nose or tail, and its neighbour mask (the <see cref="HullProfile"/> bits). Built by <see cref="HullProfile.ShellOf"/>.
 /// </summary>
-public readonly record struct HullShell(bool Ship, float RoofY, bool Nose, bool Tail, bool OpenRear, bool Kerb, int Mask);
+public readonly record struct HullShell(bool Ship, float RoofY, bool Nose, bool Tail, bool OpenRear, bool Kerb, int Mask, Fixture Fixture = Fixture.None);
 
 /// <summary>
 /// The single source of truth for the cross-section of a module shell. The model builder (<c>game/ModuleModels.cs</c>) draws its ship
@@ -22,6 +25,26 @@ public static class HullProfile
     public const int Left = 1, Right = 2, Front = 4, Rear = 8, Up = 16, Down = 32;
     public const int PortLeft = 64, PortRight = 128, PortFront = 256, PortRear = 512;
     public const int DockedLeft = 1024, DockedRight = 2048, DockedFront = 4096, DockedRear = 8192;
+    /// <summary>
+    /// The neighbour on this side is a pod (a hardpoint, a shield or a sensor): a low outbuilding with no walkable interior, so the joint has no
+    /// doorway. A cockpit with a pod in front closes its nose with a flat windscreen; every other kind closes the joint with a bulkhead.
+    /// </summary>
+    public const int PodFront = 16384, PodRear = 32768;
+
+    /// <summary>True for the kinds that hang on the outside of a ship (see <see cref="PodFront"/>): the hardpoints, the shield and the sensor.</summary>
+    public static bool IsPod(ModuleKind kind) =>
+        ModuleKindIds.IsHardpoint(kind) || kind is ModuleKind.Shield or ModuleKind.Sensor;
+
+    /// <summary>
+    /// The neighbour mask of the module at (mx, my, mz) given the kind (or null) of the module at any coordinate: the six neighbour bits plus
+    /// <see cref="PodFront"/> and <see cref="PodRear"/>. The front of a ship is -Z. The one mask the model builder and the walking body share.
+    /// </summary>
+    public static int MaskOf(Func<int, int, int, ModuleKind?> kindAt, int mx, int my, int mz)
+    {
+        int Bit(int dx, int dy, int dz, int bit, int pod = 0) =>
+            kindAt(mx + dx, my + dy, mz + dz) is { } k ? bit | (pod != 0 && IsPod(k) ? pod : 0) : 0;
+        return Bit(-1, 0, 0, Left) | Bit(1, 0, 0, Right) | Bit(0, 0, -1, Front, PodFront) | Bit(0, 0, 1, Rear, PodRear) | Bit(0, 1, 0, Up) | Bit(0, -1, 0, Down);
+    }
 
     // ---- shared dimensions ---------------------------------------------------------------------------------------------
 
@@ -58,12 +81,27 @@ public static class HullProfile
     /// <summary>The height of the body's head above the floor, a little over the eye.</summary>
     public const float BodyHeight = 1.8f;
 
-    /// <summary>The roof height of a module kind (cells above the module floor).</summary>
+    // ---- the cockpit furniture: solid for the walking body -------------------------------------------------------------
+
+    /// <summary>The footprint of a ship cockpit's console (a low desk across the front) and of the pilot seat with its armrests, from the module's back-left corner.</summary>
+    public const float ConsoleX0 = 2.1f, ConsoleX1 = 5.9f, ConsoleZ0 = 1.95f, ConsoleZ1 = 3.1f;
+    public const float SeatX0 = 3.1f, SeatX1 = 4.9f, SeatZ0 = 3.9f, SeatZ1 = 5.5f;
+    /// <summary>The radius of the containment vessel standing in the middle of a ship reactor and of a mark 2 reactor.</summary>
+    public const float VesselRadius = 1.5f, VesselMk2Radius = 1.8f;
+
+    private static bool InBlock(float x, float z, float x0, float x1, float z0, float z1) => x > x0 && x < x1 && z > z0 && z < z1;
+
+    /// <summary>
+    /// The roof height of a module kind (cells above the module floor). Every kind that makes up the body of a ship (hull, cargo, workshop,
+    /// reactors, cockpit, engine, defence, drone bay, dock) shares the full <see cref="Roof"/>, so the sections line up at every joint; only the
+    /// pods (hardpoints, shield, sensor) and the station-only kinds are lower.
+    /// </summary>
     public static float RoofOf(ModuleKind kind, bool ship) => kind switch
     {
         ModuleKind.Shield => ShieldRoof,
         ModuleKind.Sensor => SensorRoof,
-        ModuleKind.Reactor or ModuleKind.ReactorMk2 or ModuleKind.Core => LowRoof,
+        ModuleKind.Reactor or ModuleKind.ReactorMk2 => ship ? Roof : LowRoof,
+        ModuleKind.Core => LowRoof,
         ModuleKind.Cockpit => ship ? Roof : LowRoof,
         ModuleKind.MiningLaser or ModuleKind.MiningLaserMk2 => MiningRoof,
         ModuleKind.Gun or ModuleKind.GunMk2 => GunRoof,
@@ -78,7 +116,8 @@ public static class HullProfile
         Tail: ship && kind == ModuleKind.Engine && (mask & Rear) == 0,
         OpenRear: kind == ModuleKind.DroneBay,
         Kerb: kind == ModuleKind.Defence,
-        Mask: mask);
+        Mask: mask,
+        Fixture: !ship ? Fixture.None : kind == ModuleKind.Cockpit ? Fixture.Cockpit : kind == ModuleKind.Reactor ? Fixture.Vessel : kind == ModuleKind.ReactorMk2 ? Fixture.VesselMk2 : Fixture.None);
 
     // ---- the ship section ------------------------------------------------------------------------------------------------
 
@@ -150,8 +189,8 @@ public static class HullProfile
     {
         var g = GeometryOf(s);
         float capIn = NoseStart + LinerInset;
-        if (z < (s.Nose || (s.Mask & Front) == 0 ? capIn : 0f)) return null; // the front bulkhead (or the nose tip)
-        if (s.Tail ? z > TailEnd - LinerInset : (s.Mask & Rear) == 0 && !s.OpenRear && z > D - capIn) return null; // the rear bulkhead (or the tail end)
+        if (z < (s.Nose || !FrontOpen(s) ? capIn : 0f)) return null; // the front bulkhead (or the nose tip)
+        if (s.Tail ? z > TailEnd - LinerInset : !RearOpen(s) && !s.OpenRear && z > D - capIn) return null; // the rear bulkhead (or the tail end)
         if (s.Nose && z < g.A) return Blend(g.Tip, g.Full, (z - NoseStart) / (NoseEnd - NoseStart));
         if (s.Tail && z > g.B) return Blend(g.Full, g.TailEnd, (z - TailStart) / (TailEnd - TailStart));
         return g.Full;
@@ -194,12 +233,20 @@ public static class HullProfile
     /// <summary>The solid zone along a side of a module; <paramref name="far"/> is the Right/Rear side (the one a joint frame is drawn on).</summary>
     private static SideZone Zone(in HullShell s, int neighbour, int docked, bool far)
     {
-        bool open = (s.Mask & neighbour) != 0 || (!s.Ship && s.OpenRear && neighbour == Rear);
+        bool open = ((s.Mask & neighbour) != 0 && !(s.Ship && IsPodSide(s, neighbour))) || (!s.Ship && s.OpenRear && neighbour == Rear);
         if ((s.Mask & docked) != 0) return s.Ship ? new(ShipAirlockDepth, ShipAirlockHalf) : new(StationAirlockDepth, DoorHalf);
         if (!s.Ship)
             return open ? new(far ? JointOwn : StationFace + StationWall, DoorHalf) : new(StationFace + StationWall, -1f);
         return open ? new(far ? JointOwn : JointNeighbour, DoorHalf) : new(0f, -1f);
     }
+
+    /// <summary>True when the neighbour on this side of a ship shell is a pod (see <see cref="PodFront"/>): the joint is closed, there is no doorway.</summary>
+    private static bool IsPodSide(in HullShell s, int neighbour) =>
+        neighbour == Front ? (s.Mask & PodFront) != 0 : neighbour == Rear && (s.Mask & PodRear) != 0;
+
+    /// <summary>The front (rear) of a shell is open to the next module: it touches one that is not a pod.</summary>
+    private static bool FrontOpen(in HullShell s) => (s.Mask & Front) != 0 && (!s.Ship || (s.Mask & PodFront) == 0);
+    private static bool RearOpen(in HullShell s) => (s.Mask & Rear) != 0 && (!s.Ship || (s.Mask & PodRear) == 0);
 
     private static bool Blocked(in SideZone z, float along) => z.Depth > 0f && (z.Half < 0f || MathF.Abs(along - W / 2) > z.Half);
 
@@ -215,6 +262,12 @@ public static class HullProfile
         if (z < Depth(s, Front, DockedFront, false) && Blocked(Zone(s, Front, DockedFront, false), x)) return false;
         if (z > D - Depth(s, Rear, DockedRear, true) && Blocked(Zone(s, Rear, DockedRear, true), x)) return false;
         if (s.Kerb && (x < DefenceKerb || x > W - DefenceKerb)) return false;
+        if (s.Fixture == Fixture.Cockpit && (InBlock(x, z, ConsoleX0, ConsoleX1, ConsoleZ0, ConsoleZ1) || InBlock(x, z, SeatX0, SeatX1, SeatZ0, SeatZ1))) return false;
+        if (s.Fixture is Fixture.Vessel or Fixture.VesselMk2)
+        {
+            float r = s.Fixture == Fixture.Vessel ? VesselRadius : VesselMk2Radius;
+            if ((x - W / 2) * (x - W / 2) + (z - D / 2) * (z - D / 2) < r * r) return false;
+        }
         if (!s.Ship)
         {
             // a station's roof slab is a wall thickness thick; a module with another above has no roof of its own

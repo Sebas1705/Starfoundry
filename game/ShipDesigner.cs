@@ -441,11 +441,11 @@ public partial class ShipDesigner : Control
     {
         foreach (var c in _shipRoot.GetChildren()) { _shipRoot.RemoveChild(c); c.QueueFree(); }
         if (_editor.Modules.Count == 0) return;
-        bool Has(int x, int y, int z) => _editor.Modules.ContainsKey((x, y, z));
+        ModuleKind? KindAt(int x, int y, int z) => _editor.Modules.TryGetValue((x, y, z), out var kind) ? kind : null;
         var (min, max) = _editor.Bounds(0);
         foreach (var (key, kind) in _editor.Modules)
         {
-            var node = ModuleModels.Build(kind, true, 0, ModuleModels.NeighbourMask(Has, key.Mx, key.My, key.Mz));
+            var node = ModuleModels.Build(kind, true, 0, ModuleModels.NeighbourMask(KindAt, key.Mx, key.My, key.Mz));
             node.Position = new Vector3(key.Mx * StationGrid.ModuleX, key.My * StationGrid.ModuleY, key.Mz * StationGrid.ModuleZ);
             _shipRoot.AddChild(node);
         }

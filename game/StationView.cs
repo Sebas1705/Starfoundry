@@ -153,9 +153,9 @@ void fragment() {
             bool ship = st.Kind == StructureKind.Ship;
             // A module is rebuilt when its kind or its set of neighbours changes: the sides that touch another module get doorways, the others hull.
             // The docking bits (free ports, airlocks of a docked ship) are part of the mask, so docking rebuilds the two modules at the port.
-            bool Has(int x, int y, int z) => st.Modules.ContainsKey((x, y, z));
+            ModuleKind? KindAt(int x, int y, int z) => st.Modules.TryGetValue((x, y, z), out var kind) ? kind : null;
             var dock = DockBits(net, st);
-            int Mask(int x, int y, int z) => ModuleModels.NeighbourMask(Has, x, y, z) | dock.GetValueOrDefault((x, y, z));
+            int Mask(int x, int y, int z) => ModuleModels.NeighbourMask(KindAt, x, y, z) | dock.GetValueOrDefault((x, y, z));
             foreach (var key in sr.Modules.Keys.ToList())
                 if (!st.Modules.TryGetValue(key, out var k) || k != sr.Modules[key].Kind
                     || sr.Masks[key] != Mask(key.Mx, key.My, key.Mz))
