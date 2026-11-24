@@ -78,6 +78,9 @@ public sealed partial class BeltNetwork
     }
 
     /// <summary>True when ships of this world have inertia: structure rules, content that defines it and not <see cref="WorldRules.LegacyFlight"/> (ADR 0033).</summary>
+    public bool HasFlightInertia => FlightInertia;
+
+    /// <summary>True when ships of this world have inertia: structure rules, content that defines it and not <see cref="WorldRules.LegacyFlight"/> (ADR 0033).</summary>
     internal bool FlightInertia => StructureRules && !Rules.LegacyFlight && WorldGen is { HasInertia: true };
 
     /// <summary>The engine percent of a ship in flight: engines (and their research), boost and clouds. What the target velocity is made of.</summary>

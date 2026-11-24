@@ -462,6 +462,11 @@ void fragment() {
     {
         if (!Net.HasPlayer(Player)) return Vector3.Zero;
         var p = Net.GetPlayerInfo(Player);
+        if (Net.HasFlightInertia && ShipStruct >= 0)
+        {
+            // Flight with inertia (ADR 0033): the ship keeps moving by its velocity (thousandths of a unit per tick), whatever the thrust says.
+            return new Vector3(p.X + p.VelX * alpha / 1000f, p.Y + p.VelY * alpha / 1000f, p.Z + p.VelZ * alpha / 1000f) / CellUnits;
+        }
         // With structures the engines set the speed (a share of the base speed); without a ship structure it is the base speed.
         float engine = ShipStruct >= 0 ? Net.ShipSpeedUnitsPerTick(Player) / (float)PlayerRules.MoveUnitsPerTick : 1f;
         if ((p.ThrustX | p.ThrustY | p.ThrustZ) != 0)
@@ -495,6 +500,12 @@ void fragment() {
         float level = (pi.ThrustX | pi.ThrustY | pi.ThrustZ) != 0
             ? Math.Clamp(MathF.Sqrt((float)pi.ThrustX * pi.ThrustX + (float)pi.ThrustY * pi.ThrustY + (float)pi.ThrustZ * pi.ThrustZ) / 1024f, 0.25f, 1f)
             : 1f;
+        if (Net.HasFlightInertia)
+        {
+            // With inertia the flame follows the push of the engines (demand, acceleration, boost), and burns while the ship still brakes (Play.FlightFeel.cs).
+            thrusting = Net.CanFly(Player) && (thrusting || _accelNorm > 0.05f);
+            level = Math.Max(0.15f, _flameLevel);
+        }
         _stationView.SetEngines(ship, thrusting, level);
     }
 
@@ -1176,7 +1187,8 @@ void fragment() {
         UpdateEnemies((float)delta);
         UpdateDeposits();
         UpdateDrones((float)delta);
-        if (!Overview) _camera.Fov = SettingsStore.Current.Fov;
+        UpdateFlightFeel((float)delta); // the smoothed speed, acceleration, field-of-view kick, rumble and flame length (Play.FlightFeel.cs)
+        if (!Overview) _camera.Fov = FlightFov();
         UpdateBody((float)delta); // before the camera is placed by UpdateShip
         UpdateShip(alpha, (float)delta);
         UpdateObstacles((float)delta);

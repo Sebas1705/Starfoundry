@@ -184,6 +184,8 @@ public partial class Play
         flight.AddChild(_flightFrame);
         flight.AddChild(_navGizmo);
         flight.AddChild(_flightSpeed);
+        BuildFlightFeelUi();
+        flight.AddChild(_speedGauge);
         _flightPanel = MakePanel(flight);
         _flightPanel.MouseFilter = Control.MouseFilterEnum.Ignore;
 
@@ -503,8 +505,7 @@ public partial class Play
         if (!show) return;
         _flightFrame.Text = L("hud.frame").ToUpperInvariant();
         _navGizmo.Set(NavFrame.Project(HudCamera()));
-        float speed = (ShipPosition(1f) - ShipPosition(0f)).Length() * Units.TicksPerSecond;
-        _flightSpeed.SetText("status:speed", L("hud.flightSpeed", speed.ToString("F1", Loc.Culture)), UiTheme.Text, Icons.Name("status:speed"));
+        UpdateFlightReadout(); // the speed against the engines' top speed, the throttle gauge and the velocity markers (Play.FlightFeel.cs)
     }
 
     private readonly List<Vec3> _baseTmp = new();

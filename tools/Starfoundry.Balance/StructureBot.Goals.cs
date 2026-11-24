@@ -250,8 +250,15 @@ public sealed partial class StructureBot
         var core = _c.Structures!.ModuleCost(ModuleKind.Core);
         if (!Need(core, "the station core")) return;
         var p = Net.GetPlayerInfo(0);
-        int wx = FloorCell(p.X), wy = FloorCell(p.Y), wz = FloorCell(p.Z) - 16; // ahead of the cockpit, past the nose laser module (ADR 0032), inside build range of everything
-        var r = Act(new FoundStation(wx, wy, wz));
+        // Ahead of the cockpit, past the nose laser module (ADR 0032), inside build range of everything. A deposit's rock is solid (ADR 0033): when the
+        // first spot is inside one (the green volume would be red), a player looks for a clear spot beside it, and so does the bot.
+        CommandResult r = null!;
+        foreach (var (dx, dy, dz) in new[] { (0, 0, -16), (-12, 0, -16), (12, 0, -16), (0, 8, -16), (0, -8, -16), (-16, 0, -8), (16, 0, -8), (0, 12, -12), (0, -12, -12) })
+        {
+            r = Cmd(new FoundStation(FloorCell(p.X) + dx, FloorCell(p.Y) + dy, FloorCell(p.Z) + dz));
+            if (r.Ok || r.Reject is not (Reject.OverlapsDeposit or Reject.Overlap)) break;
+        }
+        Wait(ActionDelaySeconds);
         if (Failed(r, "FoundStation")) return;
         _station = Net.Structures().First(s => s.Kind == StructureKind.Station && s.Owner == 0).Id;
     }

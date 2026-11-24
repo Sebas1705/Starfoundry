@@ -284,7 +284,9 @@ void sky() {
             float k = Mathf.Clamp((speed - StreakStartSpeed) / (StreakFullSpeed - StreakStartSpeed), 0f, 1f);
             _streaks.Emitting = k > 0.02f;
             _streaks.Visible = k > 0.02f;
-            if (_streakMaterial is not null) _streakMaterial.AlbedoColor = new Color(0.8f, 0.88f, 1f, 0.5f * k);
+            // The streaks stretch with the speed (ADR 0033): short specks when cruising, long lines at boost, lying along the velocity.
+            if (_streaks.DrawPass1 is QuadMesh quad) quad.Size = new Vector2(0.022f, Mathf.Lerp(0.35f, 11f, Mathf.Clamp(speed / 26f, 0f, 1f) * Mathf.Clamp(speed / 26f, 0f, 1f) * 0.6f + Mathf.Clamp(speed / 26f, 0f, 1f) * 0.4f));
+            if (_streakMaterial is not null) _streakMaterial.AlbedoColor = new Color(0.8f, 0.88f, 1f, 0.6f * k);
             if (_environment is not null) _environment.FogDensity = 0.0012f + 0.0012f * k;
         }
         tree.ProcessFrame += Update;
@@ -367,7 +369,7 @@ void sky() {
         }
     }
 
-    private const float StreakStartSpeed = 4f, StreakFullSpeed = 22f;
+    private const float StreakStartSpeed = 1.2f, StreakFullSpeed = 16f;
 
     /// <summary>Long thin specks aligned with the travel direction, faded in with speed (the dust seen as motion lines).</summary>
     private static GpuParticles3D BuildStreaks()
@@ -395,7 +397,7 @@ void sky() {
         };
         return new GpuParticles3D
         {
-            Amount = 220,
+            Amount = 360,
             Lifetime = 2.5,
             Preprocess = 2.5,
             LocalCoords = false,
