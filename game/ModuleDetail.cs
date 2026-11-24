@@ -35,7 +35,7 @@ public static partial class ModuleModels
     /// <summary>Lit details: the cockpit chart, reactor screens and the strobes (a white one on each wing of a ship, a red one on a station roof corner).</summary>
     private static void Emissive(Cx c)
     {
-        if (c.Kind is ModuleKind.Reactor or ModuleKind.ReactorMk2)
+        if (c.Kind is ModuleKind.Reactor or ModuleKind.ReactorMk2 && !c.Has(Rear)) // the console stands at the rear wall, and only where there is no doorway
             Models.Add(c.R, "GlowStrip", $"{c.K}.screens", Models.Glow(c.Role, 2.0f), mb =>
             {
                 mb.At(default);
@@ -81,11 +81,12 @@ public static partial class ModuleModels
         });
 
         bool openDeck = c.Kind is ModuleKind.Workshop or ModuleKind.Defence or ModuleKind.DroneBay;
-        bool lowShell = c.Kind is ModuleKind.Shield or ModuleKind.Sensor;
-        float roof = c.Kind is ModuleKind.Reactor or ModuleKind.ReactorMk2 or ModuleKind.Core ? LowRoof : Roof;
+        bool lowShell = c.Kind is ModuleKind.Shield or ModuleKind.Sensor || (c.Ship && ModuleKindIds.IsHardpoint(c.Kind)); // pods have no ceiling to hang a strip on
+        float roof = Starfoundry.Ui.HullProfile.RoofOf(c.Kind, c.Ship);
         var strip = c.Kind switch { ModuleKind.Defence => new Color(1f, 0.25f, 0.22f), ModuleKind.Workshop => new Color(1f, 0.85f, 0.6f), _ => col };
         float wx = c.Ship ? 0.11f : 0.37f, wy = c.Ship ? 2.55f : 3.2f;
-        if (lowShell) wy = c.Kind == ModuleKind.Shield ? 0.9f : 1.7f;
+        if (c.Ship && !lowShell) wy = MathF.Min(wy, roof - Starfoundry.Ui.HullProfile.ChamfersOf(Starfoundry.Ui.HullProfile.SectionOfMask(c.M), 1f).Up - 0.2f); // on the vertical wall of this skin, not out in the air beside a sloping one
+        if (lowShell) wy = c.Kind == ModuleKind.Shield ? 0.9f : ModuleKindIds.IsHardpoint(c.Kind) ? 0.7f : 1.7f;
         Models.Add(c.R, "GlowStrip", $"{c.K}.strips", Models.Glow(strip, 1.7f), mb =>
         {
             mb.At(default);
@@ -93,6 +94,7 @@ public static partial class ModuleModels
             foreach (float x in new[] { wx, W - wx })
             {
                 bool doored = x < 4f ? c.Has(Left) : c.Has(Right);
+                if (doored && c.Ship) continue; // a ship has no wall beside a doorway to hang a strip on
                 if (doored)
                 {
                     mb.Block(new(x, wy, 1.1f), new(0.05f, 0.07f, 1.7f));
@@ -100,7 +102,7 @@ public static partial class ModuleModels
                 }
                 else mb.Block(new(x, wy, 4f), new(0.05f, 0.07f, 7.0f));
             }
-            if (openDeck || lowShell || (c.Kind == ModuleKind.Cockpit && !c.Has(Up))) return; // the cockpit has a glass roof: no ceiling strips
+            if (openDeck || lowShell || c.Has(Up) || (c.Kind == ModuleKind.Cockpit && !c.Has(Up))) return; // the cockpit has a glass roof: no ceiling strips
             // two ceiling strips along Z; a ship's cockpit has a glass roof so its strips hang a little lower
             float cy = (c.Kind == ModuleKind.Cockpit && c.Ship ? roof - 0.5f : roof - 0.1f);
             foreach (float x in new[] { 2.3f, 5.7f }) mb.Block(new(x, cy, 4f), new(0.16f, 0.04f, 5.6f));
@@ -228,6 +230,7 @@ public static partial class ModuleModels
             {
                 mb.C(tint);
                 foreach (float z in new[] { 1.3f, 2.1f, 5.9f, 6.7f })
+                    if ((c.M & Starfoundry.Ui.HullProfile.StairDown) == 0 || z > 3f) // none over the stairwell
                     foreach (float s in new[] { -1f, 1f })
                         mb.Extrude(new[] { new Vector2(4 + s * 0.45f, z + 0.18f), new Vector2(4 + s * 0.45f - s * 0.1f, z + 0.18f), new Vector2(4, z - 0.12f), new Vector2(4 + s * 0.1f, z - 0.12f) }, y0, y1);
             }

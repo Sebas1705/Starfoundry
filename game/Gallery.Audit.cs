@@ -78,6 +78,32 @@ public partial class Gallery
             GD.Print($"AUDIT holes points={points} seeSky={inside} seenFromOutside={outside}");
             problems += inside + outside;
         }
+        if (what is "all" or "floating")
+        {
+            // each module on its own: a piece of its mesh that touches neither the hull skin nor the deck nor any part that does is standing in the air
+            int floating = 0;
+            foreach (var m in _auditModules)
+            {
+                var own = new List<AuditTri>();
+                Collect(m.Node, m.Kind.ToString(), own);
+                own = own.Where(t => !t.Part.Contains(":Shaft") && !t.Part.Contains("Light") && !t.Part.Contains("EngineTrail")).ToList(); // effects, not parts
+                foreach (var p in MeshAudit.FloatingComponents(own, part => part.EndsWith(":Skin") || part.EndsWith(":Deck")))
+                {
+                    floating++;
+                    GD.Print($"AUDIT floating {m.Kind}{(m.Ship ? " (ship)" : " (station)")} at ({m.At.X / 8f:0},{m.At.Y / 4f:0},{m.At.Z / 8f:0}) tris={p.Triangles} gap={p.Gap:0.000} parts={p.Parts} box=({p.Lo.X - m.At.X:0.00},{p.Lo.Y - m.At.Y:0.00},{p.Lo.Z - m.At.Z:0.00})-({p.Hi.X - m.At.X:0.00},{p.Hi.Y - m.At.Y:0.00},{p.Hi.Z - m.At.Z:0.00})");
+                }
+            }
+            GD.Print($"AUDIT floating pieces={floating}");
+            problems += floating;
+        }
+        if (what is "all" or "glass")
+        {
+            // wings, antennas and other attachments must not stand in a window
+            var hits = MeshAudit.AttachmentsThroughGlass(tris, p => p.EndsWith(":Fins") || p.EndsWith(":Rigging") || p.EndsWith(":Antenna"), p => p.Contains("Glass"));
+            foreach (var h in hits.Take(30)) GD.Print($"AUDIT glass {h.Attachment} through {h.Glass} pairs={h.Pairs} at=({h.Where.X:0.00},{h.Where.Y:0.00},{h.Where.Z:0.00})");
+            GD.Print($"AUDIT glass attachments through glazing={hits.Count}");
+            problems += hits.Count;
+        }
         if (what is "all" or "walk") problems += WalkAudit(tris);
         GD.Print($"AUDIT done problems={problems}");
     }

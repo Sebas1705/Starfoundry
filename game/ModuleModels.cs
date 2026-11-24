@@ -1300,7 +1300,7 @@ public static partial class ModuleModels
         Models.Add(c.R, "Seat", $"{c.K}.seat", ModuleHull(), mb =>
         {
             mb.At(default).C(Dark).Prism(new(4, 0.09f, 4.6f), 0.5f, 0.5f, 0.06f, 12);
-            mb.Prism(new(4, 0.15f, 4.6f), 0.14f, 0.14f, 0.5f, 8);
+            mb.Prism(new(4, 0.15f, 4.6f), 0.14f, 0.14f, 0.56f, 8); // up into the cushion plate (0.68)
             mb.C(Steel).Block(new(4, 0.74f, 4.6f), new(1.3f, 0.12f, 1.2f));
             mb.C(Dark).Block(new(4, 0.86f, 4.55f), new(1.2f, 0.16f, 1.1f), 0.94f, 0.94f);
             mb.C(c.Acc).Block(new(4, 0.9455f, 4.55f), new(1.0f, 0.012f, 0.9f));
@@ -1315,6 +1315,7 @@ public static partial class ModuleModels
             foreach (float s in new[] { -1f, 1f })
             {
                 mb.C(Dark).Block(new(4 + s * 0.8f, 1.12f, 4.55f), new(0.18f, 0.14f, 0.95f));
+                mb.C(Steel).Block(new(4 + s * 0.7f, 0.88f, 4.55f), new(0.18f, 0.6f, 0.5f)); // the armrest strut, from the cushion plate up to the armrest
                 mb.C(Steel).Block(new(4 + s * 0.8f, 0.98f, 4.55f), new(0.1f, 0.2f, 0.5f));
             }
             // flight stick (right) and throttle quadrant (left)
@@ -1323,7 +1324,7 @@ public static partial class ModuleModels
             mb.C(Steel).Block(new(3.2f, 1.22f, 4.35f), new(0.16f, 0.05f, 0.5f));
             mb.At(new(3.2f, 1.25f, 4.35f), Models.Deg(-35, 0, 0)).C(Dark).Block(new(0, 0.2f, 0), new(0.07f, 0.4f, 0.07f));
             mb.At(default);
-            foreach (float s in new[] { -1f, 1f }) mb.C(Steel).Block(new(4 + s * 0.35f, 0.18f, 3.75f), new(0.4f, 0.05f, 0.3f)); // pedals
+            foreach (float s in new[] { -1f, 1f }) mb.C(Steel).Block(new(4 + s * 0.35f, 0.115f, 3.75f), new(0.4f, 0.06f, 0.3f)); // pedals, standing on the deck
         });
 
         int consoleFrom = c.R.GetChildCount(); // every part added from here to the lamps belongs to the console (duplicate part names are renamed by Godot, so count instead)
@@ -1510,8 +1511,11 @@ public static partial class ModuleModels
         {
             mb.At(default);
             foreach (float s in new[] { (c.Ship ? 0.05f : StationFace) - 0.02f, W - (c.Ship ? 0.05f : StationFace) + 0.02f })
+            {
+                if (s < 4f ? c.Has(Left) : c.Has(Right)) continue; // a doorway is no wall to put a vent in
                 for (int i = 0; i < 3; i++)
                     mb.Block(new(s, 1.55f, 1.6f + i * 2.4f), new(0.05f, 0.9f, 0.7f));
+            }
         });
     }
 
@@ -1519,7 +1523,7 @@ public static partial class ModuleModels
     {
         Skin(c, Roof, detail: false, windows: true);
         Frame(c, Roof);
-        Models.Add(c.R, "Hatch", $"{c.K}.hatch", ModuleHull(), mb =>
+        if (!c.Has(Up)) Models.Add(c.R, "Hatch", $"{c.K}.hatch", ModuleHull(), mb =>
         {
             mb.At(default).C(Dark).Block(new(4, Roof + 0.04f, 4), new(3.0f, 0.05f, 3.0f));
             mb.C(Yellow);
@@ -1564,8 +1568,8 @@ public static partial class ModuleModels
                 int stack = 1 + (i + c.V) % 3;
                 for (int s = 0; s < stack; s++)
                 {
-                    mb.C((i + s) % 2 == 0 ? Crate : CrateDk).Block(new(6.7f, 0.6f + s * 1.15f, zs[i]), new(1.2f, 1.1f, 1.2f));
-                    mb.C(Yellow).Block(new(6.7f, 0.6f + s * 1.15f, zs[i]), new(1.24f, 0.2f, 1.24f));
+                    mb.C((i + s) % 2 == 0 ? Crate : CrateDk).Block(new(6.7f, 0.6f + s * 1.1f, zs[i]), new(1.2f, 1.1f, 1.2f));
+                    mb.C(Yellow).Block(new(6.7f, 0.6f + s * 1.1f, zs[i]), new(1.24f, 0.2f, 1.24f));
                 }
             }
             mb.C(CrateDk).Block(new(5.5f, 0.55f, 6.5f), new(2.2f, 1.0f, 1.2f));
@@ -1616,7 +1620,7 @@ public static partial class ModuleModels
             mb.At(default);
             foreach (float x in new[] { 1.8f, W - 1.8f })
                 foreach (float z in new[] { 1.6f, 4.0f, 6.4f })
-                    mb.Block(new(x, Roof - 0.78f, z), new(0.4f, 0.06f, 0.4f));
+                    mb.Block(new(x, Roof - 0.7f, z), new(0.4f, 0.06f, 0.4f)); // hung on the lower truss beam
         });
         if (c.Ship)
             Models.Add(c.R, "Skirt", $"{c.K}.skirt", ModuleStruct(), mb =>
@@ -1692,7 +1696,7 @@ public static partial class ModuleModels
         head.RotationDegrees = new Vector3(0, 90, 0); // faces -Z (the ship's front) until something aims it
         Models.Add(head, "HeadMesh", $"{c.K}.head", ModuleHull(), mb =>
         {
-            mb.At(default).C(c.Ship ? White : Steel).Prism(new(0, -0.2f, 0), 0.62f, 0.5f, 0.45f, 8);
+            mb.At(default).C(c.Ship ? White : Steel).Prism(new(0, -0.28f, 0), 0.62f, 0.5f, 0.53f, 8); // down into the mount (its top is at -0.28)
             mb.C(Dark).Sphere(new(0, 0.24f, 0), new(0.4f, 0.26f, 0.4f), 2, 8, dome: true);
             mb.C(c.Acc).Block(new(0.3f, 0.05f, 0), new(0.3f, 0.12f, 0.9f));
         });
@@ -1842,8 +1846,11 @@ public static partial class ModuleModels
         {
             mb.At(default);
             foreach (float s in new[] { (c.Ship ? 0.05f : StationFace) - 0.02f, W - (c.Ship ? 0.05f : StationFace) + 0.02f })
+            {
+                if (s < 4f ? c.Has(Left) : c.Has(Right)) continue; // a doorway is no wall to put a vent in
                 for (int i = 0; i < 3; i++)
                     mb.Block(new(s, 1.55f, 1.6f + i * 2.4f), new(0.05f, 0.9f, 0.7f));
+            }
         });
     }
 
@@ -1914,13 +1921,13 @@ public static partial class ModuleModels
             mb.C(Steel);
             foreach (float z in new[] { 1.5f, 3.3f, 5.1f })
             {
-                mb.Block(new(4, 0.3f, z), new(1.7f, 0.18f, 1.1f));
+                mb.Block(new(4, 0.24f, z), new(1.7f, 0.30f, 1.1f)); // the cradle stands on the deck
                 foreach (float s in new[] { -1f, 1f }) mb.Block(new(4 + s * 0.75f, 0.45f, z), new(0.1f, 0.36f, 1.1f));
             }
             // a gantry over the cradles
             mb.C(c.Ship ? Panel : Steel);
-            mb.Block(new(4, Roof - 0.2f, 3.3f), new(W - 1.2f, 0.14f, 0.16f));
-            foreach (float x in new[] { 0.8f, W - 0.8f }) mb.Beam(new(x, 1.7f, 3.3f), new(x, Roof - 0.2f, 3.3f), 0.12f);
+            mb.Block(new(4, Roof - 0.12f, 3.3f), new(W - 1.2f, 0.14f, 0.16f)); // against the ceiling
+            foreach (float x in new[] { 0.8f, W - 0.8f }) mb.Beam(new(x, 1.7f, 3.3f), new(x, Roof - 0.12f, 3.3f), 0.12f);
         });
         Models.Add(c.R, "GlowDoor", $"{c.K}.door", Models.Glow(Amber, 1.5f), mb =>
             mb.At(default).Block(new(4, 1.45f, D - wall - 0.33f), new(3.3f, 2.6f, 0.03f)));
@@ -1941,7 +1948,7 @@ public static partial class ModuleModels
         {
             if (c.V == 1 && i == 1) continue;
             var d = DroneCraft($"Drone{i}");
-            d.Position = new Vector3(4, 0.63f, zs[i]);
+            d.Position = new Vector3(4, 0.59f, zs[i]); // resting on the cradle
             d.RotationDegrees = new Vector3(0, 180, 0); // nose towards +Z, the door
             c.R.AddChild(d);
         }
