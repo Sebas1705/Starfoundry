@@ -154,7 +154,8 @@ public partial class Play : Node3D
         _walkShotPath = args.FirstOrDefault(a => a.StartsWith("--walk-shot="))?["--walk-shot=".Length..];
         _walkShot = _walkShotPath is not null;
         _flightShotPath = args.FirstOrDefault(a => a.StartsWith("--flight-shot="))?["--flight-shot=".Length..];
-        _flightShot = _flightShotPath is not null;
+        _streakShotPath = args.FirstOrDefault(a => a.StartsWith("--streak-shot="))?["--streak-shot=".Length..];
+        _flightShot = _flightShotPath is not null || _streakShotPath is not null;
         _dockShotPath = args.FirstOrDefault(a => a.StartsWith("--dock-shot="))?["--dock-shot=".Length..];
         _dockShot = _dockShotPath is not null;
         _designerShotPath = args.FirstOrDefault(a => a.StartsWith("--designer-shot="))?["--designer-shot=".Length..];
@@ -1193,7 +1194,8 @@ void fragment() {
         UpdateShip(alpha, (float)delta);
         UpdateObstacles((float)delta);
         if (_walkShot) WalkShotFrame();
-        if (_flightShot) FlightShotFrame();
+        if (_streakShotPath is not null) StreakShotFrame();
+        else if (_flightShot) FlightShotFrame();
         if (_dockShot) DockShotFrame();
         if (_designerShotPath is not null || _laserShotPath is not null) DesignerShotFrame();
         UpdateDesigner();
