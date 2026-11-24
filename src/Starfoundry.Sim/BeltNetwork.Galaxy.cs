@@ -132,7 +132,7 @@ public sealed partial class BeltNetwork
         p.Boost = false; // no boosting through a jump charge
         p.JumpTarget = target;
         p.JumpRemaining = ExplorationRules.JumpChargeTicks;
-        p.ClearThrust();
+        p.ClearMotion(); // the ship is frozen while it charges: velocity zeroed (ADR 0033)
     }
 
     private void CompleteJump(Player p)

@@ -81,7 +81,7 @@ public readonly record struct PlayerInfo(
     int Id, int HoldTotal, int MiningDeposit, int ShipRecipe, bool ShipCrafting, int ShipRemaining,
     int X = 0, int Y = 0, int Z = 0, int MoveX = 0, int MoveY = 0, int MoveZ = 0,
     int ScanCooldown = 0, int JumpTarget = -1, int JumpRemaining = 0, int Hull = 0, bool Armed = false, int RespawnRemaining = 0,
-    int ThrustX = 0, int ThrustY = 0, int ThrustZ = 0);
+    int ThrustX = 0, int ThrustY = 0, int ThrustZ = 0, int VelX = 0, int VelY = 0, int VelZ = 0);
 
 internal sealed class Player
 {
@@ -124,7 +124,30 @@ internal sealed class Player
     /// <summary>How far the ship moved during the last tick, in units per axis. Derived each tick before it is used; never saved.</summary>
     public int StepDx, StepDy, StepDz;
 
+    /// <summary>
+    /// The ship's velocity in thousandths of a unit per tick, per axis (ADR 0033). Zero in worlds without flight inertia: there the position changes by
+    /// the thrust directly. The sub-milli remainder of the position advance is kept in <see cref="VelRemX"/> and the others. Mixed only when non-zero.
+    /// </summary>
+    public int VelX, VelY, VelZ;
+    public int VelRemX, VelRemY, VelRemZ;
+
+    public bool HasVelocity => (VelX | VelY | VelZ) != 0;
+
     public bool HasThrust => (ThrustX | ThrustY | ThrustZ) != 0;
+
+    public void ClearVelocity()
+    {
+        VelX = VelY = VelZ = 0;
+        VelRemX = VelRemY = VelRemZ = 0;
+    }
+
+    /// <summary>Stops the ship dead: intent, thrust and velocity (a jump, a respawn, a loss or a docking).</summary>
+    public void ClearMotion()
+    {
+        MoveX = MoveY = MoveZ = 0;
+        ClearThrust();
+        ClearVelocity();
+    }
 
     public void ClearThrust()
     {
@@ -163,6 +186,7 @@ internal sealed class Player
             ShipRecipe = ShipRecipe, ShipCrafting = ShipCrafting, ShipRemaining = ShipRemaining, ShipReserved = ShipReserved,
             X = X, Y = Y, Z = Z, MoveX = MoveX, MoveY = MoveY, MoveZ = MoveZ,
             ThrustX = ThrustX, ThrustY = ThrustY, ThrustZ = ThrustZ, ThrustRemX = ThrustRemX, ThrustRemY = ThrustRemY, ThrustRemZ = ThrustRemZ,
+            VelX = VelX, VelY = VelY, VelZ = VelZ, VelRemX = VelRemX, VelRemY = VelRemY, VelRemZ = VelRemZ,
             ScanCooldown = ScanCooldown, JumpTarget = JumpTarget, JumpRemaining = JumpRemaining,
             Hull = Hull, Armed = Armed, WeaponCooldown = WeaponCooldown, RespawnRemaining = RespawnRemaining,
             ShipStructure = ShipStructure, ShipLost = ShipLost,
@@ -420,7 +444,7 @@ public sealed partial class BeltNetwork
     {
         var p = GetPlayer(id);
         return new PlayerInfo(p.Id, p.HoldTotal, p.MiningDeposit, p.ShipRecipe, p.ShipCrafting, p.ShipRemaining,
-            p.X, p.Y, p.Z, p.MoveX, p.MoveY, p.MoveZ, p.ScanCooldown, p.JumpTarget, p.JumpRemaining, p.Hull, p.Armed, p.RespawnRemaining, p.ThrustX, p.ThrustY, p.ThrustZ);
+            p.X, p.Y, p.Z, p.MoveX, p.MoveY, p.MoveZ, p.ScanCooldown, p.JumpTarget, p.JumpRemaining, p.Hull, p.Armed, p.RespawnRemaining, p.ThrustX, p.ThrustY, p.ThrustZ, p.VelX, p.VelY, p.VelZ);
     }
 
     /// <summary>Switches the ship's weapon on or off. It fires at the nearest enemy in range while on.</summary>
@@ -659,7 +683,7 @@ public sealed partial class BeltNetwork
             {
                 if (--p.JumpRemaining == 0) CompleteJump(p);
             }
-            else if (p.RespawnRemaining == 0 && ((p.MoveX | p.MoveY | p.MoveZ) != 0 || p.HasThrust))
+            else if (p.RespawnRemaining == 0 && ((p.MoveX | p.MoveY | p.MoveZ) != 0 || p.HasThrust || p.HasVelocity))
             {
                 int x0 = p.X, y0 = p.Y, z0 = p.Z;
                 MoveShip(p);
@@ -905,6 +929,7 @@ public sealed partial class BeltNetwork
             if (p.LaserReleased) mix(-91); // mixed only when set and when non-zero: worlds that never touch the laser trigger hash as before
             if (p.LaserCredit != 0) mix(p.LaserCredit);
             if (p.Boost) mix(-93);
+            if (p.HasVelocity || (p.VelRemX | p.VelRemY | p.VelRemZ) != 0) { mix(-3303); mix(p.VelX); mix(p.VelY); mix(p.VelZ); mix(p.VelRemX); mix(p.VelRemY); mix(p.VelRemZ); } // worlds without inertia hash as before
             mix(p.ShipRecipe); mix(p.ShipCrafting ? 1 : 0); mix(p.ShipRemaining); mix(p.ShipReserved);
             foreach (int h in p.Hold) mix(h);
         }
@@ -940,6 +965,8 @@ public sealed partial class BeltNetwork
             if (Math.Abs(p.ThrustRemX) >= remLimit || Math.Abs(p.ThrustRemY) >= remLimit || Math.Abs(p.ThrustRemZ) >= remLimit)
                 Fail($"player {p.Id} has a thrust remainder out of range");
             if (p.HasThrust && (p.MoveX | p.MoveY | p.MoveZ) != 0) Fail($"player {p.Id} has both an axis intent and a thrust");
+            if (Math.Abs(p.VelRemX) >= 1000 || Math.Abs(p.VelRemY) >= 1000 || Math.Abs(p.VelRemZ) >= 1000) Fail($"player {p.Id} has a velocity remainder out of range");
+            if ((p.HasVelocity || (p.VelRemX | p.VelRemY | p.VelRemZ) != 0) && !FlightInertia) Fail($"player {p.Id} has a velocity in a world without inertia");
             // A structure flight keeps a sub-unit remainder for the axis intent too (engine percent scales the speed).
             bool axisRemainder = FlightStructure(p) >= 0 && (p.MoveX | p.MoveY | p.MoveZ) != 0;
             if (!p.HasThrust && !axisRemainder && (p.ThrustRemX | p.ThrustRemY | p.ThrustRemZ) != 0) Fail($"player {p.Id} has a thrust remainder without thrust");
