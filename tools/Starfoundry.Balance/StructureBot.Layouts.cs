@@ -33,6 +33,9 @@ public sealed partial class StructureBot
 
     private int _flying;
 
+    /// <summary>The distance in cells above which the bot flies boosted (a player holds the key on every longer hop).</summary>
+    private const long BoostFromCells = 30;
+
     /// <summary>Seconds of game time the bot spent flying (all legs, boosted or not), for the report.</summary>
     public static double FlightSeconds;
 
@@ -52,12 +55,12 @@ public sealed partial class StructureBot
         // One candidate: a sphere the ship must not enter, with the reach to clear (the radius it hits plus a margin).
         void Consider(long ox, long oy, long oz, long reach)
         {
-            // Closest point of the segment to the obstacle, in the horizontal plane (the ship passes above, so height does not count here).
-            double t = Math.Clamp(((ox - fx) * (double)sx + (oz - fz) * (double)sz) / Math.Max(1, (double)sx * sx + (double)sz * sz), 0, 1);
+            // Closest point of the segment to the obstacle in 3D: a leg that starts beside a rock and moves away from it, or passes it with room to spare, needs no hop over it.
+            double len2 = Math.Max(1, (double)sx * sx + (double)sy * sy + (double)sz * sz);
+            double t = Math.Clamp(((ox - fx) * (double)sx + (oy - fy) * (double)sy + (oz - fz) * (double)sz) / len2, 0, 1);
+            if (t <= 0 && (ox - fx) * (double)sx + (oy - fy) * (double)sy + (oz - fz) * (double)sz <= 0) return; // moving away from it
             double cx = fx + sx * t - ox, cz = fz + sz * t - oz, cy = fy + sy * t - oy;
-            double reachH = reach + 4L * Cell;
-            if (cx * cx + cz * cz > reachH * reachH) return;
-            if (cy > reach) return; // already flying above it
+            if (cx * cx + cy * cy + cz * cz > (double)reach * reach) return;
             if (t < worstT) { worstT = t; worst = (ox, oy, oz, reach); }
         }
 
@@ -117,7 +120,7 @@ public sealed partial class StructureBot
                 return false;
             }
             // Boost over long distances (as a player holding the key would); off well before the target so the stop is clean.
-            bool wantBoost = _c.World is not null && d2 > (long)30 * Cell * 30 * Cell;
+            bool wantBoost = _c.World is not null && d2 > (long)BoostFromCells * Cell * BoostFromCells * Cell;
             if (wantBoost != boosting) { Cmd(new SetBoost(wantBoost)); boosting = wantBoost; }
             if (d2 <= tolUnits * tolUnits || (_flyDone is not null && _flyDone())) { Cmd(new SetThrust(0, 0, 0)); if (boosting) Cmd(new SetBoost(false)); return true; }
             if (!Net.CanFly(0)) { Stuck("the ship cannot fly (no cockpit/engine or lost)"); Cmd(new SetThrust(0, 0, 0)); if (boosting) Cmd(new SetBoost(false)); return false; }
@@ -340,6 +343,7 @@ public sealed partial class StructureBot
     {
         var (wx, wy, wz) = WorldCellOf(structure, x, y, z);
         if (Net.CellInRange(0, (int)wx, (int)wy, (int)wz, PlayerRules.BuildRangeCells - 2)) return;
+        _lastBuildTrip = Now;
         Say($"out of build range of cell ({x},{y},{z}) in structure {structure}: flying closer");
         var (tx, ty, tz) = (wx * Cell, wy * Cell, wz * Cell);
         // Stop a little short, towards the ship.

@@ -215,6 +215,8 @@ public sealed partial class StructureBot
     private bool _inMaintenance;
     private int _lastHydrogen = -1;
     private int _mineTarget = -1;
+    private double _lastBuildTrip = -1000;
+    private const double BuildStaySeconds = 0;
     private int _lastWave;
 
     /// <summary>How much raw iron ore the player keeps in the hold before pausing hand mining.</summary>
@@ -260,7 +262,7 @@ public sealed partial class StructureBot
     {
         if (_flying > 0) return;
         // A build trip took the ship away from its deposit: go back to it.
-        if (_mineTarget >= 0 && !Net.InMineRange(0, _mineTarget) && Net.CanFly(0) && Net.DepositRemaining(_mineTarget) > 0)
+        if (Now - _lastBuildTrip >= BuildStaySeconds && _mineTarget >= 0 && !Net.InMineRange(0, _mineTarget) && Net.CanFly(0) && Net.DepositRemaining(_mineTarget) > 0)
         {
             ApproachDeposit(_mineTarget);
         }

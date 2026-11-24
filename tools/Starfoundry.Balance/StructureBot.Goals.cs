@@ -257,7 +257,7 @@ public sealed partial class StructureBot
         var ship = Net.GetStructure(Net.ShipStructure(0));
         var shipBoxes = ship.Modules.Keys.Select(k => Net.ModuleWorldBounds(ship, k)).ToArray();
         bool Footprint(int cx, int cy, int cz) =>
-            Net.BoxTouchesDepositRock(cx * (long)Cell, (cy - 8) * (long)Cell, (cz - 20) * (long)Cell, (cx + 40) * (long)Cell, (cy + 12) * (long)Cell, (cz + 20) * (long)Cell, 4L * Cell);
+            Net.BoxTouchesDepositRock(cx * (long)Cell, (cy - 8) * (long)Cell, (cz - 20) * (long)Cell, (cx + 40) * (long)Cell, (cy + 12) * (long)Cell, (cz + 20) * (long)Cell, 1L * Cell);
         bool ClearOfShip(int cx, int cy, int cz) =>
             shipBoxes.All(bx => !(cx * (long)Cell < bx.Max.X && bx.Min.X < (cx + 8) * (long)Cell && cy * (long)Cell < bx.Max.Y && bx.Min.Y < (cy + 4) * (long)Cell && cz * (long)Cell < bx.Max.Z && bx.Min.Z < (cz + 8) * (long)Cell));
         var candidates = new List<(int X, int Y, int Z)>();
@@ -269,7 +269,8 @@ public sealed partial class StructureBot
                     if (ex * ex + ey * ey + ez * ez > 21.0 * 21.0) continue;
                     candidates.Add((px + dx, py + dy, pz + dz));
                 }
-        var order = candidates.OrderBy(c => Math.Abs(c.X - px) + Math.Abs(c.Y - py) * 2 + Math.Abs(c.Z - (pz - 16))).ToList();
+        // The nearest clear spot to the ship, which hand mines beside its rock: every later build trip starts from there, so a closer station means shorter trips.
+        var order = candidates.OrderBy(c => (c.X + 4 - px) * (c.X + 4 - px) + (c.Y + 2 - py) * (c.Y + 2 - py) * 4 + (c.Z + 4 - pz) * (c.Z + 4 - pz)).ToList();
         CommandResult r = null!;
         foreach (var c in order.Where(c => ClearOfShip(c.X, c.Y, c.Z) && !Footprint(c.X, c.Y, c.Z)).Concat(new List<(int X, int Y, int Z)> { (px, py, pz - 16) }))
         {
