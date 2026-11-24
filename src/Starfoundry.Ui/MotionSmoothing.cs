@@ -46,41 +46,6 @@ public static class MotionSmoothing
 }
 
 /// <summary>
-/// Mouse turns held back a little: the motion of the mouse is added up as pending radians and a part of it is handed to the ship each frame,
-/// so a flick reaches the same attitude as before, only over a few frames (a time constant of <c>tau</c> seconds). Nothing is ever lost: whatever is
-/// pending is applied sooner or later, so the total turn equals the total mouse motion.
-/// </summary>
-public sealed class AngularInput
-{
-    private float _pitch, _yaw;
-
-    public float PendingPitch => _pitch;
-    public float PendingYaw => _yaw;
-    public bool Idle => MathF.Abs(_pitch) < 1e-6f && MathF.Abs(_yaw) < 1e-6f;
-
-    public void Add(float pitch, float yaw)
-    {
-        if (!float.IsFinite(pitch) || !float.IsFinite(yaw)) return;
-        _pitch += pitch;
-        _yaw += yaw;
-    }
-
-    /// <summary>The part of the pending turn to apply this frame. With <paramref name="tau"/> of zero or less everything pending comes out at once.</summary>
-    public (float Pitch, float Yaw) Take(float dt, float tau)
-    {
-        float k = tau <= 0f || dt <= 0f ? 1f : 1f - MathF.Exp(-dt / tau);
-        float p = _pitch * k, y = _yaw * k;
-        _pitch -= p;
-        _yaw -= y;
-        if (MathF.Abs(_pitch) < 1e-6f) { p += _pitch; _pitch = 0f; }
-        if (MathF.Abs(_yaw) < 1e-6f) { y += _yaw; _yaw = 0f; }
-        return (p, y);
-    }
-
-    public void Clear() { _pitch = 0f; _yaw = 0f; }
-}
-
-/// <summary>
 /// The eye glides when the pilot sits down or stands up: when the wanted eye position jumps, the old position is kept as an offset that
 /// decays, so the camera slides to the new place instead of cutting to it.
 /// </summary>

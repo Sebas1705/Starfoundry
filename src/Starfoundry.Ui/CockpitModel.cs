@@ -195,11 +195,13 @@ public static class CockpitMath
 
 /// <summary>The data the flight display shows, with its fractions worked out.</summary>
 public readonly record struct FlightDisplayData(
-    float Speed, float MaxSpeed, float Thrust, bool Boosting, bool BoostAvailable,
+    float Speed, float MaxSpeed, float Thrust, bool Boosting, bool BoostAvailable, float Target,
     int Hull, int MaxHull, int PowerProduction, int PowerDemand, int PowerPermille,
     int Hydrogen, long FuelTicksLeft, int HoldUsed, int HoldCapacity)
 {
     public float SpeedFraction => CockpitMath.Fraction(Speed, MaxSpeed);
+    /// <summary>Where the demanded speed sits on the speed bar (0 to 1): the mark the gauge shows against the actual speed.</summary>
+    public float TargetFraction => CockpitMath.Fraction(Target, MaxSpeed);
     public float HullFraction => CockpitMath.Fraction(Hull, MaxHull);
     public float PowerFraction => CockpitMath.Fraction(PowerPermille, 1000f);
     public float HoldFraction => CockpitMath.Fraction(HoldUsed, HoldCapacity);

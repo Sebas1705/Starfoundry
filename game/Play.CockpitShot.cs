@@ -120,7 +120,7 @@ public partial class Play
             Online = true,
             HasReactor = true,
             HudMode = HudMode.Cockpit,
-            Flight = new FlightDisplayData(18.4f, 24f, 0.8f, true, true, 22, 100, 31, 40, 420, 2, 60 * 25, 100, 100),
+            Flight = new FlightDisplayData(18.4f, 24f, 0.8f, true, true, 20f, 22, 100, 31, 40, 420, 2, 60 * 25, 100, 100),
             Systems = new SystemsDisplayData(9, 3, 22, 100, 100, 100, 4, true),
             Weapons = new WeaponsDisplayData(true, true, true, WeaponGroup.Guns, true, false, true, true, 3),
             Axes = axes,

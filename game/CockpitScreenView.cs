@@ -251,7 +251,8 @@ public partial class CockpitScreenView : Control
         Txt(speed, 14, 64, wide ? 66 : 54, speedColor);
         float numW = Measure(speed, wide ? 66 : 54);
         Txt(Loc.T("cp.unit"), 20 + numW, wide ? 106 : 96, 15, UiTheme.Muted);
-        Bar(new Rect2(16, wide ? 140 : 126, colW - 4, 10), f.SpeedFraction, f.Boosting ? Cyan : accent);
+        Bar(new Rect2(16, wide ? 140 : 126, colW - 4, 10), f.SpeedFraction, f.Boosting ? Cyan : accent, f.TargetFraction); // the white mark is the demanded speed (the HUD gauge's target)
+        Txt("/ " + CockpitMath.Speed(f.MaxSpeed, Loc.Culture), colW - 80, wide ? 106 : 96, 13, UiTheme.Dim, HorizontalAlignment.Right, 76);
         // the boost chip
         if (f.BoostAvailable)
         {

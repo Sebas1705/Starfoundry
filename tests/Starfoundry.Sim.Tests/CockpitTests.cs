@@ -281,8 +281,9 @@ public class CockpitTests
     [Fact]
     public void FlightDataWorksItsFractionsOut()
     {
-        var d = new FlightDisplayData(6f, 12f, 0.5f, false, true, 40, 100, 30, 40, 750, 5, 60 * 60, 12, 48);
+        var d = new FlightDisplayData(6f, 12f, 0.5f, false, true, 9f, 40, 100, 30, 40, 750, 5, 60 * 60, 12, 48);
         Assert.Equal(0.5f, d.SpeedFraction);
+        Assert.Equal(0.75f, d.TargetFraction, 3);
         Assert.Equal(0.4f, d.HullFraction, 3);
         Assert.Equal(0.75f, d.PowerFraction, 3);
         Assert.Equal(0.25f, d.HoldFraction, 3);
@@ -438,44 +439,6 @@ public class CockpitTests
         Assert.Equal(1f, MotionSmoothing.Ease(2f));
         Assert.Equal(0.5f, MotionSmoothing.Ease(0.5f));
         Assert.True(MotionSmoothing.Ease(0.1f) < 0.1f);
-    }
-
-    [Fact]
-    public void AngularInputNeverLosesTheTurn()
-    {
-        var input = new AngularInput();
-        float pitch = 0f, yaw = 0f;
-        input.Add(0.4f, -0.9f);
-        input.Add(0.1f, 0.2f);
-        for (int i = 0; i < 400; i++)
-        {
-            var (p, y) = input.Take(1f / 60f, 0.06f);
-            pitch += p; yaw += y;
-        }
-        Assert.Equal(0.5f, pitch, 4);
-        Assert.Equal(-0.7f, yaw, 4);
-        Assert.True(input.Idle);
-    }
-
-    [Fact]
-    public void AngularInputLagsButGetsThere()
-    {
-        var input = new AngularInput();
-        input.Add(0f, 1f);
-        var (_, first) = input.Take(1f / 60f, 0.06f);
-        Assert.InRange(first, 0.1f, 0.3f); // a bit of it at once, not all
-        Assert.True(input.PendingYaw > 0.7f);
-    }
-
-    [Fact]
-    public void AngularInputWithoutInertiaAppliesEverythingAtOnce()
-    {
-        var input = new AngularInput();
-        input.Add(0.3f, 0.7f);
-        Assert.Equal((0.3f, 0.7f), input.Take(1f / 60f, 0f));
-        Assert.True(input.Idle);
-        input.Add(float.NaN, float.PositiveInfinity); // garbage is ignored
-        Assert.True(input.Idle);
     }
 
     [Fact]

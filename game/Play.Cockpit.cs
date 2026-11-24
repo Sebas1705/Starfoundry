@@ -19,7 +19,6 @@ public partial class Play
     private CockpitScreen? _focus;
     private float _focusOffYaw, _focusOffPitch;
     private float _fovNow;
-    private float _maxSpeed = 12f;
     private float _cockpitClock, _cockpitTime;
     private bool _swallowRelease;
     private (CockpitScreen Screen, Vector2 Pixel)? _cockpitAim;
@@ -118,21 +117,17 @@ public partial class Play
         var p = Net.GetPlayerInfo(Player);
         var st = Net.PowerStatus(ship);
 
-        // speed and thrust
-        float speed = (ShipPosition(1f) - ShipPosition(0f)).Length() * Units.TicksPerSecond;
+        // The speed, what the engines can do now and the demanded speed are the flight-feel numbers (Play.FlightFeel.cs): the same ones the HUD gauge shows.
         bool boosting = Net.IsBoosting(Player);
-        int boostPercent = _content.World?.BoostPercent ?? 100;
-        bool canBoost = _content.World is not null && Net.CanFly(Player);
-        float unitsPerTick = Net.ShipSpeedUnitsPerTick(Player);
-        float baseSpeed = unitsPerTick / Units.CellUnits * Units.TicksPerSecond / (boosting ? boostPercent / 100f : 1f);
-        if (baseSpeed > 0.01f) _maxSpeed = baseSpeed * (canBoost && boostPercent > 100 ? boostPercent / 100f : 1f);
-        float thrust = Math.Clamp(new Vector3(p.ThrustX, p.ThrustY, p.ThrustZ).Length() / PlayerRules.ThrustScale, 0f, 1f);
+        bool canBoost = _content.World is { BoostPercent: > 100 } && Net.CanFly(Player);
+        float top = MathF.Max(_topCps, 0.01f);
+        float thrust = Math.Clamp(_targetCps / top, 0f, 1f);
 
         bool reactor = HasReactor(ship);
         long fuelLeft = PowerFormat.TimeLeftTicks(st, BurnInterval);
         int maxHull = Net.ThreatActive ? Net.ShipMaxHull : 0;
         int holdUsed = Net.HoldTotal(Player), holdCap = Net.HoldCapacity(Player);
-        snap.Flight = new FlightDisplayData(speed, _maxSpeed, thrust, boosting, canBoost && boostPercent > 100, Net.ThreatActive ? p.Hull : 0, maxHull,
+        snap.Flight = new FlightDisplayData(_speedCps, top, thrust, boosting, canBoost, _targetShown, Net.ThreatActive ? p.Hull : 0, maxHull,
             st.Production, st.Demand, st.SatisfactionPermille, st.HydrogenInHold, fuelLeft, holdUsed, holdCap);
         snap.HasReactor = reactor;
 
@@ -140,7 +135,7 @@ public partial class Play
         var b = ShipBasis;
         var shipCam = new CameraBasis(V(-b.Z), V(b.X), V(b.Y), Mathf.DegToRad(SettingsStore.Current.Fov));
         snap.Axes = NavFrame.Project(shipCam);
-        var vel = (ShipPosition(1f) - ShipPosition(0f)) * Units.TicksPerSecond;
+        var vel = _velCps; // the velocity of the flight-feel state (cells per second)
         snap.Velocity = CockpitMath.Velocity(vel.Dot(b.X), vel.Dot(b.Y), vel.Dot(-b.Z), 0.2f);
 
         // systems
@@ -344,7 +339,8 @@ public partial class Play
     {
         if (Overview) return;
         var settings = SettingsStore.Current;
-        float target = settings.Fov + (Net.HasPlayer(Player) && Net.IsBoosting(Player) && !Standing && settings.SmoothLook ? 4f : 0f);
+        float flightFov = FlightFov(); // the setting plus the flight-feel kick: one field-of-view path, the kick eases itself (Play.FlightFeel.cs)
+        float target = flightFov;
         if (_focus is { } f && _cockpit is not null && _cockpit.TryGetCentre(f, out var centre, out _))
         {
             var eye = _camera.GlobalPosition;
@@ -359,11 +355,13 @@ public partial class Play
             float aspect = Math.Max(1f, GetViewport().GetVisibleRect().Size.Aspect());
             const float fill = 0.70f; // how much of the view the screen takes along its tighter side
             float half = MathF.Max(size.Y * 0.5f / fill, size.X * 0.5f / fill / aspect) * 1.0f;
-            target = Math.Clamp(Mathf.RadToDeg(2f * MathF.Atan(half / dist)), 18f, settings.Fov);
+            target = Math.Clamp(Mathf.RadToDeg(2f * MathF.Atan(half / dist)), 18f, flightFov);
         }
         else _focusOffYaw = _focusOffPitch = 0f;
-        if (_fovNow <= 0f) _fovNow = target;
-        _fovNow = _hudSnap || !settings.SmoothLook && _focus is null ? target : MotionSmoothing.Damp(_fovNow, target, 8f, dt);
+        if (_fovNow <= 0f) _fovNow = flightFov;
+        // Only the focus zoom is eased here; with no display in focus the view follows the flight field of view exactly once it is back from a zoom.
+        bool zooming = _focus is not null || _fovNow < flightFov - 0.05f;
+        _fovNow = _hudSnap || !zooming ? target : MotionSmoothing.Damp(_fovNow, target, 8f, dt);
         _camera.Fov = _fovNow;
     }
 }
