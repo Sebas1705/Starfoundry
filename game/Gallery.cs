@@ -82,6 +82,9 @@ public partial class Gallery : Node3D
             case "belts": _focusPoint = new Vector3(2f, 0, 0f); defDist = 8f; break;
             case "modules": _focusPoint = new Vector3(32f, 1.5f, 8f); defDist = 75f; break;
             case "ship-demo": _focusPoint = new Vector3(4f, 2f, 20f); defDist = 40f; break;
+            case "ship-starter": _focusPoint = new Vector3(4f, 2f, 16f); defDist = 40f; break;
+            case "ship-row": _focusPoint = new Vector3(4f, 2f, 40f); defDist = 90f; break;
+            case "ship-big": _focusPoint = new Vector3(8f, 4f, 24f); defDist = 90f; break;
             case "station-demo": _focusPoint = new Vector3(12f, 3f, 8f); defDist = 40f; break;
             case "ships": _focusPoint = new Vector3(-3.1f, 0.15f, -4.6f); defDist = 6f; break;
             case "workbench": _focusPoint = new Vector3(1.7f, 0.7f, 1.6f); defDist = 6.5f; break;
@@ -95,7 +98,7 @@ public partial class Gallery : Node3D
         if (Arg("--at") is { } at && at.Split(',') is { Length: 3 } p) _focusPoint = new Vector3(float.Parse(p[0], CultureInfo.InvariantCulture), float.Parse(p[1], CultureInfo.InvariantCulture), float.Parse(p[2], CultureInfo.InvariantCulture));
 
         BuildScene();
-        if (focus is "modules" or "ship-demo" or "station-demo") BuildModuleGallery(focus, (int)F("--variant", 0));
+        if (focus is "modules" or "ship-demo" or "station-demo" or "ship-starter" or "ship-row" or "ship-big") BuildModuleGallery(focus, (int)F("--variant", 0));
         else if (focus == "deposits") BuildDepositGallery();
         else if (focus == "materials") BuildMaterialGallery();
         else if (focus == "belts") BuildBeltGallery();
@@ -249,6 +252,36 @@ public partial class Gallery : Node3D
                 Put(kinds[i], true, new Vector3(i * 9.5f, 0, 0), kinds[i] + " (ship)");
                 Put(kinds[i], false, new Vector3(i * 9.5f, 0, 16f), kinds[i] + " (station)");
             }
+        }
+        else if (focus is "ship-starter" or "ship-row" or "ship-big")
+        {
+            // Ships built from the real masks (the same HullProfile.MaskOf the game uses): the starter ship with its pods, a row of every body kind of a
+            // ship end to end (cockpit, hull, cargo, workshop, both reactors, defence, drone bay, dock, engine) and a big demo ship with wings of cargo.
+            var parts = new System.Collections.Generic.Dictionary<(int, int, int), ModuleKind>();
+            if (focus == "ship-starter")
+            {
+                ModuleKind[] spine = { ModuleKind.Cockpit, ModuleKind.Hull, ModuleKind.Cargo, ModuleKind.Reactor, ModuleKind.Engine };
+                for (int i = 0; i < spine.Length; i++) parts[(0, 0, i)] = spine[i];
+                parts[(0, 0, -1)] = ModuleKind.MiningLaser;
+                parts[(0, 1, 0)] = ModuleKind.Gun;
+            }
+            else if (focus == "ship-row")
+            {
+                ModuleKind[] a = { ModuleKind.Cockpit, ModuleKind.Hull, ModuleKind.Cargo, ModuleKind.Workshop, ModuleKind.Reactor, ModuleKind.ReactorMk2, ModuleKind.Defence, ModuleKind.DroneBay, ModuleKind.Dock, ModuleKind.Engine };
+                // a second row in another order, so every kind meets different neighbours; pods hang on the first (a laser in front, a gun and a shield on top, a sensor behind a hull)
+                ModuleKind[] b = { ModuleKind.Cockpit, ModuleKind.ReactorMk2, ModuleKind.Reactor, ModuleKind.DroneBay, ModuleKind.Defence, ModuleKind.Workshop, ModuleKind.Cargo, ModuleKind.Dock, ModuleKind.Hull, ModuleKind.Engine };
+                for (int i = 0; i < a.Length; i++) { parts[(0, 0, i)] = a[i]; parts[(3, 0, i)] = b[i]; }
+                parts[(0, 0, -1)] = ModuleKind.MiningLaserMk2;
+                parts[(0, 1, 1)] = ModuleKind.Gun; parts[(0, 1, 2)] = ModuleKind.Shield; parts[(0, 1, 3)] = ModuleKind.Sensor; parts[(3, 0, -1)] = ModuleKind.Gun;
+            }
+            else
+            {
+                ModuleKind[] spine = { ModuleKind.Cockpit, ModuleKind.Workshop, ModuleKind.Cargo, ModuleKind.Reactor, ModuleKind.Cargo, ModuleKind.DroneBay, ModuleKind.Engine };
+                for (int i = 0; i < spine.Length; i++) { parts[(0, 0, i)] = spine[i]; if (i is >= 1 and <= 5) { parts[(-1, 0, i)] = ModuleKind.Cargo; parts[(1, 0, i)] = i == 3 ? ModuleKind.ReactorMk2 : ModuleKind.Hull; } }
+                parts[(0, 0, -1)] = ModuleKind.MiningLaser; parts[(0, 1, 0)] = ModuleKind.Gun; parts[(0, 1, 2)] = ModuleKind.Sensor; parts[(0, 1, 4)] = ModuleKind.Shield; parts[(0, 1, 6)] = ModuleKind.Hull; parts[(-1, 0, 6)] = ModuleKind.Engine; parts[(1, 0, 6)] = ModuleKind.Engine;
+            }
+            ModuleKind? KindAt(int x, int y, int z) => parts.TryGetValue((x, y, z), out var kind) ? kind : null;
+            foreach (var ((x, y, z), k) in parts) Put(k, true, new Vector3(x * 8f, y * 4f, z * 8f), null, ModuleModels.NeighbourMask(KindAt, x, y, z));
         }
         else if (focus == "ship-demo")
         {

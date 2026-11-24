@@ -504,6 +504,7 @@ public static partial class ModuleModels
                 foreach (bool front in new[] { true, false })
                 {
                     if (front ? (nose || c.FrontOpen || windscreen) : (tail || c.RearOpen || openRear)) continue;
+                    if (full[3].Y - full[2].Y < 1.7f) continue; // a low pod has no wall tall enough for the hatch: it would stand out of the hull
                     float z = front ? 0.05f : D - 0.05f, o = front ? -0.03f : 0.03f;
                     mb.C(Panel).Block(new(4, mid - 0.2f, z + o), new(3.9f, 2.5f, 0.06f));
                     mb.C(Dark).Block(new(4, mid - 0.2f, z + 2 * o), new(3.4f, 2.0f, 0.04f));
@@ -653,7 +654,7 @@ public static partial class ModuleModels
                 for (int e = 0; e < 2; e++)
                 {
                     var sec = e == 0 ? secs[0] : secs[^1];
-                    bool joined = e == 0 ? c.FrontOpen : c.RearOpen;
+                    bool joined = (e == 0 ? c.FrontOpen : c.RearOpen) && !(c.Ship && HullProfile.IsPod(c.Kind)); // a pod keeps a plain ring: it has no doorway
                     bool nosering = e == 0 && nose;
                     var o = Oct(roofY, sec.S, c.M, nosering ? 0f : 0.35f);
                     for (int i = 0; i < o.Length; i++)
@@ -1196,6 +1197,7 @@ public static partial class ModuleModels
             foreach (float s in new[] { -1f, 1f }) mb.C(Steel).Block(new(4 + s * 0.35f, 0.18f, 3.75f), new(0.4f, 0.05f, 0.3f)); // pedals
         });
 
+        int consoleFrom = c.R.GetChildCount(); // every part added from here to the lamps belongs to the console (duplicate part names are renamed by Godot, so count instead)
         // The console under the windscreen: a dark body with a tilted deck, a bezel round each of the three screens, a row of switches and cheek panels.
         Models.Add(c.R, "Console", $"{c.K}.console", ModuleHull(), mb =>
         {
@@ -1246,8 +1248,9 @@ public static partial class ModuleModels
         // A ship's console is a narrow, low desk: the whole instrument panel is squeezed to 72 percent of its width and 78 percent of its height
         // about the middle of the module, so it never stands between the pilot's eye and the glass (HullProfile.ConsoleX0 and ConsoleX1 are its footprint).
         if (c.Ship)
-            foreach (var part in c.R.GetChildren().OfType<MeshInstance3D>().Where(p => { string nm = p.Name.ToString(); return nm.StartsWith("Console") || nm.StartsWith("GlowDash") || nm.StartsWith("GlowLamp"); }))
+            for (int ci = consoleFrom; ci < c.R.GetChildCount(); ci++)
             {
+                if (c.R.GetChild(ci) is not MeshInstance3D part) continue;
                 part.Scale = new Vector3(0.72f, 0.78f, 1f);
                 part.Position = new Vector3(4f * (1f - 0.72f), 0f, 0f);
             }
