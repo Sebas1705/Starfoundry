@@ -41,7 +41,14 @@ public static partial class Loc
         ["cp.nav.system"] = ("SISTEMA", "SYSTEM"),
         ["cp.nav.port"] = ("Puerto", "Port"),
         ["cp.nav.enemy"] = ("Hostil", "Hostile"),
-        ["cp.nav.noPick"] = ("Elige un yacimiento", "Pick a deposit"),
+        ["cp.nav.noPick"] = ("Elige un yacimiento o un puerto", "Pick a deposit or a port"),
+        ["cp.unit.cells"] = ("celdas", "cells"),
+        ["cp.nav.dist"] = ("DISTANCIA", "DISTANCE"),
+        ["cp.nav.noTarget"] = ("SIN OBJETIVO", "NO TARGET"),
+        ["cp.nav.autoRange"] = ("AUTO", "AUTO"),
+        ["cp.nav.reset"] = ("REINICIAR", "RESET"),
+        ["cp.nav.mapHint"] = ("Rueda: zoom. Arrastrar: girar el mapa.", "Wheel: zoom. Drag: turn the map."),
+        ["cp.nav.noRoute"] = ("Sin ruta a ese objetivo", "No route to that target"),
 
         // systems page
         ["cp.sys.modules"] = ("MÓDULOS", "MODULES"),
@@ -86,16 +93,38 @@ public static partial class Loc
         ["key.hudFull"] = ("HUD completo (F3 cambia)", "Full HUD (F3 switches)"),
         ["key.hudCockpit"] = ("HUD solo cabina (F3 cambia)", "Cockpit-only HUD (F3 switches)"),
         ["key.hudMinimal"] = ("HUD mínimo (F3 cambia)", "Minimal HUD (F3 switches)"),
-        ["settings.smoothLook"] = ("Pilotaje suave (inercia al girar)", "Smooth piloting (turn inertia)"),
-        ["settings.tip.smoothLook"] = ("La nave sigue al ratón con un pequeño retardo y el alabeo arranca y frena con suavidad. No cambia la simulación.", "The ship follows the mouse with a small lag and the roll eases in and out. It does not change the simulation."),
+        ["settings.smoothLook"] = ("Suavizar caminar y sentarse", "Smooth walking and sitting"),
+        ["settings.tip.smoothLook"] = ("El cuerpo acelera y frena al caminar, el ojo se desliza al sentarte y levantarte y hay un leve balanceo. No cambia la simulación.", "The body speeds up and slows down when walking, the eye glides when you sit or stand and there is a faint head bob. It does not change the simulation."),
+        ["settings.inertia"] = ("Inercia de la nave", "Ship inertia"),
+        ["settings.inertia.off"] = ("Sin inercia", "Off"),
+        ["settings.inertia.light"] = ("Ligera", "Light"),
+        ["settings.inertia.full"] = ("Completa", "Full"),
+        ["settings.tip.inertia"] = ("Cómo gira la nave: completa = tiene masa (el giro arranca y frena según su peso y sus motores), ligera = más ágil, sin inercia = sigue al ratón casi al instante (40 ms de suavizado). No cambia la simulación.", "How the ship turns: full = it has mass (the turn builds and stops according to its weight and engines), light = more agile, off = it follows the mouse almost at once (a 40 ms easing). It does not change the simulation."),
+        ["settings.flightAssist"] = ("Asistente de vuelo (frena el giro)", "Flight assist (damps the turn)"),
+        ["settings.tip.flightAssist"] = ("Con el asistente, la nave deja de girar cuando sueltas el ratón. Sin él sigue girando hasta que la frenes (F8 lo cambia en vuelo). Solo cuenta con inercia ligera o completa.", "With the assist the ship stops turning when you let go of the mouse. Without it the ship keeps rotating until you counter it (F8 switches it in flight). Only matters with light or full inertia."),
+        ["key.assistOn"] = ("Asistente de vuelo activo (F8 lo quita)", "Flight assist on (F8 turns it off)"),
+        ["key.assistOff"] = ("Giro libre, sin asistente (F8 lo pone)", "Free rotation, no assist (F8 turns it on)"),
+        ["toast.assistOn"] = ("Asistente de vuelo activado: la nave frena el giro", "Flight assist on: the ship damps its turn"),
+        ["toast.assistOff"] = ("Asistente de vuelo desactivado: giro libre", "Flight assist off: free rotation"),
+        ["cp.turn"] = ("GIRO", "TURN"),
+        ["cp.assist"] = ("ASISTENTE", "ASSIST"),
+        ["cp.assistOff"] = ("LIBRE", "FREE"),
+        ["cp.rate.pitch"] = ("CAB", "PIT"),
+        ["cp.rate.yaw"] = ("GUI", "YAW"),
+        ["cp.rate.roll"] = ("ALA", "ROL"),
+        ["cp.noInertia"] = ("SIN INERCIA", "NO INERTIA"),
         ["help.cockpit"] = (
             "\n\nPantallas de la cabina y modos de HUD\n" +
             "  Delante del piloto hay tres pantallas con páginas Vuelo, Nav, Sistemas y Armas (una queda apagada: elegir una página que está en otra pantalla las intercambia). Se leen mejor con F4 o con un clic sobre una pantalla: la vista se acerca a ella; con Alt pulsado miras por dentro de la nave sin pilotar\n" +
             "  Clic en un botón de la pantalla (apuntando con la mirilla): cambia de página, elige un yacimiento, activa el piloto automático o la aproximación a un puerto, escanea, cambia el grupo de armas, el láser y el HUD. Con una pantalla enfocada: izquierda y derecha cambian de pantalla, arriba y abajo de página, F4 o Esc salen\n" +
-            "  F3   modo de HUD: completo (todas las tarjetas y marcadores), solo cabina (sentado se ocultan tarjetas, marcadores y marco galáctico: la información está en las pantallas) y mínimo (solo mirilla, avisos y notificaciones). De pie siempre ves lo necesario para caminar y construir. Se guarda en los ajustes",
+            "  F3   modo de HUD: completo (todas las tarjetas y marcadores), solo cabina (sentado se ocultan tarjetas, marcadores y marco galáctico: la información está en las pantallas) y mínimo (solo mirilla, avisos y notificaciones). De pie siempre ves lo necesario para caminar y construir. Se guarda en los ajustes\n" +
+            "  Mirar una pantalla casi medio segundo la acerca sola; moverte, pilotar o F4 lo deshacen. En la pantalla Nav con F4: rueda del ratón = zoom del mapa, arrastrar con el botón izquierdo = girarlo, clic en un icono o en la lista = elegir objetivo (yacimientos, hostiles, puerto, puerta)\n" +
+            "  F8   asistente de vuelo: con él la nave frena el giro al soltar el ratón; sin él sigue girando hasta que la frenes. La inercia de la nave (apagada, ligera o completa) se elige en Ajustes",
             "\n\nCockpit displays and HUD modes\n" +
             "  In front of the pilot are three screens with the pages Flight, Nav, Systems and Weapons (one page is always off: picking a page that is on another screen swaps them). They read best with F4 or a click on a screen: the view moves in on it; hold Alt to look around inside the ship without steering\n" +
             "  Click a button on a screen (aim with the crosshair): switch page, pick a deposit, engage the autopilot or the port approach, scan, change the weapon group, the laser and the HUD. With a screen focused: left and right change screen, up and down change page, F4 or Esc leave\n" +
-            "  F3   HUD mode: full (every card and marker), cockpit only (seated, the cards, markers and galactic frame are hidden: the information is on the screens) and minimal (crosshair, warnings and notifications only). Standing you always see what walking and building need. It is saved in the settings"),
+            "  F3   HUD mode: full (every card and marker), cockpit only (seated, the cards, markers and galactic frame are hidden: the information is on the screens) and minimal (crosshair, warnings and notifications only). Standing you always see what walking and building need. It is saved in the settings\n" +
+            "  Looking at a screen for about half a second frames it by itself; moving the mouse away, flying or F4 undoes it. On the Nav screen with F4: mouse wheel = zoom the map, drag with the left button = turn it, click an icon or a list row = pick a target (deposits, hostiles, port, gate)\n" +
+            "  F8   flight assist: with it the ship damps its turn when you let go of the mouse; without it the ship keeps rotating until you counter it. Ship inertia (off, light or full) is set in Settings"),
     };
 }

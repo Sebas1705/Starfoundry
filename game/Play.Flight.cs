@@ -1,5 +1,6 @@
 using System;
 using Godot;
+using Starfoundry.Sim;
 using Starfoundry.Ui;
 
 namespace Starfoundry.Game;
@@ -25,6 +26,40 @@ public partial class Play
     private Vector2 _lookPending; // mouse turn not yet applied: x yaw, y pitch (radians)
     private float _rollSpeed; // the current roll rate (radians per second)
 
+    // ---- rotation dynamics (ship inertia): see docs/prototypes/flight-feel.md ----
+    private readonly TurnController _turn = new();
+    private TurnStats _turnStats = new(90f, 160f);
+    private float _turnStatsClock;
+    /// <summary>Flight assist as a screenshot or scripted run pins it (the settings file is never touched by those).</summary>
+    private bool? _assistShot;
+
+    private ShipInertia Inertia => _inertiaShot ?? SettingsStore.Current.ShipInertia;
+    private ShipInertia? _inertiaShot;
+    private bool FlightAssistOn => _assistShot ?? SettingsStore.Current.FlightAssist;
+
+    /// <summary>True when the rotation dynamics (not the old 40 ms easing) steer the ship.</summary>
+    private bool UsesDynamics => Inertia != ShipInertia.Off;
+
+    /// <summary>The turn limits of the ship as it is now: its modules (mass), the engine research and the inertia setting. Recomputed twice a second.</summary>
+    private TurnStats CurrentTurnStats(float dt)
+    {
+        _turnStatsClock -= dt;
+        if (_turnStatsClock > 0f) return _turnStats;
+        _turnStatsClock = 0.5f;
+        if (ShipStruct < 0 || !Net.HasPlayer(Player)) return _turnStats;
+        _turnStats = ClientContent.Handling.StatsFor(Net.GetStructure(ShipStruct).Modules.Values, Net.BonusPercent(BonusKind.EngineSpeed), Net.BonusPercent(BonusKind.EngineAccel), Inertia);
+        return _turnStats;
+    }
+
+    /// <summary>The flight assist key and the button on the flight display: damp the rotation when the pilot stops turning, or let the ship keep spinning.</summary>
+    private void ToggleFlightAssist()
+    {
+        bool next = !FlightAssistOn;
+        if (_assistShot is not null) _assistShot = next;
+        else SettingsStore.Set(SettingsStore.Current with { FlightAssist = next });
+        ToastLogistics(L(next ? "toast.assistOn" : "toast.assistOff"));
+    }
+
 
     private Basis ShipBasis => new(new Quaternion(_shipQuat.X, _shipQuat.Y, _shipQuat.Z, _shipQuat.W));
 
@@ -37,7 +72,7 @@ public partial class Play
     /// True while the mouse steers the ship (and the roll keys work): seated, free, not docked, no build tool in hand and Alt not held. Otherwise the
     /// mouse turns the head inside the ship, upright in the ship's own frame.
     /// </summary>
-    private bool Piloting => _mouseLook && _focus is null && !Standing && !IsDockedNow && _tool != ToolMode.Build && !PanelOpen() && !Input.IsKeyPressed(Key.Alt);
+    private bool Piloting => (_mouseLook || TurnShotActive) && _focus is null && !Standing && !IsDockedNow && _tool != ToolMode.Build && !PanelOpen() && !Input.IsKeyPressed(Key.Alt);
 
     /// <summary>The ship's root transform: its attitude, turned about the pilot seat so the seat stays at the simulated position.</summary>
     private Transform3D ShipRootTransform(Vector3 shipPos)
@@ -70,6 +105,7 @@ public partial class Play
     /// <summary>Mouse motion: steers the ship while piloting, otherwise turns the head (upright in the ship's frame, clamped).</summary>
     private void LookBy(Vector2 relative)
     {
+        _mousePxFrame += relative.Length();
         if (CockpitLook(relative)) return; // a display is in focus: the mouse moves the view over it
         var settings = SettingsStore.Current;
         float sens = MouseSensitivity * settings.MouseSensitivity;
@@ -77,7 +113,8 @@ public partial class Play
         if (Piloting)
         {
             // The turn is not applied at once: it joins a pending turn that the attitude control feeds into the ship over a few frames (a little angular inertia).
-            if (settings.SmoothLook) _lookPending += new Vector2(relative.X * sens, -vertical);
+            if (UsesDynamics) _turn.AddLook(relative.X * sens, -vertical, _turnStats); // rotation dynamics: the mouse sets a desired angular rate (TurnController)
+            else if (settings.SmoothLook) _lookPending += new Vector2(relative.X * sens, -vertical);
             else _shipQuat = FlightOrientation.Rotate(_shipQuat, -vertical, relative.X * sens, 0f); // smooth piloting off: the ship follows the mouse at once
             return;
         }
@@ -91,22 +128,29 @@ public partial class Play
     /// </summary>
     private void UpdateAttitude(float dt)
     {
-        if (Overview || _demo) { _lookPending = Vector2.Zero; _rollSpeed = 0f; return; }
-        if (!Piloting) { _lookPending = Vector2.Zero; _rollSpeed = 0f; }
+        if (Overview || _demo) { _lookPending = Vector2.Zero; _rollSpeed = 0f; _turn.Reset(); return; }
+        if (!Piloting) { _lookPending = Vector2.Zero; _rollSpeed = 0f; _turn.ClearPending(); }
+        var stats = CurrentTurnStats(dt);
+        if (!UsesDynamics || IsDockedNow || _dockAssist) _turn.Reset(); // the old easing, or a port that takes the ship over: no spin left to carry
+        else if (!Piloting) _shipQuat = _turn.Step(_shipQuat, dt, 0f, stats, FlightAssistOn); // not at the controls: the assist (or free spin) goes on
         if (Piloting)
         {
             float roll = ((Input.IsPhysicalKeyPressed(Key.X) || Input.IsPhysicalKeyPressed(Key.Right)) ? 1f : 0f)
                        - ((Input.IsPhysicalKeyPressed(Key.Z) || Input.IsPhysicalKeyPressed(Key.Left)) ? 1f : 0f);
-            // The roll rate eases towards the keys (and back to rest when they are released) instead of switching on and off.
-            _rollSpeed = SettingsStore.Current.SmoothLook ? Mathf.Lerp(_rollSpeed, roll * RollRate, 1f - MathF.Exp(-RollEase * dt)) : roll * RollRate;
-            if (roll == 0f && MathF.Abs(_rollSpeed) < 0.004f) _rollSpeed = 0f;
-            if (_rollSpeed != 0f) _shipQuat = FlightOrientation.Rotate(_shipQuat, 0f, 0f, _rollSpeed * dt);
-            float lookAmount = 1f - MathF.Exp(-LookEase * dt);
-            var lookStep = _lookPending * lookAmount;
-            _lookPending -= lookStep;
-            if (_lookPending.LengthSquared() < 1e-10f) { lookStep += _lookPending; _lookPending = Vector2.Zero; }
-            if (lookStep != Vector2.Zero) _shipQuat = FlightOrientation.Rotate(_shipQuat, lookStep.Y, lookStep.X, 0f);
-            float k = 1f - MathF.Exp(-HeadRelaxRate * dt);
+            if (UsesDynamics) _shipQuat = _turn.Step(_shipQuat, dt, roll, stats, FlightAssistOn);
+            else
+            {
+                // The roll rate eases towards the keys (and back to rest when they are released) instead of switching on and off.
+                _rollSpeed = SettingsStore.Current.SmoothLook ? Mathf.Lerp(_rollSpeed, roll * RollRate, 1f - MathF.Exp(-RollEase * dt)) : roll * RollRate;
+                if (roll == 0f && MathF.Abs(_rollSpeed) < 0.004f) _rollSpeed = 0f;
+                if (_rollSpeed != 0f) _shipQuat = FlightOrientation.Rotate(_shipQuat, 0f, 0f, _rollSpeed * dt);
+                float lookAmount = 1f - MathF.Exp(-LookEase * dt);
+                var lookStep = _lookPending * lookAmount;
+                _lookPending -= lookStep;
+                if (_lookPending.LengthSquared() < 1e-10f) { lookStep += _lookPending; _lookPending = Vector2.Zero; }
+                if (lookStep != Vector2.Zero) _shipQuat = FlightOrientation.Rotate(_shipQuat, lookStep.Y, lookStep.X, 0f);
+            }
+            float k = _autoFrame.Framed is null ? 1f - MathF.Exp(-HeadRelaxRate * dt) : 0f; // a framed screen keeps the head turned towards it
             _yaw = Mathf.LerpAngle(_yaw, 0f, k);
             _pitch = Mathf.Lerp(_pitch, 0f, k);
             if (MathF.Abs(_yaw) < 1e-3f) _yaw = 0f;
@@ -149,6 +193,6 @@ public partial class Play
         }
         if (IsDockedNow || Net.ShipLost(Player) || _world.PendingCommands != 0) return;
         var wanted = ShipAttitude.Quantize(_shipQuat);
-        if (_attitudeThrottle.Offer(Net.AttitudeOf(ShipStruct), wanted, Time.GetTicksMsec() / 1000.0) is { } cmd) Send(cmd);
+        if (_attitudeThrottle.Offer(Net.AttitudeOf(ShipStruct), wanted, Time.GetTicksMsec() / 1000.0) is { } cmd) { Send(cmd); _attitudeCommands++; }
     }
 }

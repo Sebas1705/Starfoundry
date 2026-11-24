@@ -335,12 +335,12 @@ public class CockpitTests
     }
 
     [Fact]
-    public void ScanlinesDarkenEveryThirdRow()
+    public void ScanlinesDarkenEveryFourthRow()
     {
-        Assert.Equal(0.82f, CockpitMath.Scanline(0));
+        Assert.Equal(0.92f, CockpitMath.Scanline(0));
         Assert.Equal(1f, CockpitMath.Scanline(1));
-        Assert.Equal(1f, CockpitMath.Scanline(2));
-        Assert.Equal(0.82f, CockpitMath.Scanline(3));
+        Assert.Equal(1f, CockpitMath.Scanline(3));
+        Assert.Equal(0.92f, CockpitMath.Scanline(4));
     }
 
     // ---- the navigation list --------------------------------------------------------------------------

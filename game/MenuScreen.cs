@@ -240,6 +240,18 @@ public partial class MenuScreen : Control
             v => Loc.T("settings.uiVolume", (int)Math.Round(v)), v => SettingsStore.Current with { UiVolume = (int)Math.Round(v) }, "settings.tip.uiVolume");
 
         AddCheck("InvertCheck", Loc.T("settings.invertY"), s.InvertMouseY, on => SettingsStore.Current with { InvertMouseY = on }, "settings.tip.invertY");
+        var inertia = UiKit.Button(Loc.T("settings.inertia") + ": " + Loc.T("settings.inertia." + ShipInertias.Id(s.ShipInertia)), () =>
+        {
+            var c = SettingsStore.Current;
+            _focusName = "InertiaButton";
+            SettingsStore.Set(c with { ShipInertia = ShipInertias.Next(c.ShipInertia) });
+            CallDeferred(MethodName.Rebuild);
+        }, 14);
+        inertia.Name = "InertiaButton";
+        inertia.CustomMinimumSize = new Vector2(0, 34);
+        WithTip(inertia, "settings.tip.inertia");
+        _body.AddChild(inertia);
+        AddCheck("FlightAssistCheck", Loc.T("settings.flightAssist"), s.FlightAssist, on => SettingsStore.Current with { FlightAssist = on }, "settings.tip.flightAssist");
         AddCheck("SmoothLookCheck", Loc.T("settings.smoothLook"), s.SmoothLook, on => SettingsStore.Current with { SmoothLook = on }, "settings.tip.smoothLook");
         AddCheck("FullscreenCheck", Loc.T("settings.fullscreen"), s.Fullscreen, on => SettingsStore.Current with { Fullscreen = on }, "settings.tip.fullscreen");
         AddCheck("LowTexturesCheck", Loc.T("settings.lowTextures"), s.LowTextures, on => SettingsStore.Current with { LowTextures = on }, "settings.tip.lowTextures");

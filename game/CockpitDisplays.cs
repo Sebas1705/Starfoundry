@@ -5,52 +5,25 @@ using Starfoundry.Ui;
 namespace Starfoundry.Game;
 
 /// <summary>
-/// Where the three cockpit displays sit on the console, in the local frame of the cockpit module. This is the one attachment point between
-/// the console model (<c>ModuleModels.Cockpit</c>) and the displays: when the console geometry moves, change the constants here and nothing else.
-/// <list type="bullet">
-/// <item>The console deck is a plate tilted <see cref="DeckTiltDegrees"/> about X, with its origin at <see cref="DeckOrigin"/>; a ship squeezes the whole console by <see cref="Squeeze"/>
-/// about the middle of the module (the same numbers as the model).</item>
-/// <item>A screen is a rectangle on the deck: <c>X</c> and <c>Z</c> are the position of its centre on the deck, <c>Width</c> and <c>Depth</c> its size (deck cells, before the squeeze),
-/// <c>PxW</c> and <c>PxH</c> the size of the texture drawn into it.</item>
-/// </list>
+/// Where the displays sit on the console of the cockpit: the numbers come from the content (<c>content/cockpit_layouts.json</c>, <see cref="CockpitLayout"/>), one
+/// layout per cockpit style, so a style with a wide console and one big navigation screen is a data entry, not code. This class only turns the engine-free
+/// matrices into Godot transforms. The console model (<c>ModuleModels.Cockpit</c>) and the layout share the deck origin, tilt and squeeze: when the model's
+/// geometry moves, change the layout file and nothing else.
 /// </summary>
 public static class CockpitScreenLayout
 {
-    // The numbers live in Starfoundry.Ui (CockpitShell) so the Blender generator reads the same ones (tools/blender/shell.json).
-    public static readonly Vector3 DeckOrigin = new(CockpitShell.DeckOriginX, CockpitShell.DeckOriginY, CockpitShell.DeckOriginZ);
-    public const float DeckTiltDegrees = CockpitShell.DeckTiltDegrees;
-    public static readonly Vector3 Squeeze = new(CockpitShell.SqueezeX, CockpitShell.SqueezeY, CockpitShell.SqueezeZ);
-    /// <summary>The module-local X that the squeeze keeps fixed.</summary>
-    public const float SqueezeAboutX = CockpitShell.SqueezeAboutX;
-    /// <summary>The height of the screen surface above the deck plate, in deck cells (the bezel is just under it).</summary>
-    public const float SurfaceHeight = CockpitShell.SurfaceHeight;
-    public const float BezelHeight = CockpitShell.BezelHeight;
-    public const float BezelMargin = CockpitShell.BezelMargin;
+    /// <summary>The layout in use: the starter console (the cockpit styles of the designer will pick their own).</summary>
+    public static CockpitLayout Current => ClientContent.Layouts.Get(CockpitLayouts.StarterId);
 
-    public readonly record struct Def(CockpitScreen Screen, float X, float Z, float Width, float Depth, int PxW, int PxH);
+    public static ScreenRect Of(CockpitScreen screen) => Current.Of(screen);
 
-    public static readonly Def[] Screens = Array.ConvertAll(CockpitShell.Screens, s => new Def(s.Screen, s.X, s.Z, s.Width, s.Depth, s.PxW, s.PxH));
+    private static Transform3D ToGodot(System.Numerics.Matrix4x4 m) => new(
+        new Basis(new Vector3(m.M11, m.M12, m.M13), new Vector3(m.M21, m.M22, m.M23), new Vector3(m.M31, m.M32, m.M33)),
+        new Vector3(m.M41, m.M42, m.M43));
 
-    public static Def Of(CockpitScreen screen) => Screens[(int)screen];
+    public static Transform3D ScreenToModule(CockpitLayout l, CockpitScreen screen) => ToGodot(l.ScreenToModule(l.Of(screen)));
 
-    /// <summary>The deck frame in the cockpit module's frame: the tilt, then the squeeze about the middle of the module.</summary>
-    public static Transform3D DeckToModule
-    {
-        get
-        {
-            var rot = new Basis(Vector3.Right, Mathf.DegToRad(DeckTiltDegrees));
-            var basis = Basis.FromScale(Squeeze) * rot;
-            var origin = Squeeze * DeckOrigin + new Vector3(SqueezeAboutX * (1f - Squeeze.X), 0f, 0f);
-            return new Transform3D(basis, origin);
-        }
-    }
-
-    /// <summary>The frame of a screen quad: X to the pilot's right, Y up the screen (away from the pilot), Z out of the screen.</summary>
-    public static Transform3D ScreenToModule(Def d) => DeckToModule * new Transform3D(
-        new Basis(new Vector3(1f, 0f, 0f), new Vector3(0f, 0f, -1f), new Vector3(0f, 1f, 0f)),
-        new Vector3(d.X, SurfaceHeight, d.Z));
-
-    public static Transform3D BezelToModule(Def d) => DeckToModule * new Transform3D(Basis.Identity, new Vector3(d.X, BezelHeight, d.Z));
+    public static Transform3D BezelToModule(CockpitLayout l, CockpitScreen screen) => ToGodot(l.BezelToModule(l.Of(screen)));
 }
 
 /// <summary>
@@ -63,6 +36,8 @@ public partial class CockpitDisplays : Node
     /// <summary>Over 1 so that the brightest parts of a display glow.</summary>
     private const float ScreenBrightness = 1.4f;
 
+    /// <summary>The console layout these displays were built for (content, see <see cref="CockpitScreenLayout"/>).</summary>
+    public readonly CockpitLayout Layout = CockpitScreenLayout.Current;
     public readonly CockpitPages Pages = new();
     private readonly SubViewport[] _viewports = new SubViewport[3];
     private readonly CockpitScreenView[] _views = new CockpitScreenView[3];
@@ -75,7 +50,7 @@ public partial class CockpitDisplays : Node
     {
         for (int i = 0; i < 3; i++)
         {
-            var def = CockpitScreenLayout.Screens[i];
+            var def = Layout.Of((CockpitScreen)i);
             var vp = new SubViewport
             {
                 Size = new Vector2I(def.PxW, def.PxH),
@@ -83,9 +58,9 @@ public partial class CockpitDisplays : Node
                 TransparentBg = false,
                 RenderTargetUpdateMode = SubViewport.UpdateMode.Once,
                 GuiDisableInput = true,
-                Name = "CockpitScreen" + def.Screen,
+                Name = "CockpitScreen" + (CockpitScreen)i,
             };
-            var view = new CockpitScreenView(def.Screen, Pages, vp.Size);
+            var view = new CockpitScreenView((CockpitScreen)i, Pages, vp.Size);
             vp.AddChild(view);
             AddChild(vp);
             _viewports[i] = vp;
@@ -129,13 +104,14 @@ public partial class CockpitDisplays : Node
         var bezelMat = new StandardMaterial3D { AlbedoColor = new Color(0.05f, 0.055f, 0.07f), Metallic = 0.6f, Roughness = 0.4f };
         for (int i = 0; i < 3; i++)
         {
-            var def = CockpitScreenLayout.Screens[i];
+            var def = Layout.Of((CockpitScreen)i);
+            var screenId = (CockpitScreen)i;
             var quad = new MeshInstance3D
             {
-                Name = "CockpitDisplay" + def.Screen,
+                Name = "CockpitDisplay" + screenId,
                 Mesh = new QuadMesh { Size = new Vector2(def.Width, def.Depth) },
                 MaterialOverride = _materials[i],
-                Transform = CockpitScreenLayout.ScreenToModule(def),
+                Transform = CockpitScreenLayout.ScreenToModule(Layout, screenId),
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
             };
             module.AddChild(quad);
@@ -143,10 +119,10 @@ public partial class CockpitDisplays : Node
             if (recessed) continue;
             var bezel = new MeshInstance3D
             {
-                Name = "CockpitBezel" + def.Screen,
-                Mesh = new BoxMesh { Size = new Vector3(def.Width + CockpitScreenLayout.BezelMargin * 2f, 0.03f, def.Depth + CockpitScreenLayout.BezelMargin * 2f) },
+                Name = "CockpitBezel" + screenId,
+                Mesh = new BoxMesh { Size = new Vector3(def.Width + Layout.BezelMargin * 2f, 0.03f, def.Depth + Layout.BezelMargin * 2f) },
                 MaterialOverride = bezelMat,
-                Transform = CockpitScreenLayout.BezelToModule(def),
+                Transform = CockpitScreenLayout.BezelToModule(Layout, screenId),
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
             };
             module.AddChild(bezel);
@@ -197,7 +173,7 @@ public partial class CockpitDisplays : Node
     {
         if (Quad(screen) is not { } q) return Vector2.One;
         var b = q.GlobalTransform.Basis;
-        var def = CockpitScreenLayout.Of(screen);
+        var def = Layout.Of(screen);
         return new Vector2(b.X.Length() * def.Width, b.Y.Length() * def.Depth);
     }
 
@@ -221,7 +197,7 @@ public partial class CockpitDisplays : Node
             float t = -o.Z / d.Z;
             if (t < 0f || t > maxDistance || t >= distance) continue;
             var p = o + d * t;
-            var def = CockpitScreenLayout.Screens[i];
+            var def = Layout.Of((CockpitScreen)i);
             if (MathF.Abs(p.X) > def.Width / 2f || MathF.Abs(p.Y) > def.Depth / 2f) continue;
             distance = t;
             screen = (CockpitScreen)i;

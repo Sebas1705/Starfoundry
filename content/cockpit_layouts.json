@@ -1,0 +1,34 @@
+{
+  "_comment": "Where the console displays sit, per cockpit style. Client-side only: the simulation never reads this file. Sizes are deck cells before the ship's squeeze; tilt_degrees turns a screen up from the deck towards the pilot's eye about its near edge.",
+  "layouts": {
+    "starter": {
+      "deck_origin": [4.0, 1.02, 2.55],
+      "deck_tilt_degrees": 18.0,
+      "squeeze": [0.72, 0.78, 1.0],
+      "squeeze_about_x": 4.0,
+      "surface_height": 0.13,
+      "bezel_height": 0.112,
+      "bezel_margin": 0.06,
+      "screens": {
+        "left":   { "x": -1.79, "z": -0.01, "width": 0.95, "depth": 0.90, "px_w": 310, "px_h": 400, "tilt_degrees": 14.0 },
+        "center": { "x":  0.0,  "z": -0.02, "width": 2.30, "depth": 1.08, "px_w": 612, "px_h": 400, "tilt_degrees": 22.0 },
+        "right":  { "x":  1.79, "z": -0.01, "width": 0.95, "depth": 0.90, "px_w": 310, "px_h": 400, "tilt_degrees": 14.0 }
+      }
+    },
+    "wide_console": {
+      "_comment": "A sample for a future cockpit style: a wide desk with one big navigation screen and two small ones. No ship uses it yet.",
+      "deck_origin": [4.0, 1.02, 2.55],
+      "deck_tilt_degrees": 18.0,
+      "squeeze": [0.72, 0.78, 1.0],
+      "squeeze_about_x": 4.0,
+      "surface_height": 0.13,
+      "bezel_height": 0.112,
+      "bezel_margin": 0.06,
+      "screens": {
+        "left":   { "x": -2.25, "z": -0.01, "width": 0.8, "depth": 0.9, "px_w": 260, "px_h": 400, "tilt_degrees": 14.0 },
+        "center": { "x":  0.0,  "z": -0.02, "width": 3.4, "depth": 1.08, "px_w": 880, "px_h": 400, "tilt_degrees": 24.0 },
+        "right":  { "x":  2.25, "z": -0.01, "width": 0.8, "depth": 0.9, "px_w": 260, "px_h": 400, "tilt_degrees": 14.0 }
+      }
+    }
+  }
+}

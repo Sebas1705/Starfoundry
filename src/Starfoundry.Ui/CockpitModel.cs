@@ -35,6 +35,12 @@ public enum CockpitAction
     SelectTarget,
     Scan,
     LeaveFocus,
+    /// <summary>Flight assist on or off (F8).</summary>
+    ToggleFlightAssist,
+    /// <summary>Pick the map or list target in row <c>Arg</c> of the map list (any kind).</summary>
+    PickTarget,
+    /// <summary>The map zoom buttons: <c>Arg</c> 1 zooms in, -1 out; 0 resets the view.</summary>
+    MapZoom,
 }
 
 /// <summary>A clickable rectangle of a display, in the pixels of that display's texture.</summary>
@@ -108,10 +114,14 @@ public enum NavKind
 }
 
 /// <summary>One row of the navigation list. <see cref="Id"/> is the game's id of the thing (a deposit or a system) or -1.</summary>
-public sealed record NavTarget(NavKind Kind, int Id, string Name, float Distance, float TurnDegrees, string Icon, bool Selected = false)
+public sealed record NavTarget(NavKind Kind, int Id, string Name, float Distance, float TurnDegrees, string Icon, bool Selected = false, System.Numerics.Vector3 Local = default)
 {
-    /// <summary>Only deposits can be picked from the list: the others are shown, not chosen.</summary>
+    /// <summary>Deposits are the targets the previous and next buttons step through and the laser and the autopilot use.</summary>
     public bool Selectable => Kind == NavKind.Deposit;
+
+    /// <summary>Every kind of row can be picked as the navigation target (the big numbers and the route line follow the pick): deposits, threats, ports and the gate.</summary>
+    public bool Pickable => true;
+
 }
 
 /// <summary>Builds and steps through the list of the navigation display.</summary>
@@ -189,11 +199,11 @@ public static class CockpitMath
         return v < 1000f ? v.ToString("F0", culture) : (v / 1000f).ToString("F1", culture) + "k";
     }
 
-    /// <summary>The scanline brightness of row <paramref name="y"/> of a display: every third row is a little darker.</summary>
-    public static float Scanline(int y) => y % 3 == 0 ? 0.82f : 1f;
 
     /// <summary>How bright the screens are for a power satisfaction in per mille: full at 1000 and over, dimming towards 0.45 at nothing, and 0.2 when the ship has no power at all (they stay readable, only dimmer).</summary>
     public static float PowerDim(int powerPermille, bool hasPower) => !hasPower ? 0.2f : 0.45f + 0.55f * Fraction(powerPermille, 1000f);
+    /// <summary>The scanline brightness of row <paramref name="y"/> of a display: every fourth row is a little darker (subtle, so small text under it stays crisp).</summary>
+    public static float Scanline(int y) => y % 4 == 0 ? 0.92f : 1f;
 }
 
 /// <summary>The data the flight display shows, with its fractions worked out.</summary>

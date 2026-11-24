@@ -2,6 +2,8 @@
 
 Status: proposed (2026-11-24). Source: the owner's hand-test of main at #82. Everything here is a *proposal* unless marked *measured* (read from the current code or content). Builds on ADR 0027 (mining laser), 0029 (docking), 0030 (attitude), 0031 (construction), 0032 (weapons and shipyard), 0033 (flight feel) and the cockpit displays of #81.
 
+Implementation note (2026-11-24, branch `feature/nav-screen-turn-inertia`): sections N and T are built; see [cockpit displays](../../prototypes/cockpit-displays.md#navigation-screen-and-the-larger-console-2026-11-24) and [flight feel](../../prototypes/flight-feel.md#turn-inertia-2026-11-24-client-only-replaces-the-40-ms-mouse-easing). The starter turn numbers are 90 deg/s and 160 deg/s2 (the proposal of 70 and 120 gave a half turn of 3.4 s, over the 3 s acceptance bound).
+
 ## Feedback in one list
 1. Visibility from the pilot seat is now much better (confirmed, no work).
 2. Ship editing should go much further: several designs, several types, and the "antenna" part.

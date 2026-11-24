@@ -23,6 +23,14 @@ public sealed class CockpitSnapshot
     public int DockDistance, JumpSeconds;
     public HudMode HudMode;
     public string SelectedName = "";
+    /// <summary>Everything the navigation page can show on its map (positions in the ship's frame), and the target the pilot picked, if any.</summary>
+    public IReadOnlyList<NavTarget> MapTargets = Array.Empty<NavTarget>();
+    public NavKind? PickKind;
+    public int PickId = -1;
+    /// <summary>Angular velocity about the ship's axes in degrees per second (pitch up, yaw right, roll right) and the most it can reach.</summary>
+    public System.Numerics.Vector3 TurnRates;
+    public float TurnRateMax = 90f;
+    public bool FlightAssist = true, HasInertia = true;
 }
 
 /// <summary>
@@ -213,7 +221,7 @@ public partial class CockpitScreenView : Control
             bool elsewhere = Pages.ScreenOf(page) is { } sc && sc != Screen;
             var r = new Rect2(8 + i * (w + 6), y, w, 38);
             Color tint = Accent(page);
-            Button(r, PageName(page), PageIcon(page), CockpitAction.ShowPage, i, here, true, elsewhere ? tint.Darkened(0.35f) : tint, size.X < 500f ? 12 : 14);
+            Button(r, size.X < 340f ? "" : PageName(page), PageIcon(page), CockpitAction.ShowPage, i, here, true, elsewhere ? tint.Darkened(0.35f) : tint, size.X < 500f ? 12 : 14);
         }
     }
 
@@ -225,7 +233,14 @@ public partial class CockpitScreenView : Control
     /// <summary>Scanlines, a slow bright band and a blinking pilot lamp: the screen is visibly live.</summary>
     private void DrawOverlay(Vector2 size, Color accent)
     {
-        for (int y = 0; y < (int)size.Y; y += 3) DrawRect(new Rect2(0, y, size.X, 1), new Color(0f, 0f, 0f, 1f - CockpitMath.Scanline(y) + 0.02f));
+        for (int y = 0; y < (int)size.Y; y += 4) DrawRect(new Rect2(0, y, size.X, 1), new Color(0f, 0f, 0f, 1f - CockpitMath.Scanline(y))); // subtle: one dim row in four
+        // Low power dims the screens (and flickers them when the reactor is nearly out): the power that reaches the consumers, as the power gauge shows it.
+        if (Snapshot.Online && (Snapshot.HasReactor || Snapshot.Flight.PowerProduction > 0) && Snapshot.Flight.PowerPermille < 1000)
+        {
+            float lack = Math.Clamp(1f - Snapshot.Flight.PowerPermille / 1000f, 0f, 1f);
+            float flicker = Snapshot.Flight.PowerPermille < 400 && ((int)(Time * 9f) % 5 == 0) ? 0.25f : 0f;
+            DrawRect(new Rect2(Vector2.Zero, size), new Color(0f, 0f, 0f, Math.Clamp(lack * 0.6f + flicker, 0f, 0.85f)));
+        }
         float band = (Time * 70f) % (size.Y + 60f) - 30f;
         DrawRect(new Rect2(0, band, size.X, 26f), new Color(accent, 0.045f));
         if (((int)(Time * 1.6f)) % 2 == 0) DrawCircle(new Vector2(size.X - 16, 52), 3f, new Color(accent, 0.9f));
@@ -277,11 +292,46 @@ public partial class CockpitScreenView : Control
         y += step;
         GaugeLine(16, y, colW - 4, "status:cargo", Loc.T("cp.hold"), f.HoldFraction, f.HoldFraction > 0.95f ? UiTheme.Warn : accent, $"{f.HoldUsed}/{f.HoldCapacity}");
 
-        if (wide) DrawAttitude(new Vector2(size.X - 170f, 190f), 100f, accent);
+        if (wide) { DrawAttitude(new Vector2(size.X - 150f, 168f), 84f, accent); DrawTurnIndicator(new Rect2(size.X - 290f, 280f, 280f, 68f), accent); }
         else DrawAttitude(new Vector2(size.X - 64f, 100f), 42f, accent, compact: true);
         if (s.Docked) Banner(size, Loc.T("cp.docked"), UiTheme.Good);
         else if (s.Jumping) Banner(size, $"{Loc.T("cp.jumping")} {s.JumpSeconds}s", UiTheme.Warn);
         else if (s.Rebuilding) Banner(size, Loc.T("cp.rebuilding"), UiTheme.Bad);
+    }
+
+    /// <summary>
+    /// The three-axis turn-rate indicator of the flight display: pitch, yaw and roll as bars from the centre (right or up is to the right), against the ship's
+    /// turn rate, and the flight assist button. Without ship inertia the controller is off and the indicator says so.
+    /// </summary>
+    private void DrawTurnIndicator(Rect2 r, Color accent)
+    {
+        var s = Snapshot;
+        Txt(Loc.T("cp.turn"), r.Position.X, r.Position.Y + 2, 12, UiTheme.Muted);
+        string assist = s.FlightAssist ? Loc.T("cp.assist") : Loc.T("cp.assistOff");
+        var btn = new Rect2(r.End.X - 96, r.Position.Y - 2, 96, 22);
+        if (s.HasInertia) Button(btn, assist, "tool:boost", CockpitAction.ToggleFlightAssist, 0, s.FlightAssist, true, s.FlightAssist ? accent : Amber, 12);
+        else Txt(Loc.T("cp.noInertia"), btn.Position.X, btn.Position.Y + 4, 12, UiTheme.Dim, HorizontalAlignment.Right, btn.Size.X);
+        string[] names = { Loc.T("cp.rate.pitch"), Loc.T("cp.rate.yaw"), Loc.T("cp.rate.roll") };
+        float[] rates = { s.TurnRates.X, s.TurnRates.Y, s.TurnRates.Z };
+        float max = Math.Max(1f, s.TurnRateMax);
+        float labelW = 34f, valueW = 40f;
+        float barX = r.Position.X + labelW, barW = r.Size.X - labelW - valueW;
+        for (int i = 0; i < 3; i++)
+        {
+            float y = r.Position.Y + 24f + i * 16f;
+            Txt(names[i], r.Position.X, y - 1, 11, UiTheme.Muted);
+            var track = new Rect2(barX, y + 2, barW, 8);
+            Fill(track, UiTheme.Track, 4);
+            float mid = barX + barW / 2f;
+            float frac = Math.Clamp(rates[i] / max, -1f, 1f);
+            if (MathF.Abs(frac) > 0.003f)
+            {
+                float w = MathF.Abs(frac) * barW / 2f;
+                Fill(new Rect2(frac > 0f ? mid : mid - w, y + 2, MathF.Max(3f, w), 8), s.HasInertia ? accent : UiTheme.Dim, 3);
+            }
+            DrawLine(new Vector2(mid, y), new Vector2(mid, y + 12), new Color(1f, 1f, 1f, 0.5f), 1f);
+            Txt(FlightAssistText.Rate(rates[i]), r.End.X - valueW, y - 1, 11, UiTheme.Text, HorizontalAlignment.Right, valueW);
+        }
     }
 
     private static Color PowerColor(int permille) => PowerFormat.Band(permille) switch
@@ -345,45 +395,281 @@ public partial class CockpitScreenView : Control
 
     // ---- navigation ----------------------------------------------------------------------------------------
 
+    /// <summary>The map of the navigation page: where it was drawn on this display (texture pixels), so the game can tell a drag on the map from a click elsewhere.</summary>
+    public Rect2 MapArea { get; private set; }
+
+    /// <summary>The camera of the map (owned by the game, shared by the displays that show the navigation page).</summary>
+    public NavMapCamera Map { get; set; } = new();
+
+    private static Color KindColor(NavKind k, bool selected) => k switch
+    {
+        NavKind.Enemy => UiTheme.Bad,
+        NavKind.Gate => Amber,
+        NavKind.Port => Cyan,
+        _ => selected ? UiTheme.Gold : Green,
+    };
+
     private void DrawNav(Vector2 size, Color accent)
     {
+        MapArea = default;
+        if (size.X < 480f) DrawNavNarrow(size);
+        else if (Focused) DrawNavFocused(size);
+        else DrawNavCompact(size);
+    }
+
+    private NavTarget? CurrentTarget() => NavPage.Current(Snapshot.MapTargets, Snapshot.PickKind, Snapshot.PickId);
+
+    private int IndexOf(NavTarget t)
+    {
+        var list = Snapshot.MapTargets;
+        for (int i = 0; i < list.Count; i++) if (list[i] == t) return i;
+        return -1;
+    }
+
+    /// <summary>The big numbers: the name of the target, its distance and the ship's speed. Fonts are in texture pixels (see <see cref="NavPage.KeyFonts"/>).</summary>
+    private void DrawBigNumbers(float x, float y, float w, NavTarget? t, int nameFont, int numFont, bool sideBySide)
+    {
         var s = Snapshot;
-        Txt(Loc.T("cp.nav.system"), 16, 50, 12, UiTheme.Muted);
-        Txt(Fit(s.SystemName, 18, size.X - 32f), 16, 62, 18, UiTheme.Text);
-        float y = 90f;
-        Txt(Loc.T("cp.nav.targets"), 16, y, 12, UiTheme.Muted);
-        y += 16f;
-        float rowH = 34f;
-        int maxRows = size.X > 560f ? 5 : 4;
-        if (s.Targets.Count == 0) Txt(Fit(Loc.T("cp.nav.none"), 15, size.X - 32f), 16, y + 8, 15, UiTheme.Dim);
-        for (int i = 0; i < s.Targets.Count && i < maxRows; i++)
+        Color c = t is null ? UiTheme.Dim : KindColor(t.Kind, true);
+        float h = nameFont * 1.2f;
+        string name = t?.Name ?? Loc.T("cp.nav.noTarget");
+        float iconW = 0f;
+        if (t is not null) { int isz = Math.Min(nameFont, 44); Icon(t.Icon, x, y + (h - isz) / 2f, isz, c); iconW = isz + 8f; }
+        Txt(Fit(name, nameFont, w - iconW), x + iconW, y, nameFont, t is null ? UiTheme.Dim : Colors.White);
+        float yy = y + h + 2f;
+        string dist = NavPage.BigDistance(t, Loc.Culture);
+        string speed = CockpitMath.Speed(s.Flight.Speed, Loc.Culture);
+        float colW = sideBySide ? w / 2f : w;
+        Txt(Loc.T("cp.nav.dist"), x, yy, 12, UiTheme.Muted);
+        Txt(dist, x, yy + 12f, numFont, c);
+        float dW = Measure(dist, numFont);
+        Txt(Loc.T("cp.unit.cells"), x + Math.Min(dW + 6f, colW - 40f), yy + 12f + numFont * 0.62f, 13, UiTheme.Muted);
+        float sx = sideBySide ? x + colW : x;
+        float sy = sideBySide ? yy : yy + 12f + numFont * 1.2f + 4f;
+        Txt(Loc.T("cp.speed"), sx, sy, 12, UiTheme.Muted);
+        Txt(speed, sx, sy + 12f, numFont, s.Flight.Boosting ? Cyan : UiTheme.Text);
+        if (s.Flight.Boosting) Txt(Loc.T("cp.boost"), sx + Measure(Loc.T("cp.speed"), 12) + 8f, sy, 12, Cyan);
+    }
+
+    private void DrawNavButtons(Rect2 area, bool vertical, bool narrow = false)
+    {
+        var s = Snapshot;
+        var cur = CurrentTarget();
+        bool canAuto = s.Autopilot || (cur is { Kind: NavKind.Deposit or NavKind.Port });
+        int n = 3;
+        float gap = 6f;
+        for (int i = 0; i < n; i++)
         {
-            var t = s.Targets[i];
-            var r = new Rect2(12, y + i * (rowH + 3), size.X - 24, rowH);
-            Color c = t.Kind switch { NavKind.Enemy => UiTheme.Bad, NavKind.Gate => Amber, NavKind.Port => Cyan, _ => t.Selected ? UiTheme.Gold : Green };
-            bool hot = t.Selectable && Hover is { } h && r.HasPoint(h);
-            Fill(r, t.Selected ? new Color(c, 0.22f) : hot ? new Color(0.14f, 0.2f, 0.3f) : new Color(0.06f, 0.09f, 0.14f), 5);
-            Frame(r, t.Selected ? c : hot ? Colors.White : new Color(c, 0.35f), null, 5, t.Selected || hot ? 2 : 1);
-            Icon(t.Icon, r.Position.X + 8, r.Position.Y + 6, 22, c);
-            string dist = CockpitMath.Distance(t.Distance, Loc.Culture);
-            string turn = t.TurnDegrees > 3f ? $"{Mathf.RoundToInt(t.TurnDegrees)}°" : "";
-            float right = r.End.X - 10f;
-            Txt(dist, right - 70, r.Position.Y + 8, 16, c, HorizontalAlignment.Right, 70);
-            Txt(turn, right - 70 - 58, r.Position.Y + 10, 13, UiTheme.Muted, HorizontalAlignment.Right, 54);
-            Txt(Fit(t.Name, 15, r.Size.X - 44 - 150), r.Position.X + 38, r.Position.Y + 8, 15, t.Selected ? Colors.White : UiTheme.Text);
-            if (t.Selectable) Buttons.Add(new CockpitButton(r.Position.X, r.Position.Y, r.Size.X, r.Size.Y, CockpitAction.SelectTarget, i));
+            Rect2 r = vertical
+                ? new Rect2(area.Position.X, area.Position.Y + i * (area.Size.Y - gap * (n - 1)) / n + i * gap, area.Size.X, (area.Size.Y - gap * (n - 1)) / n)
+                : new Rect2(area.Position.X + i * ((area.Size.X - gap * (n - 1)) / n + gap), area.Position.Y, (area.Size.X - gap * (n - 1)) / n, area.Size.Y);
+            switch (i)
+            {
+                case 0: Button(r, s.Autopilot ? Loc.T("cp.nav.autoOn") : Loc.T("cp.nav.auto"), narrow ? null : "tool:map", CockpitAction.ToggleAutopilot, 0, s.Autopilot, canAuto, Green, narrow ? 11 : 13); break;
+                case 1: Button(r, s.DockAssist ? Loc.T("cp.nav.dockAssistOn") : Loc.T("cp.nav.dockAssist"), narrow ? null : "tool:dock", CockpitAction.ToggleDockAssist, 0, s.DockAssist, s.DockNear || s.DockAssist, Cyan, narrow ? 11 : 13); break;
+                default: Button(r, s.ScanReady ? Loc.T("cp.nav.scan") : Loc.T("cp.nav.scanWait"), narrow ? null : "tool:scan", CockpitAction.Scan, 0, !s.ScanReady, s.ScanReady, Amber, narrow ? 11 : 13); break;
+            }
         }
-        float by = size.Y - 46f - 44f - 44f - 4f;
-        float half = (size.X - 24f - 8f) / 2f;
-        bool anySel = s.Targets.Count > 0;
-        Button(new Rect2(12, by, half, 36), "<", null, CockpitAction.PrevTarget, 0, false, anySel, Green, 18);
-        Button(new Rect2(12 + half + 8, by, half, 36), ">", null, CockpitAction.NextTarget, 0, false, anySel, Green, 18);
-        by += 42f;
-        float third = (size.X - 24f - 16f) / 3f;
-        bool canAuto = s.Targets.Any(t => t.Selected && t.Kind == NavKind.Deposit) || s.Autopilot;
-        Button(new Rect2(12, by, third, 38), s.Autopilot ? Loc.T("cp.nav.autoOn") : Loc.T("cp.nav.auto"), "tool:map", CockpitAction.ToggleAutopilot, 0, s.Autopilot, canAuto, Green, 13);
-        Button(new Rect2(12 + third + 8, by, third, 38), s.DockAssist ? Loc.T("cp.nav.dockAssistOn") : Loc.T("cp.nav.dockAssist"), "tool:dock", CockpitAction.ToggleDockAssist, 0, s.DockAssist, s.DockNear || s.DockAssist, Cyan, 13);
-        Button(new Rect2(12 + 2 * (third + 8), by, third, 38), s.ScanReady ? Loc.T("cp.nav.scan") : Loc.T("cp.nav.scanWait"), "tool:scan", CockpitAction.Scan, 0, !s.ScanReady, s.ScanReady, Amber, 13);
+    }
+
+    /// <summary>The target list: icon, name, turn and distance per row; any row can be picked (deposits, threats, ports, the gate).</summary>
+    private void DrawTargetRows(float x, float y, float w, int maxRows, float rowH, int font)
+    {
+        var s = Snapshot;
+        var current = CurrentTarget();
+        if (s.Targets.Count == 0) Txt(Fit(Loc.T("cp.nav.none"), font, w), x + 4, y + 6, font, UiTheme.Dim);
+        var shown = s.Targets.Take(maxRows).ToList();
+        if (current is not null && !shown.Contains(current) && s.Targets.Contains(current) && shown.Count > 0) shown[^1] = current; // the target the page is about is always in view
+        for (int i = 0; i < shown.Count; i++)
+        {
+            var t = shown[i];
+            var r = new Rect2(x, y + i * (rowH + 3f), w, rowH);
+            Color c = KindColor(t.Kind, t.Selected);
+            bool picked = current == t;
+            bool hot = Hover is { } h && r.HasPoint(h);
+            Fill(r, picked ? new Color(c, 0.22f) : hot ? new Color(0.14f, 0.2f, 0.3f) : new Color(0.06f, 0.09f, 0.14f), 5);
+            Frame(r, picked ? c : hot ? Colors.White : new Color(c, 0.35f), null, 5, picked || hot ? 2 : 1);
+            int isz = (int)Math.Min(22f, rowH - 6f);
+            Icon(t.Icon, r.Position.X + 6, r.Position.Y + (rowH - isz) / 2f, isz, c);
+            string dist = CockpitMath.Distance(t.Distance, Loc.Culture);
+            float dw = Math.Max(48f, Measure(dist, font + 1) + 6f);
+            Txt(dist, r.End.X - 6 - dw, r.Position.Y + (rowH - font) / 2f - 1f, font + 1, c, HorizontalAlignment.Right, dw);
+            string turn = t.TurnDegrees > 3f ? $"{Mathf.RoundToInt(t.TurnDegrees)}°" : "";
+            float turnW = w > 260f ? 40f : 0f;
+            if (turnW > 0f) Txt(turn, r.End.X - 6 - dw - turnW, r.Position.Y + (rowH - font) / 2f, font - 2, UiTheme.Muted, HorizontalAlignment.Right, turnW - 4f);
+            Txt(Fit(t.Name, font, r.Size.X - isz - 20 - dw - turnW), r.Position.X + isz + 12, r.Position.Y + (rowH - font) / 2f - 1f, font, picked ? Colors.White : UiTheme.Text);
+            int idx = IndexOf(t);
+            if (idx >= 0) Buttons.Add(new CockpitButton(r.Position.X, r.Position.Y, r.Size.X, r.Size.Y, CockpitAction.PickTarget, idx));
+        }
+    }
+
+    private void DrawPrevNext(Rect2 r, bool any)
+    {
+        float half = (r.Size.X - 4f) / 2f;
+        Button(new Rect2(r.Position.X, r.Position.Y, half, r.Size.Y), "<", null, CockpitAction.PrevTarget, 0, false, any, Green, 18);
+        Button(new Rect2(r.Position.X + half + 4f, r.Position.Y, half, r.Size.Y), ">", null, CockpitAction.NextTarget, 0, false, any, Green, 18);
+    }
+
+    /// <summary>The default look (and the one the seat sees): the three numbers that matter in big type, a small map, the list and the buttons.</summary>
+    private void DrawNavCompact(Vector2 size)
+    {
+        var (nameF, numF, _) = NavPage.KeyFonts((int)size.X);
+        var cur = CurrentTarget();
+        DrawBigNumbers(12f, 44f, size.X - 24f - 92f, cur, nameF, numF, sideBySide: true);
+        DrawPrevNext(new Rect2(size.X - 92f, 52f, 84f, 36f), Snapshot.Targets.Count > 0);
+        float mapX = size.X * 0.5f + 4f;
+        float top = 44f + nameF * 1.2f + 2f + 12f + numF * 1.2f + 14f;
+        float bottom = size.Y - 46f - 44f - 4f;
+        DrawMap(new Rect2(mapX, top, size.X - mapX - 8f, bottom - top - 4f), false);
+        DrawTargetRows(8f, top, mapX - 16f, 3, 31f, 15);
+        DrawNavButtons(new Rect2(8f, bottom, size.X - 16f, 40f), false);
+    }
+
+    /// <summary>The focused look (F4 or a click): the map takes the left 62 percent of the display, the numbers, the list and the buttons the right.</summary>
+    private void DrawNavFocused(Vector2 size)
+    {
+        float mapW = MathF.Round(size.X * 0.62f);
+        DrawMap(new Rect2(8f, 46f, mapW - 8f, size.Y - 46f - 56f), true);
+        float x = mapW + 8f, w = size.X - x - 8f;
+        var cur = CurrentTarget();
+        DrawBigNumbers(x, 46f, w, cur, 26, 34, sideBySide: true);
+        float arrowsY = 46f + 26 * 1.2f + 2f + 12f + 34 * 1.2f + 8f;
+        DrawPrevNext(new Rect2(x, arrowsY, w, 28f), Snapshot.Targets.Count > 0);
+        DrawTargetRows(x, arrowsY + 34f, w, 3, 27f, 13);
+        float bh = 3 * 26f + 8f;
+        DrawNavButtons(new Rect2(x, size.Y - 46f - 4f - bh, w, bh), true);
+    }
+
+    private void DrawNavNarrow(Vector2 size)
+    {
+        var cur = CurrentTarget();
+        DrawBigNumbers(10f, 44f, size.X - 20f, cur, 22, 28, sideBySide: true);
+        float y = 44f + 22 * 1.2f + 2f + 12f + 28 * 1.2f + 8f;
+        DrawTargetRows(8f, y, size.X - 16f, 4, 30f, 13);
+        DrawPrevNext(new Rect2(8f, size.Y - 46f - 4f - 36f - 4f - 30f - 2f, size.X - 16f, 30f), Snapshot.Targets.Count > 0);
+        DrawNavButtons(new Rect2(8f, size.Y - 46f - 4f - 36f, size.X - 16f, 36f), false, true);
+    }
+
+    // ---- the 3D map ----------------------------------------------------------------------------------------
+
+    private static Vector2 MapPoint(Vector2 centre, NavMapCamera.Point p, float radius) => new(centre.X + p.X * radius, centre.Y - p.Y * radius);
+
+    /// <summary>
+    /// The map of space round the ship: rings of range on the ship's plane, the ship at the middle, and every deposit, threat, port and gate as its icon at its
+    /// place, with a stem down to the plane and a dashed route to the chosen one. The mouse turns it (drag) and zooms it (wheel) while it is in focus.
+    /// </summary>
+    private void DrawMap(Rect2 r, bool detailed)
+    {
+        MapArea = r;
+        Fill(r, new Color(0.01f, 0.025f, 0.045f), 6);
+        Frame(r, new Color(Cyan, 0.4f), null, 6);
+        var map = Map;
+        var s = Snapshot;
+        var cur = CurrentTarget();
+        float st = MathF.Max(0.3f, MathF.Sin(map.Tilt));
+        float radius = MathF.Min(r.Size.X / 2f - 10f, (r.Size.Y / 2f - 10f) / st);
+        var centre = new Vector2(r.Position.X + r.Size.X / 2f, r.Position.Y + r.Size.Y / 2f);
+        // rings on the ship's plane (an ellipse seen from above at the tilt) and the two axes
+        for (int ring = 1; ring <= 3; ring++)
+        {
+            float rho = ring / 3f;
+            var pts = new Vector2[49];
+            for (int i = 0; i <= 48; i++)
+            {
+                float a = i / 48f * MathF.Tau;
+                var p = map.Project(new System.Numerics.Vector3(MathF.Sin(a) * rho * map.Range, 0f, MathF.Cos(a) * rho * map.Range));
+                pts[i] = MapPoint(centre, p, radius);
+            }
+            DrawPolyline(pts, new Color(Cyan, ring == 3 ? 0.4f : 0.18f), 1f, true);
+            if (detailed || ring == 3)
+            {
+                var lp = MapPoint(centre, map.Project(new System.Numerics.Vector3(0f, 0f, rho * map.Range)), radius);
+                Txt(CockpitMath.Distance(rho * map.Range, Loc.Culture), lp.X + 4f, lp.Y - 6f, detailed ? 12 : 11, new Color(Cyan, 0.6f));
+            }
+        }
+        var fwd = MapPoint(centre, map.Project(new System.Numerics.Vector3(0f, 0f, map.Range)), radius);
+        var back = MapPoint(centre, map.Project(new System.Numerics.Vector3(0f, 0f, -map.Range)), radius);
+        var right = MapPoint(centre, map.Project(new System.Numerics.Vector3(map.Range, 0f, 0f)), radius);
+        var left = MapPoint(centre, map.Project(new System.Numerics.Vector3(-map.Range, 0f, 0f)), radius);
+        DrawLine(back, fwd, new Color(Cyan, 0.15f), 1f);
+        DrawLine(left, right, new Color(Cyan, 0.15f), 1f);
+        // the ship
+        float k = map.Range * 0.06f;
+        var nose = MapPoint(centre, map.Project(new System.Numerics.Vector3(0f, 0f, k)), radius);
+        var wl = MapPoint(centre, map.Project(new System.Numerics.Vector3(-k * 0.6f, 0f, -k * 0.6f)), radius);
+        var wr = MapPoint(centre, map.Project(new System.Numerics.Vector3(k * 0.6f, 0f, -k * 0.6f)), radius);
+        DrawColoredPolygon(new[] { nose, wr, centre, wl }, new Color(Cyan, 0.9f));
+        // targets, far ones first
+        var items = new List<(NavTarget T, int Index, NavMapCamera.Point P, float Over)>();
+        for (int i = 0; i < s.MapTargets.Count; i++)
+        {
+            var t = s.MapTargets[i];
+            var local = t.Local;
+            if (t.Kind == NavKind.Gate) local = System.Numerics.Vector3.Normalize(local.LengthSquared() > 1e-6f ? local : System.Numerics.Vector3.UnitZ) * map.Range * 0.9f;
+            var p = map.Project(local);
+            float over = MathF.Sqrt(p.X * p.X + (p.Y / st) * (p.Y / st));
+            if (over > 0.97f) { float f = 0.97f / over; p = new NavMapCamera.Point(p.X * f, p.Y * f, p.Depth, p.ShadowX * f, p.ShadowY * f); }
+            items.Add((t, i, p, over));
+        }
+        items.Sort((a, b) => b.P.Depth.CompareTo(a.P.Depth));
+        Vector2? routeEnd = null;
+        string? routeLabel = null;
+        foreach (var (t, index, p, over) in items)
+        {
+            bool picked = cur == t;
+            Color c = KindColor(t.Kind, t.Selected);
+            var pos = MapPoint(centre, p, radius);
+            float fade = Math.Clamp(1f - p.Depth * 0.35f, 0.55f, 1f);
+            bool outside = over > 0.97f;
+            if (!outside)
+            {
+                var shadow = MapPoint(centre, new NavMapCamera.Point(p.ShadowX, p.ShadowY, 0f, 0f, 0f), radius);
+                if (shadow.DistanceTo(pos) > 3f)
+                {
+                    DrawLine(shadow, pos, new Color(c, 0.3f), 1f);
+                    DrawCircle(shadow, 2f, new Color(c, 0.35f));
+                }
+            }
+            int isz = detailed ? 22 : 18;
+            if (picked) { DrawArc(pos, isz * 0.85f, 0f, Mathf.Tau, 28, UiTheme.Gold, 2f); routeEnd = pos; routeLabel = t.Name + "  " + CockpitMath.Distance(t.Distance, Loc.Culture); }
+            Icon(t.Icon, pos.X - isz / 2f, pos.Y - isz / 2f, isz, new Color(c, outside ? 0.55f : fade));
+            var hit = new Rect2(pos.X - 12f, pos.Y - 12f, 24f, 24f);
+            Buttons.Add(new CockpitButton(hit.Position.X, hit.Position.Y, hit.Size.X, hit.Size.Y, CockpitAction.PickTarget, index));
+            if (Hover is { } h && hit.HasPoint(h) && !picked)
+            {
+                string label = t.Name + "  " + CockpitMath.Distance(t.Distance, Loc.Culture);
+                float lw = Measure(label, 12) + 8f;
+                var lr = new Rect2(Math.Clamp(pos.X + 10f, r.Position.X + 2f, r.End.X - lw - 2f), pos.Y - 24f, lw, 18f);
+                Fill(lr, new Color(0f, 0f, 0f, 0.8f), 4);
+                Txt(label, lr.Position.X + 4f, lr.Position.Y + 2f, 12, Colors.White);
+            }
+        }
+        if (routeEnd is { } end)
+        {
+            // the route: a dashed line from the ship to the chosen target, with its name and distance
+            float len = centre.DistanceTo(end);
+            int dashes = Math.Max(1, (int)(len / 10f));
+            for (int i = 0; i < dashes; i++)
+                DrawLine(centre.Lerp(end, (i + 0.1f) / dashes), centre.Lerp(end, (i + 0.6f) / dashes), new Color(UiTheme.Gold, 0.85f), 2f);
+            if (routeLabel is not null)
+            {
+                int lf = detailed ? 14 : 12;
+                float lw = Measure(routeLabel, lf) + 10f;
+                var lr = new Rect2(r.Position.X + 8f, r.End.Y - 26f, Math.Min(lw, r.Size.X - 16f), 20f);
+                Fill(lr, new Color(0f, 0f, 0f, 0.65f), 4);
+                Txt(Fit(routeLabel, lf, lr.Size.X - 8f), lr.Position.X + 5f, lr.Position.Y + 2f, lf, UiTheme.Gold);
+            }
+        }
+        else if (s.MapTargets.Count == 0) Txt(Fit(Loc.T("cp.nav.none"), 13, r.Size.X - 16f), r.Position.X + 8f, r.End.Y - 24f, 13, UiTheme.Dim);
+        if (detailed)
+        {
+            // zoom buttons and the hint
+            float bx = r.Position.X + 8f, by = r.Position.Y + 8f;
+            Button(new Rect2(bx, by, 28, 26), "+", null, CockpitAction.MapZoom, 1, false, true, Cyan, 16);
+            Button(new Rect2(bx + 32, by, 28, 26), "-", null, CockpitAction.MapZoom, -1, false, true, Cyan, 16);
+            Button(new Rect2(bx + 64, by, 52, 26), map.Auto ? Loc.T("cp.nav.autoRange") : Loc.T("cp.nav.reset"), null, CockpitAction.MapZoom, 0, map.Auto, true, Cyan, 12);
+            Txt(Fit(Loc.T("cp.nav.mapHint"), 11, r.Size.X - 16f), r.Position.X + 8f, r.End.Y - 46f, 11, UiTheme.Dim);
+        }
     }
 
     // ---- systems -------------------------------------------------------------------------------------------

@@ -82,3 +82,43 @@ public static class ContentSource
         return l;
     }
 }
+
+/// <summary>
+/// The client-side content files that sit beside <c>core.json</c> and that the simulation never reads: <c>ship_handling.json</c> (turn dynamics) and
+/// <c>cockpit_layouts.json</c> (where the console screens are). A missing or invalid file is reported once and the built-in defaults are used, so the
+/// game always starts.
+/// </summary>
+public static class ClientContent
+{
+    private static string? _loadedFor;
+    private static ShipHandling _handling = ShipHandling.Default;
+    private static CockpitLayouts _layouts = CockpitLayouts.Default;
+
+    public static ShipHandling Handling => _handling;
+    public static CockpitLayouts Layouts => _layouts;
+
+    /// <summary>Reads the sibling files of the content file at <paramref name="corePath"/> (once per path).</summary>
+    public static void Load(string? corePath)
+    {
+        if (corePath is null || _loadedFor == corePath) return;
+        _loadedFor = corePath;
+        int slash = Math.Max(corePath.LastIndexOf('/'), corePath.LastIndexOf((char)92));
+        string dir = slash >= 0 ? corePath[..slash] : ".";
+        _handling = Read(dir + "/ship_handling.json", ShipHandling.FromJson, ShipHandling.Default);
+        _layouts = Read(dir + "/cockpit_layouts.json", CockpitLayouts.FromJson, CockpitLayouts.Default);
+    }
+
+    private static T Read<T>(string path, Func<string, T> parse, T fallback)
+    {
+        try
+        {
+            if (!Godot.FileAccess.FileExists(path)) { GD.PrintErr($"CONTENT {path} not found, using the built-in defaults"); return fallback; }
+            return parse(Godot.FileAccess.GetFileAsString(path));
+        }
+        catch (Exception e)
+        {
+            GD.PrintErr($"CONTENT {path} is not valid ({e.Message}), using the built-in defaults");
+            return fallback;
+        }
+    }
+}
