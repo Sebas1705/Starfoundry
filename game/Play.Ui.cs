@@ -948,6 +948,7 @@ public partial class Play
         _waypoint = null;
         _seated = true; // the loaded world has its own ship and modules: start at the seat again
         _bodyVolumesVersion = -1;
+        _attitudeSynced = false; _attitudeThrottle.Reset(); // the loaded ship has its own attitude: adopt it instead of overwriting it with the pre-load one
         _tool = ToolMode.Pointer;
         _selectedDeposit = DefaultDeposit();
         _objectives = new ObjectiveTracker(_content, _stationRules, _structuresOn);

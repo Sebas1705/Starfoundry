@@ -98,7 +98,7 @@ public partial class Play
     private void UpdateGuns()
     {
         if (!HardpointsOn || _weaponGroup != WeaponGroup.Guns) return;
-        if (!Net.HasGun(Player)) { _weaponGroup = WeaponGroup.Laser; return; }
+        if (!Net.HasGun(Player)) { _weaponGroup = WeaponGroup.Laser; if (Net.GetPlayerInfo(Player).Armed) Send(new SetWeapons(false)); return; }
         if (_world.PendingCommands > 0) return;
         bool fire = _mouseLook && !Standing && !PanelOpen() && _tool != ToolMode.Build && Input.IsMouseButtonPressed(MouseButton.Left);
         if (fire != Net.GetPlayerInfo(Player).Armed) Send(new SetWeapons(fire));
