@@ -272,7 +272,7 @@ public static class MeshAudit
                     var dir = k == 0 ? n : Vector3.Normalize(n * 0.5f + (u * MathF.Cos(k * 1.047f) + v * MathF.Sin(k * 1.047f)) * 0.87f);
                     var o = p + dir * dist;
                     var hit = FirstBlocker(o, -dir, dist + 0.05f, viewerAtOrigin: true);
-                    if (hit is null || hit.Value.T >= dist - 0.02f) return true;
+                    if (hit is { } h && MathF.Abs(h.T - dist) <= 0.03f) return true; // the first surface the viewer meets is the one at the point
                 }
             return false;
         }

@@ -198,3 +198,11 @@ Items use the existing shapes with new tints (carbon fibre and composite: ingot 
 
 ### Pacing
 None of this is on the path to the win: the scripted player never researches the three nodes or builds a Mk2 module. Bot times are in [difficulty.md](difficulty.md#materials-and-missions-round-2026-11-24).
+## Overlapping faces and flicker (2026-11-24)
+Two faces of different parts in one plane (a deck plate under a trim line, a frame beam over a hull edge, a hatch bar over a bar) shimmer wherever both are seen, because the depth buffer cannot tell them apart and the planar UVs of the two do not line up. The module models now keep a rule: **two visible same-facing faces are either one face or at least 2 mm apart in depth** (the renderer resolves millimetres; `Gallery --audit=coplanar` flags anything within 1.5 mm that a viewer can see, see [structures](structures.md#shell-variety-closed-joints-and-solid-furniture-2026-11-24)).
+- Deck layers stand inside each other (`Deck`: a margin per layer where they are clipped at the chamfer, the base plate 6 cm short of the end bulkheads, seams of the two directions 2 mm apart in height, border lines 1.5 mm).
+- Hidden duplicates are gone: the bilge plate under every ship, the second nozzle that was the first one drawn twice (the mesh cache key lacked the nozzle's position), the cargo side doors that sat on the viewports, the hatch bars that crossed at the same height.
+- Window frames reach 12 mm into the opening and the header sits a little below the hull's frame beam; seat accents, reactor hatch and core, the sensor dish and sweep, the fins and the engine flame core are offset by 2 mm or more.
+- Ring beams of the frame alternate in thickness by 4 mm and the long beams start at the far face of the end rings, so beams meeting at a corner share no end plane; a joint ring stands further in than a plain one so the neighbour's ring never overlaps it.
+
+Remaining: slivers under 0.05 cm2 where ring beams meet at a corner. The test for the audit logic itself is `MeshAuditTests`; the audit run needs the engine. Not measured: a camera-moving comparison of pixels (the audit looks at the geometry, which is what decides the flicker, but nobody compared frames).
