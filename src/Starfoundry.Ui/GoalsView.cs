@@ -34,7 +34,7 @@ public static class GoalsView
         {
             int? remaining = null;
             if (g.Status == GoalStatus.Pending && g.TimeLimitSeconds > 0) remaining = Math.Max(0, (int)Math.Ceiling(g.TimeLimitSeconds - nowSeconds));
-            bool bar = !g.Goal.IsCondition && g.Goal.Type != GoalType.Research;
+            bool bar = !g.Goal.IsCondition && !g.Goal.IsOneStep;
             double fraction = g.Target <= 0 ? 0 : Math.Clamp(g.Current / (double)g.Target, 0, 1);
             if (g.Status == GoalStatus.Done) fraction = 1;
             rows.Add(new GoalRow(g.Goal.Id, g.Text(spanish), g.Primary, g.Status, g.Current, g.Target, fraction, g.ProgressText, bar, remaining,

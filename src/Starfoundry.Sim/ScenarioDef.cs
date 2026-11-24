@@ -29,6 +29,26 @@ public enum GoalType
 
     /// <summary>Holds while no reactor has run dry of fuel. Never "done": it only fails.</summary>
     KeepFuel,
+
+    // The goals below only read the world (no counter, no hash): they ask what stands or what is held right now, and a goal that is done stays done.
+
+    /// <summary>Have <see cref="GoalDef.Count"/> modules of <see cref="GoalDef.Kind"/> standing in the structures of the player (a second laser fitted at the shipyard counts, one placed by hand too).</summary>
+    HaveModule,
+
+    /// <summary>Salvage <see cref="GoalDef.Count"/> derelict wrecks (flying slowly next to them).</summary>
+    Salvage,
+
+    /// <summary>Dock the ship at a station (one step, like a research goal).</summary>
+    Dock,
+
+    /// <summary>Keep <see cref="GoalDef.Count"/> units of <see cref="GoalDef.Item"/> in the stock of the player's stations (what a docked ship transfers with the unload key).</summary>
+    Stock,
+
+    /// <summary>Fit engines worth <see cref="GoalDef.Count"/> percent of the base speed (100 per engine, 400 at most).</summary>
+    ShipSpeed,
+
+    /// <summary>Destroy <see cref="GoalDef.Count"/> Remnant ships.</summary>
+    KillEnemies,
 }
 
 /// <summary>One goal of a scenario. Item, node and kind are resolved against the content when the scenario loads.</summary>
@@ -41,6 +61,9 @@ public sealed record GoalDef(string Id, GoalType Type, int Item, int Node, Modul
 {
     /// <summary>True for goals that only hold or fail (they never complete).</summary>
     public bool IsCondition => Type is GoalType.KeepAlive or GoalType.KeepFuel;
+
+    /// <summary>True for goals that are one step with no amount to count (research, docking): no bar and no "n/m".</summary>
+    public bool IsOneStep => Type is GoalType.Research or GoalType.Dock;
 }
 
 /// <summary>A line of the story, shown when its trigger happens: <c>start</c>, <c>win</c>, <c>lose</c>, <c>goal:id</c> (a goal is done),
