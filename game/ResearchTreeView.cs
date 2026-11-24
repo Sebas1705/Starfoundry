@@ -79,7 +79,7 @@ public partial class ResearchNode : Button
 /// </summary>
 public partial class ResearchTreeView : Control
 {
-    private const float Pitch = 58f, HeaderHeight = 24f, BandGap = 8f, Pad = 8f;
+    private const float Pitch = 58f, RowPitch = 52f, HeaderHeight = 22f, BandGap = 6f, Pad = 8f; // rows are closer than columns so the four-row basic band fits the panel
 
     private readonly Dictionary<int, ResearchNode> _nodes = new();
     private List<TreeSlot> _slots = new();
@@ -144,12 +144,12 @@ public partial class ResearchTreeView : Control
             bandTop.Add(y);
             var field = _slots.First(s => s.Band == b).Field;
             _bands.Add((y, field));
-            y += HeaderHeight + rows[b] * Pitch + BandGap;
+            y += HeaderHeight + rows[b] * RowPitch + BandGap;
         }
         foreach (var s in _slots)
         {
             var entry = _entries.First(e => e.Index == s.Index);
-            var node = new ResearchNode { Entry = entry, Position = new Vector2(Pad + s.Column * Pitch, bandTop[s.Band] + HeaderHeight + s.Row * Pitch + 4f), Size = new Vector2(ResearchNode.Diameter, ResearchNode.Diameter) };
+            var node = new ResearchNode { Entry = entry, Position = new Vector2(Pad + s.Column * Pitch, bandTop[s.Band] + HeaderHeight + s.Row * RowPitch + 3f), Size = new Vector2(ResearchNode.Diameter, ResearchNode.Diameter) };
             int index = s.Index;
             node.FocusEntered += () => NodeFocused?.Invoke(index);
             node.MouseEntered += () => NodeFocused?.Invoke(index);

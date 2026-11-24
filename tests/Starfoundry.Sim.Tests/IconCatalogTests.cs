@@ -157,3 +157,36 @@ public class ObjectiveIconTests
             Assert.True(IconCatalog.IsRegistered(IconCatalog.ForObjective(o)), o.ToString());
     }
 }
+
+public class IconLiteralTests
+{
+    private static string? GameFolder()
+    {
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
+        {
+            string game = Path.Combine(dir.FullName, "game");
+            if (File.Exists(Path.Combine(game, "Play.cs"))) return game;
+        }
+        return null;
+    }
+
+    /// <summary>A literal icon id typed in the game code that nobody registered would fall back to a generic glyph at run time (and log an ICON line): catch it here.</summary>
+    [Fact]
+    public void EveryIconIdWrittenInTheGameSourcesIsRegistered()
+    {
+        string? game = GameFolder();
+        if (game is null) return; // built outside the repository: nothing to scan
+        var pattern = new System.Text.RegularExpressions.Regex("\"((?:tool|status|machine|module|item|field|research|enemy|belt|obstacle|star|arch):[A-Za-z0-9_:]+)\"");
+        var missing = new List<string>();
+        foreach (var file in Directory.EnumerateFiles(game, "*.cs").Where(f => Path.GetFileName(f) != "IconGallery.cs")) // the gallery shows unknown ids on purpose
+            foreach (System.Text.RegularExpressions.Match m in pattern.Matches(File.ReadAllText(file)))
+                if (!IconCatalog.IsRegistered(m.Groups[1].Value)) missing.Add($"{Path.GetFileName(file)}: {m.Groups[1].Value}");
+        Assert.True(missing.Count == 0, "unregistered icon ids: " + string.Join(", ", missing.Distinct()));
+    }
+
+    [Fact]
+    public void TheToastCategoriesHaveIcons()
+    {
+        foreach (var id in new[] { "tool:refine", "tool:belt", "status:alert", "tool:info" }) Assert.True(IconCatalog.IsRegistered(id), id);
+    }
+}

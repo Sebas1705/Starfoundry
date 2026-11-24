@@ -81,7 +81,11 @@ public partial class MarkerLayer : Control
                 DrawPolygon(new[] { at + d * 10f, at - d * 5f + n * 6.5f, at - d * 5f - n * 6.5f }, new[] { color });
                 if (item.Icon.Length > 0) Chip(at - d * 24f, item.Icon, color, sh);
                 float chipPad = item.Icon.Length > 0 ? 24f : 0f; // the icon chip sits between the arrow and its label
-                var basePos = new Vector2(at.X - d.X * (w / 2f + 18f + chipPad) - w / 2f, at.Y - d.Y * (20f + chipPad) + 5f);
+                // The label's box sits inward of the arrow (and of its chip), pushed back along the arrow's axis by its own half extent so
+                // that it never overlaps them whichever edge or corner the arrow is on.
+                float half = MathF.Abs(d.X) * (w / 2f + 3f) + MathF.Abs(d.Y) * (LineHeight / 2f);
+                var centre = at - d * (chipPad + 17f + half);
+                var basePos = new Vector2(centre.X - w / 2f, centre.Y + 4f);
                 // Edge labels stack along the edge instead of sitting on top of each other.
                 foreach (float k in new[] { 0f, 1f, -1f, 2f, -2f, 3f, -3f })
                     candidates.Add(basePos + new Vector2(0f, k * LineHeight));

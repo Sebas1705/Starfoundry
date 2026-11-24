@@ -16,7 +16,7 @@ public partial class Play
 {
     private ShipDesigner? _designer;
     private WeaponGroup _weaponGroup = WeaponGroup.Laser;
-    private bool _designerAwait;
+    private bool _designerAwait, _designerRejected;
     private int _designerFrame;
     private readonly List<(MeshInstance3D Core, MeshInstance3D Halo)> _extraBeams = new();
 
@@ -58,9 +58,13 @@ public partial class Play
         if (_designerAwait && _world.PendingCommands == 0)
         {
             _designerAwait = false;
-            _designer!.Reload();
-            Toast(L("designer.applied", Net.GetStructure(Net.ShipStructure(Player)).Modules.Count), 4.0);
-            AudioManager.PlayUi(Sfx.UiClick);
+            if (_designerRejected) _designerRejected = false; // the refusal was already said (CollectResults) and the staged layout stays so it can be fixed
+            else
+            {
+                _designer!.Reload();
+                Toast(L("designer.applied", Net.GetStructure(Net.ShipStructure(Player)).Modules.Count), 4.0);
+                AudioManager.PlayUi(Sfx.UiClick);
+            }
         }
     }
 
@@ -94,7 +98,7 @@ public partial class Play
     private void UpdateGuns()
     {
         if (!HardpointsOn || _weaponGroup != WeaponGroup.Guns) return;
-        if (!Net.HasGun(Player)) { _weaponGroup = WeaponGroup.Laser; return; }
+        if (!Net.HasGun(Player)) { _weaponGroup = WeaponGroup.Laser; if (Net.GetPlayerInfo(Player).Armed) Send(new SetWeapons(false)); return; }
         if (_world.PendingCommands > 0) return;
         bool fire = _mouseLook && !Standing && !PanelOpen() && _tool != ToolMode.Build && Input.IsMouseButtonPressed(MouseButton.Left);
         if (fire != Net.GetPlayerInfo(Player).Armed) Send(new SetWeapons(fire));
