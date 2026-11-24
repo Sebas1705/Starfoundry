@@ -218,7 +218,7 @@ public sealed partial class BeltNetwork
                 for (int i = 0; i < _deposits.Count; i++)
                 {
                     var dep = _deposits[i];
-                    if (!dep.Revealed || dep.Remaining <= 0 || Galaxy.Deposits[i].System != sys) continue;
+                    if (!dep.Revealed || dep.Remaining <= 0) continue;
                     long cx = (long)dep.X * Units.CellUnits, cy = (long)dep.Y * Units.CellUnits, cz = (long)dep.Z * Units.CellUnits;
                     if (Math.Abs(cx - pilot.X) > near || Math.Abs(cy - pilot.Y) > near || Math.Abs(cz - pilot.Z) > near) continue;
                     CollideCore(s, pilot, -1, i, (cx, cy, cz), (0, 0, 0), DepositHitRadius(dep, s), w.DepositDamage, push: true, w);
@@ -228,7 +228,7 @@ public sealed partial class BeltNetwork
         foreach (int i in exploding) Explode(i, w);
     }
 
-    /// <summary>Deposits farther than this from the pilot (per axis) are not tested: more than any ship's reach plus the biggest rock.</summary>
+    /// <summary>Deposits farther than this from the pilot (per axis) are not tested: more than any ship's reach plus the biggest rock (systems are further apart than that, so no system check is needed).</summary>
     private const int DepositSearchCells = 80;
 
     /// <summary>True when the rocks of deposits are solid in this world (ADR 0033): structure rules, content that says so and not <see cref="WorldRules.LegacyCollisions"/>.</summary>

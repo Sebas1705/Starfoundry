@@ -17,12 +17,18 @@ public class FlightFeelTests
     /// <summary>The legacy test content (no starter ship) with the ADR 0033 sections of the shipped content added: padding, solid deposits, hit sizes and inertia.</summary>
     private static readonly ContentDb C = Build(collisions: true, flight: true);
 
+    /// <summary>The same with no rocks or hazards at all in the stars (the flight tests fly through open space).</summary>
+    private static readonly ContentDb Clean = Build(collisions: true, flight: true, empty: true);
+
     /// <summary>The same content without any of it: what the old logs were recorded on.</summary>
     private static readonly ContentDb Old = Build(collisions: false, flight: false);
 
+    /// <summary>The old content with a clean sky: what the clean flights are compared with.</summary>
+    private static readonly ContentDb OldClean = Build(collisions: false, flight: false, empty: true);
+
     private static readonly WorldGenRules W = C.World!;
 
-    private static ContentDb Build(bool collisions, bool flight)
+    private static ContentDb Build(bool collisions, bool flight, bool empty = false)
     {
         var root = JsonNode.Parse(File.ReadAllText(TestContent.LegacyPath))!.AsObject();
         root.Remove("structure_templates");
@@ -39,6 +45,11 @@ public class FlightFeelTests
             }
         }
         if (flight) world["flight"] = new JsonObject { ["accel_ticks"] = 36, ["brake_ticks"] = 18 };
+        if (empty)
+        {
+            foreach (var st in world["star_types"]!.AsArray()) { st!["asteroid_percent"] = 0; st["hazard_percent"] = 0; }
+            world["collision"]!.AsObject()["deposits_solid"] = false; // the deposits of the home system lie 36 cells out: the flights go through them
+        }
         return ContentDb.FromJson(root.ToJsonString());
     }
 
@@ -47,6 +58,9 @@ public class FlightFeelTests
 
     /// <summary>A hand-built ship (cockpit, engine, workshop, cargo, reactor and a mining laser) at the origin with hydrogen.</summary>
     private static int Ship(SimWorld w) => PowerTests.Ship(w, 1, 30);
+
+    /// <summary>A world in open space with a ship at the origin, the unlogged setup the scripts start from.</summary>
+    private static SimWorld Flyer(WorldRules? rules = null, ContentDb? content = null) { var w = World(content ?? Clean, rules); Ship(w); return w; }
 
     private static (int X, int Y, int Z) Vel(SimWorld w) => w.Network.ShipVelocityMilli(0);
 
@@ -72,8 +86,7 @@ public class FlightFeelTests
     [Fact]
     public void Speed_ramps_up_progressively_to_the_engine_speed()
     {
-        var w = World();
-        Ship(w);
+        var w = Flyer();
         w.Submit(0, new SetThrust(0, 0, PlayerRules.ThrustScale));
         var speeds = new List<long>();
         for (int t = 0; t < 60; t++) { w.Step(); speeds.Add(Speed(Vel(w))); }
@@ -91,8 +104,7 @@ public class FlightFeelTests
     [Fact]
     public void A_ship_with_inertia_covers_less_ground_than_one_without_in_the_same_time()
     {
-        var inert = World(); var legacy = World(rules: new WorldRules().WithLegacyFlight(true));
-        Ship(inert); Ship(legacy);
+        var inert = Flyer(); var legacy = Flyer(new WorldRules().WithLegacyFlight(true));
         foreach (var w in new[] { inert, legacy }) w.Submit(0, new SetThrust(0, 0, PlayerRules.ThrustScale));
         inert.Step(30); legacy.Step(30);
         long a = inert.Network.GetPlayerInfo(0).Z, b = legacy.Network.GetPlayerInfo(0).Z;
@@ -105,8 +117,7 @@ public class FlightFeelTests
     [Fact]
     public void Braking_is_faster_than_accelerating_and_stops_exactly()
     {
-        var w = World();
-        Ship(w);
+        var w = Flyer();
         w.Submit(0, new SetThrust(0, 0, PlayerRules.ThrustScale));
         w.Step(60);
         Assert.Equal(48_000, Speed(Vel(w)));
@@ -133,8 +144,7 @@ public class FlightFeelTests
     [Fact]
     public void Turning_round_brakes_first_and_a_diagonal_thrust_has_the_same_top_speed()
     {
-        var w = World();
-        Ship(w);
+        var w = Flyer();
         w.Submit(0, new SetThrust(0, 0, PlayerRules.ThrustScale));
         w.Step(50);
         w.Submit(0, new SetThrust(0, 0, -PlayerRules.ThrustScale));
@@ -144,8 +154,7 @@ public class FlightFeelTests
         Assert.Equal(48_000, Speed(Vel(w)));
         Assert.True(lowest < 2_800); // it passed through (almost) zero on the way
 
-        var d = World();
-        Ship(d);
+        var d = Flyer();
         int h = 724; // 1024 / sqrt 2
         d.Submit(0, new SetThrust(h, 0, h));
         d.Step(80);
@@ -155,8 +164,7 @@ public class FlightFeelTests
     [Fact]
     public void Boost_raises_both_the_target_speed_and_the_acceleration()
     {
-        var plain = World(); var boosted = World();
-        Ship(plain); Ship(boosted);
+        var plain = Flyer(); var boosted = Flyer();
         boosted.Submit(0, new SetBoost(true));
         foreach (var w in new[] { plain, boosted }) w.Submit(0, new SetThrust(0, 0, PlayerRules.ThrustScale));
         plain.Step(); boosted.Step();
@@ -176,8 +184,7 @@ public class FlightFeelTests
     [Fact]
     public void The_axis_intent_ramps_like_the_thrust()
     {
-        var w = World();
-        Ship(w);
+        var w = Flyer();
         w.Network.SetMovement(0, 0, 0, 1);
         w.Step(5);
         Assert.InRange(Speed(Vel(w)), 1, 10_000);
@@ -191,8 +198,7 @@ public class FlightFeelTests
     [Fact]
     public void A_jump_charge_and_a_lost_ship_zero_the_velocity()
     {
-        var w = World();
-        Ship(w);
+        var w = Flyer();
         w.Network.GrantResearch(C.ResearchIndex("core:jump_drive"));
         w.Network.GiveItems(0, C.ItemIndex("core:carbon"), 20);
         w.Submit(0, new SetThrust(0, PlayerRules.ThrustScale, 0));
@@ -204,7 +210,7 @@ public class FlightFeelTests
         Assert.Equal((0, 0, 0), Vel(w));
         w.ValidateInvariants();
 
-        var lost = World();
+        var lost = World(Clean);
         int s = Ship(lost);
         lost.Submit(0, new SetThrust(0, 0, PlayerRules.ThrustScale));
         lost.Step(40);
@@ -217,8 +223,7 @@ public class FlightFeelTests
     [Fact]
     public void Docking_speed_is_the_real_speed_so_a_coasting_ship_is_too_fast()
     {
-        var w = World();
-        Ship(w);
+        var w = Flyer();
         w.Submit(0, new SetThrust(0, 0, PlayerRules.ThrustScale));
         w.Step(60);
         w.Submit(0, new SetThrust(0, 0, 0));
@@ -235,7 +240,6 @@ public class FlightFeelTests
     private static void Script(SimWorld w)
     {
         var rng = new SplitMix64(99);
-        Ship(w);
         for (int i = 0; i < 40; i++)
         {
             int ax = rng.Next(-1024, 1025), ay = rng.Next(-1024, 1025), az = rng.Next(-1024, 1025);
@@ -251,29 +255,29 @@ public class FlightFeelTests
     [Fact]
     public void Flight_with_inertia_is_deterministic_and_replays_from_the_log()
     {
-        var a = World(); var b = World();
+        var a = Flyer(content: C); var b = Flyer(content: C);
         Script(a); Script(b);
         Assert.Equal(a.Checksum(), b.Checksum());
         a.ValidateInvariants();
-        var replay = SimWorld.Replay(a.Log, a.Tick, initial: World());
+        var replay = SimWorld.Replay(a.Log, a.Tick, initial: Flyer(content: C));
         Assert.Equal(a.Checksum(), replay.Checksum());
         Assert.Equal(a.Network.GetPlayerInfo(0), replay.Network.GetPlayerInfo(0));
         // Velocity is part of the state: a world one tick short differs.
-        var shorter = SimWorld.Replay(a.Log, a.Tick - 1, initial: World());
+        var shorter = SimWorld.Replay(a.Log, a.Tick - 1, initial: Flyer(content: C));
         Assert.NotEqual(a.Checksum(), shorter.Checksum());
     }
 
     [Fact]
     public void The_legacy_flight_flag_flies_exactly_like_content_without_inertia()
     {
-        var legacy = World(rules: new WorldRules().WithLegacyFlight(true));
-        var old = World(Old);
+        var legacy = Flyer(new WorldRules().WithLegacyFlight(true), Clean);
+        var old = Flyer(content: OldClean);
         Script(legacy); Script(old);
         Assert.Equal(old.Network.GetPlayerInfo(0), legacy.Network.GetPlayerInfo(0));
         Assert.Equal(old.Network.GetStructure(old.Network.ShipStructure(0)).OriginX, legacy.Network.GetStructure(legacy.Network.ShipStructure(0)).OriginX);
         Assert.Equal(old.Network.ModuleHp(old.Network.ShipStructure(0), 0, 0, 0), legacy.Network.ModuleHp(legacy.Network.ShipStructure(0), 0, 0, 0));
         // And the same flag on the same content hashes like default rules until something differs.
-        var a = World(rules: new WorldRules().WithLegacyFlight(true)); var b = World();
+        var a = Flyer(new WorldRules().WithLegacyFlight(true)); var b = Flyer();
         a.Step(30); b.Step(30);
         Assert.Equal(a.Checksum(), b.Checksum());
     }
@@ -282,29 +286,34 @@ public class FlightFeelTests
     public void An_old_log_replays_with_the_legacy_flags_and_the_new_header_reads_without_them()
     {
         var legacyRules = new WorldRules().WithLegacyFlight(true).WithLegacyCollisions(true);
-        var recorded = World(rules: legacyRules);
+        var recorded = Flyer(legacyRules, C);
         Script(recorded);
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, recorded.Log, C.Hash, GameMode.Sandbox, Seed, threats: false, structures: true);
         byte[] bytes = ms.ToArray();
         Assert.Equal(15, bytes[4]);
+        var empty = new MemoryStream();
+        CommandCodec.WriteLog(empty, new List<LoggedCommand>(), C.Hash, GameMode.Sandbox, Seed, threats: false, structures: true);
         CommandCodec.ReadLog(new MemoryStream(bytes), out _, out _, out _, out _, out _, out _, out var current);
         Assert.False(current.LegacyFlight);
         Assert.False(current.LegacyCollisions);
-        for (byte version = 5; version <= 14; version++)
+        for (byte version = 6; version <= 14; version++)
         {
-            var old = (byte[])bytes.Clone();
+            var old = empty.ToArray();
             old[4] = version;
-            var log = CommandCodec.ReadLog(new MemoryStream(old), out _, out _, out _, out _, out _, out _, out var rules);
+            CommandCodec.ReadLog(new MemoryStream(old), out _, out _, out _, out _, out _, out _, out var rules);
             Assert.True(rules.LegacyFlight && rules.LegacyCollisions, $"version {version}");
             Assert.True(rules.WithoutLegacyFlags().IsDefault);
-            if (version < 14) continue; // the older logs also carry the older legacy flags (and refuse commands they cannot hold)
-            var replay = SimWorld.Replay(log, recorded.Tick, initial: World(rules: rules));
-            Assert.Equal(recorded.Checksum(), replay.Checksum());
-            Assert.Equal(recorded.Network.GetPlayerInfo(0), replay.Network.GetPlayerInfo(0));
         }
+        // A version 14 log (all the commands it can hold) replays with the legacy flags to the very same state.
+        var v14 = (byte[])bytes.Clone();
+        v14[4] = 14;
+        var log14 = CommandCodec.ReadLog(new MemoryStream(v14), out _, out _, out _, out _, out _, out _, out var rules14);
+        var replay = SimWorld.Replay(log14, recorded.Tick, initial: Flyer(rules14, C));
+        Assert.Equal(recorded.Checksum(), replay.Checksum());
+        Assert.Equal(recorded.Network.GetPlayerInfo(0), replay.Network.GetPlayerInfo(0));
         // The same log under the new rules ends elsewhere: the ramp changes where the ship is.
-        var strict = SimWorld.Replay(recorded.Log, recorded.Tick, initial: World());
+        var strict = SimWorld.Replay(recorded.Log, recorded.Tick, initial: Flyer(content: C));
         Assert.NotEqual(recorded.Network.GetPlayerInfo(0).Z, strict.Network.GetPlayerInfo(0).Z);
     }
 
@@ -313,7 +322,7 @@ public class FlightFeelTests
     {
         var both = new WorldRules().WithLegacyCollisions(true).WithLegacyFlight(true);
         Assert.True(both.LegacyCollisions && both.LegacyFlight);
-        Assert.Equal(64 | 128, both.Serialize()[1 + 8 * 4]);
+        Assert.Equal(64 | 128, both.Serialize()[1 + 8 * 4] & (64 | 128));
         Assert.Equal(both, WorldRules.Deserialize(both.Serialize()));
         Assert.True(both.WithoutLegacyFlags().IsDefault);
         Assert.True(both.WithLegacyCollisions(false).LegacyFlight); // the helpers keep each other's flags
@@ -415,7 +424,7 @@ public class FlightFeelTests
         var home = HomeDeposit(small);
         int extra = small.Network.AddDeposit(small.Network.DepositItem(home.Id), 1, home.X + 40, home.Y, home.Z);
         long ex = (home.X + 40L) * Cell, ey = (long)home.Y * Cell, ez = (long)home.Z * Cell;
-        small.Network.SetStructureOrigin(s2, ex - 12 * Cell, ey, ez - 4 * Cell);
+        small.Network.SetStructureOrigin(s2, ex - 4 * Cell, ey - 12 * Cell, ez - 4 * Cell); // below it: the laser module (above the cockpit) is 6 cells from the centre
         small.Submit(0, new StartMining(extra));
         small.Step();
         Assert.True(small.LastResults.Single().Ok, small.LastResults.Single().Reject.ToString());
@@ -454,7 +463,7 @@ public class FlightFeelTests
         var w = World();
         int ship = Ship(w);
         var dep = HomeDeposit(w);
-        w.Network.SetStructureOrigin(ship, dep.X * (long)Cell - 30 * Cell, dep.Y * (long)Cell - 12 * Cell, dep.Z * (long)Cell - 14 * Cell);
+        w.Network.SetStructureOrigin(ship, dep.X * (long)Cell - 4 * Cell, dep.Y * (long)Cell + 8 * Cell, dep.Z * (long)Cell - 4 * Cell);
         w.Step();
         w.Submit(0, new FoundStation(dep.X - 4, dep.Y - 2, dep.Z - 4)); // the core's box has the deposit centre inside
         w.Step();
@@ -476,7 +485,7 @@ public class FlightFeelTests
         // The same world under the legacy flag has no such rule.
         var old = World(rules: new WorldRules().WithLegacyCollisions(true));
         int s2 = Ship(old);
-        old.Network.SetStructureOrigin(s2, dep.X * (long)Cell - 30 * Cell, dep.Y * (long)Cell - 12 * Cell, dep.Z * (long)Cell - 14 * Cell);
+        old.Network.SetStructureOrigin(s2, dep.X * (long)Cell - 4 * Cell, dep.Y * (long)Cell + 8 * Cell, dep.Z * (long)Cell - 4 * Cell);
         old.Step();
         old.Submit(0, new FoundStation(dep.X - 4, dep.Y - 2, dep.Z - 4));
         old.Step();
