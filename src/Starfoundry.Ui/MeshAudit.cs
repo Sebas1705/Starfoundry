@@ -8,7 +8,7 @@ namespace Starfoundry.Ui;
 public readonly record struct AuditTri(Vector3 A, Vector3 B, Vector3 C, Vector3 N, bool TwoSided, string Part);
 
 /// <summary>Two parts whose faces lie in the same plane and overlap: they z-fight (flicker) wherever both are visible.</summary>
-public readonly record struct CoplanarOverlap(string PartA, string PartB, float Area, Vector3 Where, float Gap, Vector3 Normal = default, Vector3 Lo = default, Vector3 Hi = default);
+public readonly record struct CoplanarOverlap(string PartA, string PartB, float Area, Vector3 Where, float Gap, Vector3 Normal = default, Vector3 Lo = default, Vector3 Hi = default, Vector3 Lo2 = default, Vector3 Hi2 = default);
 
 /// <summary>A ray that finds no visible surface: a hole in the shell.</summary>
 public readonly record struct SeeThrough(Vector3 Origin, Vector3 Dir);
@@ -64,9 +64,10 @@ public static class MeshAudit
                                 var pk = string.CompareOrdinal(a, b) <= 0 ? (a, b) : (b, a);
                                 var where = (tris[i].A + tris[i].B + tris[i].C + tris[j].A + tris[j].B + tris[j].C) / 6f;
                                 var lo = Vector3.Min(Vector3.Min(tris[i].A, tris[i].B), tris[i].C); var hi = Vector3.Max(Vector3.Max(tris[i].A, tris[i].B), tris[i].C);
+                                var lo2 = Vector3.Min(Vector3.Min(tris[j].A, tris[j].B), tris[j].C); var hi2 = Vector3.Max(Vector3.Max(tris[j].A, tris[j].B), tris[j].C);
                                 found[pk] = found.TryGetValue(pk, out var old)
-                                    ? old with { Area = old.Area + area, Where = area > old.Area ? where : old.Where, Gap = MathF.Max(old.Gap, MathF.Abs(d - d2)), Normal = area > old.Area ? n : old.Normal, Lo = area > old.Area ? lo : old.Lo, Hi = area > old.Area ? hi : old.Hi }
-                                    : new CoplanarOverlap(pk.Item1, pk.Item2, area, where, MathF.Abs(d - d2), n, lo, hi);
+                                    ? old with { Area = old.Area + area, Where = area > old.Area ? where : old.Where, Gap = MathF.Max(old.Gap, MathF.Abs(d - d2)), Normal = area > old.Area ? n : old.Normal, Lo = area > old.Area ? lo : old.Lo, Hi = area > old.Area ? hi : old.Hi, Lo2 = area > old.Area ? lo2 : old.Lo2, Hi2 = area > old.Area ? hi2 : old.Hi2 }
+                                    : new CoplanarOverlap(pk.Item1, pk.Item2, area, where, MathF.Abs(d - d2), n, lo, hi, lo2, hi2);
                             }
                         }
         }
@@ -212,6 +213,49 @@ public static class MeshAudit
         }
 
         public AuditTri Tri(int i) => _tris[i];
+
+        /// <summary>
+        /// The triangles that intersect the axis-aligned box [<paramref name="lo"/>, <paramref name="hi"/>]: what a body of that size standing there would
+        /// overlap. Used to find solid parts of a model that the walking body is allowed to pass through.
+        /// </summary>
+        public List<int> TrianglesIn(Vector3 lo, Vector3 hi)
+        {
+            var found = new HashSet<int>();
+            for (int x = (int)MathF.Floor(lo.X / Cell); x <= (int)MathF.Floor(hi.X / Cell); x++)
+                for (int y = (int)MathF.Floor(lo.Y / Cell); y <= (int)MathF.Floor(hi.Y / Cell); y++)
+                    for (int z = (int)MathF.Floor(lo.Z / Cell); z <= (int)MathF.Floor(hi.Z / Cell); z++)
+                        if (_grid.TryGetValue((x, y, z), out var list))
+                            foreach (int i in list)
+                                if (!found.Contains(i) && TriBoxOverlap(_tris[i], lo, hi)) found.Add(i);
+            return found.ToList();
+        }
+
+        /// <summary>Separating axis test of a triangle against an axis-aligned box.</summary>
+        public static bool TriBoxOverlap(in AuditTri t, Vector3 lo, Vector3 hi)
+        {
+            var c = (lo + hi) / 2f; var h = (hi - lo) / 2f;
+            var v0 = t.A - c; var v1 = t.B - c; var v2 = t.C - c;
+            // the three box axes
+            if (MathF.Min(v0.X, MathF.Min(v1.X, v2.X)) > h.X || MathF.Max(v0.X, MathF.Max(v1.X, v2.X)) < -h.X) return false;
+            if (MathF.Min(v0.Y, MathF.Min(v1.Y, v2.Y)) > h.Y || MathF.Max(v0.Y, MathF.Max(v1.Y, v2.Y)) < -h.Y) return false;
+            if (MathF.Min(v0.Z, MathF.Min(v1.Z, v2.Z)) > h.Z || MathF.Max(v0.Z, MathF.Max(v1.Z, v2.Z)) < -h.Z) return false;
+            // the triangle's plane
+            var e0 = v1 - v0; var e1 = v2 - v1; var e2 = v0 - v2;
+            var n = Vector3.Cross(e0, e1);
+            float r = h.X * MathF.Abs(n.X) + h.Y * MathF.Abs(n.Y) + h.Z * MathF.Abs(n.Z);
+            if (MathF.Abs(Vector3.Dot(n, v0)) > r) return false;
+            // the nine edge cross products
+            foreach (var e in new[] { e0, e1, e2 })
+                foreach (var axis in new[] { Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ })
+                {
+                    var a = Vector3.Cross(e, axis);
+                    if (a.LengthSquared() < 1e-12f) continue;
+                    float p0 = Vector3.Dot(a, v0), p1 = Vector3.Dot(a, v1), p2 = Vector3.Dot(a, v2);
+                    float rr = h.X * MathF.Abs(a.X) + h.Y * MathF.Abs(a.Y) + h.Z * MathF.Abs(a.Z);
+                    if (MathF.Min(p0, MathF.Min(p1, p2)) > rr || MathF.Max(p0, MathF.Max(p1, p2)) < -rr) return false;
+                }
+            return true;
+        }
 
         /// <summary>
         /// True when a viewer could see the surface at <paramref name="p"/> facing <paramref name="n"/> from somewhere in front of it: from a few

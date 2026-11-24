@@ -4,7 +4,7 @@ using Starfoundry.Sim;
 namespace Starfoundry.Ui;
 
 /// <summary>The solid furniture a module carries that the walking body cannot pass through (besides its shell).</summary>
-public enum Fixture { None, Cockpit, Vessel, VesselMk2 }
+public enum Fixture { None, Cockpit, Vessel, VesselMk2, Cargo, Engine, Hangar, DefenceShip, DefenceStation, Core, Lockers, WorkshopLockers }
 
 /// <summary>
 /// The shell of one module as the walking body sees it: whether it is a ship hull or a station box, the height of its roof, whether it
@@ -113,6 +113,102 @@ public static class HullProfile
     public const float VesselRadius = 1.5f, VesselMk2Radius = 1.8f;
 
     private static bool InBlock(float x, float z, float x0, float x1, float z0, float z1) => x > x0 && x < x1 && z > z0 && z < z1;
+    /// <summary>
+    // ---- the solid furniture of the module kinds ---------------------------------------------------------------------------
+
+    /// <summary>A solid footprint on the floor of a module, in cells from its back-left corner: a box, or the ellipse inscribed in it when <paramref name="Round"/>.</summary>
+    public readonly record struct Solid(float X0, float Z0, float X1, float Z1, bool Round = false)
+    {
+        public bool Contains(float x, float z)
+        {
+            if (x <= X0 || x >= X1 || z <= Z0 || z >= Z1) return false;
+            if (!Round) return true;
+            float cx = (X0 + X1) / 2, cz = (Z0 + Z1) / 2, rx = (X1 - X0) / 2, rz = (Z1 - Z0) / 2;
+            float dx = (x - cx) / rx, dz = (z - cz) / rz;
+            return dx * dx + dz * dz < 1f;
+        }
+    }
+
+    private static Solid Disc(float cx, float cz, float r) => new(cx - r, cz - r, cx + r, cz + r, true);
+
+    /// <summary>
+    /// The things standing on the floor of a module that the body cannot walk through, as the model draws them: the cargo racks and crates, the engine
+    /// machinery and its nozzle housing, the hangar's rear wall and drone cradles, the gun mounts, the reactor pillars, the core column. The one list the
+    /// model builder is checked against (<c>Gallery --audit=walk</c>) and the body collides with.
+    /// </summary>
+    public static IReadOnlyList<Solid> SolidsOf(Fixture f, int mask = 0) => f switch
+    {
+        Fixture.Cargo => CargoSolids,
+        Fixture.Engine => EngineSolids,
+        Fixture.Hangar => HangarSolids,
+        Fixture.DefenceShip => DefenceShipSolids,
+        Fixture.DefenceStation => DefenceStationSolids,
+        Fixture.Core => CoreSolids,
+        Fixture.Lockers => LockerSolids(mask, 3, 3),
+        Fixture.WorkshopLockers => LockerSolids(mask, 3, 5),
+        Fixture.Vessel => VesselSolids,
+        Fixture.VesselMk2 => VesselMk2Solids,
+        _ => Array.Empty<Solid>(),
+    };
+
+    /// <summary>The gate in the front and rear parapet of a defence deck: the parapet is a waist-high wall everywhere else along the end.</summary>
+    public const float ParapetDepth = 0.55f;
+
+    private static readonly Solid[] CargoSolids =
+    {
+        new(0.2f, 0.2f, 1.7f, 7.8f),       // the three-level rack along the left wall, boxes on every shelf
+        new(6.05f, 0.65f, 7.35f, 4.75f),   // the stacked crates against the right wall
+        new(4.4f, 5.9f, 6.6f, 7.1f),       // the big crate at the back
+    };
+    private static readonly Solid[] EngineSolids =
+    {
+        new(1.35f, 0.7f, 6.65f, 4.1f),     // the machinery block
+        new(1.5f, 3.8f, 6.5f, D),          // the pipes and the nozzle housing behind it
+        Disc(1.15f, 0.9f, 0.4f), Disc(1.15f, 2.0f, 0.4f), Disc(W - 1.15f, 0.9f, 0.4f), Disc(W - 1.15f, 2.0f, 0.4f), // the coolant tanks along the walls
+    };
+    private static readonly Solid[] HangarSolids =
+    {
+        new(0.2f, 7.3f, 7.8f, D), Disc(W - 0.9f, 1.0f, 0.22f),        // the hangar door wall at the rear, the signal mast
+        new(3.1f, 0.9f, 4.9f, 2.1f), new(3.1f, 2.7f, 4.9f, 3.9f), new(3.1f, 4.5f, 4.9f, 5.7f), // the three drone cradles
+    };
+    private static readonly Solid[] DefenceShipSolids =
+    {
+        Disc(4f, 2.5f, 1.0f), new(3.6f, 0.6f, 4.4f, 2.5f), Disc(4f, 5.5f, 1.0f), new(3.6f, 3.6f, 4.4f, 5.5f), new(0.5f, D - 1.45f, 1.5f, D - 0.55f), new(W - 1.5f, D - 1.45f, W - 0.5f, D - 0.55f), // the gun mounts and the ammo racks
+        new(0f, 0f, 2.2f, ParapetDepth), new(W - 2.2f, 0f, W, ParapetDepth), new(0f, D - ParapetDepth, 2.2f, D), new(W - 2.2f, D - ParapetDepth, W, D),
+    };
+    private static readonly Solid[] DefenceStationSolids =
+    {
+        Disc(2.5f, 2.5f, 0.95f), Disc(5.5f, 2.5f, 0.95f), Disc(2.5f, 5.5f, 0.95f), Disc(5.5f, 5.5f, 0.95f), new(0.5f, D - 1.45f, 1.5f, D - 0.55f), new(W - 1.5f, D - 1.45f, W - 0.5f, D - 0.55f),
+        new(0f, 0f, 2.2f, ParapetDepth), new(W - 2.2f, 0f, W, ParapetDepth), new(0f, D - ParapetDepth, 2.2f, D), new(W - 2.2f, D - ParapetDepth, W, D),
+    };
+    private static readonly Solid[] CoreSolids = { Disc(4f, 4f, 1.1f) };
+    private static readonly Solid[] VesselSolids = MakeVessel(VesselRadius, new[] { (1.2f, 1.2f), (6.8f, 1.2f), (1.2f, 6.8f), (6.8f, 6.8f) }, 0.3f);
+    private static readonly Solid[] VesselMk2Solids = MakeVessel(VesselMk2Radius, Enumerable.Range(0, 6).Select(i => (4f + MathF.Cos(MathF.Tau * i / 6 + 0.3f) * 3.0f, 4f + MathF.Sin(MathF.Tau * i / 6 + 0.3f) * 3.0f)).ToArray(), 0.3f);
+
+    /// <summary>The wall lockers of a hull or a workshop (see <c>ModuleDetail</c>): banks of 0.5-cell boxes hung on a closed wall, a left bank from the front and a right bank from the back.</summary>
+    private static List<Solid> LockerSolids(int mask, int left, int right)
+    {
+        var l = new List<Solid>();
+        if ((mask & Left) == 0) l.Add(new(0.1f, 0.35f, 0.7f, 0.35f + left * 0.5f + 0.1f));
+        if ((mask & Right) == 0) l.Add(new(W - 0.7f, right == 3 ? 6.1f : 4.9f, W - 0.1f, (right == 3 ? 6.1f : 4.9f) + right * 0.5f + 0.1f));
+        return l;
+    }
+
+    /// <summary>A containment vessel in the middle, the coolant pillars and the pipes from each pillar to the vessel (a knee-high run the body cannot step over), and the console at the rear wall.</summary>
+    private static Solid[] MakeVessel(float radius, (float X, float Z)[] pillars, float pillarRadius)
+    {
+        var l = new List<Solid> { Disc(4f, 4f, radius), new(2.6f, D - 1.0f, 5.4f, D - 0.4f) };
+        foreach (var (px, pz) in pillars)
+        {
+            l.Add(Disc(px, pz, pillarRadius));
+            for (int i = 1; i <= 7; i++) // the pipe, as a chain of discs from the pillar towards the vessel
+            {
+                float t = i / 7f * 0.8f;
+                l.Add(Disc(px + (4f - px) * t, pz + (4f - pz) * t, 0.26f));
+            }
+        }
+        return l.ToArray();
+    }
 
     /// <summary>
     /// The roof height of a module kind (cells above the module floor). Every kind that makes up the body of a ship (hull, cargo, workshop,
@@ -139,6 +235,22 @@ public static class HullProfile
     /// </summary>
     public static bool Tapers(int mask) => (mask & (Left | Right | Down)) == 0;
 
+    /// <summary>The solid furniture of a module kind (see <see cref="SolidsOf"/>).</summary>
+    public static Fixture FixtureOf(ModuleKind kind, bool ship) => kind switch
+    {
+        ModuleKind.Cockpit => ship ? Fixture.Cockpit : Fixture.None,
+        ModuleKind.Reactor => Fixture.Vessel,
+        ModuleKind.ReactorMk2 => Fixture.VesselMk2,
+        ModuleKind.Cargo => Fixture.Cargo,
+        ModuleKind.Engine => ship ? Fixture.Engine : Fixture.None,
+        ModuleKind.DroneBay => Fixture.Hangar,
+        ModuleKind.Defence => ship ? Fixture.DefenceShip : Fixture.DefenceStation,
+        ModuleKind.Core => Fixture.Core,
+        ModuleKind.Hull => ship ? Fixture.Lockers : Fixture.None,
+        ModuleKind.Workshop => ship ? Fixture.WorkshopLockers : Fixture.None,
+        _ => Fixture.None,
+    };
+
     /// <summary>The shell of a module of <paramref name="kind"/> with the given neighbour mask.</summary>
     public static HullShell ShellOf(ModuleKind kind, bool ship, int mask) => new(
         ship, RoofOf(kind, ship),
@@ -147,7 +259,7 @@ public static class HullProfile
         OpenRear: kind == ModuleKind.DroneBay,
         Kerb: kind == ModuleKind.Defence,
         Mask: mask,
-        Fixture: !ship ? Fixture.None : kind == ModuleKind.Cockpit ? Fixture.Cockpit : kind == ModuleKind.Reactor ? Fixture.Vessel : kind == ModuleKind.ReactorMk2 ? Fixture.VesselMk2 : Fixture.None,
+        Fixture: FixtureOf(kind, ship),
         Pod: ship && IsPod(kind));
 
     // ---- the ship section ------------------------------------------------------------------------------------------------
@@ -320,11 +432,7 @@ public static class HullProfile
         if (z > D - Depth(s, Rear, DockedRear, true) && Blocked(Zone(s, Rear, DockedRear, true), x)) return false;
         if (s.Kerb && (x < DefenceKerb || x > W - DefenceKerb)) return false;
         if (s.Fixture == Fixture.Cockpit && (InBlock(x, z, ConsoleX0, ConsoleX1, ConsoleZ0, ConsoleZ1) || InBlock(x, z, SeatX0, SeatX1, SeatZ0, SeatZ1))) return false;
-        if (s.Fixture is Fixture.Vessel or Fixture.VesselMk2)
-        {
-            float r = s.Fixture == Fixture.Vessel ? VesselRadius : VesselMk2Radius;
-            if ((x - W / 2) * (x - W / 2) + (z - D / 2) * (z - D / 2) < r * r) return false;
-        }
+        foreach (var solid in SolidsOf(s.Fixture, s.Mask)) if (solid.Contains(x, z)) return false;
         if (!s.Ship)
         {
             // a station's roof slab is a wall thickness thick; a module with another above has no roof of its own

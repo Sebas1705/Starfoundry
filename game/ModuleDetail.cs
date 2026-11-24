@@ -35,9 +35,6 @@ public static partial class ModuleModels
     /// <summary>Lit details: the cockpit chart, reactor screens and the strobes (a white one on each wing of a ship, a red one on a station roof corner).</summary>
     private static void Emissive(Cx c)
     {
-        if (c.Kind == ModuleKind.Cockpit)
-            Models.Add(c.R, "GlowStrip", $"{c.K}.chart", Models.Glow(new Color(0.3f, 0.8f, 1f), 1.8f), mb =>
-                mb.At(default).Block(new(1.25f, 1.045f, 4.2f), new(0.7f, 0.012f, 0.7f)));
         if (c.Kind is ModuleKind.Reactor or ModuleKind.ReactorMk2)
             Models.Add(c.R, "GlowStrip", $"{c.K}.screens", Models.Glow(c.Role, 2.0f), mb =>
             {
@@ -144,22 +141,16 @@ public static partial class ModuleModels
             case ModuleKind.Hull:
                 {
                     mb.At(default);
-                    Lockers(mb, c, true, 0.35f, 3);
-                    Lockers(mb, c, false, 6.1f, 3);
+                    if (!c.Has(Left)) Lockers(mb, c, true, 0.35f, 3); // wall lockers hang only on a closed wall: an open side is a doorway into the next module
+                    if (!c.Has(Right)) Lockers(mb, c, false, 6.1f, 3);
                     // an extinguisher and a first-aid box by the left doorway
-                    mb.C(new Color(0.85f, 0.15f, 0.12f)).Prism(new(c.Ship ? 0.30f : 0.55f, c.Ship ? 1.2f : 0.9f, 2.2f), 0.07f, 0.07f, 0.4f, 6);
+                    if (!c.Has(Left))
+                    {
+                        mb.C(new Color(0.85f, 0.15f, 0.12f)).Prism(new(c.Ship ? 0.30f : 0.55f, c.Ship ? 1.2f : 0.9f, 2.2f), 0.07f, 0.07f, 0.4f, 6);
                     mb.C(White).Block(new(c.Ship ? 0.22f : 0.50f, c.Ship ? 1.55f : 1.25f, 5.9f), new(0.08f, 0.3f, 0.3f));
                     mb.C(new Color(0.85f, 0.15f, 0.12f)).Block(new(c.Ship ? 0.255f : 0.535f, c.Ship ? 1.55f : 1.25f, 5.9f), new(0.02f, 0.18f, 0.06f));
                     mb.C(new Color(0.85f, 0.15f, 0.12f)).Block(new(c.Ship ? 0.255f : 0.535f, c.Ship ? 1.55f : 1.25f, 5.9f), new(0.02f, 0.06f, 0.18f));
-                }
-                break;
-            case ModuleKind.Cockpit:
-                {
-                    mb.At(default);
-                    // a navigation table at the left wall: a slab on a post with a lit chart
-                    mb.C(Dark).Prism(new(1.25f, 0.09f, 4.2f), 0.14f, 0.1f, 0.85f, 6);
-                    mb.C(Steel).Block(new(1.25f, 0.98f, 4.2f), new(0.9f, 0.07f, 0.9f));
-                    mb.C(c.Acc).Block(new(1.25f, 1.02f, 4.2f), new(0.95f, 0.02f, 0.95f));
+                    }
                 }
                 break;
             case ModuleKind.Engine:
@@ -192,8 +183,8 @@ public static partial class ModuleModels
                 {
                     mb.At(default);
                     // tool lockers flush against the side walls (the floor cells stay free for machines)
-                    Lockers(mb, c, true, 0.35f, 3);
-                    Lockers(mb, c, false, 4.9f, 5);
+                    if (!c.Has(Left)) Lockers(mb, c, true, 0.35f, 3);
+                    if (!c.Has(Right)) Lockers(mb, c, false, 4.9f, 5);
                     mb.C(Yellow);
                     for (int i = 0; i < 4; i++) mb.Block(new(4, Roof - 0.35f, 1.0f + i * 2f), new(W - 3.6f, 0.05f, 0.16f)); // cable trays under the gantry
                 }

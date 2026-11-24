@@ -142,10 +142,11 @@ public class HullProfileTests
         var v = One(ModuleKind.Cargo, true);
         var back = Walk(new Vector3(4, 0, 4), new Vector3(0, 0, 1), v, 4f);
         Assert.InRange(back.Z, 8f - HullProfile.NoseStart - HullProfile.LinerInset - BodyMotion.Radius - 0.25f, 8f - HullProfile.NoseStart - HullProfile.LinerInset - BodyMotion.Radius);
-        var tail = Walk(new Vector3(4, 0, 4), new Vector3(0, 0, 1), One(ModuleKind.Engine, true), 4f);
-        Assert.InRange(tail.Z, 5.0f, HullProfile.TailEnd - HullProfile.LinerInset - BodyMotion.Radius);
-        var hangar = Walk(new Vector3(4, 0, 4), new Vector3(0, 0, 1), One(ModuleKind.DroneBay, true), 4f);
-        Assert.True(hangar.Z > 7.5f, "the drone bay has an open rear");
+        // the engine room is filled by its machinery block and the nozzle housing: the body is stopped well short of the tail
+        var tail = Walk(new Vector3(4, 0, 0.45f), new Vector3(0, 0, 1), One(ModuleKind.Engine, true), 4f);
+        Assert.InRange(tail.Z, 0.15f, 0.7f);
+        var hangar = Walk(new Vector3(2.2f, 0, 4), new Vector3(0, 0, 1), One(ModuleKind.DroneBay, true), 4f);
+        Assert.InRange(hangar.Z, 6.3f, 7.1f); // the drone bay is closed by its hangar door wall: the body stops in front of it
     }
 
     [Fact]
@@ -162,10 +163,10 @@ public class HullProfileTests
     [Fact]
     public void AStationBoxHasThickWallsAndADoorway()
     {
-        var closed = One(ModuleKind.Core, false);
+        var closed = One(ModuleKind.Hull, false);
         var p = Walk(new Vector3(4, 0, 4), new Vector3(-1, 0, 0), closed, 4f);
         Assert.InRange(p.X - BodyMotion.Radius, HullProfile.StationFace + HullProfile.StationWall, HullProfile.StationFace + HullProfile.StationWall + BodyMotion.MaxSubStep);
-        var row = Row(ModuleKind.Core, false, 2);
+        var row = Row(ModuleKind.Hull, false, 2);
         Assert.True(Walk(new Vector3(4, 0, 4), new Vector3(0, 0, 1), row, 4f).Z > 9f);
         Assert.True(Walk(new Vector3(1.5f, 0, 4), new Vector3(0, 0, 1), row, 4f).Z < 8f); // beside the doorway the wall holds
     }
@@ -189,7 +190,7 @@ public class HullProfileTests
                 Assert.Equal(HullProfile.RoofOf(kind, ship), shell.RoofY);
                 var v = One(kind, ship);
                 bool tall = shell.RoofY - HullProfile.LinerInset > HullProfile.BodyHeight + 0.3f;
-                if (!tall) continue; // the low modules are not walkable (checked above)
+                if (!tall || kind == ModuleKind.Engine) continue; // the low modules are not walkable (checked above), and the engine room is all machinery
                 var spot = BodyMotion.Nearest(new Vector3(4, 0, 4), v);
                 Assert.True(BodyMotion.Contains(spot, v), $"{kind} ship={ship} spot {spot}");
                 // every neighbour combination keeps a spot to stand on, and a random walk never leaves the shell

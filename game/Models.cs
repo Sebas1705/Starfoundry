@@ -532,6 +532,7 @@ public static partial class Models
     {
         var mesh = GetMesh(key, mat, build);
         var mi = new MeshInstance3D { Name = name, Mesh = mesh, Position = pos, RotationDegrees = rotDeg };
+        mi.SetMeta("part", name); // Godot renames a duplicate sibling name ("@MeshInstance3D@12"): the audits read the part name from here
         if (mesh is not null) parent.AddChild(mi);
         else mi.QueueFree(); // an empty part is not added; the caller still gets a valid, detached-then-freed node
         return mi;
