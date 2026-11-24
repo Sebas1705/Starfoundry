@@ -19,12 +19,16 @@ public sealed partial class StructureBot
     }
 
     /// <summary>Flies the ship to a point (world units) and stops within <paramref name="tolUnits"/>. Time passes as it flies.</summary>
-    private bool FlyTo(long tx, long ty, long tz, long tolUnits, int maxSeconds = 240)
+    private bool FlyTo(long tx, long ty, long tz, long tolUnits, int maxSeconds = 240, Func<bool>? done = null)
     {
         _flying++;
+        _flyDone = done;
         try { return FlyToCore(tx, ty, tz, tolUnits, maxSeconds); }
-        finally { _flying--; }
+        finally { _flying--; _flyDone = null; }
     }
+
+    /// <summary>Ends the flight early when true (ADR 0033: a deposit is a solid rock, so the ship cannot reach its centre; it stops where its laser reaches).</summary>
+    private Func<bool>? _flyDone;
 
     private int _flying;
 
@@ -37,30 +41,46 @@ public sealed partial class StructureBot
     /// </summary>
     private (long X, long Y, long Z)? DetourOver(long fx, long fy, long fz, long tx, long ty, long tz)
     {
-        if (Net.Galaxy is null || Net.ObstacleCount == 0) return null;
+        if (Net.Galaxy is null) return null;
         int sys = Net.CurrentSystem(0);
         if (sys < 0) return null;
         long sx = tx - fx, sy = ty - fy, sz = tz - fz;
-        long len2 = Math.Max(1, sx * sx + sy * sy + sz * sz);
-        int worst = -1; double worstT = 2;
-        long worstClear = 0;
+        double worstT = 2;
+        (long X, long Y, long Z, long Clear)? worst = null;
+
+        // One candidate: a sphere the ship must not enter, with the reach to clear (the radius it hits plus a margin).
+        void Consider(long ox, long oy, long oz, long reach)
+        {
+            // Closest point of the segment to the obstacle, in the horizontal plane (the ship passes above, so height does not count here).
+            double t = Math.Clamp(((ox - fx) * (double)sx + (oz - fz) * (double)sz) / Math.Max(1, (double)sx * sx + (double)sz * sz), 0, 1);
+            double cx = fx + sx * t - ox, cz = fz + sz * t - oz, cy = fy + sy * t - oy;
+            double reachH = reach + 4L * Cell;
+            if (cx * cx + cz * cz > reachH * reachH) return;
+            if (cy > reach) return; // already flying above it
+            if (t < worstT) { worstT = t; worst = (ox, oy, oz, reach); }
+        }
+
         foreach (int i in Net.Galaxy.ObstaclesOf(sys))
         {
             var o = Net.GetObstacle(i);
             if (o.Gone || o.Behaviour is ObstacleBehaviour.Cloud or ObstacleBehaviour.Wreck) continue;
             var def = _c.World!.Kinds[o.Kind];
-            long reach = o.Radius + (def.Behaviour == ObstacleBehaviour.Mine ? Math.Max(def.TriggerCells, def.BlastCells) * (long)Cell : 0) + 6L * Cell;
-            // Closest point of the segment to the obstacle, in the horizontal plane (the ship passes above, so height does not count here).
-            double t = Math.Clamp(((o.X - fx) * (double)sx + (o.Z - fz) * (double)sz) / Math.Max(1, (double)sx * sx + (double)sz * sz), 0, 1);
-            double cx = fx + sx * t - o.X, cz = fz + sz * t - o.Z, cy = fy + sy * t - o.Y;
-            double reachH = reach + 4L * Cell;
-            if (cx * cx + cz * cz > reachH * reachH) continue;
-            if (cy > reach) continue; // already flying above it
-            if (t < worstT) { worstT = t; worst = i; worstClear = reach; }
+            long reach = Net.ObstacleHitRadius(i) + (def.Behaviour == ObstacleBehaviour.Mine ? Math.Max(def.TriggerCells, def.BlastCells) * (long)Cell : 0) + 6L * Cell;
+            Consider(o.X, o.Y, o.Z, reach);
         }
-        if (worst < 0) return null;
-        var w = Net.GetObstacle(worst);
-        return (w.X, w.Y + worstClear + 2L * Cell, w.Z);
+        // The rocks of deposits are solid too (ADR 0033). The one the flight ends at is not avoided: the leg stops once the laser reaches it.
+        for (int d = 0; d < Net.DepositCount; d++)
+        {
+            if (!Net.IsDepositRevealed(d) || Net.DepositRemaining(d) <= 0 || Net.DepositRockRadius(d) == 0) continue;
+            var (px, py, pz) = Net.DepositPosition(d);
+            long ox = px * (long)Cell, oy = py * (long)Cell, oz = pz * (long)Cell;
+            long reach = Net.DepositRockRadius(d) + 6L * Cell;
+            long ex = tx - ox, ey = ty - oy, ez = tz - oz;
+            if (ex * ex + ey * ey + ez * ez <= (reach + 12L * Cell) * (reach + 12L * Cell)) continue;
+            Consider(ox, oy, oz, reach);
+        }
+        if (worst is not { } w) return null;
+        return (w.X, w.Y + w.Clear + 2L * Cell, w.Z);
     }
 
     private bool FlyToCore(long tx, long ty, long tz, long tolUnits, int maxSeconds)
@@ -86,7 +106,7 @@ public sealed partial class StructureBot
             // Boost over long distances (as a player holding the key would); off well before the target so the stop is clean.
             bool wantBoost = _c.World is not null && d2 > (long)30 * Cell * 30 * Cell;
             if (wantBoost != boosting) { Cmd(new SetBoost(wantBoost)); boosting = wantBoost; }
-            if (d2 <= tolUnits * tolUnits) { Cmd(new SetThrust(0, 0, 0)); if (boosting) Cmd(new SetBoost(false)); return true; }
+            if (d2 <= tolUnits * tolUnits || (_flyDone is not null && _flyDone())) { Cmd(new SetThrust(0, 0, 0)); if (boosting) Cmd(new SetBoost(false)); return true; }
             if (!Net.CanFly(0)) { Stuck("the ship cannot fly (no cockpit/engine or lost)"); Cmd(new SetThrust(0, 0, 0)); if (boosting) Cmd(new SetBoost(false)); return false; }
             long len = (long)Math.Sqrt(d2);
             // Slow down near the target so a step cannot overshoot the tolerance.
@@ -131,7 +151,7 @@ public sealed partial class StructureBot
         {
             Cmd(new StopMining());
             var (x, y, z) = DepositCentre(deposit);
-            if (!FlyTo(x, y, z, 3L * Cell)) return false;
+            if (!FlyTo(x, y, z, 3L * Cell, done: () => Net.InMineRange(0, deposit))) return false;
         }
         var r = Cmd(new StartMining(deposit));
         if (!r.Ok && r.Reject != Reject.Depleted) { Stuck($"StartMining was rejected: {r.Reject}"); return false; }

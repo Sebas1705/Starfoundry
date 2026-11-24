@@ -130,6 +130,7 @@ public partial class Play : Node3D
         _scenarios = ScenarioStore.Catalog(content, contentLookup.Path);
         _exploreDemo = args.Contains("--explore-demo");
         _saveTest = args.Contains("--save-test");
+        if (args.Contains("--measure-models")) { ModelMeasure.Run(this, content); GetTree().Quit(); return; } // how far the drawn rocks and deposits reach (ADR 0033), then quits
         if (args.Contains("--load-bench")) { RunLoadBench(); GetTree().Quit(); return; } // measures the command log and the load time, then quits
         _uiShotPath = args.FirstOrDefault(a => a.StartsWith("--ui-shot="))?["--ui-shot=".Length..];
         _uiAudit = args.Contains("--ui-audit");

@@ -34,7 +34,7 @@ public sealed partial class StructureBot
 
         // Engineering: circuits (silicon and nickel plates) and iron plates into the bench.
         BuildWing(1, 2, EngineeringWing, "engineering");
-        foreach (var (id, science) in new[] { ("core:structural_plating", 10), ("core:alloy_hulls", 15), ("core:repair_drones", 20), ("core:automated_turrets", 25), ("core:cargo_expansion", 30) })
+        foreach (var (id, science) in new[] { ("core:structural_plating", 10), ("core:alloy_hulls", 15), ("core:repair_drones", 20), ("core:automated_turrets", 25), ("core:cargo_expansion", 30), ("core:plasma_drive", 35) })
         {
             EnsureMetals(science);
             ResearchNow(id);
