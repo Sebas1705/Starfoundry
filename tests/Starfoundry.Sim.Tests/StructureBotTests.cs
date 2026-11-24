@@ -60,6 +60,24 @@ public class StructureBotTests
     }
 
     [Fact]
+    public void Relaxed_wins_before_Normal_and_inside_its_band()
+    {
+        // After ADR 0033 the solid deposit rocks pushed the station away from the mining spot and Relaxed came out slower than Normal (55:35); the bot now keeps the trips short.
+        const string win = "VICTORY: waves survived with a station standing";
+        double Run(string preset)
+        {
+            var r = new StructureBot(TestContent.CoreFloor, Seed, threats: true, rules: WorldRules.Preset(preset)!) { ActionDelaySeconds = 6 }.Run(120 * 60);
+            Assert.True(r.Has(win), $"{preset}: no win");
+            return Min(r, win);
+        }
+        double relaxed = Run("relaxed"), normal = Run("normal");
+        _out.WriteLine($"relaxed {relaxed:F1}, normal {normal:F1}");
+        Assert.True(relaxed < normal, $"Relaxed {relaxed:F1} must win before Normal {normal:F1}");
+        Assert.InRange(relaxed, 40, 52);
+        Assert.InRange(normal, 45, 55);
+    }
+
+    [Fact]
     public void Bot_wins_the_campaign()
     {
         var r = Play();
