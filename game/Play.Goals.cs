@@ -326,6 +326,7 @@ public partial class Play
     private void GoalsShotSetup(string[] args)
     {
         _wantCapture = false;
+        _detailsOpen = true; // the goals live in the info panel (H) since the contextual HUD
         if (args.Contains("--ui-lang=es")) Loc.Lang = Language.Es;
         if (args.Contains("--ui-lang=en")) Loc.Lang = Language.En;
         if (_progress is null || _scenario is null) return;

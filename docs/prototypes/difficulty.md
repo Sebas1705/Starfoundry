@@ -123,3 +123,14 @@ Owner decision: Hard sat only 2-3 minutes behind Normal. Hard now needs 13 waves
 | 777 | Win 53:06 |
 
 Normal stays at about 49 minutes, so Hard is now 3-5 minutes longer and one wave harder.
+
+## Materials and missions round (2026-11-24)
+Five optional materials ([materials](materials.md#materials-and-what-they-are-for-audit-and-the-optional-chains-2026-11-24)), six read-only goal types and two new levels ([scenarios](scenarios.md)). Nothing the bot does touches the new items (it researches none of the three new nodes and builds no Mk2 module), and the wreck loot gained entries without moving any random draw. StructureBot, 6 s per action, seed 20261121, `--structures --difficulty=<preset> --minutes 150`:
+
+| Preset (goal) | Before | After |
+| --- | --- | --- |
+| Relaxed (8) | Win 46:18 | Win 46:18 |
+| Normal (10) | Win 48:45 | Win 48:45 |
+| Hard (13) | Win 52:21 | Win 52:21 |
+
+Identical to the second: first wave warnings 20:12, 18:59 and 17:50, jump drive at 44:35, 46:13 and 46:28. Level times with the new secondary goals (scenario bot): level 1 3:27 (1:51 without the optional bay, 3 stars), level 2 4:20 (3 stars with the dock goal), level 3 18:09 (3 stars), level 6 0:16, level 7 8:52 (3 stars).
