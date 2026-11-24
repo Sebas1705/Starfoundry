@@ -28,7 +28,7 @@ public static partial class Models
 
     // ---- unloaders ("ports"): one look per kind of cargo they pull out of the hold ---------------------
 
-    private enum UnloaderKind { Ingot, IronOre, TitaniumOre, NickelOre, Ice, Quartz, Carbon }
+    private enum UnloaderKind { Ingot, IronOre, TitaniumOre, NickelOre, Ice, Quartz, Carbon, Crystal }
 
     private static Node3D BuildUnloader(UnloaderKind kind)
     {
@@ -41,6 +41,7 @@ public static partial class Models
             UnloaderKind.Ice => (Ice, new Color(0.45f, 0.85f, 1f), true),
             UnloaderKind.Quartz => (new Color(0.96f, 0.76f, 0.88f), new Color(0.95f, 0.55f, 0.80f), true),
             UnloaderKind.Carbon => (new Color(0.12f, 0.12f, 0.14f), new Color(0.55f, 0.55f, 0.60f), false),
+            UnloaderKind.Crystal => (new Color(0.62f, 0.40f, 0.92f), new Color(0.77f, 0.55f, 1f), true),
             _ => (new Color(0.78f, 0.80f, 0.86f), Green, false),
         };
         string k = "unloader." + kind;

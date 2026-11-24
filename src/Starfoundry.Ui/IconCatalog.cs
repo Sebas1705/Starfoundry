@@ -26,7 +26,8 @@ public static class IconCatalog
 
     // ---- tints ----
     public const uint Iron = 0xE59A6C, Carbon = 0xB4BCCB, Ice = 0x86E0FF, Titanium = 0xC3CCF2, Nickel = 0x86E6B2, Quartz = 0xF5AEDB,
-        Hydrogen = 0x93BDFF, Silicon = 0xCDBFFF, Circuit = 0x72E6A4, Alloy = 0xDDB9FF, Cell = 0xFFCB5C, Ammo = 0xFFD580, Biomass = 0x93E57D;
+        Hydrogen = 0x93BDFF, Silicon = 0xCDBFFF, Circuit = 0x72E6A4, Alloy = 0xDDB9FF, Cell = 0xFFCB5C, Ammo = 0xFFD580, Biomass = 0x93E57D,
+        Fiber = 0x8D9AB8, Composite = 0xB6C2E0, Coolant = 0x7FE9FF, Resonant = 0xC48CFF, Lens = 0xE3C4FF;
     public const uint Basic = 0xB5C4E0, Engineering = 0xFFB35C, Biology = 0x7FE08A, Physics = 0x7FB4FF;
     public const uint Hostile = 0xFF7468;
 
@@ -41,6 +42,9 @@ public static class IconCatalog
         Add("item:core:circuit", "chip", Circuit); Add("item:core:titanium_alloy", "alloy", Alloy); Add("item:core:fuel_cell", "cell", Cell);
         Add("item:core:science_engineering", "gear", Engineering); Add("item:core:science_biology", "leaf", Biology);
         Add("item:core:science_physics", "atom", Physics); Add("item:core:biomass", "sprout", Biomass);
+        // The optional chains: composites, coolant and the salvaged resonant crystal (docs/prototypes/materials.md).
+        Add("item:core:carbon_fiber", "ingot", Fiber); Add("item:core:composite_plate", "plate", Composite); Add("item:core:coolant", "drop", Coolant);
+        Add("item:core:resonant_crystal", "crystal", Resonant); Add("item:core:focus_lens", "gem", Lens);
 
         // Modules.
         Add("module:core", "core", 0); Add("module:cockpit", "cockpit", 0); Add("module:engine", "engine", 0); Add("module:reactor", "reactor", 0);
@@ -58,6 +62,7 @@ public static class IconCatalog
         Add("machine:core:ice_unloader", "port", Ice); Add("machine:core:quartz_unloader", "port", Quartz); Add("machine:core:carbon_unloader", "port", Carbon);
         Add("machine:core:hydrogen_cracker", "molecule", Hydrogen); Add("machine:core:engineering_bench", "bench", Engineering);
         Add("machine:core:physics_lab", "atom", Physics); Add("machine:core:greenhouse", "greenhouse", Biology);
+        Add("machine:core:crystal_unloader", "port", Resonant);
 
         // Belts.
         Add("belt:mk1", "belt1", 0); Add("belt:mk2", "belt2", 0); Add("belt:mk3", "belt3", 0);
@@ -122,6 +127,7 @@ public static class IconCatalog
         ("automated_turrets", "turret"), ("cargo_expansion", "cargo"), ("algae_fuel", "drop"), ("closed_loop", "cycle"), ("medical_bay", "repairBay"),
         ("bio_sensors", "dish"), ("symbiotic_drones", "drone"), ("field_theory", "atom"), ("efficient_reactors", "reactor"), ("long_range_jump", "jump"),
         ("targeting_lasers", "laser"), ("quantum_sensors", "radar"), ("laser_focusing", "laser"), ("beam_collimator", "crosshair"),
+        ("composites", "plateStack"), ("cryogenics", "drop"), ("resonance", "crystal"),
     };
 
     /// <summary>Every registered id, for the gallery and the tests.</summary>

@@ -42,6 +42,11 @@ public static class BeltModels
         "core:science_engineering" => (Shape.Flask, new Color(1f, 0.56f, 0.16f)),
         "core:science_biology" => (Shape.Flask, new Color(0.32f, 0.96f, 0.48f)),
         "core:science_physics" => (Shape.Flask, new Color(0.36f, 0.86f, 1f)),
+        "core:carbon_fiber" => (Shape.Ingot, new Color(0.30f, 0.34f, 0.44f)),
+        "core:composite_plate" => (Shape.Plate, new Color(0.44f, 0.50f, 0.66f)),
+        "core:coolant" => (Shape.Orb, new Color(0.30f, 0.90f, 1f)),
+        "core:resonant_crystal" => (Shape.Crystal, new Color(0.77f, 0.55f, 1f)),
+        "core:focus_lens" => (Shape.Crystal, new Color(0.89f, 0.77f, 1f)),
         _ => (Shape.Ingot, new Color(0.7f, 0.72f, 0.78f)),
     };
 

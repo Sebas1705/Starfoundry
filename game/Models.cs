@@ -83,6 +83,7 @@ public static partial class Models
         "core:ice_unloader" => BuildUnloader(UnloaderKind.Ice),
         "core:quartz_unloader" => BuildUnloader(UnloaderKind.Quartz),
         "core:carbon_unloader" => BuildUnloader(UnloaderKind.Carbon),
+        "core:crystal_unloader" => BuildUnloader(UnloaderKind.Crystal),
         "core:hydrogen_cracker" => BuildCracker(),
         "core:greenhouse" => BuildGreenhouse(),
         "core:engineering_bench" => BuildBench(),

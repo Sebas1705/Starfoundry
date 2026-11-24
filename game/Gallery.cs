@@ -170,6 +170,7 @@ public partial class Gallery : Node3D
             "core:iron_ore", "core:titanium_ore", "core:nickel_ore", "core:carbon", "core:quartz", "core:ice", "core:iron_ingot", "core:titanium_ingot",
             "core:nickel_ingot", "core:silicon", "core:iron_plate", "core:titanium_plate", "core:nickel_plate", "core:titanium_alloy", "core:circuit",
             "core:fuel_cell", "core:ammo", "core:hydrogen", "core:biomass", "core:science_engineering", "core:science_biology", "core:science_physics",
+            "core:carbon_fiber", "core:composite_plate", "core:coolant", "core:resonant_crystal", "core:focus_lens",
         };
         // one-instance MultiMeshes, like the game: the instance colour tints, the library materials supply the texture
         void Put(Mesh mesh, Color c, Vector3 pos, float scale = 1f)
@@ -373,7 +374,7 @@ public partial class Gallery : Node3D
     {
         string[] ids = _page == 0
             ? new[] { "core:extractor", "core:drill", "core:smelter", "core:assembler", "core:research_lab", "core:depot", "core:turret", "core:wall", "core:repair_bay", "core:unloader" }
-            : new[] { "core:hydrogen_cracker", "core:greenhouse", "core:engineering_bench", "core:physics_lab", "core:micro_refinery", "core:ore_unloader", "core:titanium_ore_unloader", "core:nickel_ore_unloader", "core:ice_unloader", "core:quartz_unloader", "core:carbon_unloader" };
+            : new[] { "core:hydrogen_cracker", "core:greenhouse", "core:engineering_bench", "core:physics_lab", "core:micro_refinery", "core:ore_unloader", "core:titanium_ore_unloader", "core:nickel_ore_unloader", "core:ice_unloader", "core:quartz_unloader", "core:carbon_unloader", "core:crystal_unloader" };
         var tile = new StandardMaterial3D { AlbedoColor = new Color(0.12f, 0.14f, 0.19f), Roughness = 0.9f };
         for (int i = 0; i < ids.Length; i++)
         {
