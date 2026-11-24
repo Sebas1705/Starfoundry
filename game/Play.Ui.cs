@@ -355,6 +355,7 @@ public partial class Play
         var userArgs = OS.GetCmdlineUserArgs();
         _hudShotPath = userArgs.FirstOrDefault(a => a.StartsWith("--hud-shot="))?["--hud-shot=".Length..];
         _detailsOpen = userArgs.Contains("--hud-details");
+        if (userArgs.Any(a => a.StartsWith("--hud-sweep="))) HudSweepSetup(userArgs);
 
         // Directional markers go last so they are never hidden under a panel.
         _markers = new MarkerLayer { Visible = false };
@@ -490,6 +491,7 @@ public partial class Play
     /// <summary><c>--hud-shot=path</c> (with <c>--hud-details</c> for the full status): saves the HUD of the played game after a second and quits. For layout checks.</summary>
     private void HudShotTick()
     {
+        HudSweepFrame();
         if (_hudShotPath is null || ++_hudShotFrame != 90) return;
         GetViewport().GetTexture().GetImage().SavePng(_hudShotPath);
         GetTree().Quit();

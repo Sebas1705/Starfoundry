@@ -211,7 +211,7 @@ public partial class Play : Node3D
         BuildDroneVisuals();
         RebuildGeometry();
         if (_stationDemo) StationDemoSelect(args);
-        if (!_demo && !_stationDemo && !_structuresShot && Launch.MenuShotPath is null && _uiShotPath is null && !_uiAudit && _layoutShotPath is null && _keysShotPath is null && _cockpitShotPath is null && _turnShotPath is null) StartPlayLog();
+        if (!_demo && !_stationDemo && !_structuresShot && Launch.MenuShotPath is null && _uiShotPath is null && !_uiAudit && _layoutShotPath is null && _keysShotPath is null && _cockpitShotPath is null && _turnShotPath is null && !args.Any(a => a.StartsWith("--hud-sweep="))) StartPlayLog();
         if (_uiShotPath is not null || _uiAudit) UiShotSetup(args);
         if (_uiAudit) UiAuditSetup(args);
         if (_layoutShotPath is not null) LayoutShotSetup(args);
