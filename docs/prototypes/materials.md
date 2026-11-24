@@ -191,7 +191,7 @@ quartz -------------------------------------------+--assembler--> focus lens -->
 - A resonant-crystal wreck exists within two jumps of home on seeds 20261121, 20261120 and 777.
 
 ### Sources and hazards
-The task asked for a rare ore from unstable crystals and mine fields as well. Those obstacles explode and carry no loot in the simulation, so giving them salvage needs a new obstacle rule (a sim change with a version gate). This round keeps to content: the crystal comes from wrecks, which already exist, are placed away from mines by the generator and are worth a short detour. A "mine field salvage" rule is a candidate for a later ADR.
+The task asked for a rare ore from unstable crystals and mine fields as well. Those obstacles explode and carry no loot in the simulation, so giving them salvage needs a new obstacle rule (a sim change with a version gate). This round keeps to content: the crystal comes from wrecks, which already exist, are placed clear of the rocks by the generator and are worth a short detour. A "mine field salvage" rule is a candidate for a later ADR.
 
 ### Models and icons
 Items use the existing shapes with new tints (carbon fibre and composite: ingot and plate in slate, coolant: an orb in cyan, crystal and lens: crystals in violet); the crystal port reuses the unloader model with a violet heap. Icons: `item:core:carbon_fiber` (ingot), `composite_plate` (plate), `coolant` (drop), `resonant_crystal` (crystal), `focus_lens` (gem), `machine:core:crystal_unloader` (port) and the three research nodes, all registered in `IconCatalog` with Spanish and English names. A bespoke model for each is not built yet.

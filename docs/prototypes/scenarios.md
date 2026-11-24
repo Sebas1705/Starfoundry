@@ -1,4 +1,4 @@
-# Prototype: scenarios, goals and the five story levels
+# Prototype: scenarios, goals and the seven story levels
 
 Status: built (2026-11-22). Decision: [ADR 0025](../adr/0025-scenarios-and-goals.md). Design: [modes, scenarios and resources](../superpowers/specs/2026-11-22-modes-and-scenarios-design.md), part B. Code: `src/Starfoundry.Sim/ScenarioDef.cs`, `ScenarioCatalog.cs`, `BeltNetwork.Counters.cs`, `SimWorld.CreateScenario`, `src/Starfoundry.Ui/ScenarioProgress.cs`, the bot in `tools/Starfoundry.Balance/StructureBot.Scenario.cs`. Data: `content/scenarios/*.json`. Tests: `ScenarioTests`, `ScenarioProgressTests`, `ScenarioContentTests`.
 
@@ -36,6 +36,14 @@ Goals: `id`, `type`, its fields, `text_es`, `text_en` (up to 160 characters) and
 | `build_module` | `kind`, `count` | that many modules of the kind were placed (template modules do not count) |
 | `keep_alive` | `kind` (omit for any kind) | never "done": fails when such a module is destroyed |
 | `keep_fuel` | none | never "done": fails when a reactor runs dry (no hydrogen in the owner's hold) |
+| `have_module` | `kind`, `count` | the player's structures hold that many modules of the kind right now (a second laser fitted at the shipyard counts); a done goal stays done |
+| `salvage` | `count` (1 to 20) | that many derelict wrecks were salvaged (`BeltNetwork.WrecksSalvaged`) |
+| `dock` | none | the ship is docked at a station (one step, no bar) |
+| `stock` | `item`, `count` | the player's stations hold that many of the item in their stock (what the unload key moves from a docked ship) |
+| `ship_speed` | `count` (percent, up to 400) | the engines of the ship add up to that percent of the base speed (100 per engine) |
+| `kill_enemies` | `count` | that many Remnant ships were destroyed (`BeltNetwork.EnemiesKilled`, turrets and guns alike) |
+
+The last six read the world and nothing else: no counter, no state, no log entry ([ADR 0034](../adr/0034-optional-material-chains-and-read-only-goal-types.md)), so adding them did not move the log version or any checksum. The goals panel shows an icon in front of every goal (the item, the module, the research node or a status symbol: `IconCatalog.ForGoal`); a one-step goal (research, dock) has no bar and no n/m.
 
 Story triggers: `start`, `win`, `lose`, `goal:<id>` (a goal is done), `fail:<id>` (a goal failed), `time:<seconds>` (that much play time has passed). Each beat fires once.
 
@@ -65,7 +73,7 @@ An example (the first level, shortened):
 `new ScenarioProgress(content, scenario)`, then `Update(net, player)` every frame or tick-batch. It returns the story beats that fired in that call. `Goals` has a `GoalState` per goal (status, current and target for a progress bar, when it was done or failed), `Outcome`/`Reason` (`Playing`, `Won`, `Lost`; reasons `WavesSurvived`, `GoalsDone`, `ShipLost`, `GoalFailed`), `Stars`, `Story` and `SecondaryCount`. Rules worth knowing: a done goal stays done; a goal that is not done when its time limit passes (or met only after it) is failed, and a failed primary goal loses the game; a keep goal that never failed counts as done when the scenario is won; a won or lost game is final. The tracker is recomputed from the world, so after loading a save the completion times start again unless the game stores them.
 
 ## The levels
-Measured with the scenario mode of the structure bot (`dotnet run --project tools/Starfoundry.Balance -- --scenario=<id> [--trace]`), action delay 6 s, the level's own seed. The bot plays levels 1 to 3 with real commands only. Levels 4 and 5 are validated by reachability analysis (`ScenarioContentTests`), not played.
+Measured with the scenario mode of the structure bot (`dotnet run --project tools/Starfoundry.Balance -- --scenario=<id> [--trace]`), action delay 6 s, the level's own seed. The bot plays levels 1 to 3, 6 and 7 with real commands only. Levels 4 and 5 are validated by reachability analysis (`ScenarioContentTests`), not played; levels 6 and 7 are played by the bot.
 
 | Level | Rules | Start | Primary goals | Secondary | Bot result |
 | --- | --- | --- | --- | --- | --- |
