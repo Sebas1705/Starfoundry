@@ -105,6 +105,7 @@ public partial class Play
             HelpOpen = _helpOpen,
             BuildOpen = BuildOpen,
             ResearchOpen = ResearchOpen,
+            InventoryOpen = InventoryOpen,
             MapOpen = _mapOpen,
             InfoOpen = _detailsOpen,
             HasConsole = ConsoleReady,

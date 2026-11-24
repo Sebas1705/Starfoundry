@@ -312,6 +312,9 @@ public enum Reject
 
     /// <summary>The module or core would stand inside the rock of a deposit (ADR 0033: deposits are solid): found or extend the station beside it.</summary>
     OverlapsDeposit,
+
+    /// <summary>The item does not belong in the slot or container it was moved to (ADR 0035): a reactor takes fuel only, a machine only what it uses, and nothing is put into an output buffer.</summary>
+    WrongItem,
 }
 
 /// <summary>Outcome of one submitted command.</summary>

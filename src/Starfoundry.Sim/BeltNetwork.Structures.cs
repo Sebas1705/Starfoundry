@@ -340,6 +340,8 @@ public sealed partial class BeltNetwork
         var s = GetStructure(id);
         if (!s.ModuleMap.Remove((mx, my, mz))) throw new InvalidOperationException("No such module.");
         s.BurnRemaining.Remove((mx, my, mz)); // a removed reactor loses the hydrogen it was burning
+        s.ReactorFuel.Remove((mx, my, mz)); // and the fuel in its slot (ADR 0035)
+        s.FeedSources.Remove((mx, my, mz));
         s.DroneProgress.Remove((mx, my, mz));
         s.ModuleDamage.Remove((mx, my, mz));
         ReleaseDocksUsing(id, (mx, my, mz)); // a destroyed port lets go of the ship docked there
@@ -429,6 +431,7 @@ public sealed partial class BeltNetwork
             }
             MixAttitude(s, mix);
             MixDocking(s, mix); // only docked ships and stations with a stock mix anything
+            MixReactorFuel(s, mix); // only reactors with fuel in their slot or a non-default feed mix anything
         }
     }
 
@@ -464,6 +467,7 @@ public sealed partial class BeltNetwork
             if (s.Satisfaction is < 0 or > PowerRules.FullSatisfaction) Fail($"structure {id} satisfaction {s.Satisfaction} out of range");
             ValidateAttitude(s);
             ValidateDocking(s);
+            ValidateReactorFuel(s);
         }
         foreach (var p in _players.Values)
         {

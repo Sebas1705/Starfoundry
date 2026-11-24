@@ -18,8 +18,8 @@ public class KeyHintsTests
     {
         var s = Flying();
         Assert.Equal(HintContext.Flying, KeyHints.ContextOf(s));
-        Assert.Equal(new[] { "build", "research", "map", "scan", "refine", "weapons", "mineFire", "found", "module", "roll", "look", "seat", "hudmode", "info", "help" }, Ids(s)); // ADR 0036: M switches the weapon in hand, the click fires it
-        Assert.Equal(new[] { "B", "T", "G", "K", "F", "M", "@hold", "I", "N", "Z", "Alt", "E", "F3", "H", "F1" }, Rows(s).Select(r => r.Caps[0]).ToArray());
+        Assert.Equal(new[] { "build", "research", "inventory", "map", "scan", "refine", "weapons", "mineFire", "found", "module", "roll", "look", "seat", "hudmode", "info", "help" }, Ids(s)); // ADR 0036: M switches the weapon in hand, the click fires it
+        Assert.Equal(new[] { "B", "T", "F10", "G", "K", "F", "M", "@hold", "I", "N", "Z", "Alt", "E", "F3", "H", "F1" }, Rows(s).Select(r => r.Caps[0]).ToArray());
         Assert.Equal("key.ctx.flying", KeyHints.For(s).Last().TitleKey);
     }
 
@@ -27,7 +27,7 @@ public class KeyHintsTests
     public void FlyingDropsWhatTheWorldDoesNotHave()
     {
         var s = Flying() with { HasGalaxy = false, StructuresOn = false, ModuleToolAvailable = false, CanWalk = false };
-        Assert.Equal(new[] { "build", "research", "scan", "refine", "weapons", "mineFire", "roll", "look", "hudmode", "info", "help" }, Ids(s));
+        Assert.Equal(new[] { "build", "research", "inventory", "scan", "refine", "weapons", "mineFire", "roll", "look", "hudmode", "info", "help" }, Ids(s));
     }
 
     [Fact]
@@ -77,7 +77,7 @@ public class KeyHintsTests
     {
         var s = Flying() with { Standing = true };
         Assert.Equal(HintContext.Walking, KeyHints.ContextOf(s));
-        Assert.Equal(new[] { "walk", "run", "seat", "build", "research", "found", "module", "hudmode", "info", "help" }, Ids(s));
+        Assert.Equal(new[] { "walk", "run", "seat", "build", "research", "inventory", "found", "module", "hudmode", "info", "help" }, Ids(s));
         Assert.Equal("WASD", Find(s, "walk").Caps[0]);
         Assert.Equal(KeyRowState.Info, Find(s, "walk").State);
         Assert.Equal(KeyRowState.Disabled, Find(s, "seat").State);
@@ -230,6 +230,7 @@ public class KeyHintsTests
                 states.Add(b with { MapOpen = true, JumpUnlocked = near, SystemChosen = mining, JumpAffordable = standing, JumpCost = threat ? "1 carbon" : "" });
                 states.Add(b with { BuildOpen = true });
                 states.Add(b with { ResearchOpen = true });
+                states.Add(b with { InventoryOpen = true });
                 states.Add(b with { HelpOpen = true });
                 states.Add(b with { PauseOpen = true });
                 states.Add(b with { ConsoleFocus = true, HasConsole = true, HudMode = HudMode.Cockpit });
@@ -253,7 +254,7 @@ public class KeyHintsTests
                         Assert.NotEmpty(cap);
                         if (cap.StartsWith('@')) Assert.True(Loc.Has("key.cap." + cap[1..]), cap);
                     }
-                    if (r.ActionKey is not null) Assert.Contains(r.ActionKey, new[] { "B", "T", "G", "K", "M", "F", "V", "I", "N", "E", "H", "L", "R", "Y", "J", "F1", "F3", "F4", "F7", "Escape", "Backspace" });
+                    if (r.ActionKey is not null) Assert.Contains(r.ActionKey, new[] { "B", "T", "G", "K", "M", "F", "V", "I", "N", "E", "H", "L", "R", "Y", "J", "F1", "F3", "F4", "F7", "F10", "Escape", "Backspace" });
                 }
             }
         }

@@ -670,6 +670,32 @@ public sealed partial class SimWorld
                 return Network.TransferItems(player, ti.Item, ti.Count, ti.ToStation) > 0 ? Reject.None : Reject.NoRoom;
             }
 
+            case MoveItems mv:
+            {
+                if (Network.Rules.LegacyInventory) return Reject.NotAllowedHere;
+                if (Network.Content is null) return Reject.NoContent;
+                if (!mv.From.IsDefined || !mv.To.IsDefined) return Reject.InvalidArgument;
+                var reach = Network.CheckReach(player, mv.From);
+                if (reach == Reject.None) reach = Network.CheckReach(player, mv.To);
+                if (reach != Reject.None) return reach;
+                return Network.MoveCore(player, mv.From, mv.FromSlot, mv.To, mv.ToSlot, mv.Count, clamp: false).Reject;
+            }
+
+            case SetFeedSource sf:
+            {
+                if (Network.Rules.LegacyInventory || !Network.StructureRules) return Reject.NotAllowedHere;
+                if (!Enum.IsDefined(sf.Source)) return Reject.InvalidArgument;
+                var reach = Network.CheckReach(player, ContainerRef.Reactor(sf.Structure, sf.Mx, sf.My, sf.Mz));
+                if (reach != Reject.None) return reach;
+                Network.SetFeedSourceCore(sf.Structure, sf.Mx, sf.My, sf.Mz, sf.Source);
+                return Reject.None;
+            }
+
+            case SortInventory:
+                if (Network.Rules.LegacyInventory) return Reject.NotAllowedHere;
+                Network.SortInventory(player);
+                return Reject.None;
+
             case AssignDrones ad:
             {
                 if (!Network.StructureRules) return Reject.NotAllowedHere;

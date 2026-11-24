@@ -83,7 +83,7 @@ public readonly record struct PlayerInfo(
     int ScanCooldown = 0, int JumpTarget = -1, int JumpRemaining = 0, int Hull = 0, bool Armed = false, int RespawnRemaining = 0,
     int ThrustX = 0, int ThrustY = 0, int ThrustZ = 0, int VelX = 0, int VelY = 0, int VelZ = 0);
 
-internal sealed class Player
+internal sealed partial class Player
 {
     public readonly int Id;
     public readonly int[] Hold;
@@ -192,6 +192,7 @@ internal sealed class Player
             ShipStructure = ShipStructure, ShipLost = ShipLost,
         };
         Array.Copy(Hold, c.Hold, Hold.Length);
+        CloneInventoryInto(c);
         return c;
     }
 }
@@ -937,6 +938,7 @@ public sealed partial class BeltNetwork
             if (p.HasVelocity || (p.VelRemX | p.VelRemY | p.VelRemZ) != 0) { mix(-3303); mix(p.VelX); mix(p.VelY); mix(p.VelZ); mix(p.VelRemX); mix(p.VelRemY); mix(p.VelRemZ); } // worlds without inertia hash as before
             mix(p.ShipRecipe); mix(p.ShipCrafting ? 1 : 0); mix(p.ShipRemaining); mix(p.ShipReserved);
             foreach (int h in p.Hold) mix(h);
+            MixInventory(p, mix);
         }
         mix(_researchCurrent);
         for (int i = 0; i < _level.Length; i++)
@@ -960,6 +962,7 @@ public sealed partial class BeltNetwork
                 sum += h;
             }
             if (sum != p.HoldTotal) Fail($"player {p.Id} hold total {p.HoldTotal} but items sum to {sum}");
+            ValidateInventory(p);
             held += sum;
 
             if (Math.Abs(p.X) > PlayerRules.WorldLimitUnits || Math.Abs(p.Y) > PlayerRules.WorldLimitUnits || Math.Abs(p.Z) > PlayerRules.WorldLimitUnits)

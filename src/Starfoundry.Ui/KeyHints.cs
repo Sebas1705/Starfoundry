@@ -7,6 +7,7 @@ public enum HintContext
     Help,
     BuildMenu,
     Research,
+    Inventory,
     StarMap,
     Console,
     Tool,
@@ -86,6 +87,8 @@ public sealed record KeyState
     public bool HelpOpen { get; init; }
     public bool BuildOpen { get; init; }
     public bool ResearchOpen { get; init; }
+    /// <summary>The personal inventory panel is open (ADR 0035).</summary>
+    public bool InventoryOpen { get; init; }
     public bool MapOpen { get; init; }
     public bool InfoOpen { get; init; }
 
@@ -187,6 +190,7 @@ public static class KeyHints
         new(HintContext.Help, s => s.HelpOpen, "key.ctx.help", _ => NoArgs, HelpRows, false),
         new(HintContext.BuildMenu, s => s.BuildOpen, "key.ctx.build", _ => NoArgs, BuildMenuRows, false),
         new(HintContext.Research, s => s.ResearchOpen, "key.ctx.research", _ => NoArgs, ResearchRows, false),
+        new(HintContext.Inventory, s => s.InventoryOpen, "key.ctx.inventory", _ => NoArgs, InventoryRows, false),
         new(HintContext.StarMap, s => s.MapOpen && s.HasGalaxy, "key.ctx.map", _ => NoArgs, StarMapRows, false),
         new(HintContext.Console, s => s.ConsoleFocus, "key.ctx.console", _ => NoArgs, ConsoleRows, false),
         new(HintContext.Tool, s => s.Tool != HintTool.None, "key.ctx.tool", s => new object[] { s.ToolName }, ToolRows, true),
@@ -252,6 +256,7 @@ public static class KeyHints
         foreach (var row in DockRows(s)) yield return row;
         yield return BuildRow(s);
         yield return Row("research", "T", "research", "T", Lit(s.ResearchOpen));
+        yield return Row("inventory", "F10", "inventory", "F10", Lit(s.InventoryOpen));
         if (s.HasGalaxy) yield return Row("map", "G", "map", "G", Lit(s.MapOpen));
         yield return s.ScanReady ? Row("scan", "K", "scan", "K") : Off("scan", "K", "scan", "key.why.scanWait");
         yield return Row("refine", "F", s.Refining ? "refineStop" : "refine", "F", Lit(s.Refining));
@@ -316,6 +321,7 @@ public static class KeyHints
         foreach (var row in DockRows(s)) yield return row;
         yield return BuildRow(s);
         yield return Row("research", "T", "research", "T", Lit(s.ResearchOpen));
+        yield return Row("inventory", "F10", "inventory", "F10", Lit(s.InventoryOpen));
         if (s.StructuresOn) yield return Row("found", "I", "found", "I");
         if (s.ModuleToolAvailable) yield return Row("module", "N", "module", "N");
         yield return HudModeRow(s);
@@ -405,6 +411,16 @@ public static class KeyHints
         yield return Row("choose", "@arrows", "choose", state: KeyRowState.Info);
         yield return Row("start", "@enter", "researchStart", state: KeyRowState.Info);
         yield return Row("close", "T", "close", "T", KeyRowState.Active);
+        yield return Row("esc", "Esc", "close", "Escape");
+    }
+
+    /// <summary>The personal inventory panel (ADR 0035): how to move things, and the key that closes it.</summary>
+    private static IEnumerable<KeyRow> InventoryRows(KeyState s)
+    {
+        yield return Row("invDrag", "@click", "invDrag", state: KeyRowState.Info);
+        yield return Row("invQuick", "Shift", "invQuick", state: KeyRowState.Info);
+        yield return Row("invKeys", "@enter", "invKeys", state: KeyRowState.Info);
+        yield return Row("inventory", "F10", "invClose", "F10", KeyRowState.Active);
         yield return Row("esc", "Esc", "close", "Escape");
     }
 

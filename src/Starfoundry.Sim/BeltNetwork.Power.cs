@@ -146,8 +146,8 @@ public sealed partial class BeltNetwork
                 s.BurnRemaining.TryGetValue(key, out int rem);
                 if (rem == 0)
                 {
-                    int intervals = TakeFuelFromStock(s); // the station's stock first: its reactors and a docked ship's burn it before the hold
-                    if (intervals == 0) intervals = TakeFuel(s.Owner);
+                    int intervals = TakeSlotFuel(s, key); // the reactor's own fuel slot first (ADR 0035)
+                    if (intervals == 0) intervals = TakeFedFuel(s, key); // then its feed source: by default the station's stock, then the owner's hold, as before
                     if (intervals > 0) rem = BurnInterval(kind) * intervals;
                 }
                 if (rem > 0)
