@@ -700,15 +700,14 @@ public class InventoryTests
         Assert.Equal(legacy, WorldRules.Deserialize(legacy.Serialize()));
         Assert.True(legacy.WithoutLegacyFlags().IsDefault);
         Assert.NotEqual(WorldRules.Default, legacy);
-        Assert.Equal(1, WorldRules.Default.Serialize()[0]); // every rule set without it is written exactly as before
-        Assert.Equal(1, new WorldRules().WithLegacyFlight(true).Serialize()[0]);
-        Assert.Equal(WorldRules.Default.Serialize().Length + 1, legacy.Serialize().Length);
+        byte[] block = legacy.Serialize();
+        Assert.Equal(4, block[1 + 8 * 4 + 1] & 4); // bit 2 of the second flags byte
         Assert.True(legacy.WithLegacyFlight(true).LegacyInventory); // the helpers keep each other's flags
         Assert.True(legacy.Clamped().LegacyInventory);
         Assert.False(legacy.WithLegacyInventory(false).LegacyInventory);
         Assert.All(WorldRules.Presets, p => Assert.False(p.Rules.LegacyInventory));
         byte[] bytes = legacy.Serialize();
-        bytes[1 + 8 * 4 + 1] = 2; // an extra flag nobody defined
+        bytes[1 + 8 * 4 + 1] = 8; // a flag nobody defined
         Assert.Throws<InvalidDataException>(() => WorldRules.Deserialize(bytes));
         Assert.Throws<InvalidDataException>(() => WorldRules.Deserialize(legacy.Serialize().AsSpan(0, legacy.Serialize().Length - 1)));
     }
