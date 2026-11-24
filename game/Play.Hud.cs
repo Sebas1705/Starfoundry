@@ -107,7 +107,8 @@ public partial class Play
         bool threat = ThreatNowHud();
         bool info = _detailsOpen;
 
-        bool shipCard = hud && (info || threat || (ShipHudContext && !building && !aiming));
+        var layers = HudLayersNow; // the HUD mode (F3): seated, the cockpit-only and minimal modes leave the cards to the cockpit displays
+        bool shipCard = hud && (info || (layers.Cards && (threat || (ShipHudContext && !building && !aiming))));
         _statusTitle.Text = L(info ? "hud.card.info" : "hud.card.ship").ToUpperInvariant();
         _holdItems.Visible = shipCard;
         _toolLabel.Visible = building;
@@ -115,7 +116,7 @@ public partial class Play
         bool statusContent = _statusPanel.Visible;
         Fade(_statusPanel, shipCard, statusContent);
         bool flightClear = !shipCard || !new Rect2(_flightPanel.Position, _flightPanel.Size).Intersects(new Rect2(_statusPanel.Position, _statusPanel.Size));
-        Fade(_flightPanel, hud && ShipHudContext && !building && !aiming && flightClear, _flightPanel.Visible);
+        Fade(_flightPanel, hud && layers.FlightReadout && ShipHudContext && !building && !aiming && flightClear, _flightPanel.Visible);
         Fade(_toolbar, shipCard || building, true);
         Fade(_objectivesPanel, hud && info, _objectivesPanel.Visible && (_objectivesText.Visible || _goalsBox.Visible || _goalLabel.Visible));
         Fade(_targetPanel, true, _targetPanel.Visible);

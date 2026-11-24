@@ -101,6 +101,10 @@ void fragment() {
 
     private readonly Dictionary<int, StructRoot> _structs = new();
     private readonly Dictionary<int, bool> _thrust = new();
+
+    /// <summary>The node of one module of a structure (the cockpit displays hang from it), or null.</summary>
+    public Node3D? ModuleNode(int structureId, (int Mx, int My, int Mz) key) =>
+        _structs.TryGetValue(structureId, out var sr) && sr.Modules.TryGetValue(key, out var m) ? m.Node : null;
     private int _structVersion = -1;
 
     /// <summary>The root node of a structure (move it to move the ship), or null if it is not drawn.</summary>

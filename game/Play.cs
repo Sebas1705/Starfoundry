@@ -136,6 +136,7 @@ public partial class Play : Node3D
         _uiAudit = args.Contains("--ui-audit");
         _layoutShotPath = args.FirstOrDefault(a => a.StartsWith("--layout-shot="))?["--layout-shot=".Length..];
         _keysShotPath = args.FirstOrDefault(a => a.StartsWith("--keys-shot="))?["--keys-shot=".Length..];
+        _cockpitShotPath = args.FirstOrDefault(a => a.StartsWith("--cockpit-shot="))?["--cockpit-shot=".Length..];
         // --continue=slot (quicksave, autosave, ...): continue that save, as the Continue button does; the galaxy comes from its header.
         if (args.FirstOrDefault(a => a.StartsWith("--continue="))?["--continue=".Length..] is { Length: > 0 } cont) { Launch.Mode = Launch.Intent.Continue; Launch.ContinueSave = cont; }
         _galaxySeed = ChooseSeed(args);
@@ -207,11 +208,12 @@ public partial class Play : Node3D
         BuildDroneVisuals();
         RebuildGeometry();
         if (_stationDemo) StationDemoSelect(args);
-        if (!_demo && !_stationDemo && !_structuresShot && Launch.MenuShotPath is null && _uiShotPath is null && !_uiAudit && _layoutShotPath is null && _keysShotPath is null) StartPlayLog();
+        if (!_demo && !_stationDemo && !_structuresShot && Launch.MenuShotPath is null && _uiShotPath is null && !_uiAudit && _layoutShotPath is null && _keysShotPath is null && _cockpitShotPath is null) StartPlayLog();
         if (_uiShotPath is not null || _uiAudit) UiShotSetup(args);
         if (_uiAudit) UiAuditSetup(args);
         if (_layoutShotPath is not null) LayoutShotSetup(args);
         if (_keysShotPath is not null) KeysShotSetup(args);
+        if (_cockpitShotPath is not null) CockpitShotSetup(args);
         if (!_demo) Toast(L("toast.welcome"));
         if (_structuresShot) StructuresShotSetup(args);
         if (_defenceShotPath is not null) DefenceShotSetup();
@@ -1189,9 +1191,10 @@ void fragment() {
         UpdateDeposits();
         UpdateDrones((float)delta);
         UpdateFlightFeel((float)delta); // the smoothed speed, acceleration, field-of-view kick, rumble and flame length (Play.FlightFeel.cs)
-        if (!Overview) _camera.Fov = FlightFov();
+        UpdateCockpitHead((float)delta); // the field of view eases; a focused display narrows it
         UpdateBody((float)delta); // before the camera is placed by UpdateShip
         UpdateShip(alpha, (float)delta);
+        UpdateCockpitDisplays((float)delta); // after the camera: what the crosshair is on, the screens redraw
         UpdateObstacles((float)delta);
         if (_walkShot) WalkShotFrame();
         if (_streakShotPath is not null) StreakShotFrame();
@@ -1218,6 +1221,7 @@ void fragment() {
         UiAuditFrame();
         LayoutShotFrame();
         KeysShotFrame();
+        CockpitShotFrame();
         DefenceShotFrame();
         ObstacleShotFrame();
         if (_shotCountdown > 0 && --_shotCountdown == 0 && _shotPath != null)

@@ -25,6 +25,7 @@ public partial class Play
     private Vector2 _lookPending; // mouse turn not yet applied: x yaw, y pitch (radians)
     private float _rollSpeed; // the current roll rate (radians per second)
 
+
     private Basis ShipBasis => new(new Quaternion(_shipQuat.X, _shipQuat.Y, _shipQuat.Z, _shipQuat.W));
 
     private Basis HeadBasis => new Basis(Vector3.Up, _yaw) * new Basis(Vector3.Right, _pitch);
@@ -36,7 +37,7 @@ public partial class Play
     /// True while the mouse steers the ship (and the roll keys work): seated, free, not docked, no build tool in hand and Alt not held. Otherwise the
     /// mouse turns the head inside the ship, upright in the ship's own frame.
     /// </summary>
-    private bool Piloting => _mouseLook && !Standing && !IsDockedNow && _tool != ToolMode.Build && !PanelOpen() && !Input.IsKeyPressed(Key.Alt);
+    private bool Piloting => _mouseLook && _focus is null && !Standing && !IsDockedNow && _tool != ToolMode.Build && !PanelOpen() && !Input.IsKeyPressed(Key.Alt);
 
     /// <summary>The ship's root transform: its attitude, turned about the pilot seat so the seat stays at the simulated position.</summary>
     private Transform3D ShipRootTransform(Vector3 shipPos)
@@ -69,13 +70,15 @@ public partial class Play
     /// <summary>Mouse motion: steers the ship while piloting, otherwise turns the head (upright in the ship's frame, clamped).</summary>
     private void LookBy(Vector2 relative)
     {
+        if (CockpitLook(relative)) return; // a display is in focus: the mouse moves the view over it
         var settings = SettingsStore.Current;
         float sens = MouseSensitivity * settings.MouseSensitivity;
         float vertical = relative.Y * sens * (settings.InvertMouseY ? -1f : 1f);
         if (Piloting)
         {
             // The turn is not applied at once: it joins a pending turn that the attitude control feeds into the ship over a few frames (a little angular inertia).
-            _lookPending += new Vector2(relative.X * sens, -vertical);
+            if (settings.SmoothLook) _lookPending += new Vector2(relative.X * sens, -vertical);
+            else _shipQuat = FlightOrientation.Rotate(_shipQuat, -vertical, relative.X * sens, 0f); // smooth piloting off: the ship follows the mouse at once
             return;
         }
         _yaw -= relative.X * sens;
@@ -95,7 +98,7 @@ public partial class Play
             float roll = ((Input.IsPhysicalKeyPressed(Key.X) || Input.IsPhysicalKeyPressed(Key.Right)) ? 1f : 0f)
                        - ((Input.IsPhysicalKeyPressed(Key.Z) || Input.IsPhysicalKeyPressed(Key.Left)) ? 1f : 0f);
             // The roll rate eases towards the keys (and back to rest when they are released) instead of switching on and off.
-            _rollSpeed = Mathf.Lerp(_rollSpeed, roll * RollRate, 1f - MathF.Exp(-RollEase * dt));
+            _rollSpeed = SettingsStore.Current.SmoothLook ? Mathf.Lerp(_rollSpeed, roll * RollRate, 1f - MathF.Exp(-RollEase * dt)) : roll * RollRate;
             if (roll == 0f && MathF.Abs(_rollSpeed) < 0.004f) _rollSpeed = 0f;
             if (_rollSpeed != 0f) _shipQuat = FlightOrientation.Rotate(_shipQuat, 0f, 0f, _rollSpeed * dt);
             float lookAmount = 1f - MathF.Exp(-LookEase * dt);

@@ -87,28 +87,67 @@ public partial class Play
 
     private void Sit() => _seated = true;
 
-    /// <summary>Per frame: walks the body from the keys, keeps it inside the ship and hides the seat from the seated camera.</summary>
+    private const float WalkAccel = 34f, WalkDecel = 40f; // cells per second squared: a walk starts and stops over about a tenth of a second
+    private System.Numerics.Vector3 _walkVelocity;
+    private float _bobPhase;
+    private bool _wasSeated = true;
+    private readonly EyeBlend _eyeBlend = new();
+
+    /// <summary>Per frame: walks the body from the keys (with a little acceleration), keeps it inside the ship, hides the seat and glides the eye between seat and feet.</summary>
     private void UpdateBody(float dt)
+    {
+        UpdateBodyWalk(dt);
+        bool smooth = SettingsStore.Current.SmoothLook && !_hudSnap;
+        bool jumped = _seated != _wasSeated;
+        _wasSeated = _seated;
+        if (jumped) _walkVelocity = System.Numerics.Vector3.Zero;
+        var wanted = RawEyeLocal();
+        var eased = _eyeBlend.Update(Sys(wanted), jumped && smooth, dt, 6.5f);
+        _eyeNow = FromSys(eased);
+    }
+
+    private Vector3 _eyeNow;
+
+    private void UpdateBodyWalk(float dt)
     {
         int ship = ShipStruct;
         if (ship >= 0) _stationView.SetSeatVisible(ship, !_seated || _shotOutside);
-        if (!Standing) return;
+        if (!Standing) { _walkVelocity = System.Numerics.Vector3.Zero; return; }
         RefreshBodyVolumes();
         if (_bodyVolumes.Length == 0) { Sit(); return; }
         if (!BodyMotion.Contains(Sys(_body), _bodyVolumes)) _body = FromSys(BodyMotion.Nearest(Sys(_body), _bodyVolumes)); // the module under the feet was removed
-        if (!_mouseLook) return;
-        float forward = (Input.IsPhysicalKeyPressed(Key.W) ? 1 : 0) - (Input.IsPhysicalKeyPressed(Key.S) ? 1 : 0);
-        float right = (Input.IsPhysicalKeyPressed(Key.D) ? 1 : 0) - (Input.IsPhysicalKeyPressed(Key.A) ? 1 : 0);
-        if (forward == 0 && right == 0) return;
-        var fwd = new Vector3(-MathF.Sin(_yaw), 0f, -MathF.Cos(_yaw));
-        var wish = fwd * forward + CockpitRight() * right;
+        var wishDir = Vector3.Zero;
         float speed = Input.IsKeyPressed(Key.Shift) ? BodyMotion.RunSpeed : BodyMotion.WalkSpeed;
-        var p = BodyMotion.Step(new System.Numerics.Vector3(_body.X, _body.Y, _body.Z), new System.Numerics.Vector3(wish.X, 0f, wish.Z), speed, dt, _bodyVolumes);
+        if (_mouseLook)
+        {
+            float forward = (Input.IsPhysicalKeyPressed(Key.W) ? 1 : 0) - (Input.IsPhysicalKeyPressed(Key.S) ? 1 : 0);
+            float right = (Input.IsPhysicalKeyPressed(Key.D) ? 1 : 0) - (Input.IsPhysicalKeyPressed(Key.A) ? 1 : 0);
+            var fwd = new Vector3(-MathF.Sin(_yaw), 0f, -MathF.Cos(_yaw));
+            wishDir = fwd * forward + CockpitRight() * right;
+            if (wishDir.LengthSquared() > 1f) wishDir = wishDir.Normalized();
+        }
+        var wanted = new System.Numerics.Vector3(wishDir.X * speed, 0f, wishDir.Z * speed);
+        bool smooth = SettingsStore.Current.SmoothLook && !_hudSnap;
+        _walkVelocity = smooth ? MotionSmoothing.Approach(_walkVelocity, wanted, WalkAccel, WalkDecel, dt) : wanted;
+        float v = _walkVelocity.Length();
+        if (v < 1e-4f) return;
+        // BodyMotion.Step takes a direction whose length (up to 1) scales the speed: the velocity over the run speed, moved at the run speed.
+        var p = BodyMotion.Step(Sys(_body), _walkVelocity / BodyMotion.RunSpeed, BodyMotion.RunSpeed, dt, _bodyVolumes);
         _body = new Vector3(p.X, p.Y, p.Z);
+        if (smooth) _bobPhase += v * dt * 2.2f;
     }
 
-    /// <summary>Camera position inside the ship, in the structure's local cells.</summary>
-    private Vector3 EyeLocal() => _seated ? SeatOffset : _body + new Vector3(0f, BodyMotion.EyeHeight, 0f);
+    /// <summary>The eye where the pilot is (seat or head), without the glide of a stand-up or sit-down.</summary>
+    private Vector3 RawEyeLocal() => _seated ? SeatOffset : _body + new Vector3(0f, BodyMotion.EyeHeight, 0f);
+
+    /// <summary>Camera position inside the ship, in the structure's local cells: the eye, gliding between the seat and the standing height, with a faint bob while walking.</summary>
+    private Vector3 EyeLocal()
+    {
+        if (_demo || _hudSnap || !CanWalk) return RawEyeLocal(); // the screenshot runs place the eye exactly
+        var eye = _eyeNow == default ? RawEyeLocal() : _eyeNow;
+        if (!_seated && SettingsStore.Current.SmoothLook && !_hudSnap) eye.Y += MathF.Sin(_bobPhase) * 0.012f * Math.Clamp(_walkVelocity.Length() / BodyMotion.WalkSpeed, 0f, 1.5f);
+        return eye;
+    }
 
     /// <summary>The "E: sit" / "E: stand" text near the crosshair, or empty when there is nothing to do.</summary>
     private string SeatPromptText()
