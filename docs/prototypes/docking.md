@@ -9,7 +9,7 @@ Decision: [ADR 0029](../adr/0029-docking-ship-and-station-are-different.md). Eve
 | Ports | A free horizontal face of a station `core`, a ship `cockpit` (its two flanks) or a `dock` module (any kind of structure, four faces). A face is free when no module touches it and no ship is docked there. |
 | `dock` module | Optional content. 10 iron plates and 8 iron ingots, 200 hit points, no machines, +40 to the station stock. |
 | Docking range | Centre of the ship's port within 12 cells of the station's port (`DockRules.RangeCells`). |
-| Docking speed | Commanded speed at most 12 units a tick, a quarter of the base speed (`DockRules.MaxSpeedUnitsPerTick`); from the thrust vector or the axis intent, the engines and the power. |
+| Docking speed | Speed at most 12 units a tick, a quarter of the base speed (`DockRules.MaxSpeedUnitsPerTick`): the larger of the commanded speed (the thrust vector or the axis intent, the engines and the power) and, since [ADR 0033](../adr/0033-flight-inertia-solid-deposits-and-hit-volumes.md), the real speed of a ship with inertia, so a coasting ship is too fast. |
 | Pose | The ship's port module takes the module cell beyond the station's port; the ship keeps its id, the pilot goes with it, thrust and intent are cleared. Refused (`Overlap`) if any module would intersect another structure. |
 | Docked ship | No thrust and no jump (`Docked`), `CanFly` false, speed 0. Stopping is always allowed. |
 | Undock | Keeps the pose, returns the thrust. Also by itself when the station or either port module is destroyed. A port module in use cannot be removed, and nothing can be built into the space of a docked ship. |

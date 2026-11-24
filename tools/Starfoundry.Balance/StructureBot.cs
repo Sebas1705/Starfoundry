@@ -262,8 +262,7 @@ public sealed partial class StructureBot
         // A build trip took the ship away from its deposit: go back to it.
         if (_mineTarget >= 0 && !Net.InMineRange(0, _mineTarget) && Net.CanFly(0) && Net.DepositRemaining(_mineTarget) > 0)
         {
-            var (dx, dy, dz) = DepositCentre(_mineTarget);
-            FlyTo(dx, dy, dz, 3L * Cell, done: () => Net.InMineRange(0, _mineTarget));
+            ApproachDeposit(_mineTarget);
         }
         // A sensible player does not let raw ore pile up in the hold: hand mining of the home iron pauses at a stock the lines use soon.
         int ore = Have("core:iron_ore");

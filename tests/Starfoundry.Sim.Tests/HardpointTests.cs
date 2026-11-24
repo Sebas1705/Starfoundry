@@ -217,7 +217,7 @@ public class HardpointTests
         old[4] = 13;
         CommandCodec.ReadLog(new MemoryStream(old), out _, out _, out _, out _, out _, out _, out var oldRules);
         Assert.True(oldRules.LegacyHardpoints);
-        Assert.True(oldRules.WithLegacyHardpoints(false).IsDefault);
+        Assert.True(oldRules.WithoutLegacyFlags().IsDefault);
         Assert.Throws<InvalidDataException>(() => CommandCodec.FromBytes(new byte[] { 46, 0xFF, 0xFF, 0xFF, 0x7F }));
     }
 

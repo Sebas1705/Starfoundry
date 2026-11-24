@@ -252,8 +252,13 @@ public sealed partial class StructureBot
         var p = Net.GetPlayerInfo(0);
         // Ahead of the cockpit, past the nose laser module (ADR 0032), inside build range of everything. A deposit's rock is solid (ADR 0033): when the
         // first spot is inside one (the green volume would be red), a player looks for a clear spot beside it, and so does the bot.
+        // The station grows to about 40 by 20 by 40 cells (four modules along x, the defence and the wings): its whole footprint must be clear of the rocks, not just the core.
         CommandResult r = null!;
-        foreach (var (dx, dy, dz) in new[] { (0, 0, -16), (-12, 0, -16), (12, 0, -16), (0, 8, -16), (0, -8, -16), (-16, 0, -8), (16, 0, -8), (0, 12, -12), (0, -12, -12) })
+        var spots = new[] { (0, 0, -16), (-12, 0, -16), (12, 0, -16), (0, 8, -16), (0, -8, -16), (-16, 0, -8), (16, 0, -8), (0, 12, -12), (0, -12, -12), (-28, 0, -16), (-28, 0, -8) };
+        bool Footprint((int Dx, int Dy, int Dz) s) =>
+            Net.BoxTouchesDepositRock((FloorCell(p.X) + s.Dx) * (long)Cell, (FloorCell(p.Y) + s.Dy - 8) * (long)Cell, (FloorCell(p.Z) + s.Dz - 20) * (long)Cell,
+                (FloorCell(p.X) + s.Dx + 40) * (long)Cell, (FloorCell(p.Y) + s.Dy + 12) * (long)Cell, (FloorCell(p.Z) + s.Dz + 20) * (long)Cell, 4L * Cell);
+        foreach (var (dx, dy, dz) in spots.Where(s => !Footprint(s)).Concat(spots))
         {
             r = Cmd(new FoundStation(FloorCell(p.X) + dx, FloorCell(p.Y) + dy, FloorCell(p.Z) + dz));
             if (r.Ok || r.Reject is not (Reject.OverlapsDeposit or Reject.Overlap)) break;

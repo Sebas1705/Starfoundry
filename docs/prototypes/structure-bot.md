@@ -187,4 +187,7 @@ Bot, so that it plays the whole tree again:
 
 The table with every preset and seed is in [difficulty](difficulty.md#rebalance-after-the-construction-rework-2026-11-23). On other seeds (Normal): seed 1 46:38, seed 2 47:36, seed 20261120 48:59; pace 0 s 48:10, 3 s 48:35, 15 s 59:22, 30 s 88:16.
 
+### After flight inertia, solid deposits and hit volumes (ADR 0033, 2026-11-24)
+Same seed (20261121), 6 s per action, the content with inertia (36 ticks to full speed, 18 to stop), solid deposit rocks and padded hit volumes: Normal 48:51, Relaxed 47:17, Hard 54:03 (all won; the baseline above and in [difficulty](difficulty.md) was 48:45, about 46 and about 53). The bot flies to a deposit until its laser reaches it (it cannot reach the rock's centre any more), detours around deposit rocks like asteroids, and looks for a spot for its station that is not inside a deposit's rock. See [flight feel](flight-feel.md).
+
 Caveats: the base still falls to wave 17 or 18 after the win (about minute 66 to 76 with the compressed economy; the bot then no longer researches). With the new order (expedition after the win) titanium smelting is researched at 65:19 and nickel smelting at 69:42 on that seed, close to that limit. The science mode runs without waves.

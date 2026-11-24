@@ -165,7 +165,7 @@ public class WorldRulesTests
         // Every flag bit is used now (bit 6 legacy collisions, bit 7 legacy flight, ADR 0033): any flags byte reads back.
         var both = new WorldRules().WithLegacyCollisions(true).WithLegacyFlight(true);
         Assert.Equal(both, WorldRules.Deserialize(both.Serialize()));
-        Assert.Equal(64 | 128, both.Serialize()[1 + 8 * 4]);
+        Assert.Equal(64 | 128, both.Serialize()[1 + 8 * 4] & (64 | 128));
     }
 
     // ---- defaults change nothing ----------------------------------------------------------------------

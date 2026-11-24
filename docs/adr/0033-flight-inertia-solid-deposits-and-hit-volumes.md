@@ -4,6 +4,7 @@
 - Date: 2026-11-24
 - Area: simulation, content, gameplay, client
 - Design: [flight feel prototype](../prototypes/flight-feel.md)
+- Supersedes in part: [ADR 0028](0028-world-generation-obstacles-and-collisions.md), which made deposits non-solid (the rest of 0028 stands)
 
 ## Context
 Hand-testing the flight after [ADR 0028](0028-world-generation-obstacles-and-collisions.md), [0029](0029-docking-ship-and-station-are-different.md) and [0030](0030-ship-attitude-in-the-simulation.md) found five faults:

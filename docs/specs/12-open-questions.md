@@ -17,6 +17,7 @@ Update this file in the same change as any decision. Move resolved items into an
 - Flight: fuel for basic thrust? Assisted autopilot detail.
 - Docking (ADR 0029, a proposal): ports on the core, the cockpit flanks and a dock module; range 12 cells and 12 units a tick; stock of 60 + 40 per dock + cargo. TBD: several ships per port rules, ship-to-ship docking, stations powering a docked ship's machines, depots and ports that use the station stock, a fee or an exchange with traders.
 - Ship attitude (ADR 0030, a proposal): a quaternion command, about 15 degrees of docking alignment, the pilot seat as pivot. TBD: ship against station and ship against ship collision, docking with a yawed or upside-down port, a turn rate limit in the simulation, a pivot that survives losing the cockpit.
+- Flight feel (ADR 0033, a proposal): 36 ticks to full speed and 18 to stop at one engine, a hit sphere per rock at 155 percent of its radius plus half a cell for the hull, deposits solid. TBD: whether the numbers feel right by hand, a Mk2 engine module, a setting to reduce the camera effects, a rock that shrinks when hit, the assisted docking approach tuned for the ramp.
 - Inter-system travel: lanes only or open jump.
 - Finite vs regenerating asteroids.
 - Quiet play: can a player avoid waves entirely?

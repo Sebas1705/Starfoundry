@@ -35,6 +35,7 @@ One decision per file, `NNNN-slug.md`. An accepted ADR is never rewritten; add a
 | [0029](0029-docking-ship-and-station-are-different.md) | The ship moves and the station is fixed; the ship docks at ports (core, cockpit flanks, dock module), is locked to the port, shares an airlock and a station stock; log version 11 | proposed | 2026-11-22 |
 | [0030](0030-ship-attitude-in-the-simulation.md) | The ship attitude is simulation state: a fixed-point quaternion set by SetAttitude (tag 42), hit volumes, ports and module positions turn with it, docking needs alignment; log version 12 | proposed | 2026-11-22 |
 | [0031](0031-construction-rules-fabrication-bays-and-floor-building.md) | Machines and belts are built on the floor of a fabrication bay; the starter ship has a workbench, not a factory; log version 13 | proposed | 2026-11-22 |
+| [0033](0033-flight-inertia-solid-deposits-and-hit-volumes.md) | The ship has inertia (a thrust sets a target velocity under acceleration and braking limits), deposits are solid, hit volumes follow the drawn models plus a hull padding, engine research raises the speed; log version 15, legacy-gated | proposed | 2026-11-24 |
 | [0032](0032-weapons-as-hardpoint-modules-and-the-shipyard.md) | Weapons are hardpoint modules of the ship (mining laser and gun, mark 1 and 2) fitted in a shipyard's ship designer (DesignerApply, tag 46); one module catalogue for ships and stations; log version 14, legacy-gated | proposed | 2026-11-22 |
 
 ## Template

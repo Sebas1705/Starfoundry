@@ -612,10 +612,31 @@ public class FlightFeelTests
     }
 
     [Fact]
+    public void The_designer_reports_the_engines_of_the_layout_with_the_research_bonuses()
+    {
+        var shipped = TestContent.CoreFloor;
+        var editor = new Starfoundry.Ui.ShipDesignEditor();
+        editor.Load(shipped.StarterShip!.Modules.ToDictionary(m => (m.Mx, m.My, m.Mz), m => m.Kind));
+        var plain = editor.Flight(shipped, 0, 0)!.Value;
+        Assert.Equal(1, plain.Engines);
+        Assert.Equal(6.0, plain.TopCellsPerSecond, 3);
+        Assert.Equal(shipped.World!.AccelTicks / 30.0, plain.SecondsToTop, 3);
+        var upgraded = editor.Flight(shipped, 60, 80)!.Value;
+        Assert.Equal(9.6, upgraded.TopCellsPerSecond, 3);
+        Assert.Equal(plain.SecondsToTop / 1.8, upgraded.SecondsToTop, 3);
+        // Without inertia (content without the section) only the top speed is known; with no engine there is nothing to report.
+        Assert.Equal(0.0, editor.Flight(Old, 0, 0)!.Value.SecondsToTop);
+        var none = new Starfoundry.Ui.ShipDesignEditor();
+        none.Load(new Dictionary<(int, int, int), ModuleKind> { [(0, 0, 0)] = ModuleKind.Cockpit });
+        Assert.Null(none.Flight(shipped, 0, 0));
+    }
+
+    [Fact]
     public void The_new_texts_exist_in_both_languages()
     {
         foreach (var key in new[] { "toast.reject.overlapsDeposit", "bonus.engine_speed", "bonus.engine_accel", "research.core:ion_thrusters", "research.core:ion_thrusters.desc",
-            "research.core:thrust_vectoring", "research.core:thrust_vectoring.desc", "research.core:plasma_drive", "research.core:plasma_drive.desc" })
+            "research.core:thrust_vectoring", "research.core:thrust_vectoring.desc", "research.core:plasma_drive", "research.core:plasma_drive.desc",
+            "hud.flightSpeedOf", "hud.flightGaugeTip", "obstacle.depositRock", "designer.flight", "designer.flightPlain" })
         {
             Assert.True(Starfoundry.Ui.Loc.Has(key), key);
             var (es, en) = Starfoundry.Ui.Loc.All.First(p => p.Key == key).Value;
