@@ -12,7 +12,7 @@ namespace Starfoundry.Game;
 /// <summary>
 /// Review scene for the procedural models. Run with user args after "--":
 /// --shot=path.png (save a screenshot after --frames=N frames and quit), --export-models=dir (write .glb files and quit),
-/// --focus=machines|machines2|belts|units|all|modules|ship-demo|station-demo|workbench (workbench = the ship workbench in a hull module, --bench=ingot|plate|ammo|off, --wall=right, --module=Hull|Cargo|Workshop|Cockpit; machines2 = the cracker, greenhouse, bench, physics lab, refinery and ports; belts = belt tiers and every item shape), --state=work|idle|off (machine lamps), --variant=N, --at=x,y,z (look-at point), --angle=deg, --pitch=deg, --dist=units, --fov=deg. Without --angle the camera orbits slowly.
+/// --focus=machines|machines2|belts|units|all|framing|modules|ship-demo|station-demo|workbench (workbench = the ship workbench in a hull module, --bench=ingot|plate|ammo|off, --wall=right, --module=Hull|Cargo|Workshop|Cockpit; machines2 = the cracker, greenhouse, bench, physics lab, refinery and ports; belts = belt tiers and every item shape), --state=work|idle|off (machine lamps), --variant=N, --at=x,y,z (look-at point), --angle=deg, --pitch=deg, --dist=units, --fov=deg. Without --angle the camera orbits slowly.
 /// </summary>
 public partial class Gallery : Node3D
 {
@@ -88,6 +88,7 @@ public partial class Gallery : Node3D
             case "materials": _focusPoint = new Vector3(15f, 1f, 2f); defDist = 40f; break;
             case "deposits": _focusPoint = new Vector3(14.4f, 0.6f, 19f); defDist = 66f; break;
             case "units": _focusPoint = new Vector3(2.6f, 0.3f, -6.3f); defDist = 11f; break;
+            case "framing": _focusPoint = new Vector3(14f, 1f, 8f); defDist = 40f; break;
             default: _focusPoint = new Vector3(1.2f, 0.2f, -3f); defDist = 18f; break;
         }
         if (_dist < 0) _dist = defDist;
@@ -98,6 +99,7 @@ public partial class Gallery : Node3D
         else if (focus == "deposits") BuildDepositGallery();
         else if (focus == "materials") BuildMaterialGallery();
         else if (focus == "belts") BuildBeltGallery();
+        else if (focus == "framing") BuildFramingGallery();
         else if (focus == "workbench") BuildWorkbenchGallery(Arg("--bench") ?? "plate", Arg("--wall") == "right", Enum.TryParse<ModuleKind>(Arg("--module"), true, out var mk) ? mk : ModuleKind.Hull);
         else BuildModels();
     }
