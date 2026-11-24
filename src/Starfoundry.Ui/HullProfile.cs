@@ -150,7 +150,7 @@ public static class HullProfile
     public const float ConsoleX0 = 2.1f, ConsoleX1 = 5.9f, ConsoleZ0 = 1.95f, ConsoleZ1 = 3.1f;
     public const float SeatX0 = 3.1f, SeatX1 = 4.9f, SeatZ0 = 3.9f, SeatZ1 = 5.5f;
     /// <summary>The radius of the containment vessel standing in the middle of a ship reactor and of a mark 2 reactor.</summary>
-    public const float VesselRadius = 1.5f, VesselMk2Radius = 1.8f;
+    public const float VesselRadius = 1.5f, VesselMk2Radius = 1.5f;
 
     private static bool InBlock(float x, float z, float x0, float x1, float z0, float z1) => x > x0 && x < x1 && z > z0 && z < z1;
     /// <summary>
@@ -201,8 +201,8 @@ public static class HullProfile
         Fixture.Core => CoreSolids,
         Fixture.Lockers => LockerSolids(mask, 3, 3),
         Fixture.WorkshopLockers => LockerSolids(mask, 3, 5),
-        Fixture.Vessel => VesselSolids,
-        Fixture.VesselMk2 => VesselMk2Solids,
+        Fixture.Vessel => (mask & Rear) != 0 ? VesselOpenSolids : VesselSolids,
+        Fixture.VesselMk2 => (mask & Rear) != 0 ? VesselMk2OpenSolids : VesselMk2Solids,
         _ => Array.Empty<Solid>(),
     };
 
@@ -238,7 +238,10 @@ public static class HullProfile
     };
     private static readonly Solid[] CoreSolids = { Disc(4f, 4f, 1.1f) };
     private static readonly Solid[] VesselSolids = MakeVessel(VesselRadius, new[] { (1.2f, 1.2f), (6.8f, 1.2f), (1.2f, 6.8f), (6.8f, 6.8f) }, 0.3f);
-    private static readonly Solid[] VesselMk2Solids = MakeVessel(VesselMk2Radius, Enumerable.Range(0, 6).Select(i => (4f + MathF.Cos(MathF.Tau * i / 6 + 0.3f) * 3.0f, 4f + MathF.Sin(MathF.Tau * i / 6 + 0.3f) * 3.0f)).ToArray(), 0.3f);
+    private static readonly Solid[] VesselMk2Solids = MakeVessel(VesselMk2Radius, new[] { (1.2f, 1.2f), (6.8f, 1.2f), (1.2f, 6.8f), (6.8f, 6.8f) }, 0.3f);
+    // with a module behind, the rear wall is a doorway and carries no console
+    private static readonly Solid[] VesselOpenSolids = VesselSolids.Where(s => s.Round).ToArray();
+    private static readonly Solid[] VesselMk2OpenSolids = VesselMk2Solids.Where(s => s.Round).ToArray();
 
     /// <summary>The wall lockers of a hull or a workshop (see <c>ModuleDetail</c>): banks of 0.5-cell boxes hung on a closed wall, a left bank from the front and a right bank from the back.</summary>
     private static List<Solid> LockerSolids(int mask, int left, int right)
@@ -249,18 +252,13 @@ public static class HullProfile
         return l;
     }
 
-    /// <summary>A containment vessel in the middle, the coolant pillars and the pipes from each pillar to the vessel (a knee-high run the body cannot step over), and the console at the rear wall.</summary>
+    /// <summary>A containment vessel in the middle, the coolant pillars (the pipes lie on the floor and are stepped over), and the console at the rear wall.</summary>
     private static Solid[] MakeVessel(float radius, (float X, float Z)[] pillars, float pillarRadius)
     {
         var l = new List<Solid> { Disc(4f, 4f, radius), new(2.6f, D - 1.0f, 5.4f, D - 0.4f) };
         foreach (var (px, pz) in pillars)
         {
             l.Add(Disc(px, pz, pillarRadius));
-            for (int i = 1; i <= 7; i++) // the pipe, as a chain of discs from the pillar towards the vessel
-            {
-                float t = i / 7f * 0.8f;
-                l.Add(Disc(px + (4f - px) * t, pz + (4f - pz) * t, 0.26f));
-            }
         }
         return l.ToArray();
     }

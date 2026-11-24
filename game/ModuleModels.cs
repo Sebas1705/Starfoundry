@@ -1446,7 +1446,7 @@ public static partial class ModuleModels
                     mb.C(Panel).Prism(new(px, 0.08f, pz), 0.26f, 0.26f, 2.7f, 8);
                     mb.C(c.Acc).Prism(new(px, 0.9f, pz), 0.3f, 0.3f, 0.14f, 8);
                     mb.C(c.Acc).Prism(new(px, 1.9f, pz), 0.3f, 0.3f, 0.14f, 8);
-                    mb.C(Steel).Beam(new(px, 0.5f, pz), new(4 + sx * 0.9f, 0.5f, 4 + sz * 0.9f), 0.2f);
+                    mb.C(Steel).Beam(new(px, 0.17f, pz), new(4 + sx * 0.9f, 0.17f, 4 + sz * 0.9f), 0.2f); // a pipe lying on the floor: low enough to step over
                 }
         });
         Models.Add(c.R, "GlowCore", $"{c.K}.core", Models.Glow(Green, 2.4f), mb =>
@@ -1763,26 +1763,26 @@ public static partial class ModuleModels
         if (c.Ship) ReactorHatch(c, roof, Cyan);
         Models.Add(c.R, "Containment", $"{c.K}.containment", ModuleHull(), mb =>
         {
-            mb.At(default).C(Steel).Prism(new(4, 0.08f, 4), 1.95f, 1.7f, 0.4f, 12);
-            mb.C(c.Acc).Prism(new(4, 0.46f, 4), 1.98f, 1.98f, 0.06f, 12);
+            mb.At(default).C(Steel).Prism(new(4, 0.08f, 4), 1.45f, 1.25f, 0.4f, 12);
+            mb.C(c.Acc).Prism(new(4, 0.46f, 4), 1.48f, 1.48f, 0.06f, 12);
             foreach (float y in new[] { 1.0f, 3.0f })
-                mb.C(y > 2 ? c.Acc : Steel).Torus(new(4, y, 4), 1.35f, 0.16f, 12, 4);
-            // six heavy coolant pillars
-            for (int i = 0; i < 6; i++)
+                mb.C(y > 2 ? c.Acc : Steel).Torus(new(4, y, 4), 1.05f, 0.16f, 12, 4);
+            // four heavy coolant pillars in the corners, so the aisles beside the vessel stay open
+            for (int i = 0; i < 4; i++)
             {
-                float a = Mathf.Tau * i / 6 + 0.3f;
-                float px = 4 + MathF.Cos(a) * 3.0f, pz = 4 + MathF.Sin(a) * 3.0f;
+                float a = Mathf.Tau * i / 4 + Mathf.Pi / 4;
+                float px = 4 + MathF.Cos(a) * 2.8f * 1.414f, pz = 4 + MathF.Sin(a) * 2.8f * 1.414f;
                 mb.C(Panel).Prism(new(px, 0.08f, pz), 0.3f, 0.3f, 2.75f, 8);
                 mb.C(c.Acc).Prism(new(px, 1.2f, pz), 0.34f, 0.34f, 0.14f, 8);
-                mb.C(Steel).Beam(new(px, 0.5f, pz), new(4 + MathF.Cos(a) * 1.3f, 0.5f, 4 + MathF.Sin(a) * 1.3f), 0.22f);
+                mb.C(Steel).Beam(new(px, 0.17f, pz), new(4 + MathF.Cos(a) * 1.3f, 0.17f, 4 + MathF.Sin(a) * 1.3f), 0.22f);
             }
         });
         Models.Add(c.R, "GlowCore", $"{c.K}.core", Models.Glow(Cyan, 1.5f), mb =>
             mb.At(default).Prism(new(4, 0.40f, 4), 1.0f, 1.0f, 3.46f, 12));
         Models.Add(c.R, "Ring", $"{c.K}.rings", Models.Glow(Gold, 1.8f), mb =>
         {
-            mb.At(default, Models.Deg(26, 0, 0)).Torus(default, 1.5f, 0.09f, 18, 4);
-            mb.At(default, Models.Deg(0, 0, -26)).Torus(default, 1.35f, 0.08f, 18, 4);
+            mb.At(default, Models.Deg(26, 0, 0)).Torus(default, 1.2f, 0.09f, 18, 4);
+            mb.At(default, Models.Deg(0, 0, -26)).Torus(default, 1.1f, 0.08f, 18, 4);
         }, new Vector3(4, 3.3f, 4));
         Models.Add(c.R, "GlowVent", $"{c.K}.vent", Models.GlowVent(Cyan, 1.5f), mb =>
         {

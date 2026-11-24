@@ -205,6 +205,103 @@ public class ShellVarietyTests
         Assert.True(BodyMotion.Contains(moved, v, machine));
     }
 
+
+    // ---- walkable connectivity ----------------------------------------------------------------------------------------
+
+    /// <summary>Flood fill over the body's collision from <paramref name="start"/> on the floor (y = 0), on a grid of <paramref name="res"/> cells; returns the reached positions.</summary>
+    private static HashSet<(int, int)> Flood(BodyBox[] v, IReadOnlyList<BodySolid>? solids, Vector3 start, float res = 0.25f)
+    {
+        var seen = new HashSet<(int, int)>();
+        var queue = new Queue<(int, int)>();
+        var s = ((int)MathF.Round(start.X / res), (int)MathF.Round(start.Z / res));
+        if (!BodyMotion.Contains(new Vector3(s.Item1 * res, 0, s.Item2 * res), v, solids)) return seen;
+        seen.Add(s); queue.Enqueue(s);
+        while (queue.Count > 0)
+        {
+            var (cx, cz) = queue.Dequeue();
+            foreach (var (dx, dz) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+            {
+                var n = (cx + dx, cz + dz);
+                if (seen.Contains(n) || !BodyMotion.Contains(new Vector3(n.Item1 * res, 0, n.Item2 * res), v, solids)) continue;
+                seen.Add(n); queue.Enqueue(n);
+            }
+        }
+        return seen;
+    }
+
+    private static bool ReachesModule(HashSet<(int, int)> reached, (int Mx, int Mz) m, float res = 0.25f)
+    {
+        foreach (var (cx, cz) in reached)
+        {
+            float x = cx * res, z = cz * res;
+            if (x >= m.Mx * 8f && x < (m.Mx + 1) * 8f && z >= m.Mz * 8f && z < (m.Mz + 1) * 8f) return true;
+        }
+        return false;
+    }
+
+    private static void AssertWalkable(string name, Dictionary<(int Mx, int My, int Mz), ModuleKind> mods, IReadOnlyList<BodySolid>? solids = null, BodyBox[]? extra = null)
+    {
+        var v = Layout(mods);
+        if (extra is not null) v = v.Concat(extra).ToArray();
+        var reached = Flood(v, solids, SeatLocator.Locate(mods).Stand);
+        Assert.NotEmpty(reached);
+        foreach (var (key, kind) in mods)
+        {
+            if (key.My != 0 || HullProfile.IsPod(kind)) continue;
+            if (kind == ModuleKind.Engine)
+            {
+                // a deliberate dead end: its entrance (the doorway at its front) must be reached from the module in front of it
+                var inFront = (key.Mx, key.Mz - 1);
+                Assert.True(mods.ContainsKey((key.Mx, 0, key.Mz - 1)) && ReachesModule(reached, inFront), $"{name}: the way to the engine at {key} is blocked");
+                continue;
+            }
+            Assert.True(ReachesModule(reached, (key.Mx, key.Mz)), $"{name}: {kind} at {key} cannot be reached from the pilot seat");
+        }
+    }
+
+    [Fact]
+    public void EveryWalkableModuleIsReachableFromTheSeatInTheStarterTheNoseLayoutAndTheRow()
+    {
+        AssertWalkable("starter", CockpitLayouts[0].Mods);
+        AssertWalkable("starter with a workshop", new() { [(0, 0, 0)] = ModuleKind.Cockpit, [(0, 0, 1)] = ModuleKind.Hull, [(0, 0, 2)] = ModuleKind.Workshop, [(0, 0, 3)] = ModuleKind.Cargo, [(0, 0, 4)] = ModuleKind.Reactor, [(0, 0, 5)] = ModuleKind.Engine, [(0, 0, -1)] = ModuleKind.MiningLaser, [(0, 1, 0)] = ModuleKind.Gun });
+        AssertWalkable("nose", new() { [(0, 0, 0)] = ModuleKind.Cockpit, [(0, 0, 1)] = ModuleKind.Hull, [(0, 0, 2)] = ModuleKind.Cargo, [(0, 0, 3)] = ModuleKind.Workshop, [(0, 0, 4)] = ModuleKind.Reactor, [(0, 0, 5)] = ModuleKind.Engine, [(0, 1, 0)] = ModuleKind.Gun, [(1, 0, 0)] = ModuleKind.Cockpit, [(1, 0, 1)] = ModuleKind.Hull });
+        var kinds = new[] { ModuleKind.Cockpit, ModuleKind.Hull, ModuleKind.Cargo, ModuleKind.Workshop, ModuleKind.Reactor, ModuleKind.ReactorMk2, ModuleKind.Defence, ModuleKind.Dock, ModuleKind.Engine }; // the drone bay is closed by its hangar door wall: it ends a line (the corridor test below puts it last)
+        var row = new Dictionary<(int, int, int), ModuleKind>();
+        for (int i = 0; i < kinds.Length; i++) row[(0, 0, i)] = kinds[i];
+        AssertWalkable("row", row);
+        // every order of the corridor kinds in a row of five behind a cockpit keeps the way open (the drone bay closes its end, so it goes last)
+        var corridor = new[] { ModuleKind.Hull, ModuleKind.Cargo, ModuleKind.Workshop, ModuleKind.Reactor, ModuleKind.ReactorMk2, ModuleKind.Defence };
+        foreach (var a in corridor) foreach (var b in corridor) foreach (var c in corridor)
+            AssertWalkable($"{a} {b} {c}", new() { [(0, 0, 0)] = ModuleKind.Cockpit, [(0, 0, 1)] = a, [(0, 0, 2)] = b, [(0, 0, 3)] = c, [(0, 0, 4)] = ModuleKind.DroneBay });
+    }
+
+    [Fact]
+    public void TheWorkbenchAndTheMachinesOfTheFactoryLeaveTheShipWalkable()
+    {
+        var mods = new Dictionary<(int, int, int), ModuleKind> { [(0, 0, 0)] = ModuleKind.Cockpit, [(0, 0, 1)] = ModuleKind.Hull, [(0, 0, 2)] = ModuleKind.Workshop, [(0, 0, 3)] = ModuleKind.Cargo };
+        var bench = WorkbenchSpot.Pick(mods)!.Value;
+        var fp = WorkbenchSpot.Footprint(bench);
+        float oz = bench.Module.Mz * 8f;
+        var solids = new List<BodySolid> { new(fp.MinX, 0, oz + fp.MinZ, fp.MaxX, 1.5f, oz + fp.MaxZ) };
+        // the machines of the walk-shot factory (a smelter, a depot) on the floor of the workshop, one cell each
+        foreach (var (x, z) in new[] { (9, 18), (14, 18), (11, 21) }) solids.Add(new BodySolid(x, 0, z, x + 1, 1, z + 1));
+        AssertWalkable("factory", mods, solids);
+    }
+
+    [Fact]
+    public void ADockedShipAndStationAreOneWalkableWholeThroughTheAirlock()
+    {
+        var ship = new Dictionary<(int Mx, int My, int Mz), ModuleKind> { [(0, 0, 0)] = ModuleKind.Cockpit, [(0, 0, 1)] = ModuleKind.Hull, [(0, 0, 2)] = ModuleKind.Cargo };
+        int ShipMask((int Mx, int My, int Mz) k) => HullProfile.MaskOf((x, y, z) => ship.TryGetValue((x, y, z), out var kind) ? kind : null, k.Mx, k.My, k.Mz)
+            | (k == (0, 0, 1) ? HullProfile.Right | HullProfile.DockedRight : 0);
+        var station = new Dictionary<(int Mx, int My, int Mz), ModuleKind> { [(1, 0, 1)] = ModuleKind.Dock, [(1, 0, 2)] = ModuleKind.Hull, [(2, 0, 1)] = ModuleKind.Core };
+        int StMask((int Mx, int My, int Mz) k) => HullProfile.MaskOf((x, y, z) => station.TryGetValue((x, y, z), out var kind) ? kind : null, k.Mx, k.My, k.Mz)
+            | (k == (1, 0, 1) ? HullProfile.Left | HullProfile.DockedLeft : 0);
+        var v = BodyMotion.Volumes(ship, ShipMask, true).Concat(BodyMotion.Volumes(station, StMask, false)).ToArray();
+        var reached = Flood(v, null, SeatLocator.Locate(ship).Stand);
+        foreach (var key in ship.Keys) Assert.True(ReachesModule(reached, (key.Mx, key.Mz)), $"ship module {key}");
+        foreach (var key in station.Keys) Assert.True(ReachesModule(reached, (key.Mx, key.Mz)), $"station module {key} is behind the airlock");
+    }
     [Fact]
     public void TheMeshAuditFindsWhatABodyOverlapsAndWhatAViewerCanSee()
     {

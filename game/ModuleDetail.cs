@@ -194,8 +194,11 @@ public static partial class ModuleModels
                 {
                     mb.At(default);
                     // a control console at the rear wall facing the vessel
+                    if (!c.Has(Rear)) // a doorway behind leaves no wall for it
                     mb.C(Dark).Block(new(4, 0.5f, D - 0.7f), new(2.6f, 0.9f, 0.6f), 1f, 0.5f);
+                    if (!c.Has(Rear)) // a doorway behind leaves no wall for it
                     mb.C(Steel).Block(new(4, 1.0f, D - 0.72f), new(2.7f, 0.07f, 0.45f));
+                    if (!c.Has(Rear)) // a doorway behind leaves no wall for it
                     foreach (float x in new[] { 3.0f, 5.0f }) mb.C(c.Role).Block(new(x, 0.96f, D - 0.95f), new(0.3f, 0.02f, 0.2f));
                 }
                 break;
