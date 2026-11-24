@@ -72,8 +72,8 @@ public static class SoundBank
     /// <summary>A very short, high, quiet tick: the pointer moved onto a button.</summary>
     private static float[] UiHover()
     {
-        var b = Synth.Buffer(0.03);
-        Synth.AddTone(b, 0, 0.03, 3000, 2800, 1.0, 120, h2: 0.1);
+        var b = Synth.Buffer(0.055);
+        Synth.AddTone(b, 0, 0.055, 3000, 2600, 1.0, 85, h2: 0.1);
         return b;
     }
 

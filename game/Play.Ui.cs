@@ -549,7 +549,8 @@ public partial class Play
         _markers.RightLimit = ResearchOpen || BuildOpen ? DockRect(size).Position.X - 6f : 0f;
         // Marker labels keep off the cards that carry text over the view (the full info card, the steps card, the star map and its list).
         _markers.KeepOut.Clear();
-        if (_detailsOpen) foreach (var card in new Control[] { _statusPanel, _objectivesPanel }) if (card.Visible) _markers.KeepOut.Add(new Rect2(card.Position, card.Size).Grow(4f));
+        if (_detailsOpen) { foreach (var card in new Control[] { _statusPanel, _objectivesPanel }) if (card.Visible) _markers.KeepOut.Add(new Rect2(card.Position, card.Size).Grow(4f)); }
+        else { foreach (var card in new Control[] { _statusPanel, _teleCard }) if (card.Visible && card.Modulate.A > 0.3f) _markers.KeepOut.Add(new Rect2(card.Position, card.Size).Grow(4f)); } // the ship card and the target card: a label never sits on text
         if (_mapOpen && _map.Visible) { _markers.KeepOut.Add(new Rect2(_map.Position, _map.Size).Grow(4f)); _markers.KeepOut.Add(new Rect2(_mapList.Position, _mapList.GetCombinedMinimumSize()).Grow(4f)); }
         var items = new List<MarkerLayer.Item>();
 

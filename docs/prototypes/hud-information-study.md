@@ -83,13 +83,33 @@ What moves where:
 - **To the cockpit displays** (already there): the flight page carries speed, thrust, hull, power, fuel, hold and the velocity dot; the systems page carries the module cells; the weapons page carries the group and state; the nav page lists targets with degrees. With the HUD mode at *Cockpit only*, the outside cards are off and the displays are the source.
 - **To `H`**: research, the full threat forecast, goals, upgrades, the long objective text. Not glanceable, not on the default screen.
 - **Minimal** is the screen for people who want the view: the key panel collapses to the rows that matter now (alerts, the seat, docking, the tool in hand, help and the HUD key), the ship card to its vital rows, no hold strip while flying.
-- **Coverage targets** (proposal): flying at most 20 % of the screen in Standard (25 % in Detailed), 8 % in Minimal; nothing but markers, the aim card and the crosshair inside the centre 30 by 30 percent box; toasts stay below it.
+- **Coverage targets** (proposal, revised after the sweep below): in a flying context Minimal at most 10 % of the screen, Standard and Detailed at most 30 %; nothing but world markers, the aim card and the crosshair inside the centre 30 by 30 percent box; the toast stack stays below it. The first draft of this study asked for 20 % at Standard; the sweep showed the key panel alone is 12 to 16 %, so 20 % cannot be met without trimming the key panel, which the first version of the levels deliberately does not do outside Minimal.
 
 The key panel is left as it is at Standard and Detailed (it is the teaching surface); the cost shows up in the table above and is the first thing to trim if a later play-test says the screen is still too busy.
 
 ## After the change
 
-The numbers below are filled in by the same sweep after the three levels exist (see the end of this page).
+Implemented: `HudDetail` (minimal, standard, detailed), the rules in `src/Starfoundry.Ui/HudDetail.cs` (`HudDetails.Groups`, `Rows`, `ContextOf`, `TrimKeys`, tested in `HudDetailTests`: the 7-group ceiling at every level and context, each level containing the one below it, the key panel in every context), the setting `hud_detail` (Settings page, `Shift+F3`, a button in the header of every cockpit display), the target card (target, closing speed, hull, weapon row, objective with progress) under the ship card, the extra ship-card rows (brownout risk, damaged modules, shield), the hold forecast and income chip, three threat arrows at the detailed level, and the toast stack kept below the centre box.
+
+Measured with the same sweep (`--hud-sweep ... --hud-levels=min,std,det`, English, 1280x720; 1920x1080 is the same to within a point). `groups` is the number of groups of `HudDetails` that show; "centre" is the share of the centre 30 by 30 percent box the overlay changes (world markers and the aim card, which follow objects, are the only things in it; the sweep prints `HUDCOVER VIOLATION` for any card that reaches the box and printed none).
+
+| Context | Minimal: screen, centre, groups | Standard | Detailed |
+|---|---|---|---|
+| Flying | 8.5 %, 0.0 %, 3 | 27.1 %, 3.2 %, 6 | 29.7 %, 3.2 %, 7 |
+| Mining | 5.9 %, 0.0 %, 3 | 23.7 %, 5.0 %, 6 | 26.2 %, 5.0 %, 7 |
+| Walking | 4.6 %, 0.0 %, 1 | 7.7 %, 0.0 %, 2 | 19.3 %, 0.0 %, 5 |
+| Building | 5.2 %, 0.0 %, 2 | 7.6 %, 0.0 %, 3 | 15.3 %, 0.0 %, 5 |
+| Docked | 5.1 %, 0.0 %, 1 | 23.7 %, 0.0 %, 3 | 28.2 %, 0.0 %, 4 |
+| Combat | 13.9 %, 1.4 %, 3 | 31.7 %, 1.4 %, 6 | 34.1 %, 1.4 %, 7 |
+
+What this says:
+- **Minimal does what it promises**: 5 to 14 % of the screen, down from 21 to 30 % (the key panel shrinks to the seat, the HUD key and help in the quiet contexts, and no hold strip while flying).
+- **Standard costs about 2 points more than the HUD of old** in flying (24.9 to 27.1 %: the target card and the forecast chip) and nothing in walking and building; combat gained the target card, which is the information the pilot asked for there. The cards stay out of the centre box in every context; the centre share left is the marker labels (the chosen deposit sits straight ahead in the opening scene).
+- **Detailed** adds 2 to 3 points while flying and a lot while walking and building (it brings the ship card and the objective along: 7.7 to 19.3 % and 7.6 to 15.3 %), which is the point of the level.
+- **The key panel is still the biggest card at Standard and Detailed** (12 to 16 %). The next cut, if a play-test says the screen is still too busy, is to collapse it to the rows of the context after the first hour of play; that is a design decision left to the owner, because it removes the teaching surface.
+- **Not done**: the weapon cooldown and ammo (the simulation does not expose them: `Player.WeaponCooldown` is internal, and the ship's guns have no ammo), a per-module list (the cockpit systems page keeps the cell row) and the toast icons.
+
+Interface timing (the `--ui-audit` timing pass, vsync off, 1920x1080, es and en, campaign and scenario): the slowest panel to open is the pause menu's Controls page at 35 to 41 ms (budget 100 ms); the ship designer opens in about 20 to 60 ms and the build menu in 15 to 35 ms. The worst single frame of a step is 19 to 30 ms on an occasional hitch (the garbage collector, or the game running beside the audit); no step has two frames over 20 ms. At the smaller sizes a few steps open in 60 to 85 ms (the designer at 800x600), still under the budget.
 
 ## Reactivity findings (part R)
 

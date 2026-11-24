@@ -21,7 +21,7 @@ public partial class Play
     private int _sweepFrame, _sweepCtx, _sweepLevel, _sweepPhase;
     private readonly List<string> _sweepRows = new();
     private Image? _sweepWith;
-    private long _sweepDockTick;
+    private long _sweepDockTick, _sweepDockedTick = -1;
 
     private static readonly string[] SweepContexts = { "flying", "mining", "walking", "building", "docked", "combat" };
 
@@ -138,6 +138,7 @@ public partial class Play
                 if (ctx == "combat" && !Net.Enemies().Any() && Net.Tick < _sweepDockTick + 30 * 60) { _sweepFrame = 20; break; } // wait for the wave
                 if (ctx == "combat") _speed = 1;
                 if (ctx == "docked" && !IsDockedNow && Net.Tick < _sweepDockTick + 30 * 90) { _sweepFrame = 20; break; } // wait for the assisted approach
+                if (ctx == "docked" && IsDockedNow) { if (_sweepDockedTick < 0) _sweepDockedTick = Net.Tick; if (Net.Tick < _sweepDockedTick + 60) { _sweepFrame = 20; break; } } // the settling slide
                 if (ctx == "docked" && !IsDockedNow) { GD.Print("HUDCOVER docked: the approach did not dock; skipped"); _sweepCtx++; _sweepLevel = 0; _sweepPhase = 0; _sweepFrame = 20; break; }
                 if (_sweepFrame < 45) break;
                 _sweepWith = GetViewport().GetTexture().GetImage();
@@ -191,13 +192,14 @@ public partial class Play
     private void SweepElements(string ctx, string level, Vector2I size)
     {
         var inv = System.Globalization.CultureInfo.InvariantCulture;
-        double screen = size.X * (double)size.Y;
+        var vp = GetViewport().GetVisibleRect().Size;
+        double screen = vp.X * (double)vp.Y;
         foreach (var (name, c) in SweepControls())
         {
             if (!c.Visible || c.Modulate.A < 0.2f) continue;
             var r = c.GetGlobalRect();
             if (r.Size.X < 2 || r.Size.Y < 2) continue;
-            var centre = new Rect2(size.X * 0.35f, size.Y * 0.35f, size.X * 0.3f, size.Y * 0.3f);
+            var centre = new Rect2(vp.X * 0.35f, vp.Y * 0.35f, vp.X * 0.3f, vp.Y * 0.3f);
             bool hitsCentre = r.Intersects(centre);
             if (hitsCentre && name is not ("aim-tooltip" or "aim-card")) GD.Print($"HUDCOVER VIOLATION {ctx}/{level}: {name} reaches the centre 30 percent");
             GD.Print(string.Create(inv, $"HUDELEM ctx={ctx} level={level} name={name} area={100.0 * r.Size.X * r.Size.Y / screen:F2}% rect={r.Position.X:0},{r.Position.Y:0} {r.Size.X:0}x{r.Size.Y:0} centre={hitsCentre}"));
