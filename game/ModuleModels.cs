@@ -647,7 +647,7 @@ public static partial class ModuleModels
                     {
                         if (i % 2 == 1 && pa[i].DistanceTo(pa[(i + 1) % pa.Length]) < 1e-3f) continue; // squared corner: one post only
                         bool g = Glass(s == secs.Count - 1 ? 0 : gm, i) && s < 1 + (nose ? 1 : 0);
-                        mb.C(g ? Dark : Panel).Beam(new(pa[i].X, pa[i].Y, secs[s].Z), new(pb[i].X, pb[i].Y, secs[s + 1].Z), g ? 0.16f : 0.12f);
+                        mb.C(g ? Dark : Panel).Beam(new(pa[i].X, pa[i].Y, secs[s].Z), new(pb[i].X, pb[i].Y, secs[s + 1].Z), g ? 0.1f : 0.12f);
                     }
                 }
                 // Ring frames at both ends: a thicker role-colour ring where another module attaches (the visible seam), a plain one at an exposed end.
@@ -662,7 +662,7 @@ public static partial class ModuleModels
                         int j = (i + 1) % o.Length;
                         if (o[i].DistanceTo(o[j]) < 1e-3f) continue;
                         bool g = canopy && ((nosering ? NoseGlassEdges : e == 1 ? RoofEdges : 0) >> i & 1) != 0;
-                        mb.C(g ? Dark : joined ? c.Role : Panel).Beam(new(o[i].X, o[i].Y, sec.Z), new(o[j].X, o[j].Y, sec.Z), g ? 0.16f : joined ? 0.17f : 0.12f);
+                        mb.C(g ? Dark : joined ? c.Role : Panel).Beam(new(o[i].X, o[i].Y, sec.Z), new(o[j].X, o[j].Y, sec.Z), g ? 0.1f : joined ? 0.17f : 0.12f);
                     }
                 }
             }
@@ -1058,19 +1058,19 @@ public static partial class ModuleModels
                     if (((mask >> i) & 1) == 0) continue;
                     var p = o[i]; var q = o[(i + 1) % o.Length];
                     if (p.DistanceTo(q) < 1e-3f) continue;
-                    mb.Beam(new(p.X, p.Y, z), new(q.X, q.Y, z), 0.14f);
+                    mb.Beam(new(p.X, p.Y, z), new(q.X, q.Y, z), 0.09f);
                 }
             }
             var top = Oct(roof, 1f, c.M)[4].Y;
             if (nose)
             {
-                foreach (float z in new[] { 1.2f, 2.3f }) Ring(z, NoseScale(z), 0f, NoseGlassEdges);
+                Ring(2.0f, NoseScale(2.0f), 0f, NoseGlassEdges);
                 Ring(3.4f, 1f, 0.35f, NoseGlassEdges);
                 var tipTop = Oct(roof, HullProfile.NoseTipScale, c.M, 0f)[4].Y;
-                mb.Beam(new(4, tipTop, 0.07f), new(4, top, 3.4f), 0.14f);
-                mb.Beam(new(4, top, 3.4f), new(4, top, D - 0.07f), 0.14f);
+                mb.Beam(new(4, tipTop, 0.07f), new(4, top, 3.4f), 0.09f);
+                mb.Beam(new(4, top, 3.4f), new(4, top, D - 0.07f), 0.09f);
             }
-            else mb.Beam(new(4, top, 0.07f), new(4, top, D - 0.07f), 0.14f);
+            else mb.Beam(new(4, top, 0.07f), new(4, top, D - 0.07f), 0.09f);
             foreach (float z in new[] { 4.9f, 6.4f }) Ring(z, 1f, 0.35f, RoofEdges);
             if (!nose) Ring(2.4f, 1f, 0.35f, RoofEdges);
         });

@@ -68,6 +68,7 @@ public partial class Play
         var centre = origin + new Vector3(4f, 0f, 4f);
         foreach (var b in _bodyVolumes) if (Mathf.IsEqualApprox(b.MinX, origin.X) && Mathf.IsEqualApprox(b.MinY, origin.Y) && Mathf.IsEqualApprox(b.MinZ, origin.Z)) GD.Print($"BEVEL shell {kind} {b.Shell}");
         if (kind == ModuleKind.Cockpit) centre = origin + new Vector3(4f, 0f, 6.6f);
+        if (kind is ModuleKind.Reactor or ModuleKind.ReactorMk2) centre = origin + new Vector3(4f, 0f, 1.2f); // the containment vessel stands in the middle: start in front of it
         string K(string s) => $"{kind}{tag}.{s}";
         System.Numerics.Vector3 S(Vector3 v) => new(v.X, v.Y, v.Z);
         Vector3 Walk(Vector3 from, Vector3 wish, float seconds)
@@ -88,8 +89,9 @@ public partial class Play
         _bevelPlan.Add((K("ceiling"), left, MathF.PI / 2f, 0.6f));
         if (kind == ModuleKind.Cockpit)
         {
-            var nose = Walk(centre, new Vector3(0, 0, -1), 6f);
-            var noseSide = Walk(origin + new Vector3(6f, 0f, 6.6f), new Vector3(0.5f, 0, -1), 6f);
+            var aisle = origin + new Vector3(1.7f, 0f, 6.6f); // the console and the seat are solid: the aisle beside them leads into the nose
+            var nose = Walk(aisle, new Vector3(0, 0, -1), 6f);
+            var noseSide = Walk(aisle, new Vector3(-0.5f, 0, -1), 6f);
             GD.Print($"BEVEL Cockpit nose={nose:0.00} noseSide={noseSide:0.00}");
             _bevelPlan.Add((K("nose"), nose, 0f, 0.1f));
             _bevelPlan.Add((K("noseside"), noseSide, 0f, -0.2f));
