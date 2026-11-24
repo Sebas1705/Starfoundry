@@ -112,6 +112,13 @@ public sealed partial class StructureBot
             // No headway for ten seconds: a rock the straight line cannot get round (a deposit beside another, a rock under the target). The caller looks for another way in.
             double distance = Math.Sqrt(d2);
             if (distance < bestDistance - Cell) { bestDistance = distance; lastGain = i; }
+            // No headway for ten seconds on a free flight: a wing or the hull is pressed against a rock the point of the cockpit would clear. Climb out of it (the world is flat, up is free) and go on.
+            else if (i - lastGain > 60 && _flyDone is null && !boosting)
+            {
+                Say($"pinned at ship ({p.X},{p.Y},{p.Z}) on the way to ({tx},{ty},{tz}): climbing out");
+                for (int c = 0; c < 36; c++) { _w.Submit(0, new SetThrust(0, 1000, 0)); _w.Step(5); FlightSeconds += 5.0 / Tps; EverySecondIfDue(ref _flyTicks, 5); }
+                bestDistance = double.MaxValue; lastGain = i;
+            }
             else if (i - lastGain > 60 && _flyDone is not null)
             {
                 Say($"blocked at ship ({p.X},{p.Y},{p.Z}) on the way to ({tx},{ty},{tz}); solids near: {NearSolids(p.X, p.Y, p.Z)}");
