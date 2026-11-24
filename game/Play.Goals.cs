@@ -72,6 +72,8 @@ public partial class Play
     private readonly List<GoalRowUi> _goalRows = new();
     private StoryDialog? _storyDialog;
     private bool _storyPausedBefore;
+    /// <summary>Test flag <c>--no-briefing</c>: the mission briefing is said as a toast instead of opening the dialog, so scripted shots are not covered by it.</summary>
+    private readonly bool _noBriefing = OS.GetCmdlineUserArgs().Contains("--no-briefing");
     private bool _briefingShown;
     private GoalsModel? _goalsModel;
     private int _goalsWidth = 300;
@@ -198,7 +200,7 @@ public partial class Play
         foreach (var e in beats)
         {
             var m = GoalsView.Message(e, es);
-            if (m.IsStart && !_briefingShown && _storyDialog is not null && _scenario is not null && !_demo && _defenceShotPath is null)
+            if (m.IsStart && !_briefingShown && _storyDialog is not null && _scenario is not null && !_demo && _defenceShotPath is null && !_noBriefing)
             {
                 _briefingShown = true;
                 _storyPausedBefore = _paused;
