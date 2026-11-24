@@ -66,7 +66,8 @@ public sealed record WaveSpec(int Enemy, int Base, int PerWave, int FromWave = 0
 public sealed record ThreatRules(
     int AlertMax, int SignatureThreshold, int DecayPerTick, int AlertAfterWave, int WarningTicks, int NodeDistanceCells,
     int MaxEnemies, int ShipHull, int ShipWeaponRangeCells, int ShipWeaponDamage, int ShipWeaponIntervalTicks, int RespawnTicks,
-    int ModuleRegenTicks = ThreatRules.DefaultModuleRegenTicks, int FirstWaveGraceTicks = 0, int StructureShipDamagePercent = 100)
+    int ModuleRegenTicks = ThreatRules.DefaultModuleRegenTicks, int FirstWaveGraceTicks = 0, int StructureShipDamagePercent = 100,
+    int ShipAmmoItem = -1, int ShipAmmoPerVolley = 0)
 {
     /// <summary>Structure worlds: every module regenerates one hit point this often while its structure is fully powered (10 s).</summary>
     public const int DefaultModuleRegenTicks = 10 * Units.TicksPerSecond;
@@ -721,7 +722,14 @@ public sealed class ContentDb
                 RequireObject(th, "threat", "alert_max", "signature_threshold", "decay_per_tick", "alert_after_wave", "warning_seconds",
                     "node_distance_cells", "max_enemies", "ship_hull", "ship_weapon", "respawn_seconds", "module_regen_seconds", "first_wave_grace_seconds", "structure_ship_damage_percent");
                 if (!th.TryGetProperty("ship_weapon", out var sw)) throw new InvalidDataException("'ship_weapon' in threat must be an object.");
-                RequireObject(sw, "ship_weapon", "range_cells", "damage", "interval_ticks");
+                RequireObject(sw, "ship_weapon", "range_cells", "damage", "interval_ticks", "ammo_item", "ammo_per_volley");
+                int ammoItem = -1, ammoPerVolley = 0;
+                if (sw.TryGetProperty("ammo_per_volley", out _))
+                {
+                    ammoPerVolley = Int(sw, "ammo_per_volley", "ship_weapon", 0, 100);
+                    string ammoId = Str(sw, "ammo_item", "ship_weapon");
+                    if (!itemIds.TryGetValue(ammoId, out ammoItem)) throw new InvalidDataException($"ship_weapon uses unknown ammo item '{ammoId}'.");
+                }
                 int alertMax = Int(th, "alert_max", "threat", 100, 10_000_000);
                 threat = new ThreatRules(
                     alertMax,
@@ -738,7 +746,8 @@ public sealed class ContentDb
                     Int(th, "respawn_seconds", "threat", 1, 600) * Units.TicksPerSecond,
                     th.TryGetProperty("module_regen_seconds", out _) ? Int(th, "module_regen_seconds", "threat", 1, 3600) * Units.TicksPerSecond : ThreatRules.DefaultModuleRegenTicks,
                     th.TryGetProperty("first_wave_grace_seconds", out _) ? Int(th, "first_wave_grace_seconds", "threat", 0, 36_000) * Units.TicksPerSecond : 0,
-                    th.TryGetProperty("structure_ship_damage_percent", out _) ? Int(th, "structure_ship_damage_percent", "threat", 100, 1000) : 100);
+                    th.TryGetProperty("structure_ship_damage_percent", out _) ? Int(th, "structure_ship_damage_percent", "threat", 100, 1000) : 100,
+                    ammoItem, ammoPerVolley);
             }
 
             ModuleRules? modules = null;
@@ -833,7 +842,7 @@ public sealed class ContentDb
             string owner = "structures." + names[i];
             RequireObject(k, owner, "cost", "hp", "allows", "hold_capacity", "thrust_speed_percent", "power_output", "burn_interval_ticks",
                 "drone_range_cells", "drone_interval_ticks", "power_use", "defence_bonus_percent", "emergency_power", "regen_hp",
-                "shield_percent", "shield_stack_percent", "shield_max_percent", "sensor_range_cells", "buildable", "hardpoint_percent", "hardpoint_range_cells");
+                "shield_percent", "shield_stack_percent", "shield_max_percent", "sensor_range_cells", "buildable", "hardpoint_percent", "hardpoint_range_cells", "recoil");
             var kindValue = (ModuleKind)i;
             bool isReactor = ModuleKindIds.IsReactor(kindValue);
             bool isBay = kindValue == ModuleKind.DroneBay;
@@ -844,6 +853,8 @@ public sealed class ContentDb
             bool isHardpoint = ModuleKindIds.IsHardpoint(kindValue);
             if (!isHardpoint && (k.TryGetProperty("hardpoint_percent", out _) || k.TryGetProperty("hardpoint_range_cells", out _)))
                 throw new InvalidDataException($"'hardpoint_percent' and 'hardpoint_range_cells' only belong to the mining laser and gun modules, not {owner}.");
+            if (!ModuleKindIds.IsGun(kindValue) && k.TryGetProperty("recoil", out _))
+                throw new InvalidDataException($"'recoil' only belongs to the gun modules, not {owner}.");
             if (!ModuleKindIds.IsMiningLaser(kindValue) && k.TryGetProperty("hardpoint_range_cells", out _))
                 throw new InvalidDataException($"'hardpoint_range_cells' only belongs to the mining laser modules, not {owner}.");
             if (!isBay && !isShield && !isSensor && !ModuleKindIds.IsMiningLaser(kindValue) && k.TryGetProperty("power_use", out _))
@@ -858,6 +869,7 @@ public sealed class ContentDb
             int bayPower = isBay || isShield || isSensor || isLaser ? (k.TryGetProperty("power_use", out _) ? Int(k, "power_use", owner, 0, 100_000) : isBay ? 20 : isLaser ? PlayerRules.LaserPowerUse : 0) : 0;
             int hardpointPercent = isHardpoint ? (k.TryGetProperty("hardpoint_percent", out _) ? Int(k, "hardpoint_percent", owner, 1, 10_000) : 100) : 0;
             int hardpointRange = isLaser ? (k.TryGetProperty("hardpoint_range_cells", out _) ? Int(k, "hardpoint_range_cells", owner, 1, 10_000) : 10) : 0;
+            int recoil = ModuleKindIds.IsGun(kindValue) && k.TryGetProperty("recoil", out _) ? Int(k, "recoil", owner, 0, 100_000) : 0;
             int shieldPercent = isShield ? (k.TryGetProperty("shield_percent", out _) ? Int(k, "shield_percent", owner, 0, 100) : 30) : 0;
             int shieldStack = isShield ? (k.TryGetProperty("shield_stack_percent", out _) ? Int(k, "shield_stack_percent", owner, 0, 100) : 10) : 0;
             int shieldMax = isShield ? (k.TryGetProperty("shield_max_percent", out _) ? Int(k, "shield_max_percent", owner, 0, 100) : 60) : 0;
@@ -911,7 +923,7 @@ public sealed class ContentDb
                 Int(k, "hp", owner, 1, 100_000), roles.ToArray(), belts,
                 Int(k, "hold_capacity", owner, 0, 100_000), Int(k, "thrust_speed_percent", owner, 0, 10_000), powerOutput, burnInterval, droneRange, droneInterval, bayPower, defenceBonus, emergency,
                 k.TryGetProperty("regen_hp", out _) ? Int(k, "regen_hp", owner, 1, 1000) : 1,
-                shieldPercent, shieldStack, shieldMax, sensorRange, buildable, hardpointPercent, hardpointRange);
+                shieldPercent, shieldStack, shieldMax, sensorRange, buildable, hardpointPercent, hardpointRange, recoil);
         }
         return new StructureContent(kinds);
     }
@@ -1217,6 +1229,7 @@ public sealed class ContentDb
                 if (k.Kind is ModuleKind.Shield or ModuleKind.Sensor) { Mix(k.PowerUse); Mix(k.ShieldPercent); Mix(k.ShieldStackPercent); Mix(k.ShieldMaxPercent); Mix(k.SensorRangeCells); }
                 if (k.Kind == ModuleKind.Defence && k.DefenceBonusPercent != 10) Mix(k.DefenceBonusPercent); // 10 is the default
                 if (ModuleKindIds.IsHardpoint(k.Kind)) { Mix(k.HardpointPercent); Mix(k.HardpointRangeCells); Mix(k.PowerUse); }
+                if (k.Recoil != 0) { Mix(-61); Mix(k.Recoil); } // content without recoil hashes as before
                 if (k.RegenHp != 1) Mix(k.RegenHp); // 1 is the default
                 if (k.BuildableFloor != (k.AllowedRoles.Length > 0 || k.AllowsBelts)) Mix(k.BuildableFloor ? 7 : 8); // the default is: it allows something
             }
@@ -1246,6 +1259,7 @@ public sealed class ContentDb
             Mix(th.AlertMax); Mix(th.SignatureThreshold); Mix(th.DecayPerTick); Mix(th.AlertAfterWave); Mix(th.WarningTicks);
             Mix(th.NodeDistanceCells); Mix(th.MaxEnemies); Mix(th.ShipHull); Mix(th.ShipWeaponRangeCells); Mix(th.ShipWeaponDamage);
             Mix(th.ShipWeaponIntervalTicks); Mix(th.RespawnTicks);
+            if (th.ShipAmmoPerVolley > 0) { Mix(-62); Mix(th.ShipAmmoItem); Mix(th.ShipAmmoPerVolley); } // no ammo cost hashes as before
             if (th.ModuleRegenTicks != ThreatRules.DefaultModuleRegenTicks || th.FirstWaveGraceTicks != 0) { Mix(th.ModuleRegenTicks); Mix(th.FirstWaveGraceTicks); }
             if (th.StructureShipDamagePercent != 100) Mix(th.StructureShipDamagePercent);
         }

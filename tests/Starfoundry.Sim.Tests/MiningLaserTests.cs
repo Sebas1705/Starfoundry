@@ -152,7 +152,7 @@ public class MiningLaserTests
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, log, C.Hash, GameMode.Sandbox, Seed, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(15, bytes[4]);
+        Assert.Equal(17, bytes[4]);
         var back = CommandCodec.ReadLog(new MemoryStream(bytes));
         Assert.Equal(3, back.Count);
         Assert.Equal(log[1].Command, back[1].Command);
@@ -270,7 +270,7 @@ public class MiningLaserTests
     [Fact]
     public void A_full_hold_stops_the_draw()
     {
-        var w = World();
+        var w = World(rules: new WorldRules().WithLegacyFeel(true));
         var (ship, dep) = ParkedShip(w);
         w.Network.GiveItems(0, C.ItemIndex("core:iron_plate"), w.Network.HoldCapacity(0)); // past the mining limit
         Ok(w, new StartMining(dep));

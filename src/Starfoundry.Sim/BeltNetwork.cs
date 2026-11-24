@@ -202,6 +202,7 @@ public sealed partial class BeltNetwork
     /// <summary>Advances the simulation by one tick.</summary>
     public void Step()
     {
+        ClearFeelEvents(); // ADR 0036: the events of the last tick go before this one makes its own
         if (_dirty) RebuildOrder();
 
         StepPower(); // before anything works: reactors burn, satisfaction and work credits are set for this tick
@@ -217,6 +218,7 @@ public sealed partial class BeltNetwork
         StepResearch();
         StepThreat();
         StepObstacles(); // after the threat step, which clears the module hits of the tick
+        StepFeel(); // ADR 0036: pickups, projectiles, free fire and regrowth
 
         foreach (var s in _segs)
         {
@@ -282,8 +284,7 @@ public sealed partial class BeltNetwork
 
         Mix(Tick); Mix(Spawned); Mix(Consumed); Mix(Destroyed); Mix(_segs.Count);
         Mix(MachineInputsConsumed); Mix(MachineOutputsCreated); Mix((long)(Content?.Hash ?? 0)); Mix((int)Mode); Mix(ThreatsEnabled ? 1 : 0); if (StationRules) Mix(2); if (StructureRules) Mix(4);
-        { var hashed = Rules.AnyLegacy ? Rules.WithoutLegacyFlags() : Rules; // the legacy flags alone (logs older than versions 9, 10, 13, 14 and 15) hash as default rules
-            if (!hashed.IsDefault) foreach (byte rb in hashed.Serialize()) Mix(rb); } // default rules hash as before they existed
+        if (!Rules.HashesAsDefault) foreach (byte rb in Rules.HashBytes()) Mix(rb); // default rules, and rules that differ only by the legacy flags (logs older than versions 9, 10, 13, 14, 15 and 17), hash as before they existed
         MixMachines(Mix);
         MixEconomy(Mix);
         MixStation(Mix);

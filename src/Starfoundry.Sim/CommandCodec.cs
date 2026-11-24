@@ -14,20 +14,21 @@ public static class CommandCodec
         TagConnectToMachine = 13, TagConnectFromMachine = 14, TagDisconnectMachine = 15,
         TagStartMining = 16, TagStopMining = 17, TagSetShipRecipe = 18, TagSetResearch = 19,
         TagLinkDeposit = 20, TagUnlinkDeposit = 21, TagSetMovement = 22, TagScan = 23, TagJump = 24, TagSetWeapons = 25, TagRepair = 26, TagSetThrust = 27, TagPlaceModule = 28, TagRemoveModule = 29,
-        TagPlaceMachineIn = 30, TagPlaceSegmentIn = 31, TagPlaceModuleIn = 32, TagRemoveModuleIn = 33, TagFoundStation = 34, TagAssignDrones = 35, TagDumpItems = 36, TagFireLaser = 37, TagSetBoost = 38, TagDockAt = 39, TagUndock = 40, TagTransferItems = 41, TagSetAttitude = 42, TagDesignerApply = 46;
+        TagPlaceMachineIn = 30, TagPlaceSegmentIn = 31, TagPlaceModuleIn = 32, TagRemoveModuleIn = 33, TagFoundStation = 34, TagAssignDrones = 35, TagDumpItems = 36, TagFireLaser = 37, TagSetBoost = 38, TagDockAt = 39, TagUndock = 40, TagTransferItems = 41, TagSetAttitude = 42, TagDesignerApply = 46, TagSetAim = 59;
 
     private static readonly byte[] Magic = Encoding.ASCII.GetBytes("SFCL");
 
     /// <summary>Version 2 added the content hash to the header, version 3 the game mode, version 4 the galaxy seed, version 5 the threat flag.</summary>
     /// Version 6 added the station-rules flag (bit 1); the structures flag (bit 2) uses a bit that version 6 left free,
     /// so logs written before it simply read as structures off and the version stays 6.
-    private const byte LogVersion = 15;
+    private const byte LogVersion = 17;
     /// Version 7 added the world rules block (flags bit 3, written only for non-default rules). Version 8 added the scenario id (flags bit 4).
     /// Version 10 added the SetBoost command (tag 38) and the wide galaxy with obstacles: logs of versions 5 to 9 read with <see cref="WorldRules.LegacyGalaxy"/> on (ADR 0028).
     /// Version 9 added the FireLaser command (tag 37) and the mining laser's power draw: logs of versions 5 to 8 read with <see cref="WorldRules.LegacyLaser"/> on, so they replay without it (ADR 0027).
     /// Version 11 added the docking commands (tags 39 to 41, ADR 0029). They only act on state that older logs never create, so nothing is replayed differently; the reader refuses them in older logs.
     /// Version 14 added the DesignerApply command (tag 46) and the hardpoint modules (ADR 0032): logs of versions 5 to 13 read with <see cref="WorldRules.LegacyHardpoints"/> on, so the ship keeps its implicit laser and gun; the reader refuses the command in them.
     /// Version 15 added no command: it changes how a ship flies and collides (ADR 0033: acceleration limits and inertia, solid deposits, padded hit volumes). Logs of versions 5 to 14 read with <see cref="WorldRules.LegacyCollisions"/> and <see cref="WorldRules.LegacyFlight"/> on, so they replay as recorded.
+    /// Version 17 added the SetAim command (tag 59) and ADR 0036: free fire with projectiles and recoil, hold overflow, regrowing deposits and the resource density rule. Logs of versions 5 to 16 read with <see cref="WorldRules.LegacyFeel"/> and <see cref="WorldRules.LegacyResources"/> on, so they replay as recorded; the reader refuses SetAim in them.
     /// Version 12 added the SetAttitude command (tag 42, ADR 0030). Logs of older versions never carry it, so they replay with every ship level, exactly as recorded; the reader refuses it in them.
     /// Version 13 added no command: it changes where machines and belts may be built (the floor of a fabrication bay, ADR 0031). Logs of versions 5 to 12 read with <see cref="WorldRules.LegacyBuilding"/> on, so they replay with free building as recorded.
     /// <summary>Version 5 headers carry no station-rules or structures flag; they still load, with both rules off.</summary>
@@ -61,7 +62,7 @@ public static class CommandCodec
                 or ConnectToMachine or ConnectFromMachine or DisconnectMachine
                 or StartMining or StopMining or SetShipRecipe or SetResearch or LinkDeposit or UnlinkDeposit or SetMovement or SetThrust
                 or Scan or Jump or SetWeapons or Repair or PlaceModule or RemoveModule
-                or PlaceMachineIn or PlaceSegmentIn or PlaceModuleIn or RemoveModuleIn or FoundStation or AssignDrones or DumpItems or FireLaser or SetBoost or DockAt or Undock or TransferItems:
+                or PlaceMachineIn or PlaceSegmentIn or PlaceModuleIn or RemoveModuleIn or FoundStation or AssignDrones or DumpItems or FireLaser or SetBoost or DockAt or Undock or TransferItems or SetAim:
                 return true;
             case SetAttitude sa:
                 return FitsShort(sa.W) && FitsShort(sa.X) && FitsShort(sa.Y) && FitsShort(sa.Z);
@@ -214,6 +215,9 @@ public static class CommandCodec
             case SetAttitude sa:
                 w.Write(TagSetAttitude); w.Write((short)sa.W); w.Write((short)sa.X); w.Write((short)sa.Y); w.Write((short)sa.Z);
                 break;
+            case SetAim sm:
+                w.Write(TagSetAim); w.Write(sm.Dx); w.Write(sm.Dy); w.Write(sm.Dz);
+                break;
             case Scan:
                 w.Write(TagScan);
                 break;
@@ -315,6 +319,7 @@ public static class CommandCodec
                 for (int i = 0; i < n; i++) modules[i] = new DesignModule(r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), (ModuleKind)r.ReadByte());
                 return new DesignerApply(modules);
             }
+            case TagSetAim: return new SetAim(r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
             case TagScan: return new Scan();
             case TagJump: return new Jump(r.ReadInt32());
             case TagSetWeapons: return new SetWeapons(r.ReadBoolean());
@@ -457,6 +462,7 @@ public static class CommandCodec
         if (version < 13) rules = rules.WithLegacyBuilding(true); // and before building on the floor of a bay only (ADR 0031)
         if (version < 14) rules = rules.WithLegacyHardpoints(true); // and before hardpoint modules (ADR 0032): the ship keeps its implicit laser and gun
         if (version < 15) rules = rules.WithLegacyCollisions(true).WithLegacyFlight(true); // and before solid deposits, padded hit volumes and inertia (ADR 0033)
+        if (version < 17) rules = rules.WithLegacyFeel(true).WithLegacyResources(true); // and before free fire, recoil, hold overflow and the resource density (ADR 0036)
         scenarioId = null;
         if ((flags & 16) != 0)
         {
@@ -483,11 +489,13 @@ public static class CommandCodec
             if (version < 11 && HasDocking(command)) throw new InvalidDataException("A log older than version 11 cannot hold a docking command.");
             if (version < 12 && HasAttitude(command)) throw new InvalidDataException("A log older than version 12 cannot hold a SetAttitude command.");
             if (version < 14 && HasDesigner(command)) throw new InvalidDataException("A log older than version 14 cannot hold a DesignerApply command.");
+            if (version < 17 && HasAim(command)) throw new InvalidDataException("A log older than version 17 cannot hold a SetAim command.");
             log.Add(new LoggedCommand(tick, player, command));
         }
         return log;
     }
 
+    private static bool HasAim(Command c) => c is SetAim || (c is Batch b && b.Commands.Any(HasAim));
     private static bool HasDesigner(Command c) => c is DesignerApply || (c is Batch b && b.Commands.Any(HasDesigner));
     private static bool HasAttitude(Command c) => c is SetAttitude || (c is Batch b && b.Commands.Any(HasAttitude));
     private static bool HasBoost(Command c) => c is SetBoost || (c is Batch b && b.Commands.Any(HasBoost));

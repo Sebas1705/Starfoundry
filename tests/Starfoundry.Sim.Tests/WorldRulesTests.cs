@@ -528,7 +528,7 @@ public class WorldRulesTests
         byte[] plain = LogBytes(log, null);
         byte[] normal = LogBytes(log, WorldRules.Normal);
         Assert.Equal(plain, normal); // default rules write no block
-        Assert.Equal(15, plain[4]); // version 15 added solid deposits, padded hit volumes and flight inertia (legacy flags); the rules block is unchanged
+        Assert.Equal(17, plain[4]); // version 17 added free fire, hold overflow and the resource density; the rules block of default rules is still empty
         Assert.Equal(0, plain[4 + 1 + 8 + 1 + 8] & 8);
 
         byte[] hard = LogBytes(log, WorldRules.Hard);

@@ -285,13 +285,13 @@ public class FlightFeelTests
     [Fact]
     public void An_old_log_replays_with_the_legacy_flags_and_the_new_header_reads_without_them()
     {
-        var legacyRules = new WorldRules().WithLegacyFlight(true).WithLegacyCollisions(true);
+        var legacyRules = new WorldRules().WithLegacyFlight(true).WithLegacyCollisions(true).WithLegacyFeel(true).WithLegacyResources(true); // what a build of that time recorded: the ADR 0036 rules did not exist
         var recorded = Flyer(legacyRules, C);
         Script(recorded);
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, recorded.Log, C.Hash, GameMode.Sandbox, Seed, threats: false, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(15, bytes[4]);
+        Assert.Equal(17, bytes[4]);
         var empty = new MemoryStream();
         CommandCodec.WriteLog(empty, new List<LoggedCommand>(), C.Hash, GameMode.Sandbox, Seed, threats: false, structures: true);
         CommandCodec.ReadLog(new MemoryStream(bytes), out _, out _, out _, out _, out _, out _, out var current);

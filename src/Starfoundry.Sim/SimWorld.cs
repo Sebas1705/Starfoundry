@@ -79,7 +79,7 @@ public sealed partial class SimWorld
     {
         rules ??= WorldRules.Default;
         if (rules.Validate(content) is { } problem) throw new ArgumentException("Invalid world rules: " + problem, nameof(rules));
-        var galaxy = Galaxy.Generate(content, seed, legacy: rules.LegacyGalaxy || !structures); // the wide galaxy is for structure worlds (ADR 0028)
+        var galaxy = Galaxy.Generate(content, seed, legacy: rules.LegacyGalaxy || !structures, resourceDensityPercent: rules.LegacyResources ? 100 : rules.ResourceDensityPercent); // the wide galaxy is for structure worlds (ADR 0028)
         var net = new BeltNetwork(content, mode, threats, stationRules, structures, rules);
         foreach (var d in galaxy.Deposits)
             net.AddDeposit(d.Item, Math.Max(1, WorldRules.Scale(d.Amount, rules.DepositRichnessPercent)), d.X, d.Y, d.Z, revealed: d.System == 0, density: d.Density);
@@ -446,6 +446,12 @@ public sealed partial class SimWorld
             case SetWeapons sw:
                 if (sw.Armed && !Network.HasGun(player)) return Reject.NoGun; // ADR 0032: a ship shoots with its gun modules
                 Network.SetWeapons(player, sw.Armed);
+                return Reject.None;
+
+            case SetAim sa:
+                if (Network.Rules.LegacyFeel) return Reject.NotAllowedHere; // ADR 0036: older worlds fire only at a target the sim picks
+                if (!Network.AimInRange(sa.Dx, sa.Dy, sa.Dz)) return Reject.InvalidArgument;
+                Network.SetAim(player, sa.Dx, sa.Dy, sa.Dz);
                 return Reject.None;
 
             case Scan:

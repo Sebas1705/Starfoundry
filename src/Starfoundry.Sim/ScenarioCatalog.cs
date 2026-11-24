@@ -344,6 +344,7 @@ public sealed class ScenarioCatalog
             DepositRichnessPercent = G("deposit_richness_percent", baseRules.DepositRichnessPercent, WorldRules.MinRichness, WorldRules.MaxRichness),
             PowerOutputPercent = G("power_output_percent", baseRules.PowerOutputPercent, WorldRules.MinPercent, WorldRules.MaxPercent),
             GoalWaves = G("goal_waves", baseRules.GoalWaves, WorldRules.MinGoalWaves, WorldRules.MaxGoalWaves),
+            ResourceDensityPercent = baseRules.ResourceDensityPercent,
             ThreatsEnabled = rj.TryGetProperty("threats_enabled", out var te) ? Bool(te, "threats_enabled", id) : baseRules.ThreatsEnabled,
             FreeBuild = rj.TryGetProperty("free_build", out var fb) ? Bool(fb, "free_build", id) : baseRules.FreeBuild,
             StartingItems = items,
@@ -457,7 +458,7 @@ public sealed class ScenarioCatalog
             EnemyDamagePercent = _r.EnemyDamagePercent, EnemyHpPercent = _r.EnemyHpPercent, WaveSizePercent = _r.WaveSizePercent,
             WaveIntervalPercent = _r.WaveIntervalPercent, FirstWaveGraceSeconds = _r.FirstWaveGraceSeconds, DepositRichnessPercent = _r.DepositRichnessPercent,
             PowerOutputPercent = _r.PowerOutputPercent, GoalWaves = _r.GoalWaves, ThreatsEnabled = _r.ThreatsEnabled, FreeBuild = _r.FreeBuild,
-            StartingItems = items,
+            ResourceDensityPercent = _r.ResourceDensityPercent, StartingItems = items,
         };
     }
 }
