@@ -15,18 +15,19 @@ Can difficulty be a small bundle of integer numbers stored with the game, and do
 | `FirstWaveGraceSeconds` | -1 | 0..3600 | Grace before the first wave of a system; -1 keeps the content value (480 s) |
 | `DepositRichnessPercent` | 100 | 25..400 | Size of every generated deposit |
 | `PowerOutputPercent` | 100 | 25..300 | Output of a burning reactor (the emergency trickle is not scaled) |
+| `ResourceDensityPercent` | 140 | 50..300 | How many deposits the generator makes: above 100, extra deposits are appended after the base ones (ADR 0036); 100 is the old galaxy. Ignored with the legacy flag |
 | `StartingItems` | none | up to 64 stacks | Added to the starter hold as far as it has room |
 | `ThreatsEnabled` | true | | False: no waves (ANDed with the world's `threats` bool) |
 | `FreeBuild` | false | | True: placing and repairing costs nothing, removing refunds nothing |
 | `GoalWaves` | 10 | 1..30 | Waves to survive for the win (read by `GameOutcome`) |
 
 ## The presets
-| Preset | Enemy damage | Enemy hp | Wave size | Wave interval | First wave grace | Richness | Power | Goal waves |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Relaxed | 70 | 80 | 70 | 130 | 600 s | 150 | 110 | 8 |
-| Normal | 100 | 100 | 100 | 100 | content (480 s) | 100 | 100 | 10 |
-| Hard | 120 | 120 | 120 | 80 | 300 s | 80 | 100 | 13 |
-| Brutal | 170 | 170 | 170 | 65 | 120 s | 60 | 90 | 15 |
+| Preset | Enemy damage | Enemy hp | Wave size | Wave interval | First wave grace | Richness | Power | Goal waves | Density |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Relaxed | 70 | 80 | 70 | 130 | 600 s | 150 | 110 | 8 | 150 |
+| Normal | 100 | 100 | 100 | 100 | content (480 s) | 100 | 100 | 10 | 140 |
+| Hard | 120 | 120 | 120 | 80 | 300 s | 80 | 100 | 13 | 120 |
+| Brutal | 170 | 170 | 170 | 65 | 120 s | 60 | 90 | 15 | 100 |
 
 Each preset also has `ThreatsEnabled` true, `FreeBuild` false and no starting items.
 
@@ -134,3 +135,22 @@ Five optional materials ([materials](materials.md#materials-and-what-they-are-fo
 | Hard (13) | 52:36 (17:49) |
 
 These match main after the flight-feel merge (about 48.5, 49.5 and 52.6): the new content moved nothing. Level times with the new secondary goals (scenario bot): level 1 3:27 (1:51 without the optional bay, 3 stars), level 2 4:20 (3 stars), level 3 18:09 (3 stars), level 6 0:16, level 7 8:52 (3 stars). The `ship_speed` goals count engines fitted (100 percent each), so the engine research of ADR 0033, which raises top speed past the cap, does not change them.
+
+## Weapons feel, economy and resource density (2026-11-24)
+[ADR 0036](../adr/0036-free-fire-recoil-hold-overflow-and-resource-density.md), [weapons feel](weapons-feel.md). The starter hold holds 400, the mining laser is 250 percent (Mk2 425) and a drone bay takes 14 ticks an item, so a trip and a drone line yield two to three times what they did; the new `ResourceDensityPercent` rule adds deposits (Relaxed 150, Normal 140, Hard 120, Brutal 100), a full hold no longer stops the laser and emptied deposits regrow. The bot never sends an aim, so combat is as before; the economy is what moved.
+
+Compensation: with only the economy changed the bot won Normal on the main seed at 45:49 (first wave warning at 17:28, it was 19:04): a richer start builds the noisy machines sooner and the alert meter fills faster. The first wave alert capacity (`threat.alert_max`) went from 216000 to 234000, which puts the wave clock back; no rule and no research cost was weakened. The bot also learned to slide sideways after being pinned twice against a rock on its way down to the mining spot (seed 777, Normal: 56:53 before, 52:44 after).
+
+StructureBot, 6 s per action, `--structures --difficulty=<preset> --seed N`, minutes to the win (targets Relaxed 44 to 50, Normal 48 to 53, Hard 51 to 56):
+
+| Preset (goal) | Seed 20261121 | Seed 20261120 | Seed 777 |
+| --- | --- | --- | --- |
+| Relaxed (8) | Win 45:16 | Win 45:34 | Win 44:28 |
+| Normal (10) | Win 47:36 | Win 47:59 | Win 52:44 |
+| Hard (13) | Win 51:51 | Win 53:57 | Win 57:16 |
+
+Before (main, same bot and seed 20261121): Relaxed 48:34, Normal 49:31, Hard 52:36.
+
+- Relaxed is inside its band on every seed. Normal's two seeds land 0:01 and 0:24 under 48 and Hard's seed 777 1:16 over 56: the spread between seeds (up to 5 minutes) is wider than the band for Normal, so the capacity was set for the middle. Seed 777 is slow on every preset because the bot's approach to the home iron rock pins a wing for minutes there; its waves come later because the bot builds less meanwhile. A better approach for the bot is the real fix; it was not attempted beyond the sideways slide.
+- Running with `--density=100` on seed 777 gives the same minute, so the extra deposits are not what moved the bot there. The `--density=N` flag of the Balance tool plays any density (the presets carry 150, 140, 120 and 100).
+- Brutal was not re-measured.

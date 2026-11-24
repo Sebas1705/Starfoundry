@@ -11,7 +11,7 @@ public static partial class Loc
         ["module.mininglasermk2"] = ("Láser de minería Mk2", "Mk2 mining laser"),
         ["module.mininglasermk2.purpose"] = ("Láser potente: 170 % de rendimiento y 14 celdas de alcance; gasta 8 de energía.", "A strong laser: 170 percent yield and 14 cells of reach; draws 8 power."),
         ["module.gun"] = ("Cañón", "Gun"),
-        ["module.gun.purpose"] = ("Montaje de la nave: dispara al enemigo más cercano mientras mantienes el fuego (grupo de armas V).", "A ship hardpoint: shoots the nearest enemy while you hold fire (weapon group V)."),
+        ["module.gun.purpose"] = ("Montaje de la nave: dispara donde apuntas mientras mantienes el fuego (grupo de armas, M cambia).", "A ship hardpoint: fires where you aim while you hold fire (weapon group, M switches)."),
         ["module.gunmk2"] = ("Cañón Mk2", "Mk2 gun"),
         ["module.gunmk2.purpose"] = ("Cañón potente: 170 % del daño de un cañón Mk1.", "A strong gun: 170 percent of the damage of a mark 1 gun."),
         ["module.shipyard"] = ("Astillero", "Shipyard"),
@@ -23,14 +23,9 @@ public static partial class Loc
         ["toast.reject.noShipyard"] = ("Hace falta la nave atracada en una estación tuya con un astillero", "The ship must be docked at one of your stations that has a shipyard"),
 
         // key panel
-        ["key.weaponLaser"] = ("Arma: láser de minería (V cambia)", "Weapon: mining laser (V switches)"),
-        ["key.weaponGuns"] = ("Arma: cañones (V cambia)", "Weapon: guns (V switches)"),
-        ["key.fireGuns"] = ("Mantén el clic para disparar los cañones", "Hold the click to fire the guns"),
         ["key.designer"] = ("Diseñador de naves", "Ship designer"),
         ["key.why.noLaser"] = ("La nave no tiene láser de minería: instala uno en el astillero.", "The ship has no mining laser: fit one at the shipyard."),
         ["key.why.noGun"] = ("La nave no tiene cañón: instala uno en el astillero.", "The ship has no gun: fit one at the shipyard."),
-        ["toast.weaponGroupLaser"] = ("Arma en mano: láser de minería ({0})", "Weapon in hand: mining laser ({0})"),
-        ["toast.weaponGroupGuns"] = ("Arma en mano: cañones ({0})", "Weapon in hand: guns ({0})"),
         ["toast.noShipyardHere"] = ("Para el diseñador atraca en una estación tuya con un astillero", "For the designer dock at one of your stations that has a shipyard"),
 
         // the ship designer
@@ -80,6 +75,7 @@ public static partial class Loc
     static Loc()
     {
         foreach (var (key, value) in ShipyardTable) Table[key] = value;
+        foreach (var (key, value) in FeelTable) Table[key] = value;
         foreach (var (key, value) in FlightTable) Table[key] = value;
         foreach (var (key, value) in MaterialsTable) Table[key] = value;
         foreach (var (key, value) in MissionsTable) Table[key] = value;

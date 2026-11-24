@@ -2,6 +2,8 @@
 
 Status: done, awaiting a human play-test (2026-11-22). Rules in [ADR 0032](../adr/0032-weapons-as-hardpoint-modules-and-the-shipyard.md); builds on the [mining laser](mining-laser.md), [docking](docking.md) and [ship attitude](free-flight.md).
 
+Update (2026-11-24, [ADR 0036](../adr/0036-free-fire-recoil-hold-overflow-and-resource-density.md), [weapons feel](weapons-feel.md)): `M` cycles the weapon in hand (it replaces `V`, which still works), the guns fire along an aim with or without an enemy (projectiles, recoil per gun module), the Mk1 laser is 250 percent and the Mk2 425. The rest of this page stands.
+
 ## Goal
 Owner feedback: ships and stations are completely modular and customisable, so a ship mines and shoots with the weapons it carries, and each weapon is added or upgraded in a ship designer at a shipyard of the station.
 

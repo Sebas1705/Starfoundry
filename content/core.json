@@ -1801,7 +1801,7 @@
       "cost": [{ "item": "core:iron_ingot", "count": 20 }],
       "hp": 200,
       "allows": [],
-      "hold_capacity": 100,
+      "hold_capacity": 400,
       "thrust_speed_percent": 0
     },
     "workshop": {
@@ -1835,7 +1835,7 @@
       "hold_capacity": 0,
       "thrust_speed_percent": 0,
       "drone_range_cells": 130,
-      "drone_interval_ticks": 36,
+      "drone_interval_ticks": 14,
       "power_use": 20
     },
     "shield": {
@@ -1882,7 +1882,7 @@
       "hold_capacity": 0,
       "thrust_speed_percent": 0,
       "power_use": 5,
-      "hardpoint_percent": 100,
+      "hardpoint_percent": 250,
       "hardpoint_range_cells": 10
     },
     "mining_laser_mk2": {
@@ -1892,7 +1892,7 @@
       "hold_capacity": 0,
       "thrust_speed_percent": 0,
       "power_use": 8,
-      "hardpoint_percent": 170,
+      "hardpoint_percent": 425,
       "hardpoint_range_cells": 14
     },
     "gun": {
@@ -1909,7 +1909,8 @@
       "allows": [],
       "hold_capacity": 0,
       "thrust_speed_percent": 0,
-      "hardpoint_percent": 170
+      "hardpoint_percent": 170,
+      "recoil": 3000
     },
     "shipyard": {
       "cost": [{ "item": "core:iron_plate", "count": 24 }, { "item": "core:iron_ingot", "count": 16 }, { "item": "core:carbon", "count": 8 }],
@@ -2051,7 +2052,7 @@
     }
   },
   "threat": {
-    "alert_max": 216000,
+    "alert_max": 234000,
     "signature_threshold": 8,
     "decay_per_tick": 1,
     "alert_after_wave": 48000,

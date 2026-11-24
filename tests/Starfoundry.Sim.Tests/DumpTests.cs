@@ -15,7 +15,7 @@ public class DumpTests
     private const ulong Seed = 20261121UL;
 
     private static SimWorld World(GameMode mode = GameMode.Sandbox) =>
-        SimWorld.CreateGalaxy(C, mode, Seed, threats: false, stationRules: false, structures: true);
+        SimWorld.CreateGalaxy(C, mode, Seed, threats: false, stationRules: false, structures: true, rules: new WorldRules().WithLegacyFeel(true)); // the hard stop at the hold limit is the rule before ADR 0036
 
     private static CommandResult Run(SimWorld w, Command c)
     {

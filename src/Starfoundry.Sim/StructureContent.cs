@@ -22,11 +22,12 @@ namespace Starfoundry.Sim;
 /// <param name="SensorRangeCells">How far from the sensor deposits are revealed automatically, in cells (sensor only; 0 otherwise).</param>
 /// <param name="HardpointPercent">Strength of one hardpoint in percent of the base mining rate or gun damage: 100 is the mark 1 (mining laser and gun kinds only; 0 otherwise). ADR 0032.</param>
 /// <param name="HardpointRangeCells">How far from its module centre one mining laser reaches a deposit, in cells (mining laser kinds only; 0 otherwise).</param>
+/// <param name="Recoil">Velocity impulse one volley of a gun module of this kind gives the ship, opposite to the firing direction, in thousandths of a unit per tick at the reference mass and a strength of 100 percent (gun kinds only; 0 otherwise, which is the main proton guns). ADR 0036.</param>
 /// <param name="BuildableFloor">Whether machines and belts may be built on the floor of a module of this kind (ADR 0031). Content that does not say defaults to: the kind allows something.</param>
 public sealed record ModuleKindDef(
     ModuleKind Kind, ItemStack[] Cost, int Hp, MachineRole[] AllowedRoles, bool AllowsBelts, int HoldCapacity, int ThrustSpeedPercent,
     int PowerOutput = 0, int BurnIntervalTicks = 0, int DroneRangeCells = 0, int DroneIntervalTicks = 0, int PowerUse = 0, int DefenceBonusPercent = 0, int EmergencyPower = 0, int RegenHp = 1,
-    int ShieldPercent = 0, int ShieldStackPercent = 0, int ShieldMaxPercent = 0, int SensorRangeCells = 0, bool BuildableFloor = false, int HardpointPercent = 0, int HardpointRangeCells = 0);
+    int ShieldPercent = 0, int ShieldStackPercent = 0, int ShieldMaxPercent = 0, int SensorRangeCells = 0, bool BuildableFloor = false, int HardpointPercent = 0, int HardpointRangeCells = 0, int Recoil = 0);
 
 /// <summary>The module kinds of ships and stations, from the <c>structures</c> section of the content.</summary>
 public sealed class StructureContent
@@ -106,6 +107,9 @@ public sealed class StructureContent
 
     /// <summary>Strength in percent of one hardpoint module (mining laser and gun kinds; 0 for every other kind).</summary>
     public int HardpointPercent(ModuleKind kind) => _kinds[(int)kind].HardpointPercent;
+
+    /// <summary>Recoil of one gun module of this kind (0 for the main guns and every other kind).</summary>
+    public int Recoil(ModuleKind kind) => _kinds[(int)kind].Recoil;
 
     /// <summary>Reach in cells of one mining laser module (0 for every other kind).</summary>
     public int HardpointRangeCells(ModuleKind kind) => _kinds[(int)kind].HardpointRangeCells;

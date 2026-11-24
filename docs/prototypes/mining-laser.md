@@ -2,6 +2,8 @@
 
 Status: done, awaiting a human play-test (2026-11-22). Replaces the "press `M` and the ship mines by itself" toggle. Builds on [polish controls](polish-controls.md). The rules (trigger, power draw, research) are [ADR 0027](../adr/0027-mining-laser-rules.md).
 
+Update (2026-11-24, [ADR 0036](../adr/0036-free-fire-recoil-hold-overflow-and-resource-density.md), [weapons feel](weapons-feel.md)): `M` no longer takes the laser out or stows it; it cycles the weapon in hand (the guns or the laser) and the left click fires it. The laser is 250 percent, hand mining slows to a quarter past 75 percent of the hold instead of stopping there, and a full hold overflows into ore pickups. The table below describes the first version.
+
 ## Goal
 Owner feedback: mining must be done with the ship's weapons, not by pressing a key and that is it. Mining is now an act of aiming and firing, and firing is part of the simulation.
 

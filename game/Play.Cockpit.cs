@@ -169,7 +169,8 @@ public partial class Play
         if (Net.ThreatActive && system >= 0) enemies = Net.GetSystemThreat(Math.Max(0, system)).Enemies;
         snap.Systems = new SystemsDisplayData(modules, damaged, p.Hull, maxHull, holdUsed, holdCap, 0, threatNow);
         snap.Weapons = new WeaponsDisplayData(HardpointsOn, !HardpointsOn || Net.HasMiningLaser(Player), !HardpointsOn || Net.HasGun(Player), _weaponGroup, p.Armed,
-            _laserOn, Net.LaserFiring(Player), Net.ThreatActive, enemies);
+            _laserOn, Net.LaserFiring(Player), Net.ThreatActive, enemies,
+            MiningReadout(out int mineDeposit, out bool mineSlowed), mineDeposit, mineSlowed);
 
         // navigation
         snap.HasGalaxy = Net.Galaxy is not null;

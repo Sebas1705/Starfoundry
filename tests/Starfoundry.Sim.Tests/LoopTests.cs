@@ -40,7 +40,7 @@ public class LoopTests
     /// <summary>A campaign world with an iron deposit (id 0) and a carbon deposit (id 1).</summary>
     private static SimWorld Campaign(int ironAmount = 500)
     {
-        var w = new SimWorld(C, GameMode.Campaign);
+        var w = new SimWorld(new BeltNetwork(C, GameMode.Campaign, rules: new WorldRules().WithLegacyFeel(true))); // the hold limit of before ADR 0036 (a full hold overflows now)
         w.Network.AddDeposit(Ore, ironAmount);
         w.Network.AddDeposit(CarbonItem, 200);
         return w;

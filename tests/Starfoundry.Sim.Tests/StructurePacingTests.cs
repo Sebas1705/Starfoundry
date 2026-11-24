@@ -27,7 +27,7 @@ public class StructurePacingTests
     private static string Min(long ticks) => ticks < 0 ? "never" : $"{ticks} ticks, {ticks / (double)Tps:F0} s ({ticks / (double)Tps / 60:F1} min)";
 
     private static SimWorld World(bool threats = false) =>
-        SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, threats, stationRules: false, structures: true);
+        SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, threats, stationRules: false, structures: true, rules: new WorldRules().WithLegacyFeel(true)); // calibrated for the hard stop at the hold limit that protects the starter factory (ADR 0036 slows and overflows instead)
 
     private static int HomeIron(SimWorld w) =>
         Enumerable.Range(0, w.Network.DepositCount).First(d => w.Network.DepositItem(d) == Ore && w.Network.IsDepositRevealed(d));

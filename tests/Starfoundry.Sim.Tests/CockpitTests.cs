@@ -303,8 +303,8 @@ public class CockpitTests
     public void ActiveWeaponGroupFollowsTheFittings()
     {
         static WeaponsDisplayData W(bool hardpoints, bool laser, bool gun, WeaponGroup group, bool armed) => new(hardpoints, laser, gun, group, armed, false, false, true, 0);
-        Assert.Equal(WeaponGroup.Guns, W(false, true, true, WeaponGroup.Laser, armed: true).ActiveGroup);   // no hardpoints: the armed flag decides
-        Assert.Equal(WeaponGroup.Laser, W(false, true, true, WeaponGroup.Laser, armed: false).ActiveGroup);
+        Assert.Equal(WeaponGroup.Laser, W(false, true, true, WeaponGroup.Laser, armed: true).ActiveGroup);   // ADR 0036: the group in hand decides, in every world, not the armed flag
+        Assert.Equal(WeaponGroup.Guns, W(false, true, true, WeaponGroup.Guns, armed: false).ActiveGroup);
         Assert.Equal(WeaponGroup.Guns, W(true, true, true, WeaponGroup.Guns, armed: true).ActiveGroup);
         Assert.Equal(WeaponGroup.Laser, W(true, true, true, WeaponGroup.Laser, armed: false).ActiveGroup);
         Assert.Equal(WeaponGroup.Laser, W(true, true, false, WeaponGroup.Guns, armed: false).ActiveGroup); // no gun fitted: the laser stays

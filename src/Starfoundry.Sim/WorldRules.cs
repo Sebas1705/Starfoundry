@@ -12,6 +12,7 @@ public sealed class WorldRules : IEquatable<WorldRules>
 {
     public const int MinPercent = 25, MaxPercent = 300;
     public const int MinRichness = 25, MaxRichness = 400;
+    public const int MinDensityPercent = 50, MaxDensityPercent = 300;
     public const int MinGraceSeconds = 0, MaxGraceSeconds = 3600;
     public const int MinGoalWaves = 1, MaxGoalWaves = 30;
     public const int MaxStartingStacks = 64, MaxStackCount = 9999;
@@ -20,6 +21,9 @@ public sealed class WorldRules : IEquatable<WorldRules>
     public const int ContentGrace = -1;
 
     private const byte FormatVersion = 1;
+
+    /// <summary>The format that adds a second flags byte (bit 0 legacy feel, bit 1 legacy resources) and the resource density. Written only when one of them is not at its old value, so older rules keep their bytes.</summary>
+    private const byte FormatVersionDensity = 2;
 
     private readonly ItemStack[] _startingItems = Array.Empty<ItemStack>();
 
@@ -97,6 +101,29 @@ public sealed class WorldRules : IEquatable<WorldRules>
     /// </summary>
     public bool LegacyFlight { get; init; }
 
+    /// <summary>
+    /// True: guns need a target to fire (no aim vector, no projectiles, no recoil) and hand mining stops at the hold limit, as before ADR 0036. Logs older than
+    /// version 17 read with this on, so they replay as they were recorded; every new world leaves it off. Not a difficulty setting: it is not in the presets or
+    /// the new-game screen.
+    /// </summary>
+    public bool LegacyFeel { get; init; }
+
+    /// <summary>
+    /// True: the galaxy gets no extra deposits and emptied deposits never regrow, as before ADR 0036 (<see cref="ResourceDensityPercent"/> is ignored). Logs older
+    /// than version 17 read with this on, so they replay as they were recorded; every new world leaves it off. Not a difficulty setting: it is not in the presets
+    /// or the new-game screen.
+    /// </summary>
+    public bool LegacyResources { get; init; }
+
+    /// <summary>
+    /// How many deposits the generated galaxy holds, in percent of the generator's base count (ADR 0036): 140 adds about 40 percent more deposits, richer ones
+    /// near home and small ore-bearing rocks beside belts and clusters. 100 generates the base galaxy. Ignored with <see cref="LegacyResources"/>.
+    /// </summary>
+    public int ResourceDensityPercent { get; init; } = DefaultDensityPercent;
+
+    /// <summary>The density of default rules and of the Normal preset: 40 percent more deposits than the base generator makes. A world read from an old log has the flag instead (the density is ignored).</summary>
+    public const int DefaultDensityPercent = 140;
+
     /// <summary>Waves to survive for the win (read by the outcome logic, not by the simulation).</summary>
     public int GoalWaves { get; init; } = 10;
 
@@ -107,7 +134,7 @@ public sealed class WorldRules : IEquatable<WorldRules>
     public static WorldRules Relaxed { get; } = new()
     {
         EnemyDamagePercent = 70, EnemyHpPercent = 80, WaveSizePercent = 70, WaveIntervalPercent = 130, FirstWaveGraceSeconds = 600,
-        DepositRichnessPercent = 150, PowerOutputPercent = 110, GoalWaves = 8,
+        DepositRichnessPercent = 150, PowerOutputPercent = 110, GoalWaves = 8, ResourceDensityPercent = 150,
     };
 
     public static WorldRules Normal { get; } = new();
@@ -115,13 +142,13 @@ public sealed class WorldRules : IEquatable<WorldRules>
     public static WorldRules Hard { get; } = new()
     {
         EnemyDamagePercent = 120, EnemyHpPercent = 120, WaveSizePercent = 120, WaveIntervalPercent = 80, FirstWaveGraceSeconds = 300,
-        DepositRichnessPercent = 80, PowerOutputPercent = 100, GoalWaves = 13,
+        DepositRichnessPercent = 80, PowerOutputPercent = 100, GoalWaves = 13, ResourceDensityPercent = 120,
     };
 
     public static WorldRules Brutal { get; } = new()
     {
         EnemyDamagePercent = 170, EnemyHpPercent = 170, WaveSizePercent = 170, WaveIntervalPercent = 65, FirstWaveGraceSeconds = 120,
-        DepositRichnessPercent = 60, PowerOutputPercent = 90, GoalWaves = 15,
+        DepositRichnessPercent = 60, PowerOutputPercent = 90, GoalWaves = 15, ResourceDensityPercent = 100,
     };
 
     /// <summary>The named presets in order of difficulty, with their stable ids (<c>relaxed</c>, <c>normal</c>, <c>hard</c>, <c>brutal</c>).</summary>
@@ -147,8 +174,9 @@ public sealed class WorldRules : IEquatable<WorldRules>
     /// <summary>True when these rules equal <see cref="Default"/>: the world then behaves and hashes as before the rules existed.</summary>
     public bool IsDefault => Equals(Default);
 
-    private WorldRules Flags(bool laser, bool galaxy, bool building, bool hardpoints, bool collisions, bool flight) => new()
+    private WorldRules Flags(bool laser, bool galaxy, bool building, bool hardpoints, bool collisions, bool flight, bool? feel = null, bool? resources = null) => new()
     {
+        LegacyFeel = feel ?? LegacyFeel, LegacyResources = resources ?? LegacyResources, ResourceDensityPercent = ResourceDensityPercent,
         EnemyDamagePercent = EnemyDamagePercent, EnemyHpPercent = EnemyHpPercent, WaveSizePercent = WaveSizePercent, WaveIntervalPercent = WaveIntervalPercent,
         FirstWaveGraceSeconds = FirstWaveGraceSeconds, DepositRichnessPercent = DepositRichnessPercent, PowerOutputPercent = PowerOutputPercent,
         GoalWaves = GoalWaves, ThreatsEnabled = ThreatsEnabled, FreeBuild = FreeBuild, LegacyLaser = laser, LegacyGalaxy = galaxy, LegacyBuilding = building,
@@ -173,11 +201,33 @@ public sealed class WorldRules : IEquatable<WorldRules>
     /// <summary>A copy with <see cref="LegacyFlight"/> set to <paramref name="legacy"/>.</summary>
     public WorldRules WithLegacyFlight(bool legacy) => Flags(LegacyLaser, LegacyGalaxy, LegacyBuilding, LegacyHardpoints, LegacyCollisions, legacy);
 
-    /// <summary>A copy with every legacy flag cleared: what the world hashes as, so a log that only differs by them (versions before 9, 10, 13, 14 or 15) hashes as default rules.</summary>
-    public WorldRules WithoutLegacyFlags() => Flags(false, false, false, false, false, false);
+    /// <summary>A copy with <see cref="LegacyFeel"/> set to <paramref name="legacy"/>.</summary>
+    public WorldRules WithLegacyFeel(bool legacy) => Flags(LegacyLaser, LegacyGalaxy, LegacyBuilding, LegacyHardpoints, LegacyCollisions, LegacyFlight, feel: legacy);
+
+    /// <summary>A copy with <see cref="LegacyResources"/> set to <paramref name="legacy"/>.</summary>
+    public WorldRules WithLegacyResources(bool legacy) => Flags(LegacyLaser, LegacyGalaxy, LegacyBuilding, LegacyHardpoints, LegacyCollisions, LegacyFlight, resources: legacy);
+
+    /// <summary>Whether this world hashes as default rules (nothing is mixed into its checksum): default rules and rules that differ only by the legacy flags, as the worlds before ADR 0036 did.</summary>
+    public bool HashesAsDefault => LegacyResources ? WithoutLegacyFlags().WithResourceDensity(DefaultDensityPercent).IsDefault : WithoutLegacyFlags().IsDefault;
+
+    /// <summary>The bytes mixed into the checksum of a world that does not <see cref="HashesAsDefault"/>: the form the rules had before the density existed for a legacy world (so its checksums do not change), else <see cref="Serialize"/> without the legacy flags.</summary>
+    public byte[] HashBytes() => LegacyResources ? WithoutLegacyFlags().Serialize(withDensity: false) : WithoutLegacyFlags().Serialize();
+
+    /// <summary>A copy with another <see cref="ResourceDensityPercent"/>.</summary>
+    public WorldRules WithResourceDensity(int percent) => new()
+    {
+        EnemyDamagePercent = EnemyDamagePercent, EnemyHpPercent = EnemyHpPercent, WaveSizePercent = WaveSizePercent, WaveIntervalPercent = WaveIntervalPercent,
+        FirstWaveGraceSeconds = FirstWaveGraceSeconds, DepositRichnessPercent = DepositRichnessPercent, PowerOutputPercent = PowerOutputPercent,
+        GoalWaves = GoalWaves, ThreatsEnabled = ThreatsEnabled, FreeBuild = FreeBuild, LegacyLaser = LegacyLaser, LegacyGalaxy = LegacyGalaxy, LegacyBuilding = LegacyBuilding,
+        LegacyHardpoints = LegacyHardpoints, LegacyCollisions = LegacyCollisions, LegacyFlight = LegacyFlight, LegacyFeel = LegacyFeel, LegacyResources = LegacyResources,
+        ResourceDensityPercent = percent, StartingItems = _startingItems,
+    };
+
+    /// <summary>A copy with every legacy flag cleared (the density is kept): what the world hashes as, so a log that only differs by them (versions before 9, 10, 13, 14, 15 or 17) hashes as default rules (see <see cref="HashesAsDefault"/>).</summary>
+    public WorldRules WithoutLegacyFlags() => Flags(false, false, false, false, false, false, false, false);
 
     /// <summary>True when any legacy flag is on.</summary>
-    public bool AnyLegacy => LegacyLaser || LegacyGalaxy || LegacyBuilding || LegacyHardpoints || LegacyCollisions || LegacyFlight;
+    public bool AnyLegacy => LegacyLaser || LegacyGalaxy || LegacyBuilding || LegacyHardpoints || LegacyCollisions || LegacyFlight || LegacyFeel || LegacyResources;
 
     // ---- validation -----------------------------------------------------------------------------
 
@@ -194,6 +244,7 @@ public sealed class WorldRules : IEquatable<WorldRules>
         if (!In(DepositRichnessPercent, MinRichness, MaxRichness)) return $"deposit richness percent must be {MinRichness}..{MaxRichness}";
         if (!In(PowerOutputPercent, MinPercent, MaxPercent)) return $"power output percent must be {MinPercent}..{MaxPercent}";
         if (!In(GoalWaves, MinGoalWaves, MaxGoalWaves)) return $"goal waves must be {MinGoalWaves}..{MaxGoalWaves}";
+        if (!In(ResourceDensityPercent, MinDensityPercent, MaxDensityPercent)) return $"resource density percent must be {MinDensityPercent}..{MaxDensityPercent}";
         if (_startingItems.Length > MaxStartingStacks) return $"at most {MaxStartingStacks} starting stacks";
         foreach (var s in _startingItems)
         {
@@ -219,6 +270,7 @@ public sealed class WorldRules : IEquatable<WorldRules>
         LegacyLaser = LegacyLaser,
         LegacyGalaxy = LegacyGalaxy,
         LegacyBuilding = LegacyBuilding, LegacyHardpoints = LegacyHardpoints, LegacyCollisions = LegacyCollisions, LegacyFlight = LegacyFlight,
+        LegacyFeel = LegacyFeel, LegacyResources = LegacyResources, ResourceDensityPercent = Math.Clamp(ResourceDensityPercent, MinDensityPercent, MaxDensityPercent),
         StartingItems = _startingItems
             .Where(s => s.Item >= 0 && (content is null || s.Item < content.Items.Count) && s.Count >= 1)
             .Select(s => new ItemStack(s.Item, Math.Min(s.Count, MaxStackCount)))
@@ -239,15 +291,19 @@ public sealed class WorldRules : IEquatable<WorldRules>
     /// The stable binary form: a format byte, the eight integers (damage, hp, wave size, interval, grace, richness, power, goal), a
     /// flags byte (bit 0 threats, bit 1 free build, bit 2 legacy laser, bit 3 legacy galaxy, bit 4 legacy building, bit 5 legacy hardpoints, bit 6 legacy collisions, bit 7 legacy flight), the stack count and the stacks (item, count). Little endian.
     /// </summary>
-    public byte[] Serialize()
+    public byte[] Serialize() => Serialize(withDensity: true);
+
+    private byte[] Serialize(bool withDensity)
     {
         using var ms = new MemoryStream();
         using (var w = new BinaryWriter(ms, Encoding.UTF8, leaveOpen: true))
         {
-            w.Write(FormatVersion);
+            bool extended = withDensity && (LegacyFeel || LegacyResources || ResourceDensityPercent != 100);
+            w.Write(extended ? FormatVersionDensity : FormatVersion);
             w.Write(EnemyDamagePercent); w.Write(EnemyHpPercent); w.Write(WaveSizePercent); w.Write(WaveIntervalPercent);
             w.Write(FirstWaveGraceSeconds); w.Write(DepositRichnessPercent); w.Write(PowerOutputPercent); w.Write(GoalWaves);
             w.Write((byte)((ThreatsEnabled ? 1 : 0) | (FreeBuild ? 2 : 0) | (LegacyLaser ? 4 : 0) | (LegacyGalaxy ? 8 : 0) | (LegacyBuilding ? 16 : 0) | (LegacyHardpoints ? 32 : 0) | (LegacyCollisions ? 64 : 0) | (LegacyFlight ? 128 : 0)));
+            if (extended) { w.Write((byte)((LegacyFeel ? 1 : 0) | (LegacyResources ? 2 : 0))); w.Write(ResourceDensityPercent); }
             w.Write(_startingItems.Length);
             foreach (var s in _startingItems) { w.Write(s.Item); w.Write(s.Count); }
         }
@@ -263,10 +319,18 @@ public sealed class WorldRules : IEquatable<WorldRules>
             using var ms = new MemoryStream(data.ToArray());
             using var r = new BinaryReader(ms, Encoding.UTF8);
             byte version = r.ReadByte();
-            if (version != FormatVersion) throw new InvalidDataException($"Unsupported world rules version {version}.");
+            if (version != FormatVersion && version != FormatVersionDensity) throw new InvalidDataException($"Unsupported world rules version {version}.");
             int damage = r.ReadInt32(), hp = r.ReadInt32(), size = r.ReadInt32(), interval = r.ReadInt32(), grace = r.ReadInt32(),
                 richness = r.ReadInt32(), power = r.ReadInt32(), goal = r.ReadInt32();
             byte flags = r.ReadByte();
+            byte flags2 = 0;
+            int density = 100;
+            if (version == FormatVersionDensity)
+            {
+                flags2 = r.ReadByte();
+                density = r.ReadInt32();
+                if ((flags2 & ~3) != 0) throw new InvalidDataException("Unknown world rules flags.");
+            }
             int count = r.ReadInt32();
             if (count < 0 || count > MaxStartingStacks) throw new InvalidDataException("Bad starting stack count.");
             var stacks = new ItemStack[count];
@@ -276,7 +340,8 @@ public sealed class WorldRules : IEquatable<WorldRules>
             {
                 EnemyDamagePercent = damage, EnemyHpPercent = hp, WaveSizePercent = size, WaveIntervalPercent = interval,
                 FirstWaveGraceSeconds = grace, DepositRichnessPercent = richness, PowerOutputPercent = power, GoalWaves = goal,
-                ThreatsEnabled = (flags & 1) != 0, FreeBuild = (flags & 2) != 0, LegacyLaser = (flags & 4) != 0, LegacyGalaxy = (flags & 8) != 0, LegacyBuilding = (flags & 16) != 0, LegacyHardpoints = (flags & 32) != 0, LegacyCollisions = (flags & 64) != 0, LegacyFlight = (flags & 128) != 0, StartingItems = stacks,
+                ThreatsEnabled = (flags & 1) != 0, FreeBuild = (flags & 2) != 0, LegacyLaser = (flags & 4) != 0, LegacyGalaxy = (flags & 8) != 0, LegacyBuilding = (flags & 16) != 0, LegacyHardpoints = (flags & 32) != 0, LegacyCollisions = (flags & 64) != 0, LegacyFlight = (flags & 128) != 0,
+                LegacyFeel = (flags2 & 1) != 0, LegacyResources = (flags2 & 2) != 0, ResourceDensityPercent = density, StartingItems = stacks,
             };
             if (rules.Validate() is { } problem) throw new InvalidDataException("Invalid world rules: " + problem + ".");
             return rules;
@@ -293,7 +358,7 @@ public sealed class WorldRules : IEquatable<WorldRules>
         other is not null && EnemyDamagePercent == other.EnemyDamagePercent && EnemyHpPercent == other.EnemyHpPercent
         && WaveSizePercent == other.WaveSizePercent && WaveIntervalPercent == other.WaveIntervalPercent
         && FirstWaveGraceSeconds == other.FirstWaveGraceSeconds && DepositRichnessPercent == other.DepositRichnessPercent
-        && PowerOutputPercent == other.PowerOutputPercent && ThreatsEnabled == other.ThreatsEnabled && FreeBuild == other.FreeBuild && LegacyLaser == other.LegacyLaser && LegacyGalaxy == other.LegacyGalaxy && LegacyBuilding == other.LegacyBuilding && LegacyHardpoints == other.LegacyHardpoints && LegacyCollisions == other.LegacyCollisions && LegacyFlight == other.LegacyFlight
+        && PowerOutputPercent == other.PowerOutputPercent && ThreatsEnabled == other.ThreatsEnabled && FreeBuild == other.FreeBuild && LegacyLaser == other.LegacyLaser && LegacyGalaxy == other.LegacyGalaxy && LegacyBuilding == other.LegacyBuilding && LegacyHardpoints == other.LegacyHardpoints && LegacyCollisions == other.LegacyCollisions && LegacyFlight == other.LegacyFlight && LegacyFeel == other.LegacyFeel && LegacyResources == other.LegacyResources && ResourceDensityPercent == other.ResourceDensityPercent
         && GoalWaves == other.GoalWaves && _startingItems.AsSpan().SequenceEqual(other._startingItems);
 
     public override bool Equals(object? obj) => Equals(obj as WorldRules);
@@ -302,7 +367,7 @@ public sealed class WorldRules : IEquatable<WorldRules>
     {
         var h = new HashCode();
         h.Add(EnemyDamagePercent); h.Add(EnemyHpPercent); h.Add(WaveSizePercent); h.Add(WaveIntervalPercent); h.Add(FirstWaveGraceSeconds);
-        h.Add(DepositRichnessPercent); h.Add(PowerOutputPercent); h.Add(ThreatsEnabled); h.Add(FreeBuild); h.Add(LegacyLaser); h.Add(LegacyGalaxy); h.Add(LegacyBuilding); h.Add(LegacyHardpoints); h.Add(LegacyCollisions); h.Add(LegacyFlight); h.Add(GoalWaves);
+        h.Add(DepositRichnessPercent); h.Add(PowerOutputPercent); h.Add(ThreatsEnabled); h.Add(FreeBuild); h.Add(LegacyLaser); h.Add(LegacyGalaxy); h.Add(LegacyBuilding); h.Add(LegacyHardpoints); h.Add(LegacyCollisions); h.Add(LegacyFlight); h.Add(LegacyFeel); h.Add(LegacyResources); h.Add(ResourceDensityPercent); h.Add(GoalWaves);
         foreach (var s in _startingItems) { h.Add(s.Item); h.Add(s.Count); }
         return h.ToHashCode();
     }
@@ -311,5 +376,5 @@ public sealed class WorldRules : IEquatable<WorldRules>
     public static bool operator !=(WorldRules? a, WorldRules? b) => !(a == b);
 
     public override string ToString() =>
-        PresetId() is { } id ? $"WorldRules({id})" : $"WorldRules(dmg {EnemyDamagePercent}%, hp {EnemyHpPercent}%, size {WaveSizePercent}%, interval {WaveIntervalPercent}%, grace {FirstWaveGraceSeconds}, richness {DepositRichnessPercent}%, power {PowerOutputPercent}%, goal {GoalWaves}, threats {ThreatsEnabled}, free {FreeBuild}, items {_startingItems.Length})";
+        PresetId() is { } id ? $"WorldRules({id})" : $"WorldRules(dmg {EnemyDamagePercent}%, hp {EnemyHpPercent}%, size {WaveSizePercent}%, interval {WaveIntervalPercent}%, grace {FirstWaveGraceSeconds}, richness {DepositRichnessPercent}%, power {PowerOutputPercent}%, goal {GoalWaves}, density {ResourceDensityPercent}%, threats {ThreatsEnabled}, free {FreeBuild}, items {_startingItems.Length})";
 }

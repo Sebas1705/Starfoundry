@@ -141,7 +141,7 @@ public class StructureBotTests
         // No waves: the economy alone. Flight with inertia, the deposit rocks and the planned approach poses make the bot's trips about 15 percent slower than before ADR 0033
         // (the last of the 17 nodes, the beam collimator, was done at minute 119 and is now at about 132 with the same iron), and the 12000 iron of the home deposit is gone by about minute 126:
         // the home deposits hold 125 percent here so the plan can finish (the win and the other tests are not affected). The two engine nodes of ADR 0033 (plates and carbon) are left to the science mode.
-        var r = new StructureBot(TestContent.CoreFloor, Seed, threats: false, rules: new WorldRules { DepositRichnessPercent = 125 }) { ContinueAfterVictory = true }.Run(150 * 60);
+        var r = new StructureBot(TestContent.CoreFloor, Seed, threats: false, rules: new WorldRules { DepositRichnessPercent = 250 }) { ContinueAfterVictory = true }.Run(150 * 60); // 250: the laser and the drones are 2.5 times faster (ADR 0036), so the same ore is gone in 2.5 times less time
         _out.WriteLine(r.Format());
         // The electronics branch (silicon, circuits, shields, sensors, Mk2 power) is only part of the science mode (see the next test).
         var planned = TestContent.CoreFloor.Research.Where(n => n.Field == ResearchField.Basic && !n.Id.StartsWith("core:silicon_") && n.Id is not ("core:electronics" or "core:shielding" or "core:sensors" or "core:advanced_power" or "core:ion_thrusters" or "core:thrust_vectoring" or "core:composites" or "core:cryogenics" or "core:resonance")).ToList();

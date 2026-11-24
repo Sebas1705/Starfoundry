@@ -40,7 +40,10 @@ internal sealed class ObstacleState
     /// <summary>Wrecks: ticks a ship has spent salvaging.</summary>
     public int Salvage;
 
-    public ObstacleState Clone() => new() { Gone = Gone, Fuse = Fuse, Salvage = Salvage };
+    /// <summary>Drifting debris: damage the pilots' shots have done to it (ADR 0036); it breaks up at <see cref="FeelRules.DebrisDurability"/>. Mixed only when non-zero.</summary>
+    public int Wear;
+
+    public ObstacleState Clone() => new() { Gone = Gone, Fuse = Fuse, Salvage = Salvage, Wear = Wear };
 }
 
 /// <summary>Fixed rules of obstacles and collisions that are not content. Part of the simulation, so changing them changes states.</summary>
@@ -449,8 +452,8 @@ public sealed partial class BeltNetwork
         for (int i = 0; i < _obstacleState.Length; i++)
         {
             var o = _obstacleState[i];
-            if (!o.Gone && o.Fuse == 0 && o.Salvage == 0) continue; // untouched obstacles hash as nothing
-            mix(-501); mix(i); mix(o.Gone ? 1 : 0); mix(o.Fuse); mix(o.Salvage);
+            if (!o.Gone && o.Fuse == 0 && o.Salvage == 0 && o.Wear == 0) continue; // untouched obstacles hash as nothing
+            mix(-501); mix(i); mix(o.Gone ? 1 : 0); mix(o.Fuse); mix(o.Salvage); if (o.Wear != 0) mix(o.Wear);
         }
     }
 
@@ -465,7 +468,7 @@ public sealed partial class BeltNetwork
             var def = WorldGen!.Kinds[Galaxy!.Obstacles[i].Kind];
             if (o.Fuse < 0 || o.Fuse > def.FuseTicks) Fail($"obstacle {i} fuse out of range");
             if (o.Salvage < 0 || o.Salvage > WorldGen.SalvageTicks) Fail($"obstacle {i} salvage out of range");
-            if (o.Gone && def.Behaviour is not (ObstacleBehaviour.Mine or ObstacleBehaviour.Wreck)) Fail($"obstacle {i} is gone but cannot be");
+            if (o.Gone && def.Behaviour is not (ObstacleBehaviour.Mine or ObstacleBehaviour.Wreck) && !(def.Behaviour == ObstacleBehaviour.Drifter && !Rules.LegacyFeel)) Fail($"obstacle {i} is gone but cannot be");
         }
         foreach (var s in _structures.Values)
             if (s.ImpactCooldown < 0 || (WorldGen is null && s.ImpactCooldown != 0) || (WorldGen is not null && s.ImpactCooldown > WorldGen.ImpactCooldownTicks)) Fail($"structure {s.Id} impact cooldown out of range");

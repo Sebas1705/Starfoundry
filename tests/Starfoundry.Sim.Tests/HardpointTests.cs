@@ -205,7 +205,7 @@ public class HardpointTests
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, new List<LoggedCommand> { new(0, 0, inBatch) }, C.Hash, GameMode.Sandbox, Seed, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(15, bytes[4]);
+        Assert.Equal(17, bytes[4]);
         CommandCodec.ReadLog(new MemoryStream(bytes), out _, out _, out _, out _, out _, out _, out var rules);
         Assert.False(rules.LegacyHardpoints);
         bytes[4] = 13;
@@ -254,8 +254,8 @@ public class HardpointTests
         var guns = flying with { WeaponGroup = WeaponGroup.Guns };
         Assert.Equal("key.weaponGuns", Rows(guns).First(r => r.Id == "weapons").LabelKey);
         Assert.Contains(Rows(guns), r => r.Id == "fireGuns");
-        Assert.Equal(KeyRowState.Disabled, Rows(flying with { HasGunModule = false }).First(r => r.Id == "weapons").State);
-        Assert.Equal(KeyRowState.Disabled, Rows(flying with { HasLaserModule = false }).First(r => r.Id == "mine").State);
+        Assert.Equal("key.weaponLaser", Rows(guns with { HasGunModule = false }).First(r => r.Id == "weapons").LabelKey); // ADR 0036: without a gun the laser stays in hand and M has nothing to switch to
+        Assert.Equal(KeyRowState.Disabled, Rows(flying with { HasLaserModule = false, HasGunModule = false }).First(r => r.Id == "weapons").State); // ADR 0036: the weapons row is the one for both
         var docked = flying with { Dock = DockHint.Docked, ShipyardDocked = true };
         Assert.Contains(Rows(docked), r => r.Id == "designer" && r.ActionKey == "F2");
         Assert.DoesNotContain(Rows(flying with { Dock = DockHint.Docked }), r => r.Id == "designer");

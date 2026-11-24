@@ -38,6 +38,7 @@ One decision per file, `NNNN-slug.md`. An accepted ADR is never rewritten; add a
 | [0033](0033-flight-inertia-solid-deposits-and-hit-volumes.md) | The ship has inertia (a thrust sets a target velocity under acceleration and braking limits), deposits are solid, hit volumes follow the drawn models plus a hull padding, engine research raises the speed; log version 15, legacy-gated | proposed | 2026-11-24 |
 | [0032](0032-weapons-as-hardpoint-modules-and-the-shipyard.md) | Weapons are hardpoint modules of the ship (mining laser and gun, mark 1 and 2) fitted in a shipyard's ship designer (DesignerApply, tag 46); one module catalogue for ships and stations; log version 14, legacy-gated | proposed | 2026-11-22 |
 | [0034](0034-optional-material-chains-and-read-only-goal-types.md) | Five optional materials (composites, coolant, wreck-only resonant crystals and lenses) behind Mk2 hardpoints, and six goal types that only read the world; no log version change | proposed | 2026-11-24 |
+| [0036](0036-free-fire-recoil-hold-overflow-and-resource-density.md) | Guns fire along an aim with projectiles and recoil, a full hold overflows into ore pickups, the galaxy holds more resources; log version 17 | proposed | 2026-11-24 |
 
 ## Template
 ```markdown

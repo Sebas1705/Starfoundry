@@ -236,6 +236,17 @@ public static class KeyHints
     // ---- the contexts --------------------------------------------------------------------------------
 
     /// <summary>(a) Seated and flying, nothing aimed at.</summary>
+    /// <summary>The weapon in hand and the click that fires it (ADR 0036): the row to switch it, then what the click does with it.</summary>
+    private static IEnumerable<KeyRow> WeaponRows(KeyState s)
+    {
+        bool hasLaser = !s.Hardpoints || s.HasLaserModule, hasGun = !s.Hardpoints || s.HasGunModule; // without hardpoints (older worlds) the ship has both, implicit
+        if (!hasLaser && !hasGun) { yield return Off("weapons", "M", "weaponLaser", "key.why.noGun"); yield break; }
+        bool guns = s.WeaponGroup == WeaponGroup.Guns && hasGun;
+        yield return Row("weapons", "M", guns ? "weaponGuns" : "weaponLaser", "M", Lit(guns));
+        if (guns) yield return Row("fireGuns", "@hold", "fireGuns", state: s.Armed ? KeyRowState.Active : KeyRowState.Info);
+        else if (hasLaser) yield return Row("mineFire", "@hold", "mineFire", state: s.LaserFiring ? KeyRowState.Active : KeyRowState.Info);
+    }
+
     private static IEnumerable<KeyRow> FlyingRows(KeyState s)
     {
         foreach (var row in DockRows(s)) yield return row;
@@ -243,19 +254,9 @@ public static class KeyHints
         yield return Row("research", "T", "research", "T", Lit(s.ResearchOpen));
         if (s.HasGalaxy) yield return Row("map", "G", "map", "G", Lit(s.MapOpen));
         yield return s.ScanReady ? Row("scan", "K", "scan", "K") : Off("scan", "K", "scan", "key.why.scanWait");
-        if (s.Hardpoints && !s.HasLaserModule) yield return Off("mine", "M", "mine", "key.why.noLaser");
-        else yield return Row("mine", "M", s.Mining ? "mineStop" : "mine", "M", Lit(s.Mining));
-        if (s.Mining) yield return Row("mineFire", "@hold", "mineFire", state: s.LaserFiring ? KeyRowState.Active : KeyRowState.Info);
         yield return Row("refine", "F", s.Refining ? "refineStop" : "refine", "F", Lit(s.Refining));
-        if (s.Hardpoints)
-        {
-            // ADR 0032: V picks the weapon group the fire button uses; the guns need a gun module.
-            yield return s.HasGunModule
-                ? Row("weapons", "V", s.WeaponGroup == WeaponGroup.Guns ? "weaponGuns" : "weaponLaser", "V", Lit(s.WeaponGroup == WeaponGroup.Guns))
-                : Off("weapons", "V", "weaponLaser", "key.why.noGun");
-            if (s.WeaponGroup == WeaponGroup.Guns && s.HasGunModule) yield return Row("fireGuns", "@hold", "fireGuns", state: s.Armed ? KeyRowState.Active : KeyRowState.Info);
-        }
-        else yield return s.ThreatActive ? Row("weapons", "V", "weapons", "V", Lit(s.Armed)) : Off("weapons", "V", "weapons", "key.why.noThreats");
+        // ADR 0036: M switches the weapon in hand (the guns or the mining laser) and the click fires it: no stow or deploy step.
+        foreach (var row in WeaponRows(s)) yield return row;
         if (s.StructuresOn) yield return Row("found", "I", "found", "I");
         if (s.ModuleToolAvailable) yield return Row("module", "N", "module", "N");
         if (s.BoostAvailable) yield return Row("boost", "Shift", "boost", state: s.Boosting ? KeyRowState.Active : KeyRowState.Info);
@@ -368,8 +369,9 @@ public static class KeyHints
     private static IEnumerable<KeyRow> AimDepositRows(KeyState s)
     {
         yield return Row("choose", "@click", "choose");
-        yield return Row("mine", "M", s.Mining ? "mineStop" : "mine", "M", Lit(s.Mining));
-        if (s.Mining) yield return Row("mineFire", "@hold", "mineFire", state: s.LaserFiring ? KeyRowState.Active : KeyRowState.Info);
+        if (s.Hardpoints && !s.HasLaserModule) yield return Off("weapons", "M", "takeLaser", "key.why.noLaser");
+        else if (s.WeaponGroup == WeaponGroup.Laser) yield return Row("mineFire", "@hold", "mineFire", state: s.LaserFiring ? KeyRowState.Active : KeyRowState.Info);
+        else yield return Row("weapons", "M", "takeLaser", "M");
         if (s.DroneBayBuilt) yield return Row("drones", "F7", "drones", "F7");
         else if (s.StructuresOn) yield return Off("drones", "F7", "drones", s.DroneBayLocked ? "key.why.droneLocked" : "key.why.noBay");
         yield return BuildRow(s);
@@ -433,8 +435,8 @@ public static class KeyHints
     /// <summary>(g) A wave is on its way or enemies are alive: the weapons and the repair on top, highlighted.</summary>
     private static IEnumerable<KeyRow> ThreatRows(KeyState s)
     {
-        if (s.Hardpoints) yield return s.HasGunModule ? Row("weapons", "V", s.WeaponGroup == WeaponGroup.Guns ? "weaponGuns" : "weaponLaser", "V", s.WeaponGroup == WeaponGroup.Guns ? KeyRowState.Active : KeyRowState.Alert) : Off("weapons", "V", "weaponLaser", "key.why.noGun");
-        else yield return Row("weapons", "V", "fire", "V", s.Armed ? KeyRowState.Active : KeyRowState.Alert);
+        bool inHand = s.WeaponGroup == WeaponGroup.Guns;
+        yield return !s.Hardpoints || s.HasGunModule ? Row("weapons", "M", inHand ? "weaponGuns" : "weaponLaser", "M", inHand ? KeyRowState.Active : KeyRowState.Alert) : Off("weapons", "M", "weaponLaser", "key.why.noGun");
         yield return s.AnythingDamaged ? Row("repair", "@backspace", "repair", "Backspace", KeyRowState.Alert) : Off("repair", "@backspace", "repair", "key.why.noDamage");
     }
 }

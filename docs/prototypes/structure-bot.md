@@ -199,3 +199,6 @@ Re-measured after rebasing onto the glazed cockpit and sampled-body collision (#
 | 20261121 | 48:34 | 49:31 | 52:36 |
 | 20261120 | 48:04 | 49:20 | 55:18 |
 | 777 | 46:15 | 48:42 | 53:26 |
+
+## Weapons feel round (2026-11-24)
+[ADR 0036](../adr/0036-free-fire-recoil-hold-overflow-and-resource-density.md). The bot sends no aim, so its guns fire at the enemy the simulation picks as before, and recoil never applies to it. The economy it plays is two to three times faster (laser 250 percent, drone bay 14 ticks, starter hold 400), so the wave clock was moved back (`threat.alert_max` 234000; see [difficulty](difficulty.md#weapons-feel-economy-and-resource-density-2026-11-24)). Two changes to the bot: `--density=N` plays with any resource density (the presets carry 150, 140, 120 and 100; `--richness` now keeps the density), and a flight leg that is pinned twice at the same place slides sideways (alternating sides) after climbing out, so the descent to the mining spot comes in elsewhere. On seed 777 the home iron rock still pins a wing for a while; a better approach (a spot chosen with the ship's width in mind) is the real fix.

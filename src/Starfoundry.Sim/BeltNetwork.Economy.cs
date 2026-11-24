@@ -212,12 +212,15 @@ internal sealed class Deposit
     /// <summary>Hidden deposits cannot be mined or linked until a scan reveals them.</summary>
     public bool Revealed = true;
 
+    /// <summary>Ticks until an emptied deposit regrows a little (0 while it holds ore or has not been noticed empty yet, ADR 0036). Mixed only when non-zero.</summary>
+    public int RegrowTicks;
+
     public Deposit(int id, int item, int amount, int x, int y, int z)
     {
         Id = id; Item = item; Initial = amount; Remaining = amount; X = x; Y = y; Z = z;
     }
 
-    public Deposit Clone() => new(Id, Item, Initial, X, Y, Z) { Remaining = Remaining, Revealed = Revealed, Density = Density };
+    public Deposit Clone() => new(Id, Item, Initial, X, Y, Z) { Remaining = Remaining, Revealed = Revealed, Density = Density, RegrowTicks = RegrowTicks };
 }
 
 public sealed partial class BeltNetwork
@@ -382,7 +385,7 @@ public sealed partial class BeltNetwork
     /// </summary>
     private bool LaserWouldMine(Player p) =>
         p.MiningDeposit >= 0 && !p.LaserReleased && _deposits[p.MiningDeposit].Remaining > 0
-        && p.HoldTotal + p.ShipReserved < HoldCapacityOf(p) && !MiningHoldLimitReached(p) && InMineRange(p.Id, p.MiningDeposit);
+        && HandMiningHasRoom(p) && InMineRange(p.Id, p.MiningDeposit);
 
     /// <summary>Whether the laser draws power in this world: structure rules, not the legacy laser.</summary>
     private bool LaserDrawsPower => StructureRules && !Rules.LegacyLaser;
@@ -698,14 +701,14 @@ public sealed partial class BeltNetwork
                 {
                     ClearMining(p);
                 }
-                else if (LaserWouldMine(p) && LaserAdvances(p) && ++p.MineProgress >= MineTicks(d.Density, LaserPercentFor(p, p.MiningDeposit)))
+                else if (LaserWouldMine(p) && LaserAdvances(p) && ++p.MineProgress >= MineTicks(d.Density, LaserPercentFor(p, p.MiningDeposit)) * HandMiningPenalty(p))
                 {
                     p.MineProgress = 0;
                     d.Remaining--;
                     MinedByHand++;
                     CountProduced(d.Item, 1);
                     CountMined(d.Item, 1);
-                    AddToHold(p, d.Item, 1);
+                    HandMinedItem(p, d);
                 }
             }
             if (p.ShipRecipe >= 0) StepShip(p);
@@ -891,6 +894,7 @@ public sealed partial class BeltNetwork
         _deposits = other._deposits.Select(d => d.Clone()).ToList();
         CopyGalaxyFrom(other);
         CopyThreatFrom(other);
+        CopyFeelFrom(other);
         _level = (int[])other._level.Clone();
         RecomputeBonuses(scaleHp: false);
         _progress = other._progress.Select(a => (int[])a.Clone()).ToArray();
@@ -910,6 +914,7 @@ public sealed partial class BeltNetwork
         if (MinedByDrones != 0) mix(MinedByDrones); // worlds without drone mining hash as before
         MixGalaxy(mix);
         MixThreat(mix);
+        MixFeel(mix);
         mix(_deposits.Count);
         foreach (var d in _deposits)
         {
@@ -973,7 +978,7 @@ public sealed partial class BeltNetwork
 
             if (p.MiningDeposit != -1 && !IsDeposit(p.MiningDeposit)) Fail($"player {p.Id} mines an unknown deposit");
             int mineLimit = DepositRules.Scale(PlayerRules.MineTicksPerItem, p.MiningDeposit >= 0 ? _deposits[p.MiningDeposit].Density : DepositRules.MinDensity);
-            if (p.MineProgress < 0 || p.MineProgress >= mineLimit) Fail($"player {p.Id} mine progress out of range");
+            if (p.MineProgress < 0 || p.MineProgress >= mineLimit * MineLimitFactor) Fail($"player {p.Id} mine progress out of range");
             if (p.LaserCredit is < 0 or >= PowerRules.FullSatisfaction) Fail($"player {p.Id} laser credit out of range");
             if (p.MiningDeposit < 0 && (p.LaserReleased || p.LaserCredit != 0)) Fail($"player {p.Id} has laser state without a mining order");
             if (p.ShipRecipe == -1)
@@ -993,6 +998,7 @@ public sealed partial class BeltNetwork
         if (HoldIn - HoldOut != held) Fail($"hold accounting broken: in {HoldIn} - out {HoldOut} != held {held}");
         ValidateGalaxy();
         ValidateThreat();
+        ValidateFeel();
 
         long extracted = 0;
         foreach (var d in _deposits)
@@ -1000,8 +1006,8 @@ public sealed partial class BeltNetwork
             if (d.Remaining < 0 || d.Remaining > d.Initial) Fail($"deposit {d.Id} remaining {d.Remaining} out of range");
             extracted += d.Initial - d.Remaining;
         }
-        if (extracted != MinedByHand + DrilledTotal + MinedByDrones)
-            Fail($"deposit accounting broken: extracted {extracted} != hand {MinedByHand} + drills {DrilledTotal} + drones {MinedByDrones}");
+        if (extracted + RegrownTotal != MinedByHand + DrilledTotal + MinedByDrones)
+            Fail($"deposit accounting broken: extracted {extracted} + regrown {RegrownTotal} != hand {MinedByHand} + drills {DrilledTotal} + drones {MinedByDrones}");
 
         for (int i = 0; i < _level.Length; i++)
         {

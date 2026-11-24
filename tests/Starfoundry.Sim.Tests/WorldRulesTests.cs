@@ -151,8 +151,10 @@ public class WorldRulesTests
             Assert.Equal(r.Serialize(), back.Serialize());
         }
         // The form is stable: a fixed rule set always gives the same bytes.
-        Assert.Equal(1 + 8 * 4 + 1 + 4, WorldRules.Default.Serialize().Length);
-        Assert.Equal(1, WorldRules.Default.Serialize()[0]);
+        Assert.Equal(1 + 8 * 4 + 1 + 1 + 4 + 4, WorldRules.Default.Serialize().Length); // the density (140) makes it the second format: a flags byte and the density follow the first flags byte
+        Assert.Equal(2, WorldRules.Default.Serialize()[0]);
+        Assert.Equal(1 + 8 * 4 + 1 + 4, new WorldRules { ResourceDensityPercent = 100 }.Serialize().Length); // a density of 100 keeps the first format (the bytes before ADR 0036)
+        Assert.Equal(1, new WorldRules { ResourceDensityPercent = 100 }.Serialize()[0]);
 
         byte[] bytes = rules.Serialize();
         Assert.Throws<InvalidDataException>(() => WorldRules.Deserialize(bytes.AsSpan(0, bytes.Length - 1)));
@@ -528,7 +530,7 @@ public class WorldRulesTests
         byte[] plain = LogBytes(log, null);
         byte[] normal = LogBytes(log, WorldRules.Normal);
         Assert.Equal(plain, normal); // default rules write no block
-        Assert.Equal(15, plain[4]); // version 15 added solid deposits, padded hit volumes and flight inertia (legacy flags); the rules block is unchanged
+        Assert.Equal(17, plain[4]); // version 17 added free fire, hold overflow and the resource density; the rules block of default rules is still empty
         Assert.Equal(0, plain[4 + 1 + 8 + 1 + 8] & 8);
 
         byte[] hard = LogBytes(log, WorldRules.Hard);

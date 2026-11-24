@@ -97,8 +97,8 @@ public sealed class Galaxy
     private static readonly string[] Starts = { "Ka", "Vel", "Or", "Tha", "Mi", "Sor", "Ni", "Bra", "Ze", "Lu", "Ar", "Cae" };
     private static readonly string[] Ends = { "ron", "tis", "dax", "lume", "vara", "phex", "nor", "sia", "kai", "reth" };
 
-    /// <summary>Generates the galaxy for a seed. Pure and deterministic: the same content and seed give the same galaxy everywhere.</summary>
-    public static Galaxy Generate(ContentDb content, ulong seed, bool legacy = false)
+    /// <summary>Generates the galaxy for a seed. Pure and deterministic: the same content and seed give the same galaxy everywhere. <paramref name="resourceDensityPercent"/> above 100 adds extra deposits (ADR 0036) after the base ones.</summary>
+    public static Galaxy Generate(ContentDb content, ulong seed, bool legacy = false, int resourceDensityPercent = 100)
     {
         var rules = content.Galaxy ?? throw new InvalidOperationException("The content defines no galaxy.");
         // The wide generator (ADR 0028) runs only for content that defines a 'world' section and worlds that are not legacy
@@ -245,6 +245,9 @@ public sealed class Galaxy
             if (wide is not null)
                 obstacles.AddRange(ObstacleGenerator.Generate(wide, seed, systems[i], depth[i], deposits.Skip(firstDeposit).Select(d => (d.X, d.Y, d.Z)).ToList()));
         }
+
+        // ADR 0036: a resource density above 100 appends extra deposits after all the base ones (the base galaxy does not move).
+        if (wide is not null && resourceDensityPercent > 100) ResourceGenerator.AddExtras(content, wide, seed, systems, archetype, depth, obstacles, deposits, resourceDensityPercent);
 
         return new Galaxy(seed, rules, systems, deposits.ToArray(), obstacles.ToArray(), wide is not null);
     }

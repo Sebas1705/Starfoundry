@@ -20,8 +20,8 @@ public class StructureFlightTests
     private const ulong Seed = 20261121UL;
     private const int Cell = Units.CellUnits;
 
-    private static SimWorld World(bool threats = false, bool structures = true) =>
-        SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats, stationRules: false, structures: structures);
+    private static SimWorld World(bool threats = false, bool structures = true, WorldRules? rules = null) =>
+        SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats, stationRules: false, structures: structures, rules: rules);
 
     private static CommandResult Run(SimWorld w, Command c)
     {
@@ -234,7 +234,7 @@ public class StructureFlightTests
         Assert.Equal(PlayerRules.HoldCapacity, World().Network.HoldCapacity(3));
 
         // Hand mining stops at the reserve limit (75 percent) so the rest stays free for the factory, and does not start without cargo.
-        var full = World();
+        var full = World(rules: new WorldRules().WithLegacyFeel(true)); // the hard stop at the hold limit is the rule before ADR 0036
         Ship(full, cargos: 1);
         int dep = full.Network.AddDeposit(Ore, 1000, 0, 0, 0);
         Ok(full, new StartMining(dep));

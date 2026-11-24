@@ -170,7 +170,7 @@ public class OrientedCollisionTests
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, new List<LoggedCommand> { new(0, 0, new Batch(new Command[] { new SetAttitude(11585, 0, 0, 11585) })) }, C.Hash, GameMode.Sandbox, Seed, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(15, bytes[4]);
+        Assert.Equal(17, bytes[4]);
         Assert.Single(CommandCodec.ReadLog(new MemoryStream(bytes)));
         foreach (byte old in new byte[] { 5, 8, 10, 11 })
         {
@@ -183,7 +183,7 @@ public class OrientedCollisionTests
     [Fact]
     public void An_older_log_replays_byte_identically_to_the_level_ship_it_was_recorded_with()
     {
-        var w = World();
+        var w = SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: new WorldRules().WithLegacyFeel(true).WithLegacyResources(true)); // what a build of that time recorded (ADR 0036 did not exist)
         Ship(w);
         w.Submit(0, new SetThrust(0, 0, 512));
         w.Step(60);
