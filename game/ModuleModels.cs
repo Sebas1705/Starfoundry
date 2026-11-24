@@ -158,10 +158,9 @@ public static partial class ModuleModels
         const float Top = 0.086f;
         var role = c.Role;
         var dim = new Color(role.R * 0.55f, role.G * 0.55f, role.B * 0.55f);
-        // A deck with a module below it has a stairwell: a square opening at the rear right with a coaming and a ladder going down.
-        bool hole = c.Has(Down) && c.Kind is ModuleKind.Hull or ModuleKind.Cargo or ModuleKind.Workshop or ModuleKind.DroneBay
-            or ModuleKind.Cockpit or ModuleKind.Engine or ModuleKind.Defence;
-        const float Hx0 = 5.4f, Hx1 = 7.0f, Hz0 = 1.0f, Hz1 = 2.6f;
+        // A deck with a module below it (both of a kind that has room, see Stairwell.Capable) has a stairwell: a square opening at the front with a coaming and a ladder going down.
+        bool hole = (c.M & HullProfile.StairDown) != 0;
+        const float Hx0 = Stairwell.X0, Hx1 = Stairwell.X1, Hz0 = Stairwell.Z0, Hz1 = Stairwell.Z1;
         float layer = 0f; // the margin of the layer being built (see Blk below)
         void Blk0(Vector3 ctr, Vector3 size)
         {

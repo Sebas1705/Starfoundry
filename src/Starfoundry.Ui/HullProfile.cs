@@ -47,9 +47,10 @@ public static class HullProfile
         int Lrud(int x, int y, int z) =>
             (kindAt(x - 1, y, z) is null ? 0 : 1) | (kindAt(x + 1, y, z) is null ? 0 : 2) | (kindAt(x, y + 1, z) is null ? 0 : 4) | (kindAt(x, y - 1, z) is null ? 0 : 8);
         int NbFront = 0, NbRear = 0;
-        if (kindAt(mx, my, mz - 1) is { } fk && !IsPod(fk)) NbFront = (Lrud(mx, my, mz - 1) << FrontNbShift) | (SkinOf(fk, mx, my, mz - 1) << FrontSkinShift);
-        if (kindAt(mx, my, mz + 1) is { } rk && !IsPod(rk)) NbRear = (Lrud(mx, my, mz + 1) << RearNbShift) | (SkinOf(rk, mx, my, mz + 1) << RearSkinShift);
-        int own = kindAt(mx, my, mz) is { } me ? SkinOf(me, mx, my, mz) << SkinShift : 0;
+        if (kindAt(mx, my, mz - 1) is { } fk && !IsPod(fk)) NbFront = (Lrud(mx, my, mz - 1) << FrontNbShift) | (SectionClassOf(SkinOf(fk, mx, my, mz - 1)) << FrontSkinShift);
+        if (kindAt(mx, my, mz + 1) is { } rk && !IsPod(rk)) NbRear = (Lrud(mx, my, mz + 1) << RearNbShift) | (SectionClassOf(SkinOf(rk, mx, my, mz + 1)) << RearSkinShift);
+        int own = kindAt(mx, my, mz) is { } me ? SkinBits(SkinOf(me, mx, my, mz)) : 0;
+        if (kindAt(mx, my, mz) is { } upper && kindAt(mx, my - 1, mz) is { } lower && Stairwell.Capable(upper) && Stairwell.Capable(lower)) own |= StairDown;
         return Bit(-1, 0, 0, Left) | Bit(1, 0, 0, Right) | Bit(0, 0, -1, Front, PodFront) | Bit(0, 0, 1, Rear, PodRear) | Bit(0, 1, 0, Up) | Bit(0, -1, 0, Down) | NbFront | NbRear | own;
     }
 
@@ -62,8 +63,19 @@ public static class HullProfile
     /// pillars and frames). The skin is chosen per module by <see cref="SkinOf"/>, from its kind and place, so the model and the walking body agree.
     /// </summary>
     public const int SkinShift = 24, FrontSkinShift = 26, RearSkinShift = 28;
-    public const int SkinMask = (3 << SkinShift) | (3 << FrontSkinShift) | (3 << RearSkinShift);
+    public const int SkinMask = (3 << SkinShift) | (3 << FrontSkinShift) | (3 << RearSkinShift) | unchecked((int)0x80000000);
     public const int SkinPlain = 0, SkinWide = 1, SkinArched = 2, SkinBoxy = 3;
+    /// <summary>Skins that share a section with one of the four above and differ only in what stands along the walls: ribs, a plinth and window niches.</summary>
+    public const int SkinRibbed = 4, SkinStepped = 5, SkinNiched = 6;
+    /// <summary>Bit 30 of a mask: the module has a stairwell down to the module below (see <see cref="Stairwell"/>). Bit 31 is the high bit of the own skin.</summary>
+    public const int StairDown = 1 << 30;
+    private const int SkinHigh = 1 << 31;
+
+    /// <summary>The own-skin bits of a mask for a skin number 0 to 7: the low two in <see cref="SkinShift"/>, the third in bit 31.</summary>
+    public static int SkinBits(int skin) => ((skin & 3) << SkinShift) | ((skin & 4) != 0 ? SkinHigh : 0);
+
+    /// <summary>The section family (0 to 3) a skin cuts: ribbed and stepped walls use the boxy section, niched ones the arched one.</summary>
+    public static int SectionClassOf(int skin) => skin switch { SkinRibbed or SkinStepped => SkinBoxy, SkinNiched => SkinArched, _ => skin };
 
     /// <summary>
     /// The skin of a ship module of <paramref name="kind"/> at (mx, my, mz): the cockpit is always the wide pilot section; the corridor kinds (hull, cargo,
@@ -75,11 +87,14 @@ public static class HullProfile
         if (kind is not (ModuleKind.Hull or ModuleKind.Cargo or ModuleKind.Workshop or ModuleKind.Reactor or ModuleKind.ReactorMk2 or ModuleKind.DroneBay)) return SkinPlain;
         uint h = unchecked((uint)(mx * 73856093) ^ (uint)(my * 19349663) ^ (uint)(mz * 83492791) ^ ((uint)(int)kind * 2654435761u));
         unchecked { h ^= h >> 13; h *= 0x5bd1e995; h ^= h >> 15; }
-        return (h % 10) switch { < 4 => SkinPlain, < 7 => SkinArched, _ => SkinBoxy };
+        return (h % 20) switch { < 5 => SkinPlain, < 8 => SkinArched, < 10 => SkinBoxy, < 13 => SkinRibbed, < 16 => SkinStepped, _ => SkinNiched };
     }
 
-    /// <summary>The own skin of a module from its mask.</summary>
-    public static int SkinOfMask(int mask) => (mask >> SkinShift) & 3;
+    /// <summary>The own skin of a module from its mask (0 to 7).</summary>
+    public static int SkinOfMask(int mask) => ((mask >> SkinShift) & 3) | (((mask >> 31) & 1) << 2);
+
+    /// <summary>The section family of the own skin of a mask: what <see cref="Octagon"/> cuts.</summary>
+    public static int SectionOfMask(int mask) => SectionClassOf(SkinOfMask(mask));
 
     /// <summary>The lower and upper chamfer of a section of a skin with a body-height roof, in cells (before the squaring of a side that touches a module).</summary>
     public static (float Low, float Up) ChamfersOf(int skin, float defaultChamfer) => skin switch
@@ -327,7 +342,7 @@ public static class HullProfile
         // a side that touches another module has no wall: the hull runs out to the module boundary there, so the two hulls meet with no slit
         float x0 = (mask & Left) != 0 ? 0f : HullEdge, x1 = (mask & Right) != 0 ? W : W - HullEdge, y0 = (mask & Down) != 0 ? Roof - H : FloorY; // a module above another starts where the lower one ends
         float ch = MathF.Min(MaxChamfer, (roofY - FloorY) * ChamferShare);
-        var (chLow, chUp) = roofY >= Roof - 0.01f ? ChamfersOf(SkinOfMask(mask), ch) : (ch, ch); // only the body-height sections have skins
+        var (chLow, chUp) = roofY >= Roof - 0.01f ? ChamfersOf(SectionOfMask(mask), ch) : (ch, ch); // only the body-height sections have skins
         float bl = (mask & (Left | Down)) != 0 ? 0f : chLow, br = (mask & (Right | Down)) != 0 ? 0f : chLow;
         float tl = (mask & (Left | Up)) != 0 ? 0f : chUp, tr = (mask & (Right | Up)) != 0 ? 0f : chUp;
         var p = new[]
