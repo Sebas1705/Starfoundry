@@ -196,10 +196,10 @@ public class BodyShellBruteForceTests
         var p = seat.Stand;
         for (int i = 0; i < 240; i++) p = BodyMotion.Step(p, new Vector3(0, 0, -1), BodyMotion.WalkSpeed, 1f / 60f, v);
         Assert.True(p.Z >= HullProfile.SeatZ1 + BodyMotion.Radius - 0.01f, $"stopped by the seat: {p}");
-        // beside the seat there is room to walk forward to the console and no further
+        // beside the seat and the console there is room to walk forward, past the console, until the nose closes in
         var q = new Vector3(1.7f, 0, seat.Stand.Z);
         for (int i = 0; i < 360; i++) q = BodyMotion.Step(q, new Vector3(0, 0, -1), BodyMotion.WalkSpeed, 1f / 60f, v);
-        Assert.InRange(q.Z, HullProfile.ConsoleZ1 - 0.1f, 3.6f);
+        Assert.InRange(q.Z, 0.5f, HullProfile.ConsoleZ0);
         Assert.Null(Violation(v, q));
         // and the pilot can still reach the hull behind the cockpit
         var back = seat.Stand;
@@ -257,7 +257,8 @@ public class BodyShellBruteForceTests
     {
         var mods = new Dictionary<(int, int, int), ModuleKind> { [(0, 0, 0)] = ModuleKind.Cockpit, [(0, 0, -1)] = ModuleKind.MiningLaser, [(0, 1, 0)] = ModuleKind.Gun, [(0, 0, 1)] = ModuleKind.Hull };
         int m = HullProfile.MaskOf((x, y, z) => mods.TryGetValue((x, y, z), out var k) ? k : null, 0, 0, 0);
-        Assert.Equal(HullProfile.Front | HullProfile.PodFront | HullProfile.Rear | HullProfile.Up, m);
+        Assert.Equal(HullProfile.Front | HullProfile.PodFront | HullProfile.Rear | HullProfile.Up, m & ~HullProfile.SkinMask); // the skins of the module and its neighbours are in the mask too
+        Assert.Equal(HullProfile.SkinWide, HullProfile.SkinOfMask(m)); // a cockpit always has the wide pilot section
         Assert.True(HullProfile.IsPod(ModuleKind.Shield) && HullProfile.IsPod(ModuleKind.Sensor) && HullProfile.IsPod(ModuleKind.GunMk2));
         Assert.False(HullProfile.IsPod(ModuleKind.Hull));
     }

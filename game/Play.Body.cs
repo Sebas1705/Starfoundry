@@ -17,6 +17,8 @@ public partial class Play
     private bool _seated = true;
     private Vector3 _body; // feet, local cells of the ship structure
     private BodyBox[] _bodyVolumes = Array.Empty<BodyBox>();
+    private bool _solidsHadBench;
+    private BodySolid[] _bodySolids = Array.Empty<BodySolid>(); // the machines and the workbench: the body walks round them
     private int _bodyVolumesVersion = -1;
 
     private SeatSpots _seatSpots = SeatLocator.Locate(Array.Empty<System.Collections.Generic.KeyValuePair<(int Mx, int My, int Mz), ModuleKind>>());
@@ -57,10 +59,42 @@ public partial class Play
     private void RefreshBodyVolumes()
     {
         if (!CanWalk) { _bodyVolumes = Array.Empty<BodyBox>(); return; }
-        if (_bodyVolumesVersion == Net.StructureVersion) return;
+        bool hasBench = BenchBox() is not null;
+        if (_bodyVolumesVersion == Net.StructureVersion && hasBench == _solidsHadBench) return; // the workbench appears a frame after the structure
+        _solidsHadBench = hasBench;
         _bodyVolumesVersion = Net.StructureVersion;
         // Docked: the station's modules join the walkable volumes (in the ship's local cells), so the body walks through the airlock.
         _bodyVolumes = DockedBodyVolumes(out _stationBodyVolumes);
+        _bodySolids = BuildBodySolids();
+    }
+
+    /// <summary>
+    /// The solid things on the floors of the ship (and, docked, of the station): every machine fills its cell, the workbench its footprint. Belts, plates and
+    /// hatches are low enough to walk over (<see cref="BodyMotion.StepHeight"/>) and are not listed.
+    /// </summary>
+    private BodySolid[] BuildBodySolids()
+    {
+        int ship = ShipStruct;
+        if (ship < 0) return Array.Empty<BodySolid>();
+        var list = new System.Collections.Generic.List<BodySolid>();
+        Vector3 off = Vector3.Zero;
+        int station = -1;
+        if (Net.TryGetDock(Player, out var d) && Net.StructureExists(d.Station))
+        {
+            station = d.Station;
+            off = StationView.OriginCells(Net, d.Station) - StationView.OriginCells(Net, ship);
+        }
+        for (int id = 0; id < Net.MachineIdLimit; id++)
+        {
+            if (!Net.IsMachineAlive(id)) continue;
+            var m = Net.GetMachineInfo(id);
+            Vector3 shift = m.Structure == ship ? Vector3.Zero : m.Structure == station ? off : new Vector3(float.NaN, 0, 0);
+            if (float.IsNaN(shift.X)) continue;
+            var c = CellCenter(m.X, m.Y, m.Z) + shift;
+            list.Add(new BodySolid(c.X - 0.5f, c.Y - 0.5f, c.Z - 0.5f, c.X + 0.5f, c.Y + 0.5f, c.Z + 0.5f));
+        }
+        if (BenchBox() is { } bb) list.Add(new BodySolid(bb.Min.X, bb.Min.Y, bb.Min.Z, bb.Min.X + bb.Size.X, bb.Min.Y + bb.Size.Y, bb.Min.Z + bb.Size.Z));
+        return list.ToArray();
     }
 
     /// <summary>E: sit down when standing within reach of the seat; stand up when seated.</summary>
@@ -79,7 +113,7 @@ public partial class Play
         _focus = null; // walking: the view is the player's again
         SetLaser(false);
         _body = StandSpot;
-        if (!BodyMotion.Contains(Sys(_body), _bodyVolumes)) _body = FromSys(BodyMotion.Nearest(Sys(_body), _bodyVolumes));
+        if (!BodyMotion.Contains(Sys(_body), _bodyVolumes, _bodySolids)) _body = FromSys(BodyMotion.Nearest(Sys(_body), _bodyVolumes, _bodySolids));
         // Flight is off while standing: the thrust is cleared once and any autopilot run or pending mining flight is dropped.
         _waypoint = null;
         SendThrust((0, 0, 0), force: true);
@@ -116,7 +150,7 @@ public partial class Play
         if (!Standing) { _walkVelocity = System.Numerics.Vector3.Zero; return; }
         RefreshBodyVolumes();
         if (_bodyVolumes.Length == 0) { Sit(); return; }
-        if (!BodyMotion.Contains(Sys(_body), _bodyVolumes)) _body = FromSys(BodyMotion.Nearest(Sys(_body), _bodyVolumes)); // the module under the feet was removed
+        if (!BodyMotion.Contains(Sys(_body), _bodyVolumes, _bodySolids)) _body = FromSys(BodyMotion.Nearest(Sys(_body), _bodyVolumes, _bodySolids)); // the module under the feet was removed
         var wishDir = Vector3.Zero;
         float speed = Input.IsKeyPressed(Key.Shift) ? BodyMotion.RunSpeed : BodyMotion.WalkSpeed;
         if (_mouseLook)
@@ -133,7 +167,7 @@ public partial class Play
         float v = _walkVelocity.Length();
         if (v < 1e-4f) return;
         // BodyMotion.Step takes a direction whose length (up to 1) scales the speed: the velocity over the run speed, moved at the run speed.
-        var p = BodyMotion.Step(Sys(_body), _walkVelocity / BodyMotion.RunSpeed, BodyMotion.RunSpeed, dt, _bodyVolumes);
+        var p = BodyMotion.Step(Sys(_body), _walkVelocity / BodyMotion.RunSpeed, BodyMotion.RunSpeed, dt, _bodyVolumes, _bodySolids);
         _body = new Vector3(p.X, p.Y, p.Z);
         if (smooth) _bobPhase += v * dt * 2.2f;
     }

@@ -10,6 +10,12 @@ namespace Starfoundry.Ui;
 public readonly record struct BodyBox(float MinX, float MinY, float MinZ, float MaxX, float MaxY, float MaxZ, HullShell? Shell = null);
 
 /// <summary>
+/// A solid box standing on the floors of a structure (a machine, the workbench), in its local cells. The body is blocked by it when it rises more than a
+/// step above the feet (<see cref="BodyMotion.StepHeight"/>): belts and floor plates stay walkable.
+/// </summary>
+public readonly record struct BodySolid(float MinX, float MinY, float MinZ, float MaxX, float MaxY, float MaxZ);
+
+/// <summary>
 /// The pilot's body inside a ship: walking in the local space of the structure, clamped to the union of its module volumes.
 /// No gravity and no jump: the feet stay on the floor of the module the body is over (the module's local y base), and the eye
 /// is a constant <see cref="EyeHeight"/> above it. A hull opening between adjacent modules of the same level is implied, so
@@ -26,6 +32,8 @@ public static class BodyMotion
     public const float MaxSubStep = 0.1f;
     /// <summary>How close to the pilot seat (horizontally, in cells) the body must be to sit down.</summary>
     public const float SeatReach = 2.6f;
+    /// <summary>The highest edge the body walks over (a belt, a threshold, a coaming): a solid whose top is lower does not block it.</summary>
+    public const float StepHeight = 0.3f;
 
     /// <summary>The module boxes of a structure, given its module coordinates and the module size in cells.</summary>
     public static BodyBox[] Volumes(IEnumerable<(int Mx, int My, int Mz)> modules, float sizeX, float sizeY, float sizeZ)
@@ -73,18 +81,32 @@ public static class BodyMotion
     /// sampled on a grid (<see cref="Samples"/> x <see cref="Samples"/>, a point every <see cref="Radius"/> / 2), not just at its four corners, so a
     /// solid thinner than the body (a door frame beside the opening, a wall between two modules) cannot slip between the samples.
     /// </summary>
-    public static bool Contains(Vector3 position, IReadOnlyList<BodyBox> volumes) => Fits(volumes, position.X, position.Y, position.Z);
+    public static bool Contains(Vector3 position, IReadOnlyList<BodyBox> volumes, IReadOnlyList<BodySolid>? solids = null) => Fits(volumes, position.X, position.Y, position.Z, solids);
+
+    /// <summary>True when the point is inside a solid that rises above a step over the feet and starts below the head.</summary>
+    private static bool InSolid(IReadOnlyList<BodySolid> solids, float x, float y, float z)
+    {
+        for (int i = 0; i < solids.Count; i++)
+        {
+            var s = solids[i];
+            if (x > s.MinX && x < s.MaxX && z > s.MinZ && z < s.MaxZ && s.MaxY > y + StepHeight && s.MinY < y + HullProfile.BodyHeight) return true;
+        }
+        return false;
+    }
 
     /// <summary>Points per side of the footprint grid.</summary>
     public const int Samples = 5;
 
-    private static bool Fits(IReadOnlyList<BodyBox> volumes, float x, float y, float z)
+    private static bool Fits(IReadOnlyList<BodyBox> volumes, float x, float y, float z, IReadOnlyList<BodySolid>? solids = null)
     {
         for (int i = 0; i < Samples; i++)
         {
             float px = x + Radius * (2f * i / (Samples - 1) - 1f);
             for (int j = 0; j < Samples; j++)
-                if (!PointIn(volumes, px, y, z + Radius * (2f * j / (Samples - 1) - 1f))) return false;
+            {
+                float pz = z + Radius * (2f * j / (Samples - 1) - 1f);
+                if (!PointIn(volumes, px, y, pz) || (solids is not null && InSolid(solids, px, y, pz))) return false;
+            }
         }
         return true;
     }
@@ -94,7 +116,7 @@ public static class BodyMotion
     /// longer is normalised) at <paramref name="speed"/> cells per second, and returns the new position. A step that would leave the
     /// union is replaced by its X part, then its Z part, so the body slides along walls. The height never changes.
     /// </summary>
-    public static Vector3 Step(Vector3 position, Vector3 wishDirection, float speed, float dt, IReadOnlyList<BodyBox> volumes)
+    public static Vector3 Step(Vector3 position, Vector3 wishDirection, float speed, float dt, IReadOnlyList<BodyBox> volumes, IReadOnlyList<BodySolid>? solids = null)
     {
         float wx = wishDirection.X, wz = wishDirection.Z;
         float len = MathF.Sqrt(wx * wx + wz * wz);
@@ -106,10 +128,10 @@ public static class BodyMotion
         float x = position.X, y = position.Y, z = position.Z;
         for (int i = 0; i < n; i++)
         {
-            if (Fits(volumes, x + sx, y, z + sz)) { x += sx; z += sz; }
-            else if (sx != 0f && Fits(volumes, x + sx, y, z)) x += sx;
-            else if (sz != 0f && Fits(volumes, x, y, z + sz)) z += sz;
-            else if (SlideAlong(volumes, x, y, z, sx, sz, out float tx, out float tz)) { x += tx; z += tz; }
+            if (Fits(volumes, x + sx, y, z + sz, solids)) { x += sx; z += sz; }
+            else if (sx != 0f && Fits(volumes, x + sx, y, z, solids)) x += sx;
+            else if (sz != 0f && Fits(volumes, x, y, z + sz, solids)) z += sz;
+            else if (SlideAlong(volumes, x, y, z, sx, sz, solids, out float tx, out float tz)) { x += tx; z += tz; }
             else break;
         }
         return new Vector3(x, y, z);
@@ -122,7 +144,7 @@ public static class BodyMotion
     /// Slides along a wall that is slanted against both axes (the tapered nose, a chamfer met at an angle): the step is turned away from the wall
     /// by the smallest angle that fits, shortened by the cosine of the turn, so the body glides along the surface instead of sticking.
     /// </summary>
-    private static bool SlideAlong(IReadOnlyList<BodyBox> volumes, float x, float y, float z, float sx, float sz, out float tx, out float tz)
+    private static bool SlideAlong(IReadOnlyList<BodyBox> volumes, float x, float y, float z, float sx, float sz, IReadOnlyList<BodySolid>? solids, out float tx, out float tz)
     {
         tx = tz = 0f;
         float len = MathF.Sqrt(sx * sx + sz * sz);
@@ -134,7 +156,7 @@ public static class BodyMotion
             {
                 float rx = sx * c - sign * sz * s, rz = sign * sx * s + sz * c; // the step turned by sign * a, length len * cos(a) after the shortening
                 rx *= c; rz *= c;
-                if (!Fits(volumes, x + rx, y, z + rz)) continue;
+                if (!Fits(volumes, x + rx, y, z + rz, solids)) continue;
                 tx = rx; tz = rz;
                 return true;
             }
@@ -146,7 +168,7 @@ public static class BodyMotion
     /// The nearest spot where the body fits (the floor of the nearest module, shrunk by the body radius), for when the module it stood
     /// in was removed. Returns the input when there are no volumes.
     /// </summary>
-    public static Vector3 Nearest(Vector3 position, IReadOnlyList<BodyBox> volumes)
+    public static Vector3 Nearest(Vector3 position, IReadOnlyList<BodyBox> volumes, IReadOnlyList<BodySolid>? solids = null)
     {
         var best = position;
         float bestD = float.MaxValue;
@@ -154,7 +176,7 @@ public static class BodyMotion
         {
             float dx = x - position.X, dz = z - position.Z, dy = b.MinY - position.Y;
             float d = dx * dx + dz * dz + dy * dy;
-            if (d < bestD && Fits(volumes, x, b.MinY, z)) { bestD = d; best = new Vector3(x, b.MinY, z); }
+            if (d < bestD && Fits(volumes, x, b.MinY, z, solids)) { bestD = d; best = new Vector3(x, b.MinY, z); }
         }
         foreach (var b in volumes)
             Consider(b, Math.Clamp(position.X, b.MinX + Radius, b.MaxX - Radius), Math.Clamp(position.Z, b.MinZ + Radius, b.MaxZ - Radius));
