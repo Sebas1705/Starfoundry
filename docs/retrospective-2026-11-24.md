@@ -47,7 +47,7 @@ Effort: S under half a day, M one to two days, L several days.
 ## 5. Blender pilot (proposal)
 What exists: the `blender-mcp` family links an AI client to Blender through a socket. It has two parts, a Blender add-on that runs a socket server and a Python MCP server, and it can run Python inside Blender; some builds add Poly Haven, Sketchfab and AI model generation integrations. Setup needs Blender 3.0 or newer, Python 3.10 or newer and `uv`; the Claude Code command is `claude mcp add blender uvx blender-mcp`. Several forks share the name, so pick one and read its README.
 
-State of this machine (measured today): Blender is not installed; `python` resolves to the Windows Store stub; `uv` is not installed; `ffmpeg`, `gh`, `node` and `doppler` are present.
+State of this machine (measured when the plan was written; Blender 5.3, Python 3.12 and `uv` were installed afterwards): Blender was not installed; `python` resolves to the Windows Store stub; `uv` is not installed; `ffmpeg`, `gh`, `node` and `doppler` are present.
 
 Proposed workflow:
 1. **Install** Blender (winget `BlenderFoundation.Blender`), Python 3.12 and `uv` (owner approval for installing software).
@@ -56,6 +56,14 @@ Proposed workflow:
 4. **Keep the logical shell in code.** `HullProfile` stays the source of the cross-section, joints and body collision (it is covered by brute-force tests). Blender models the *detail* on top: panels, pipes, console, seat, canopy, engines, furniture. Pieces use the module grid (8x4x8 cells), a fixed pivot, a trim sheet with framed UVs and vertex colours for the existing role colours, so the colour coding and instancing survive.
 5. **Pilot scope**: one module (the starter cockpit) end to end: model, UVs, collision empties, import, replace the procedural mesh behind a flag, compare shots and a recorded movie, measure frame cost; decide go or no-go from that result.
 6. **Risks**: the MCP can run arbitrary Python (save before use; run it on a scratch copy); downloaded assets need a licence check (CC0 sources such as Poly Haven are fine; Sketchfab and AI-generated assets need per-asset terms) and AGENTS.md forbids copying art from other games; binary `.blend` files bloat git (commit the generator scripts and the exported `.glb`, keep `.blend` working files outside the repo or in Git LFS).
+
+### Pilot result (2026-11-24, measured)
+The pilot ran as proposed, with one change: the MCP link was not available to the agent, so the model is a headless Blender script (`tools/blender/cockpit.py`) that builds the cockpit detail from `tools/blender/shell.json` (numbers written from C# by `CockpitShell`, with a test that fails when the file is stale) and exports `game/assets/blender/cockpit_wide.glb`; the game loads it at run time behind `--blender-cockpit` (or `blender_cockpit=true` in the settings). Shell and collision stay in code.
+- **Look:** clearly better in the seat view and in the outside views through the windows: recessed screen wells, gauge pods, switch rows, a real swivel chair with stick, throttle and pedals, framed windows, an overhead panel and cable runs (see `docs/prototypes/blender-pipeline.md` for the images).
+- **Cost in the game:** none measurable. 8,122 triangles in 13 meshes against about 3,500 before; frame time about 5 ms either way (bound by game logic), render GPU time 0.34 against 0.33 ms at 720p; 1.05 MB file; 72 to 84 ms to load once per run; Godot imports the glb headless in seconds.
+- **Cost in work:** the kit (geometry library with bevels and a `FaceUv` port, loader, JSON generator, tests, bench mode) was the bulk; a further module is a 300 to 500 line script, about half a day to a day. The authoring was Python, not GUI modelling, so the loop is the same as C#'s; the gains are bevels, an exporter and a viewer, and the option to sculpt later.
+- **Risks seen:** two-language contract (covered by a stale-file test and a SHA-1 stamp inside the glb), 1 MB of binary per module per regeneration, tangent bytes that differ run to run, one shell covered so far.
+- **Decision (proposal):** go for hero modules (other cockpit shells, engine, reactor vessel, machines), shell and collision in code, binary policy decided before the second module. Full numbers, conventions and the conditions are in the pilot document.
 
 ## 6. Godot tooling for agents (proposal, evaluate before adopting)
 - Third-party Godot MCP servers exist that run the project, capture screenshots and inject input (for example `Erodenn/godot-mcp-runtime`, Godot Forge, `Coding-Solo/godot-mcp`, and larger editor-control servers). They would let an agent *play* the game (walk, click a cockpit screen, fire the guns) and see the result, which is exactly the gap behind section 3 item 1.

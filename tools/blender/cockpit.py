@@ -10,6 +10,7 @@ one of game/ModuleModels.cs. Node names are the contract with the game (game/Ble
   Glow_Amber, Glow_Green, Glow_Cyan, Glow_Red, Glow_Warm               emissive marks, one node per colour
 Vertex colour (1, 0, 1) is the accent tag: the game paints it with the structure's trim colour.
 """
+import hashlib
 import json
 import math
 import os
@@ -416,14 +417,17 @@ class Build:
 
 def main():
     opts = parse_args()
-    with open(opts['shell'], encoding='utf-8') as f:
-        shell = json.load(f)
+    with open(opts['shell'], 'rb') as f:
+        raw = f.read().replace(b'\r\n', b'\n')  # LF form, so a Windows checkout hashes the same
+    shell = json.loads(raw.decode('utf-8'))
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bld = Build(shell)
     bld.build()
     # objects
     root = bpy.data.objects.new('CockpitDetail', None)
     bpy.context.scene.collection.objects.link(root)
+    # a stamp the tests compare with shell.json (BlenderPipelineTests.GlbIsBuiltFromTheCurrentShell)
+    bpy.context.scene['shell_sha1'] = hashlib.sha1(raw).hexdigest()
     seat = bpy.data.objects.new('Seat', None)
     bpy.context.scene.collection.objects.link(seat)
     seat.parent = root
@@ -446,7 +450,7 @@ def main():
         filepath=out, export_format='GLB', export_yup=True, export_apply=True,
         export_materials='NONE', export_vertex_color='ACTIVE', export_active_vertex_color_when_no_material=True,
         export_tangents=True, export_normals=True, export_texcoords=True, export_cameras=False, export_lights=False,
-        export_extras=False, use_selection=False)
+        export_extras=True, use_selection=False)
     print("WROTE", out, os.path.getsize(out), "bytes")
     if opts['preview']:
         import preview

@@ -64,6 +64,15 @@ public class BlenderPipelineTests
     }
 
     [Fact]
+    public void DebugSettingRoundTripsAndDefaultsOff()
+    {
+        Assert.False(GameSettings.Defaults().BlenderCockpit);
+        Assert.True(GameSettings.Parse("blender_cockpit=true").BlenderCockpit);
+        Assert.True(GameSettings.Parse(new GameSettings { BlenderCockpit = true }.Serialize()).BlenderCockpit);
+        Assert.False(GameSettings.Parse("blender_cockpit=banana").BlenderCockpit);
+    }
+
+    [Fact]
     public void SeatedEyeIsUnchanged() => Assert.Equal(new Vector3(4f, 2.7f, 6.6f), SeatLocator.EyeOffset);
 
     // ---- the exported glTF ---------------------------------------------------------------------------------------
@@ -88,6 +97,18 @@ public class BlenderPipelineTests
         uint len = br.ReadUInt32();
         Assert.Equal(0x4E4F534Au, br.ReadUInt32()); // "JSON"
         return JsonDocument.Parse(br.ReadBytes((int)len));
+    }
+
+    [Fact]
+    public void GlbIsBuiltFromTheCurrentShell()
+    {
+        // tools/blender/cockpit.py stamps the SHA-1 of shell.json (LF line ends) into the scene extras: a changed shell without a rebuilt glb fails here
+        using var doc = ReadGlbJson();
+        string? stamp = doc.RootElement.GetProperty("scenes")[0].GetProperty("extras").GetProperty("shell_sha1").GetString();
+        string path = Path.Combine(RepoRoot(), CockpitShell.JsonPath.Replace('/', Path.DirectorySeparatorChar));
+        byte[] raw = Encoding.UTF8.GetBytes(File.ReadAllText(path).Replace("\r\n", "\n"));
+        string sha = Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(raw)).ToLowerInvariant();
+        Assert.True(stamp == sha, $"{GlbPath} was built from another shell.json: run tools/blender/build.ps1 and commit the glb");
     }
 
     [Fact]
