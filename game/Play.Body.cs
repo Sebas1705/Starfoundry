@@ -235,6 +235,7 @@ public partial class Play
         _walkShotFrame++;
         if (_walkShotFrame >= 251 && StoryOpen) CloseStory(); // a scenario opens its briefing first
         if (BevelShotFrame()) return;
+        if (StairsShotFrame()) return;
         void Save(string p) { GetViewport().GetTexture().GetImage().SavePng(p); GD.Print("SHOT saved " + p); }
         switch (_walkShotFrame)
         {
