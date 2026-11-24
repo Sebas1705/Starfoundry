@@ -83,6 +83,7 @@ public partial class Gallery : Node3D
             case "modules": _focusPoint = new Vector3(32f, 1.5f, 8f); defDist = 75f; break;
             case "ship-demo": _focusPoint = new Vector3(4f, 2f, 20f); defDist = 40f; break;
             case "ship-starter": _focusPoint = new Vector3(4f, 2f, 16f); defDist = 40f; break;
+            case "ship-nose": _focusPoint = new Vector3(8f, 2f, 16f); defDist = 45f; break;
             case "ship-row": _focusPoint = new Vector3(4f, 2f, 40f); defDist = 90f; break;
             case "ship-big": _focusPoint = new Vector3(8f, 4f, 24f); defDist = 90f; break;
             case "station-demo": _focusPoint = new Vector3(12f, 3f, 8f); defDist = 40f; break;
@@ -98,7 +99,7 @@ public partial class Gallery : Node3D
         if (Arg("--at") is { } at && at.Split(',') is { Length: 3 } p) _focusPoint = new Vector3(float.Parse(p[0], CultureInfo.InvariantCulture), float.Parse(p[1], CultureInfo.InvariantCulture), float.Parse(p[2], CultureInfo.InvariantCulture));
 
         BuildScene();
-        if (focus is "modules" or "ship-demo" or "station-demo" or "ship-starter" or "ship-row" or "ship-big") BuildModuleGallery(focus, (int)F("--variant", 0));
+        if (focus is "modules" or "ship-demo" or "station-demo" or "ship-starter" or "ship-row" or "ship-big" or "ship-nose") BuildModuleGallery(focus, (int)F("--variant", 0));
         else if (focus == "deposits") BuildDepositGallery();
         else if (focus == "materials") BuildMaterialGallery();
         else if (focus == "belts") BuildBeltGallery();
@@ -258,7 +259,7 @@ public partial class Gallery : Node3D
                 Put(kinds[i], false, new Vector3(i * 9.5f, 0, 16f), kinds[i] + " (station)");
             }
         }
-        else if (focus is "ship-starter" or "ship-row" or "ship-big")
+        else if (focus is "ship-starter" or "ship-row" or "ship-big" or "ship-nose")
         {
             // Ships built from the real masks (the same HullProfile.MaskOf the game uses): the starter ship with its pods, a row of every body kind of a
             // ship end to end (cockpit, hull, cargo, workshop, both reactors, defence, drone bay, dock, engine) and a big demo ship with wings of cargo.
@@ -269,6 +270,15 @@ public partial class Gallery : Node3D
                 for (int i = 0; i < spine.Length; i++) parts[(0, 0, i)] = spine[i];
                 parts[(0, 0, -1)] = ModuleKind.MiningLaser;
                 parts[(0, 1, 0)] = ModuleKind.Gun;
+            }
+            else if (focus == "ship-nose")
+            {
+                // a nose cockpit with nothing in front of it, a gun on top, a second cockpit on the flank, then the usual spine with a tail
+                ModuleKind[] spine = { ModuleKind.Cockpit, ModuleKind.Hull, ModuleKind.Cargo, ModuleKind.Workshop, ModuleKind.Reactor, ModuleKind.Engine };
+                for (int i = 0; i < spine.Length; i++) parts[(0, 0, i)] = spine[i];
+                parts[(0, 1, 0)] = ModuleKind.Gun;
+                parts[(1, 0, 0)] = ModuleKind.Cockpit;
+                parts[(1, 0, 1)] = ModuleKind.Hull;
             }
             else if (focus == "ship-row")
             {

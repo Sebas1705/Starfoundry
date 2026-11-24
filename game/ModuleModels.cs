@@ -118,6 +118,7 @@ public static partial class ModuleModels
     public static Node3D Build(ModuleKind kind, bool ship, int variant = 0, int neighbours = 0)
     {
         variant = ((variant % 3) + 3) % 3;
+        if (!ship) neighbours &= ~HullProfile.SkinMask; // skins are for ship sections; a station box has none
         var r = new Node3D { Name = $"{kind}{(ship ? "Ship" : "Station")}" };
         var c = new Cx(r, $"mod.{(ship ? "s" : "t")}{variant}.{kind}.n{neighbours}", ship, (ship ? ShipAccents : StationAccents)[variant], variant, kind, neighbours, RoleColour(kind));
         Deck(c);
@@ -178,7 +179,7 @@ public static partial class ModuleModels
             Piece(cx0, cx1, MathF.Max(z0, Hz1), z1);
         }
         // A ship cockpit's nose tapers: its floor is trimmed at the start of the full section and a tapered plate (below) follows the nose.
-        bool noseDeck = c.Ship && c.Kind == ModuleKind.Cockpit && !c.Has(Front);
+        bool noseDeck = c.Ship && c.Kind == ModuleKind.Cockpit && !c.Has(Front) && HullProfile.Tapers(c.M);
         const float NoseEnd = HullProfile.NoseEnd;
         // A ship's floor ends where the lower chamfer of the hull begins (a sloped wall meets the floor a unit in from the side).
         var hullRing = c.Ship ? HullProfile.Octagon(HullProfile.RoofOf(c.Kind, true), 1f, c.M) : null; // the floor stops where the hull's own lower chamfer begins (a pod's chamfer is smaller than a body module's)
@@ -209,7 +210,7 @@ public static partial class ModuleModels
                 new Vector2(4 + 2.9f - inset, NoseEnd), new Vector2(4 - 2.9f + inset, NoseEnd),
             };
             mb.C(Dark).Extrude(Plate(0f), 0.0f, 0.08f);
-            mb.C(DeckCol).Extrude(Plate(0.3f), 0.0f, 0.084f);
+            mb.C(DeckCol).Extrude(Plate(0.3f), 0.004f, 0.084f);
         }
         // the base plate stops a hair short of the end bulkheads of a ship (z = 0.05 and 7.95), so its end faces are not coplanar with them; on a side that touches another module it runs to the module boundary
         layer = c.Ship ? -0.08f : 0f; // under the liner's chamfer feet: the plate reaches past the deck edge, so no slit shows between them
@@ -376,15 +377,29 @@ public static partial class ModuleModels
     /// <summary>An opening in a side wall, along Z (cells from the module's back-left corner) and up the wall.</summary>
     private readonly record struct Win(float Z0, float Z1, float Y0, float Y1);
 
-    /// <summary>The viewports of a module kind (one per exposed side wall): what gives the interiors of a crew, workshop, cargo or cockpit module a view of space.</summary>
-    private static Win[] Viewports(Cx c) => c.Kind switch
+    /// <summary>The viewports of a module kind (one per exposed side wall): what gives the interiors of a crew, workshop, cargo or cockpit module a view of space. On a ship they are cut to the wall of the module's skin (the sill above the lower chamfer, the header below the upper one).</summary>
+    private static Win[] Viewports(Cx c)
     {
-        ModuleKind.Hull or ModuleKind.Workshop => new[] { new Win(2.6f, 5.4f, 1.3f, 2.7f) },
-        ModuleKind.Cargo => new[] { new Win(3.1f, 4.9f, 1.9f, 2.8f) },
-        ModuleKind.Cockpit when c.Ship => new[] { new Win(c.Has(Front) ? 0.45f : HullProfile.NoseEnd + 0.05f, 7.55f, 1.2f, c.Has(Up) ? 3.65f : 2.74f) }, // one long glazed band, a low sill and thin mullions
-        ModuleKind.Cockpit => new[] { new Win(4.3f, 7.3f, 1.3f, 2.7f) },
-        _ => Array.Empty<Win>(),
-    };
+        var wins = c.Kind switch
+        {
+            ModuleKind.Hull or ModuleKind.Workshop => new[] { new Win(2.6f, 5.4f, 1.3f, 2.7f) },
+            ModuleKind.Cargo => new[] { new Win(3.1f, 4.9f, 1.9f, 2.8f) },
+            ModuleKind.Cockpit when c.Ship => new[] { new Win(c.Has(Front) ? 0.45f : HullProfile.NoseEnd + 0.05f, 7.55f, 0f, 3.9f) }, // the pilot section: one long glazed band from just above the chamfer to just under the roof
+            ModuleKind.Cockpit => new[] { new Win(4.3f, 7.3f, 1.3f, 2.7f) },
+            _ => Array.Empty<Win>(),
+        };
+        if (!c.Ship || wins.Length == 0) return wins;
+        var ring = HullProfile.Octagon(HullProfile.RoofOf(c.Kind, true), 1f, c.M);
+        float lo = ring[2].Y + 0.12f, hi = ring[3].Y - 0.1f;
+        for (int i = 0; i < wins.Length; i++)
+        {
+            var w = wins[i];
+            float y0 = MathF.Max(w.Y0, lo), y1 = MathF.Min(w.Y1, hi);
+            if (c.Kind != ModuleKind.Cockpit && y1 - y0 < 0.5f) { y0 = lo; y1 = MathF.Max(hi, lo + 0.5f); }
+            wins[i] = w with { Y0 = y0, Y1 = y1 };
+        }
+        return wins;
+    }
 
     /// <summary>Wall thickness and the x of the middle of a side wall's slab: a ship's skin is a thin slab flush with the hull, a station's a 0.2 plate.</summary>
     private static (float Thick, float Mid) WallSlab(Cx c, bool left) =>
@@ -477,7 +492,7 @@ public static partial class ModuleModels
                 // exposed ends of the tube are closed by a bulkhead; ends that touch another module stay open
                 bool capFront = !nose && !c.FrontOpen && !windscreen, capRear = !tail && !c.RearOpen && !openRear;
                 bool wrap = nose && glassRoof; // a canopy round the nose: glass over the upper half and the tip
-                if (nose) Loft(mb, Oct(roofY, HullProfile.NoseTipScale, c.M, 0f), 0.05f, full, a, true, false, wrap ? skip | NoseGlassEdges : skip, true, wrap ? NoseGlassEdges : 0, c.M, noLinerFloor: true);
+                if (nose) Loft(mb, Oct(roofY, HullProfile.NoseTipScale, c.M, 0f), 0.05f, full, a, true, false, wrap ? skip | NoseGlassEdges : skip, true, wrap ? NoseGlassEdges : 0, c.M); // the nose keeps its liner floor: the deck plate does not reach the tip
                 Loft(mb, full, a, full, b, capFront, capRear, skip, true, 0, c.M, noLinerFloor: true);
                 if (tail) Loft(mb, full, b, Oct(roofY, HullProfile.TailScale, c.M), HullProfile.TailEnd, false, true, skip, true, 0, c.M, noLinerFloor: true);
                 // The module on the other side of an open joint may square its section differently (a corner touching a module above, beside or below):
@@ -519,6 +534,17 @@ public static partial class ModuleModels
                             mb.Block(new(s, mid, i * 2f), new(0.04f, full[3].Y - full[2].Y, 0.05f));
                         }
                 }
+                // The boxy skin carries bulkhead frames: a pair of pillars on the closed side walls and a beam across the ceiling at two stations along the module
+                // (HullProfile.SkinSolids makes the pillars solid for the walking body).
+                if (HullProfile.SkinOfMask(c.M) == HullProfile.SkinBoxy)
+                    foreach (float pz in HullProfile.PillarStations)
+                    {
+                        mb.C(Panel);
+                        foreach (bool left in new[] { true, false })
+                            if (!(left ? c.Has(Left) : c.Has(Right)))
+                                mb.Block(new(left ? HullProfile.PillarDepth / 2 + 0.16f - 0.04f : W - HullProfile.PillarDepth / 2 - 0.16f + 0.04f, 1.95f, pz), new(HullProfile.PillarDepth, 3.7f, HullProfile.PillarWidth));
+                        mb.C(c.Acc).Block(new(4, 3.72f, pz), new(W - 0.9f, 0.14f, HullProfile.PillarWidth + 0.02f));
+                    }
                 // an exposed end of the tube carries a hatch in the role colour: the visible place where the next module would attach
                 foreach (bool front in new[] { true, false })
                 {
@@ -958,7 +984,7 @@ public static partial class ModuleModels
                     {
                         float z = n == 5 ? 1.0f + i * 1.5f : 4f + (i - (n - 1) / 2f) * 2.2f;
                         if (c.Kind == ModuleKind.Engine && z > 5f) continue; // the tail tapers off
-                        if (c.Ship && c.Kind == ModuleKind.Cockpit && z < 3.4f) continue; // the nose tapers
+                        if (c.Ship && c.Kind == ModuleKind.Cockpit && z < HullProfile.NoseEnd) continue; // the nose tapers
                         mb.Block(new(o, wy, z), new(0.05f, c.Ship ? 0.3f : 0.34f, c.Ship ? 0.62f : 0.9f));
                     }
                 }
@@ -1074,7 +1100,7 @@ public static partial class ModuleModels
         {
             mb.At(default);
             var full = Oct(roof, 1f, c.M);
-            float a = nose ? HullProfile.NoseEnd : HullProfile.NoseStart;
+            float a = nose ? HullProfile.NoseEnd : c.FrontOpen ? 0f : HullProfile.NoseStart, bEnd = c.RearOpen ? D : D - 0.05f; // the glass runs out to an open joint, like the hull
             if (nose)
             {
                 var tip = Oct(roof, HullProfile.NoseTipScale, c.M, 0f);
@@ -1089,7 +1115,7 @@ public static partial class ModuleModels
                     mb.Tri(new(ctr.X, ctr.Y, 0.05f), new(p0.X, p0.Y, 0.05f), new(p1.X, p1.Y, 0.05f), new(ctr.X, ctr.Y, 3f));
                 }
             }
-            Loft(mb, full, a, full, D - 0.05f, false, false, ~RoofEdges & 0xFF);
+            Loft(mb, full, a, full, bEnd, false, false, ~RoofEdges & 0xFF);
         }).CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
     }
 
@@ -1113,15 +1139,14 @@ public static partial class ModuleModels
             var top = Oct(roof, 1f, c.M)[4].Y;
             if (nose)
             {
-                Ring(2.0f, NoseScale(2.0f), 0f, NoseGlassEdges);
-                Ring(3.4f, 1f, 0.35f, NoseGlassEdges);
+                Ring(1.3f, NoseScale(1.3f), 0f, NoseGlassEdges);
+                Ring(HullProfile.NoseEnd, 1f, 0.35f, NoseGlassEdges);
                 var tipTop = Oct(roof, HullProfile.NoseTipScale, c.M, 0f)[4].Y;
-                mb.Beam(new(4, tipTop, 0.07f), new(4, top, 3.4f), 0.09f);
-                mb.Beam(new(4, top, 3.4f), new(4, top, D - 0.07f), 0.09f);
+                mb.Beam(new(4, tipTop, 0.07f), new(4, top, HullProfile.NoseEnd), 0.09f);
+                mb.Beam(new(4, top, HullProfile.NoseEnd), new(4, top, D - 0.07f), 0.09f);
             }
             else mb.Beam(new(4, top, 0.07f), new(4, top, D - 0.07f), 0.09f);
-            foreach (float z in new[] { 4.9f, 6.4f }) Ring(z, 1f, 0.35f, RoofEdges);
-            if (!nose) Ring(2.4f, 1f, 0.35f, RoofEdges);
+            // fewer mullions over the pilot: the spine and the ring at the end of the nose, nothing else
         });
     }
 
@@ -1263,8 +1288,6 @@ public static partial class ModuleModels
             foreach (float z in new[] { -0.25f, 0.15f }) mb.Block(new(0, 0.108f, z), new(0.5f, 0.004f, 0.02f));
             mb.Block(new(0, 0.108f, -0.05f), new(0.03f, 0.004f, 0.5f));
             for (int i = 0; i < 5; i++) mb.Block(new(-2.15f + i * 0.22f, 0.108f, 0.1f - 0.1f * ((i * 3) % 4)), new(0.12f, 0.004f, 0.2f + 0.12f * ((i * 3) % 4)));
-            mb.C(Steel);
-            for (int i = 0; i < 12; i++) mb.Block(new(-2.2f + i * 0.4f, 0.09f, 0.5f), new(0.16f, 0.06f, 0.1f)); // the switch row near the pilot
             mb.At(default).C(Dark);
             mb.Block(new(4, 1.32f, 2.12f), new(4.9f, 0.1f, 0.08f)); // the lip along the front of the deck
         });
@@ -1287,12 +1310,6 @@ public static partial class ModuleModels
             mb.Torus(new(1.75f, 0.118f, -0.02f), 0.14f, 0.01f, 16, 3);
             mb.Block(new(1.75f + 0.14f, 0.118f, -0.02f), new(0.28f, 0.01f, 0.018f));
         });
-        foreach (var (col, k) in new[] { (new Color(1f, 0.25f, 0.2f), 0), (new Color(0.3f, 1f, 0.45f), 1), (Amber, 2) })
-            Models.Add(c.R, "GlowLamp", $"{c.K}.lamps.{k}", Models.Glow(col, 2.4f), mb =>
-            {
-                mb.At(new(4, 1.02f, 2.55f), Models.Deg(18, 0, 0));
-                for (int i = k; i < 12; i += 3) mb.Block(new(-2.2f + i * 0.4f, 0.125f, 0.5f), new(0.07f, 0.02f, 0.05f));
-            });
 
         // A ship's console is a narrow, low desk: the whole instrument panel is squeezed to 72 percent of its width and 78 percent of its height
         // about the middle of the module, so it never stands between the pilot's eye and the glass (HullProfile.ConsoleX0 and ConsoleX1 are its footprint).
