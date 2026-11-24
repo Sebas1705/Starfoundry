@@ -28,6 +28,7 @@ public partial class Play
         if (args.FirstOrDefault(a => a.StartsWith("--audit-sizes="))?["--audit-sizes=".Length..] is { Length: > 0 } list) _auditSizes = list.Split(',');
         _auditShots = args.FirstOrDefault(a => a.StartsWith("--audit-shots="))?["--audit-shots=".Length..];
         BuildAuditSteps();
+        DisplayServer.WindowSetVsyncMode(DisplayServer.VSyncMode.Disabled); // a frame lasts what it costs, so the timing pass measures the work
     }
 
     private void CloseAllPanels()
@@ -40,6 +41,7 @@ public partial class Play
         _storyDialog?.Hide();
         BuildMenu.StressSuffix = null;
         _helpOpen = false;
+        _hudDetailShot = null;
         _detailsOpen = false;
         _mapOpen = false;
         _tool = ToolMode.Pointer;
@@ -53,6 +55,13 @@ public partial class Play
         s.Add(("hud", () => { CloseAllPanels(); Toasts(); }));
         s.Add(("hud.details", () => { CloseAllPanels(); _detailsOpen = true; _mapOpen = true; }));
         s.Add(("hud.help", () => { CloseAllPanels(); _helpOpen = true; }));
+        // The three HUD detail levels (Shift+F3), seated and standing, with the busy toasts: nothing may overflow, overlap or reach the centre.
+        foreach (var level in new[] { HudDetail.Minimal, HudDetail.Standard, HudDetail.Detailed })
+        {
+            var lv = level;
+            s.Add(("hud.detail." + HudDetails.Id(lv), () => { CloseAllPanels(); _hudDetailShot = lv; Toasts(); }));
+            s.Add(("hud.detail." + HudDetails.Id(lv) + ".info", () => { CloseAllPanels(); _hudDetailShot = lv; _detailsOpen = true; }));
+        }
         s.Add(("keys.flying", () => { CloseAllPanels(); _yaw = 0f; _pitch = 0.25f; }));
         s.Add(("keys.aim", () => { CloseAllPanels(); if (!LookAtMachine("core:smelter")) GD.Print("UIAUDIT note: no machine to aim at"); }));
         s.Add(("keys.walking", () => { CloseAllPanels(); _seated = true; ToggleSeat(); _body = new Vector3(4f, 0f, 20f); _yaw = MathF.PI * 0.8f; _pitch = -0.1f; }));
@@ -105,19 +114,72 @@ public partial class Play
             if (_scenario is not null && _storyDialog is not null && true)
                 _storyDialog.Present(_scenario.Name(Loc.Lang == Language.Es), _scenario.Briefing(Loc.Lang == Language.Es), new StoryMessage(_scenario.Story.Count > 0 ? _scenario.Story[0].Speaker : "Speaker", _scenario.Story.Count > 0 ? (Loc.Lang == Language.Es ? _scenario.Story[0].TextEs : _scenario.Story[0].TextEn) : "Text", true));
         }));
-        s.Add(("done", () => CloseAllPanels()));
+        s.Add(("hud.detail.detailed.walking", () => { CloseAllPanels(); _hudDetailShot = HudDetail.Detailed; if (_seated) StandUp(); Toasts(); }));
+        s.Add(("done", () => { CloseAllPanels(); if (!_seated) { _body = StandSpot; Sit(); } })); // seated again for the next window size
+    }
+
+    // ---- the timing pass -----------------------------------------------------------------------------------
+    // Every step opens a panel (or changes it) and then lets 20 frames run. The CPU time of those frames comes from the engine's own monitor
+    // (script and scene processing, without the GPU and without waiting for the screen), so a loaded machine does not fake a failure. The budgets
+    // are the ones of the spec (docs/prototypes/hud-information-study.md): a panel opens in under 100 ms, no frame during the interaction goes
+    // over 20 ms, both checked at 1920x1080 (the other sizes are reported and noted only).
+
+    public const float OpenBudgetMs = 100f, FrameBudgetMs = 20f;
+    private double _perfSetupMs;
+    private float _perfOpenMs, _perfWorstMs;
+    private int _perfWorstPhase, _perfOver;
+    private double _perfLastWall;
+    private readonly List<(string Name, float Open, float Worst)> _perfRows = new();
+    private float _perfWorstOpen, _perfWorstFrame;
+    private string _perfWorstOpenName = "", _perfWorstFrameName = "";
+
+    /// <summary>
+    /// Called once per frame with the wall time since the previous frame. The audit turns vsync off, so a frame lasts what it costs (script, layout and
+    /// drawing). The frame that runs the step's setup and the next one are the cost of opening; the frames after it are the interaction.
+    /// </summary>
+    private void PerfSample(int phase, float frameMs)
+    {
+        if (phase is 3 or 4) _perfOpenMs = Math.Max(_perfOpenMs, frameMs);
+        else if (phase is >= 5 and <= 21)
+        {
+            if (frameMs > FrameBudgetMs) _perfOver++;
+            if (frameMs > _perfWorstMs) { _perfWorstMs = frameMs; _perfWorstPhase = phase; }
+        }
+    }
+
+    private void PerfBegin() { _perfSetupMs = 0; _perfOpenMs = _perfWorstMs = 0f; _perfOver = 0; }
+
+    /// <summary>Reports the step's numbers and returns the number of budget failures (1080p only; elsewhere a note).</summary>
+    private int PerfEnd(string ctx, string size)
+    {
+        float open = Math.Max((float)_perfSetupMs, _perfOpenMs); // the setup call is inside the first measured frame
+        _perfRows.Add((ctx, open, _perfWorstMs));
+        if (open > _perfWorstOpen) { _perfWorstOpen = open; _perfWorstOpenName = ctx; }
+        if (_perfWorstMs > _perfWorstFrame) { _perfWorstFrame = _perfWorstMs; _perfWorstFrameName = ctx; }
+        bool strict = size == "1920x1080";
+        int errors = 0;
+        // One frame over the budget is a hitch (the garbage collector, another process on the machine): a note. Two or more in a step are a failure.
+        bool badOpen = open > OpenBudgetMs, badFrame = _perfOver >= 2, hitch = _perfOver == 1;
+        if (badOpen && strict) errors++;
+        if (badFrame && strict) errors++;
+        GD.Print($"UIAUDIT PERF {ctx} open={open:F1}ms worstFrame={_perfWorstMs:F1}ms setup={_perfSetupMs:F1}ms (worst frame at phase {_perfWorstPhase})" + (hitch ? " note: one frame over " + FrameBudgetMs + " ms (a hitch)" : "") + (badOpen || badFrame ? (strict ? " FAIL budget (open " + OpenBudgetMs + " ms, frame " + FrameBudgetMs + " ms)" : " note: over budget (checked at 1920x1080)") : ""));
+        return errors;
     }
 
     private void UiAuditFrame()
     {
         if (!_uiAudit) return;
         _auditFrame++;
+        double nowMs = Time.GetTicksUsec() / 1000.0;
+        float frameMs = (float)(nowMs - _perfLastWall);
+        _perfLastWall = nowMs;
         _wantCapture = false;
         _paused = _paused && PauseOpen;
         // Per size: a step every 26 frames (setup on the second, audit on the 22nd, after the HUD fades have run).
         const int Period = 26;
         if (_auditSize >= _auditSizes.Length)
         {
+            GD.Print($"UIAUDIT PERF worst open={_perfWorstOpen:F1}ms ({_perfWorstOpenName}) worst frame={_perfWorstFrame:F1}ms ({_perfWorstFrameName})");
             GD.Print($"UIAUDIT RESULT errors={_auditErrors} notes={_auditNotes} lang={Loc.Lang} scenario={(_scenario?.Id ?? "campaign")}");
             GetTree().Quit(_auditErrors == 0 ? 0 : 1);
             _uiAudit = false;
@@ -131,7 +193,14 @@ public partial class Play
         }
         if (_auditStep >= _auditSteps.Count) { _auditStep = 0; _auditSize++; _auditFrame = 0; return; }
         var step = _auditSteps[_auditStep];
-        if (phase == 2) step.Setup();
+        if (phase == 2)
+        {
+            PerfBegin();
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            step.Setup();
+            _perfSetupMs = sw.Elapsed.TotalMilliseconds;
+        }
+        else if (phase is >= 3 and <= 21) PerfSample(phase, frameMs);
         if (phase == 22)
         {
             var vp = GetViewport().GetVisibleRect();
@@ -148,7 +217,7 @@ public partial class Play
             }
             if (_auditShots is not null) { System.IO.Directory.CreateDirectory(_auditShots); GetViewport().GetTexture().GetImage().SavePng(System.IO.Path.Combine(_auditShots, ctx.Replace("/", "_").Replace(":", "_") + ".png")); }
             int errors = UiAudit.Report(ctx, findings);
-            _auditErrors += errors;
+            _auditErrors += errors + PerfEnd(ctx, _auditSizes[_auditSize]);
             _auditNotes += findings.Count - errors;
             _auditStep++;
         }

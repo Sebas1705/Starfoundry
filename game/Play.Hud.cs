@@ -24,7 +24,7 @@ public partial class Play
     private readonly Dictionary<Control, float> _hudFade = new();
 
     /// <summary>The headless screenshot flags render frames as fast as they can, so a fade would be caught half way: they snap instead.</summary>
-    private readonly bool _hudSnap = Array.Exists(OS.GetCmdlineUserArgs(), a => a.Contains("-shot") || a.StartsWith("--hud-sweep="));
+    private readonly bool _hudSnap = Array.Exists(OS.GetCmdlineUserArgs(), a => a.Contains("-shot") || a.StartsWith("--hud-sweep=") || a.StartsWith("--ui-audit")); // the audit runs frames faster than a fade lasts, so it snaps too
 
     /// <summary>True while the player sits in the pilot seat (or the world has no walking): the ship's data is what the HUD is about.</summary>
     private bool ShipHudContext => !Standing;
