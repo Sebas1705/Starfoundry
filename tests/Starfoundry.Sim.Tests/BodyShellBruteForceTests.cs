@@ -107,6 +107,23 @@ public class BodyShellBruteForceTests
                     RandomWalks(Layout(Pair(a, b, alongZ), false), $"station {a}+{b} alongZ={alongZ}", seed++, 160);
     }
 
+
+    [Fact]
+    public void ADockedShipAndStationNeverLetTheBodyIntoEitherShell()
+    {
+        int seed = 900;
+        foreach (var ship in Corridor)
+            foreach (var station in new[] { ModuleKind.Dock, ModuleKind.Core, ModuleKind.Hull, ModuleKind.Workshop, ModuleKind.Defence })
+                foreach (bool alongZ in new[] { false, true })
+                {
+                    // the ship's flank (or nose) is docked to the station module next to it: both sides carry the neighbour bit and the airlock bit
+                    int shipMask = alongZ ? HullProfile.Rear | HullProfile.DockedRear : HullProfile.Right | HullProfile.DockedRight;
+                    int stationMask = alongZ ? HullProfile.Front | HullProfile.DockedFront : HullProfile.Left | HullProfile.DockedLeft;
+                    var s = BodyMotion.Volumes(new[] { new KeyValuePair<(int, int, int), ModuleKind>((0, 0, 0), ship) }, _ => shipMask, true);
+                    var t = BodyMotion.Volumes(new[] { new KeyValuePair<(int, int, int), ModuleKind>(alongZ ? (0, 0, 1) : (1, 0, 0), station) }, _ => stationMask, false);
+                    RandomWalks(s.Concat(t).ToArray(), $"docked {ship}+{station} alongZ={alongZ}", seed++, 300);
+                }
+    }
     [Fact]
     public void ARowOfEveryCorridorKindIsWalkedEndToEnd()
     {
