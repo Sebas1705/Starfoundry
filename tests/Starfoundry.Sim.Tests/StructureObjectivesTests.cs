@@ -11,8 +11,8 @@ public class StructureObjectivesTests
 
     private static readonly Objective[] StructuresOrder =
     {
-        Objective.Fly, Objective.Mine, Objective.Refine, Objective.FabBay, Objective.WatchFactory, Objective.FoundStation, Objective.MakeFuel, Objective.AddModule,
-        Objective.Research, Objective.Scan, Objective.Defend, Objective.Automate, Objective.Expand,
+        Objective.Fly, Objective.Mine, Objective.Refine, Objective.FabBay, Objective.WatchFactory, Objective.FoundStation, Objective.Dock, Objective.MakeFuel, Objective.AddModule,
+        Objective.Research, Objective.Scan, Objective.Defend, Objective.Salvage, Objective.Automate, Objective.Upgrade, Objective.Expand,
     };
 
     private static SimWorld World(bool structures = true)
@@ -144,7 +144,7 @@ public class StructureObjectivesTests
             keys.Add("module." + name); keys.Add("module." + k.ToString().ToLowerInvariant()); keys.Add("module." + k.ToString().ToLowerInvariant() + ".purpose");
             keys.Add("module." + name + ".purpose");
         }
-        foreach (var o in new[] { Objective.WatchFactory, Objective.FoundStation, Objective.MakeFuel, Objective.AddModule, Objective.Automate })
+        foreach (var o in new[] { Objective.WatchFactory, Objective.FoundStation, Objective.MakeFuel, Objective.AddModule, Objective.Automate, Objective.Dock, Objective.Salvage, Objective.Upgrade })
         {
             var s = new ObjectiveState(o, false);
             keys.Add(s.TitleKey);

@@ -52,7 +52,7 @@ public class NewGameTests
     public void Story_levels_unlock_in_order()
     {
         var ids = ScenarioKinds.Story(Catalog).Select(s => s.Id).ToList();
-        Assert.Equal(new[] { "01_first_light", "02_cold_fuel", "03_under_siege", "04_deep_vein", "05_long_watch" }, ids);
+        Assert.Equal(new[] { "01_first_light", "02_cold_fuel", "03_under_siege", "04_deep_vein", "05_long_watch", "06_salvage_run", "07_hull_breach" }, ids);
         var p = new ProgressRecord();
         Assert.True(p.IsUnlocked(ids, ids[0]));
         Assert.False(p.IsUnlocked(ids, ids[1]));
@@ -62,7 +62,7 @@ public class NewGameTests
         Assert.False(p.IsUnlocked(ids, ids[2])); // completing level 1 does not open level 3
         Assert.True(p.IsUnlocked(ids, "not a level")); // not part of the chain: nothing to unlock
         Assert.Equal(ids[1], ScenarioKinds.NextStory(Catalog, Catalog.Get(ids[0]))!.Id);
-        Assert.Null(ScenarioKinds.NextStory(Catalog, Catalog.Get(ids[4])));
+        Assert.Null(ScenarioKinds.NextStory(Catalog, Catalog.Get(ids[6])));
         Assert.Null(ScenarioKinds.NextStory(Catalog, Catalog.Get("campaign")));
     }
 

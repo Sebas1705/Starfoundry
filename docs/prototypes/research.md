@@ -71,6 +71,17 @@ flowchart LR
 | `engine_speed` | `EnginePercent` (the top speed of the ship, past the engine cap; ion thrusters and the plasma drive, [ADR 0033](../adr/0033-flight-inertia-solid-deposits-and-hit-volumes.md)); only in worlds with flight inertia |
 | `engine_accel` | `AccelRate` and `BrakeRate` (the acceleration and braking limits; thrust vectoring and the plasma drive); only in worlds with flight inertia |
 
+## Three optional nodes for the material chains (2026-11-24)
+[ADR 0034](../adr/0034-optional-material-chains-and-read-only-goal-types.md), [materials](materials.md#materials-and-what-they-are-for-audit-and-the-optional-chains-2026-11-24). The nodes are of the basic field (no science item), so the science mode and its test that every non-basic node is researched are unaffected, and the default bot path does not touch them (the whole-tree test lists them as left out).
+
+| Node | Needs | Cost | Unlocks | Bonus |
+| --- | --- | --- | --- | --- |
+| `core:composites` | advanced plating, carbon processing | 200 iron plates, 60 carbon, 20 nickel plates | `make_carbon_fiber`, `make_composite_plate` | ship hull +20 % |
+| `core:cryogenics` | electronics | 250 iron plates, 30 silicon, 20 titanium plates | `make_coolant` | none |
+| `core:resonance` | sensors | 250 iron plates, 30 silicon, 40 quartz | `make_focus_lens`, the crystal port | mining rate +20 % |
+
+Every cost item is deliverable (iron plates, carbon, nickel and titanium plates, silicon, quartz), checked by `MaterialsExpansionTests.The_research_graph_of_the_shipped_content_is_completable`. The glyphs are `plateStack`, `drop` and `crystal` (`IconCatalog`), the names and descriptions are in `LocMaterials.cs`. Scenario 04 (Deep Vein) has Composites as a secondary goal.
+
 ## The research panel (logic)
 `ResearchEntry.Field`, `ResearchView.BuildByField` (basic, engineering, biology, physics; inside a field the usual state order), `FieldName`, and `ScienceColour` (amber `#F2A93B`, green `#5FC27A`, blue `#58A6FF`) for tinting the cost lines and icons. Item names, field names and bonus names are Loc keys in Spanish and English; points and item-count bonuses ("+10 points", "-1 carbon") have their own unlock texts. The game panel is not changed here.
 

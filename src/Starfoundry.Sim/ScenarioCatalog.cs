@@ -273,13 +273,20 @@ public sealed class ScenarioCatalog
                 "build_module" => GoalType.BuildModule,
                 "keep_alive" => GoalType.KeepAlive,
                 "keep_fuel" => GoalType.KeepFuel,
+                "have_module" => GoalType.HaveModule,
+                "salvage" => GoalType.Salvage,
+                "dock" => GoalType.Dock,
+                "stock" => GoalType.Stock,
+                "ship_speed" => GoalType.ShipSpeed,
+                "kill_enemies" => GoalType.KillEnemies,
                 _ => throw new InvalidDataException($"scenario '{id}': goal '{gid}' has an unknown type '{tn}'."),
             };
             string what = $"goal '{gid}' of scenario '{id}'";
             int item = -1, node = -1, count = 0;
             ModuleKind? kind = null;
-            bool needsItem = type is GoalType.Produce or GoalType.Mine, needsNode = type == GoalType.Research,
-                needsKind = type is GoalType.BuildModule or GoalType.KeepAlive, needsCount = type is not (GoalType.Research or GoalType.KeepAlive or GoalType.KeepFuel);
+            bool needsItem = type is GoalType.Produce or GoalType.Mine or GoalType.Stock, needsNode = type == GoalType.Research,
+                needsKind = type is GoalType.BuildModule or GoalType.KeepAlive or GoalType.HaveModule,
+                needsCount = type is not (GoalType.Research or GoalType.KeepAlive or GoalType.KeepFuel or GoalType.Dock);
             void Reject(string field, bool needed)
             {
                 if (!needed && e.TryGetProperty(field, out _)) throw new InvalidDataException($"{what} (type {tn}) does not take '{field}'.");
@@ -295,7 +302,7 @@ public sealed class ScenarioCatalog
                 string nid = Str(e, "node", what);
                 try { node = content.ResearchIndex(nid); } catch (KeyNotFoundException) { throw new InvalidDataException($"{what} uses unknown research '{nid}'."); }
             }
-            if (needsKind && (type == GoalType.BuildModule || e.TryGetProperty("kind", out _)))
+            if (needsKind && (type is GoalType.BuildModule or GoalType.HaveModule || e.TryGetProperty("kind", out _)))
             {
                 string kn = Str(e, "kind", what);
                 var found = Enum.GetValues<ModuleKind>().Where(k => ModuleKindIds.Id(k) == kn).Select(k => (ModuleKind?)k).FirstOrDefault();
@@ -303,7 +310,7 @@ public sealed class ScenarioCatalog
             }
             if (needsCount && (type != GoalType.SurviveWaves || e.TryGetProperty("count", out _)))
             {
-                int max = type switch { GoalType.SurviveWaves => WorldRules.MaxGoalWaves, GoalType.VisitSystems => 64, GoalType.FoundStations => 20, GoalType.BuildModule => 50, _ => MaxGoalCount };
+                int max = type switch { GoalType.SurviveWaves => WorldRules.MaxGoalWaves, GoalType.VisitSystems => 64, GoalType.FoundStations => 20, GoalType.BuildModule or GoalType.HaveModule => 50, GoalType.Salvage => 20, GoalType.ShipSpeed => StructureFlight.MaxSpeedPercent, _ => MaxGoalCount };
                 count = Int(e, "count", what, 1, max);
             }
             int limit = e.TryGetProperty("time_limit_seconds", out _) ? Int(e, "time_limit_seconds", what, 0, MaxTimeLimitSeconds) : 0;

@@ -14,7 +14,7 @@ public sealed record GoalState(GoalDef Goal, bool Primary, GoalStatus Status, lo
     public string Text(bool spanish) => spanish ? Goal.TextEs : Goal.TextEn;
 
     /// <summary>"12/60" style text; empty for goals that only hold.</summary>
-    public string ProgressText => Goal.IsCondition || Goal.Type == GoalType.Research ? "" : $"{Math.Min(Current, Target)}/{Target}";
+    public string ProgressText => Goal.IsCondition || Goal.IsOneStep ? "" : $"{Math.Min(Current, Target)}/{Target}";
 
     /// <summary>The time limit of the goal in seconds, or 0 when it has none.</summary>
     public int TimeLimitSeconds => Goal.TimeLimitSeconds;
@@ -57,6 +57,9 @@ public sealed class ScenarioProgress
     }
 
     public ScenarioDef Scenario { get; }
+
+    /// <summary>The content the goals were resolved against (the icons of the goals come from it).</summary>
+    public ContentDb Content => _content;
 
     /// <summary>Every goal, primary first.</summary>
     public IReadOnlyList<GoalState> Goals => _goals;
@@ -151,7 +154,7 @@ public sealed class ScenarioProgress
             for (int i = 0; i < _goals.Length; i++)
             {
                 var s = _goals[i];
-                var (current, target, complete, broken) = Measure(net, s.Goal);
+                var (current, target, complete, broken) = Measure(net, s.Goal, player);
                 if (s.Status != GoalStatus.Pending)
                 {
                     _goals[i] = s with { Current = Math.Max(s.Current, current), Target = target };
@@ -208,8 +211,37 @@ public sealed class ScenarioProgress
         Stars = Tier(rule.ThreeStarSeconds, rule.ThreeStarSecondary) ? 3 : Tier(rule.TwoStarSeconds, rule.TwoStarSecondary) ? 2 : 1;
     }
 
+    /// <summary>Modules of a kind standing in the structures of a player (ship and stations).</summary>
+    public static long OwnModules(BeltNetwork net, int player, ModuleKind kind)
+    {
+        long n = 0;
+        foreach (var s in net.Structures())
+            if (s.Owner == player)
+                foreach (var k in s.Modules.Values) if (k == kind) n++;
+        return n;
+    }
+
+    /// <summary>Units of an item in the stock of the player's stations.</summary>
+    public static long StockOf(BeltNetwork net, int player, int item)
+    {
+        long n = 0;
+        foreach (var s in net.Structures())
+            if (s.Owner == player && s.Kind == StructureKind.Station) n += net.StockCount(s.Id, item);
+        return n;
+    }
+
+    /// <summary>The summed engine speed of the player's ship in percent of the base speed, at most <see cref="StructureFlight.MaxSpeedPercent"/> (power and docking do not matter: this is the fit, not the moment).</summary>
+    public long EnginePercent(BeltNetwork net, int player)
+    {
+        int ship = net.ShipStructure(player);
+        if (ship <= 0 || !net.StructureExists(ship) || _content.Structures is not { } kinds) return 0;
+        long total = 0;
+        foreach (var k in net.GetStructure(ship).Modules.Values) if (k == ModuleKind.Engine) total += kinds.EngineSpeedPercent(k);
+        return Math.Min(total, StructureFlight.MaxSpeedPercent);
+    }
+
     /// <summary>Current, target, whether the goal is met, and (for keep goals) whether it is broken.</summary>
-    private (long Current, long Target, bool Complete, bool Broken) Measure(BeltNetwork net, GoalDef g)
+    private (long Current, long Target, bool Complete, bool Broken) Measure(BeltNetwork net, GoalDef g, int player)
     {
         switch (g.Type)
         {
@@ -231,6 +263,12 @@ public sealed class ScenarioProgress
                 return (lost == 0 ? 1 : 0, 1, false, lost > 0);
             }
             case GoalType.KeepFuel: return (net.FuelStarvedTicks == 0 ? 1 : 0, 1, false, net.FuelStarvedTicks > 0);
+            case GoalType.HaveModule: { long have = OwnModules(net, player, g.Kind!.Value); return (have, g.Count, have >= g.Count, false); }
+            case GoalType.Salvage: { long have = net.WrecksSalvaged(); return (have, g.Count, have >= g.Count, false); }
+            case GoalType.Dock: { bool docked = net.IsDocked(player); return (docked ? 1 : 0, 1, docked, false); }
+            case GoalType.Stock: { long have = StockOf(net, player, g.Item); return (have, g.Count, have >= g.Count, false); }
+            case GoalType.ShipSpeed: { long have = EnginePercent(net, player); return (have, g.Count, have >= g.Count, false); }
+            case GoalType.KillEnemies: { long have = net.EnemiesKilled; return (have, g.Count, have >= g.Count, false); }
             default: return (0, 1, false, false);
         }
     }

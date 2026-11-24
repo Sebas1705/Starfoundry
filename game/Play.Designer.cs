@@ -165,7 +165,7 @@ public partial class Play
                     Net.AddStructureModuleUnchecked(st, 0, 0, 0, ModuleKind.Core);
                     Net.AddStructureModuleUnchecked(st, 0, 0, 1, ModuleKind.Shipyard);
                     Net.AddStructureModuleUnchecked(st, 0, 0, -1, ModuleKind.Reactor);
-                    foreach (var (item, n) in new[] { ("core:iron_plate", 80), ("core:iron_ingot", 40), ("core:carbon", 30), ("core:circuit", 20), ("core:titanium_alloy", 20) })
+                    foreach (var (item, n) in new[] { ("core:iron_plate", 80), ("core:iron_ingot", 40), ("core:carbon", 30), ("core:circuit", 20), ("core:titanium_alloy", 20), ("core:focus_lens", 4), ("core:coolant", 10), ("core:composite_plate", 4) })
                         Net.GiveStock(st, _content.ItemIndex(item), n);
                     if (Wait(5)) break;
                     Send(new DockAt(st, 0, 0, 0, Dir.PosX));

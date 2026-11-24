@@ -1,4 +1,4 @@
-# Prototype: scenarios, goals and the five story levels
+# Prototype: scenarios, goals and the seven story levels
 
 Status: built (2026-11-22). Decision: [ADR 0025](../adr/0025-scenarios-and-goals.md). Design: [modes, scenarios and resources](../superpowers/specs/2026-11-22-modes-and-scenarios-design.md), part B. Code: `src/Starfoundry.Sim/ScenarioDef.cs`, `ScenarioCatalog.cs`, `BeltNetwork.Counters.cs`, `SimWorld.CreateScenario`, `src/Starfoundry.Ui/ScenarioProgress.cs`, the bot in `tools/Starfoundry.Balance/StructureBot.Scenario.cs`. Data: `content/scenarios/*.json`. Tests: `ScenarioTests`, `ScenarioProgressTests`, `ScenarioContentTests`.
 
@@ -36,6 +36,14 @@ Goals: `id`, `type`, its fields, `text_es`, `text_en` (up to 160 characters) and
 | `build_module` | `kind`, `count` | that many modules of the kind were placed (template modules do not count) |
 | `keep_alive` | `kind` (omit for any kind) | never "done": fails when such a module is destroyed |
 | `keep_fuel` | none | never "done": fails when a reactor runs dry (no hydrogen in the owner's hold) |
+| `have_module` | `kind`, `count` | the player's structures hold that many modules of the kind right now (a second laser fitted at the shipyard counts); a done goal stays done |
+| `salvage` | `count` (1 to 20) | that many derelict wrecks were salvaged (`BeltNetwork.WrecksSalvaged`) |
+| `dock` | none | the ship is docked at a station (one step, no bar) |
+| `stock` | `item`, `count` | the player's stations hold that many of the item in their stock (what the unload key moves from a docked ship) |
+| `ship_speed` | `count` (percent, up to 400) | the engines of the ship add up to that percent of the base speed (100 per engine) |
+| `kill_enemies` | `count` | that many Remnant ships were destroyed (`BeltNetwork.EnemiesKilled`, turrets and guns alike) |
+
+The last six read the world and nothing else: no counter, no state, no log entry ([ADR 0034](../adr/0034-optional-material-chains-and-read-only-goal-types.md)), so adding them did not move the log version or any checksum. The goals panel shows an icon in front of every goal (the item, the module, the research node or a status symbol: `IconCatalog.ForGoal`); a one-step goal (research, dock) has no bar and no n/m.
 
 Story triggers: `start`, `win`, `lose`, `goal:<id>` (a goal is done), `fail:<id>` (a goal failed), `time:<seconds>` (that much play time has passed). Each beat fires once.
 
@@ -65,16 +73,18 @@ An example (the first level, shortened):
 `new ScenarioProgress(content, scenario)`, then `Update(net, player)` every frame or tick-batch. It returns the story beats that fired in that call. `Goals` has a `GoalState` per goal (status, current and target for a progress bar, when it was done or failed), `Outcome`/`Reason` (`Playing`, `Won`, `Lost`; reasons `WavesSurvived`, `GoalsDone`, `ShipLost`, `GoalFailed`), `Stars`, `Story` and `SecondaryCount`. Rules worth knowing: a done goal stays done; a goal that is not done when its time limit passes (or met only after it) is failed, and a failed primary goal loses the game; a keep goal that never failed counts as done when the scenario is won; a won or lost game is final. The tracker is recomputed from the world, so after loading a save the completion times start again unless the game stores them.
 
 ## The levels
-Measured with the scenario mode of the structure bot (`dotnet run --project tools/Starfoundry.Balance -- --scenario=<id> [--trace]`), action delay 6 s, the level's own seed. The bot plays levels 1 to 3 with real commands only. Levels 4 and 5 are validated by reachability analysis (`ScenarioContentTests`), not played.
+Measured with the scenario mode of the structure bot (`dotnet run --project tools/Starfoundry.Balance -- --scenario=<id> [--trace]`), action delay 6 s, the level's own seed. The bot plays levels 1 to 3, 6 and 7 with real commands only. Levels 4 and 5 are validated by reachability analysis (`ScenarioContentTests`), not played; levels 6 and 7 are played by the bot.
 
 | Level | Rules | Start | Primary goals | Secondary | Bot result |
 | --- | --- | --- | --- | --- | --- |
-| `01_first_light` | Relaxed, threats off, seed 20261121 | Starter ship | Mine 60 iron ore, make 10 iron plates, found a station | Found the station in under 8 minutes | Won at 1:51, 3 stars |
-| `02_cold_fuel` | Relaxed, threats off, seed 20261121 | `cold_ship` (6 hydrogen), 20 plates and 30 ingots | Make 10 hydrogen, build a reactor module, found a station | Never let a reactor run dry | Won at 23:10, 2 stars; hydrogen made at 1:09, so the reactor never ran dry |
-| `03_under_siege` | Normal with first wave grace 120 s, wave interval 25 %, wave size 130 %, 5 goal waves, seed 20261121 | `siege_ship` (eight cargo modules) and `siege_station` (core, workshop with smelter, assembler, depot, ports and two ammo belts, an empty defence module, a reactor) 10 cells to the side; 80 plates, 100 ingots, 80 extra hydrogen | Survive 5 waves; keep the station core | Lose no module | Won at 17:35, 3 stars, no module lost; wave 1 warning at 3:03 |
-| `04_deep_vein` | Normal, first wave grace 900 s, seed 20261121 | Starter ship | Research titanium smelting and advanced plating, visit 2 systems, make 20 titanium plates | The plates in under 40 minutes | Not played; the galaxy has 2155 titanium ore, 2526 nickel ore and 1118 quartz within three jumps of home against 120, 80 and 30 needed |
-| `05_long_watch` | Hard (12 waves), random seed | Starter ship | Survive the waves, found a station, visit 2 systems; keep the core | Lose no module | Not played; the standard campaign on Hard is measured in [difficulty.md](difficulty.md) (the bot wins Hard on three seeds at minutes 45 to 50) |
-| `campaign` | Player's choice (default Normal) | Starter ship | Survive the goal waves, found a station, visit 2 systems | none | Not played here; the standard bot wins the campaign ([structure-bot.md](structure-bot.md)) |
+| `01_first_light` | Relaxed, threats off, seed 20261121 | Starter ship | Mine 60 iron ore, make 10 iron plates, found a station | Found the station in under 8 minutes; build a fabrication bay beside the hull | Won at 3:27, 3 stars (1:51 before the optional bay) |
+| `02_cold_fuel` | Relaxed, threats off, seed 20261121 | `cold_ship` (6 hydrogen), 20 plates and 30 ingots | Make 10 hydrogen, build a reactor module, found a station | Never let a reactor run dry; dock at the station and unload 20 iron ingots into its stock | Won at 4:20, 3 stars; hydrogen made at 1:20, docked at 3:10 |
+| `03_under_siege` | Normal with first wave grace 120 s, wave interval 25 %, wave size 130 %, 5 goal waves, seed 20261121 | `siege_ship` (eight cargo modules) and `siege_station` (core, workshop with smelter, assembler, depot, ports and two ammo belts, an empty defence module, a reactor) 10 cells to the side; 80 plates, 100 ingots, 80 extra hydrogen | Survive 5 waves; keep the station core | Lose no module; destroy 12 Remnant ships | Won at 18:09, 3 stars, no module lost; 12 kills at 10:11 (wave 3) |
+| `04_deep_vein` | Normal, first wave grace 900 s, seed 20261121 | Starter ship | Research titanium smelting and advanced plating, visit 2 systems, make 20 titanium plates | The plates in under 40 minutes; salvage a wreck; research composites (3 stars need two of the three) | Not played; the galaxy has 2155 titanium ore, 2526 nickel ore and 1118 quartz within three jumps of home against 120, 80 and 30 needed |
+| `05_long_watch` | Hard (12 waves), random seed | Starter ship | Survive the waves, found a station, visit 2 systems; keep the core | Lose no module; fit a second gun at the shipyard; fit engines for 300 percent speed (3 stars need two of the three) | Not played; the standard campaign on Hard is measured in [difficulty.md](difficulty.md) (the bot wins Hard on three seeds at minutes 45 to 50) |
+| `06_salvage_run` | Relaxed, threats off, seed 20261102 (the home wreck holds 5 resonant crystals 73 cells west) | Starter ship and a bare station 18 cells west | Salvage the wreck, dock, leave 4 resonant crystals in the station stock | Under 10 minutes; lose no module | Won at 0:16, 3 stars (the bot boosts; a person needs a minute or two) |
+| `07_hull_breach` | Normal, first wave grace 60 s, wave interval 25 %, 3 goal waves, seed 20261121 | `breach_ship`: starter modules, a workshop with a factory and three laboratories (signature 20, so waves come every 2 to 3 minutes) and three guns | Survive 3 waves, destroy 8 Remnant ships | Lose no module; keep three guns | Won at 8:52, 3 stars (guns armed, nothing else); waves survived at 3:10, 6:00 and 8:52 |
+| `campaign` | Player's choice (default Normal) | Starter ship | Survive the goal waves, found a station, visit 2 systems | Build a shipyard; fit a second mining laser; dock; salvage a wreck; fit engines for 300 percent speed | Not played for the secondary goals; the standard bot wins the campaign ([structure-bot.md](structure-bot.md)) |
 | `sandbox`, `sandbox_station` | Player's choice, sandbox mode, threats off | Starter ship (plus a bare station core 10 cells to the side) | none | none | Never ends |
 
 Design decisions the numbers come from:
@@ -83,6 +93,10 @@ Design decisions the numbers come from:
 - **Waves.** The alert meter fills at the signature above the threshold, so level 3 shortens the wave interval to 25 percent to bring five waves into about 17 minutes. The first turret is up at minute 0:01 for the bot; a person has until minute 3 (the first warning).
 - **The fuel warning** of level 2 is a story beat at 120 s: six hydrogen last 180 s (each reactor burns one per 30 s).
 - **Levels 2 and 3 drop two ideas of the first draft**: "keep the reactor burning to the end" became the secondary `keep_fuel`, because a primary one would end the game the first time a reactor dipped; "start in the ship and the station with 200 plates" became the eight-cargo ship above.
+
+Levels 6 and 7 are challenges after the finale of the story: the cards are locked until the level before is completed like the others. Level 6 teaches salvage, docking and the station stock (and is where the first resonant crystals come from), level 7 teaches the guns and a defence without a station. The bot plans are in `StructureBot.Scenario.cs` (`PlaySalvageRun` flies to the wreck, waits, docks with `DockAt` and moves the loot with `TransferItems`; `PlayHullBreach` arms the guns and holds). Docking and the stock goal of level 2 use the same helper.
+
+Secondary goals added in this round and what they exercise: `fab_bay` (fabrication bays, level 1), `dock_stock` (docking and transferring stock, level 2), `gunnery` (kills, level 3), `salvage_wreck` and `composites` (wrecks and the new research, level 4), `second_gun` and `top_speed` (the shipyard and engines, level 5), and in the campaign `second_laser`, `dock_home`, `salvage_wreck` and `top_speed`. Levels 4 and 5 and the campaign goals are checked by reachability only (`ScenarioContentTests.Every_goal_can_be_delivered_with_the_content`, the wreck and crystal tests).
 
 ## How to add a level
 1. Write `content/scenarios/<id>.json` (id equals the file name; pick an unused `order`). Reuse a template from `structure_templates` in `content/core.json` or add one there (modules face-connected, machines and belts inside modules that allow them; the template's `hold` is the owner's hold at the start).

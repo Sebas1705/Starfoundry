@@ -4,8 +4,8 @@
   "order": 4,
   "name_es": "Veta profunda",
   "name_en": "Deep Vein",
-  "description_es": "Investiga titanio y blindaje avanzado, salta a otros sistemas y fabrica placas de titanio. Las amenazas tardan en llegar.",
-  "description_en": "Research titanium and advanced plating, jump to other systems and make titanium plates. Threats are slow to arrive.",
+  "description_es": "Investiga titanio y blindaje avanzado, salta a otros sistemas y fabrica placas de titanio; por el camino, recupera un pecio. Las amenazas tardan en llegar.",
+  "description_en": "Research titanium and advanced plating, jump to other systems and make titanium plates; salvage a wreck on the way. Threats are slow to arrive.",
   "briefing_es": "Todo lo bueno está lejos de casa: el titanio, el níquel, el cuarzo. Investiga la fundición de titanio y el blindaje avanzado, sal a buscarlos y vuelve con placas de titanio. El Remanente nos dará unos quince minutos antes de empezar a molestar.",
   "briefing_en": "Everything worth having is far from home: titanium, nickel, quartz. Research titanium smelting and advanced plating, go and find them, and come back with titanium plates. The Remnant will give us about fifteen minutes before it starts to bother us.",
   "rules": { "preset": "normal", "first_wave_grace_seconds": 900 },
@@ -23,7 +23,11 @@
     ],
     "secondary": [
       { "id": "quick_plates", "type": "produce", "item": "core:titanium_plate", "count": 20, "time_limit_seconds": 2400,
-        "text_es": "Fabrica las placas en menos de 40 minutos", "text_en": "Make the plates in under 40 minutes" }
+        "text_es": "Fabrica las placas en menos de 40 minutos", "text_en": "Make the plates in under 40 minutes" },
+      { "id": "salvage_wreck", "type": "salvage", "count": 1,
+        "text_es": "Recupera un pecio abandonado: vuela despacio a su lado", "text_en": "Salvage a derelict wreck: fly slowly beside it" },
+      { "id": "composites", "type": "research", "node": "core:composites",
+        "text_es": "Investiga los compuestos (fibra de carbono y placa compuesta)", "text_en": "Research composites (carbon fibre and composite plate)" }
     ]
   },
   "story": [
@@ -36,9 +40,15 @@
     { "trigger": "goal:titanium_smelting",
       "text_es": "Fundición de titanio lista. Para el blindaje avanzado necesitarás también níquel y cuarzo.",
       "text_en": "Titanium smelting done. Advanced plating will also want nickel and quartz." },
+    { "trigger": "goal:salvage_wreck",
+      "text_es": "Un pecio menos en el vacío y algo útil en la bodega. Los cristales resonantes solo salen de ahí.",
+      "text_en": "One less wreck adrift and something useful in the hold. Resonant crystals come from nowhere else." },
+    { "trigger": "goal:composites",
+      "text_es": "Compuestos listos: fibra de carbono con níquel, y placas compuestas con titanio. Ligero y duro.",
+      "text_en": "Composites done: carbon fibre with nickel, composite plates with titanium. Light and tough." },
     { "trigger": "win",
       "text_es": "Placas de titanio en la bodega. Esto ya es otra liga, capitán.",
       "text_en": "Titanium plates in the hold. This is a different league, captain." }
   ],
-  "stars": { "two_star_seconds": 4500, "three_star_seconds": 3000, "two_star_secondary": 0, "three_star_secondary": -1 }
+  "stars": { "two_star_seconds": 4500, "three_star_seconds": 3000, "two_star_secondary": 0, "three_star_secondary": 2 }
 }

@@ -64,6 +64,16 @@ public sealed partial class BeltNetwork
     /// <summary>Number of obstacles of the galaxy (0 for a legacy galaxy or without content rules).</summary>
     public int ObstacleCount => Galaxy?.Obstacles.Count ?? 0;
 
+    /// <summary>Wrecks the pilots have salvaged so far (read-only: a wreck is only ever gone by salvage). Scenario goals read it.</summary>
+    public int WrecksSalvaged()
+    {
+        if (Galaxy is null || WorldGen is null) return 0;
+        int n = 0;
+        for (int i = 0; i < _obstacleState.Length; i++)
+            if (_obstacleState[i].Gone && WorldGen.Kinds[Galaxy.Obstacles[i].Kind].Behaviour == ObstacleBehaviour.Wreck) n++;
+        return n;
+    }
+
     private WorldGenRules? WorldGen => Content?.World;
 
     private void InitObstacles()

@@ -123,3 +123,14 @@ Owner decision: Hard sat only 2-3 minutes behind Normal. Hard now needs 13 waves
 | 777 | Win 53:06 |
 
 Normal stays at about 49 minutes, so Hard is now 3-5 minutes longer and one wave harder.
+
+## Materials and missions round (2026-11-24)
+Five optional materials ([materials](materials.md#materials-and-what-they-are-for-audit-and-the-optional-chains-2026-11-24)), six read-only goal types and two new levels ([scenarios](scenarios.md)). Nothing the bot does touches the new items (it researches none of the three new nodes and builds no Mk2 module), and the wreck loot gained entries without moving any random draw. StructureBot, 6 s per action, seed 20261121, `--structures --difficulty=<preset> --minutes 150`:
+
+| Preset (goal) | Win time |
+| --- | --- |
+| Relaxed (8) | 48:34 (wave 1 warning 20:23) |
+| Normal (10) | 49:31 (19:04) |
+| Hard (13) | 52:36 (17:49) |
+
+These match main after the flight-feel merge (about 48.5, 49.5 and 52.6): the new content moved nothing. Level times with the new secondary goals (scenario bot): level 1 3:27 (1:51 without the optional bay, 3 stars), level 2 4:20 (3 stars), level 3 18:09 (3 stars), level 6 0:16, level 7 8:52 (3 stars). The `ship_speed` goals count engines fitted (100 percent each), so the engine research of ADR 0033, which raises top speed past the cap, does not change them.

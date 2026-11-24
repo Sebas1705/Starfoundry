@@ -66,6 +66,21 @@
     },
     {
       "id": "core:biomass"
+    },
+    {
+      "id": "core:carbon_fiber"
+    },
+    {
+      "id": "core:composite_plate"
+    },
+    {
+      "id": "core:coolant"
+    },
+    {
+      "id": "core:resonant_crystal"
+    },
+    {
+      "id": "core:focus_lens"
     }
   ],
   "machines": [
@@ -347,6 +362,24 @@
       "power_use": 2,
       "unloader": {
         "item": "core:carbon",
+        "interval_ticks": 30,
+        "reserve": 0
+      }
+    },
+    {
+      "id": "core:crystal_unloader",
+      "role": "unloader",
+      "cost": [
+        {
+          "item": "core:iron_ingot",
+          "count": 12
+        }
+      ],
+      "hp": 80,
+      "signature": 1,
+      "power_use": 2,
+      "unloader": {
+        "item": "core:resonant_crystal",
         "interval_ticks": 30,
         "reserve": 0
       }
@@ -708,6 +741,34 @@
       "inputs": [{ "item": "core:iron_ingot", "count": 1 }],
       "outputs": [{ "item": "core:ammo", "count": 4 }],
       "time_s": 1
+    },
+    {
+      "id": "core:make_carbon_fiber",
+      "machine": "core:assembler",
+      "inputs": [{ "item": "core:carbon", "count": 3 }, { "item": "core:nickel_ingot", "count": 1 }],
+      "outputs": [{ "item": "core:carbon_fiber", "count": 2 }],
+      "time_s": 6
+    },
+    {
+      "id": "core:make_composite_plate",
+      "machine": "core:assembler",
+      "inputs": [{ "item": "core:carbon_fiber", "count": 2 }, { "item": "core:titanium_plate", "count": 1 }],
+      "outputs": [{ "item": "core:composite_plate", "count": 1 }],
+      "time_s": 6
+    },
+    {
+      "id": "core:make_coolant",
+      "machine": "core:hydrogen_cracker",
+      "inputs": [{ "item": "core:ice", "count": 3 }, { "item": "core:silicon", "count": 1 }],
+      "outputs": [{ "item": "core:coolant", "count": 2 }],
+      "time_s": 8
+    },
+    {
+      "id": "core:make_focus_lens",
+      "machine": "core:assembler",
+      "inputs": [{ "item": "core:resonant_crystal", "count": 1 }, { "item": "core:quartz", "count": 2 }],
+      "outputs": [{ "item": "core:focus_lens", "count": 1 }],
+      "time_s": 8
     }
   ],
   "belts": [
@@ -1299,6 +1360,26 @@
       "requires": ["core:thrust_vectoring", "core:alloy_hulls"],
       "unlocks": [],
       "bonuses": [{ "kind": "engine_speed", "percent": 35 }, { "kind": "engine_accel", "percent": 40 }]
+    },
+    {
+      "id": "core:composites",
+      "cost": [{ "item": "core:iron_plate", "count": 200 }, { "item": "core:carbon", "count": 60 }, { "item": "core:nickel_plate", "count": 20 }],
+      "requires": ["core:advanced_plating", "core:carbon_drilling"],
+      "unlocks": ["core:make_carbon_fiber", "core:make_composite_plate"],
+      "bonuses": [{ "kind": "ship_hull", "percent": 20 }]
+    },
+    {
+      "id": "core:cryogenics",
+      "cost": [{ "item": "core:iron_plate", "count": 250 }, { "item": "core:silicon", "count": 30 }, { "item": "core:titanium_plate", "count": 20 }],
+      "requires": ["core:electronics"],
+      "unlocks": ["core:make_coolant"]
+    },
+    {
+      "id": "core:resonance",
+      "cost": [{ "item": "core:iron_plate", "count": 250 }, { "item": "core:silicon", "count": 30 }, { "item": "core:quartz", "count": 40 }],
+      "requires": ["core:sensors"],
+      "unlocks": ["core:make_focus_lens", "core:crystal_unloader"],
+      "bonuses": [{ "kind": "mining_rate", "percent": 20 }]
     }
   ],
   "galaxy": {
@@ -1805,7 +1886,7 @@
       "hardpoint_range_cells": 10
     },
     "mining_laser_mk2": {
-      "cost": [{ "item": "core:circuit", "count": 8 }, { "item": "core:titanium_alloy", "count": 8 }, { "item": "core:iron_plate", "count": 12 }],
+      "cost": [{ "item": "core:circuit", "count": 8 }, { "item": "core:titanium_alloy", "count": 8 }, { "item": "core:focus_lens", "count": 1 }, { "item": "core:coolant", "count": 2 }],
       "hp": 180,
       "allows": [],
       "hold_capacity": 0,
@@ -1823,7 +1904,7 @@
       "hardpoint_percent": 100
     },
     "gun_mk2": {
-      "cost": [{ "item": "core:circuit", "count": 8 }, { "item": "core:titanium_alloy", "count": 8 }, { "item": "core:iron_plate", "count": 14 }],
+      "cost": [{ "item": "core:circuit", "count": 8 }, { "item": "core:titanium_alloy", "count": 8 }, { "item": "core:composite_plate", "count": 1 }, { "item": "core:coolant", "count": 3 }],
       "hp": 180,
       "allows": [],
       "hold_capacity": 0,
@@ -1923,6 +2004,35 @@
         { "id": "smelter", "machine": "core:smelter", "at": [3, 0, 9], "recipe": "core:smelt_iron" },
         { "id": "assembler", "machine": "core:assembler", "at": [3, 0, 11], "recipe": "core:iron_plate" },
         { "id": "depot", "machine": "core:depot", "at": [7, 0, 10] }
+      ],
+      "belts": [
+        { "at": [1, 0, 9], "dir": "+x", "length": 2, "tier": "mk1", "from": "ore_port", "to": "smelter" },
+        { "at": [4, 0, 9], "dir": "+x", "length": 4, "tier": "mk1", "from": "smelter", "to": "depot" },
+        { "at": [3, 0, 10], "dir": "+z", "length": 1, "tier": "mk1", "from": "smelter", "to": "assembler" },
+        { "at": [4, 0, 11], "dir": "+x", "length": 4, "tier": "mk1", "from": "assembler", "to": "depot" }
+      ]
+    },
+    "breach_ship": {
+      "modules": [
+        { "at": [0, 0, 0], "kind": "cockpit" },
+        { "at": [0, 0, 1], "kind": "workshop" },
+        { "at": [0, 0, 2], "kind": "cargo" },
+        { "at": [0, 0, 3], "kind": "reactor" },
+        { "at": [0, 0, 4], "kind": "engine" },
+        { "at": [0, 0, -1], "kind": "mining_laser" },
+        { "at": [0, 1, 0], "kind": "gun" },
+        { "at": [0, 1, 1], "kind": "gun" },
+        { "at": [0, 1, 2], "kind": "gun" }
+      ],
+      "hold": [{ "item": "core:hydrogen", "count": 40 }],
+      "machines": [
+        { "id": "ore_port", "machine": "core:ore_unloader", "at": [0, 0, 9] },
+        { "id": "smelter", "machine": "core:smelter", "at": [3, 0, 9], "recipe": "core:smelt_iron" },
+        { "id": "assembler", "machine": "core:assembler", "at": [3, 0, 11], "recipe": "core:iron_plate" },
+        { "id": "depot", "machine": "core:depot", "at": [7, 0, 10] },
+        { "id": "lab", "machine": "core:research_lab", "at": [5, 0, 13] },
+        { "id": "lab2", "machine": "core:research_lab", "at": [6, 0, 13] },
+        { "id": "lab3", "machine": "core:research_lab", "at": [5, 0, 14] }
       ],
       "belts": [
         { "at": [1, 0, 9], "dir": "+x", "length": 2, "tier": "mk1", "from": "ore_port", "to": "smelter" },
@@ -2087,7 +2197,9 @@
           { "item": "core:iron_ingot", "count": [10, 24] },
           { "item": "core:carbon", "count": [3, 8] },
           { "item": "core:ammo", "count": [8, 20] },
-          { "item": "core:ice", "count": [4, 12] }
+          { "item": "core:ice", "count": [4, 12] },
+          { "item": "core:resonant_crystal", "count": [2, 5] },
+          { "item": "core:resonant_crystal", "count": [3, 6] }
         ] },
       { "id": "core:drifting_debris", "behaviour": "drifter", "weight": 1, "radius_tenths": [15, 30], "damage": 10, "drift_units_per_tick": 12, "hit_percent": 110 }
     ]

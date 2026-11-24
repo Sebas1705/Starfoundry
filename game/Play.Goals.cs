@@ -61,6 +61,7 @@ public partial class Play
         public string Id = "";
         public VBoxContainer Root = null!;
         public GoalMark Mark = null!;
+        public IconRect Icon = null!;
         public Label Text = null!, Count = null!, Time = null!;
         public ProgressBar Bar = null!;
     }
@@ -131,6 +132,8 @@ public partial class Play
             row.Time = MakeText(13, new Color(1f, 0.85f, 0.45f));
             row.Time.HorizontalAlignment = HorizontalAlignment.Right;
             line.AddChild(row.Mark);
+            row.Icon = new IconRect(IconCatalog.ForGoal(g.Goal, _content), 16, null, tooltip: false) { SizeFlagsVertical = Control.SizeFlags.ShrinkBegin };
+            line.AddChild(row.Icon);
             line.AddChild(row.Text);
             line.AddChild(row.Count);
             line.AddChild(row.Time);
@@ -166,6 +169,7 @@ public partial class Play
             if (ui.Text.Text != g.Text) ui.Text.Text = g.Text;
             ui.Text.AddThemeColorOverride("font_color", color);
             if (ui.Mark.Status != g.Status) { ui.Mark.Status = g.Status; ui.Mark.QueueRedraw(); }
+            ui.Icon.Set(g.Icon, g.Status == GoalStatus.Done ? GoodColor : g.Status == GoalStatus.Failed ? BadColor : null);
             string count = g.ShowBar && g.Status != GoalStatus.Failed ? g.ProgressText : "";
             if (ui.Count.Text != count) ui.Count.Text = count;
             ui.Count.AddThemeColorOverride("font_color", color);
@@ -186,7 +190,7 @@ public partial class Play
         _goalsWidth = (int)width;
         foreach (var r in _goalRows)
         {
-            r.Text.CustomMinimumSize = new Vector2(width - 16 - 46 - 54 - 18, 0);
+            r.Text.CustomMinimumSize = new Vector2(width - 16 - 22 - 46 - 54 - 18, 0);
             r.Count.CustomMinimumSize = new Vector2(46, 0);
             r.Time.CustomMinimumSize = new Vector2(54, 0);
         }
@@ -322,6 +326,7 @@ public partial class Play
     private void GoalsShotSetup(string[] args)
     {
         _wantCapture = false;
+        _detailsOpen = true; // the goals live in the info panel (H) since the contextual HUD
         if (args.Contains("--ui-lang=es")) Loc.Lang = Language.Es;
         if (args.Contains("--ui-lang=en")) Loc.Lang = Language.En;
         if (_progress is null || _scenario is null) return;
