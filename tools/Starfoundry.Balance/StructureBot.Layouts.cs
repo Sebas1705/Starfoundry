@@ -104,6 +104,7 @@ public sealed partial class StructureBot
         bool boosting = false;
         double bestDistance = double.MaxValue;
         int lastGain = 0;
+        int pins = 0;
         for (int i = 0; i < maxSeconds * 6; i++)
         {
             var p = Net.GetPlayerInfo(0);
@@ -117,6 +118,9 @@ public sealed partial class StructureBot
             {
                 Say($"pinned at ship ({p.X},{p.Y},{p.Z}) on the way to ({tx},{ty},{tz}): climbing out");
                 for (int c = 0; c < 36; c++) { _w.Submit(0, new SetThrust(0, 1000, 0)); _w.Step(5); FlightSeconds += 5.0 / Tps; EverySecondIfDue(ref _flyTicks, 5); }
+                // Pinned again at the same place: the way straight down is a rock under a wing. Slide sideways (alternating sides) before the next try so the descent comes in elsewhere.
+                if (++pins >= 2)
+                    for (int c = 0; c < 14; c++) { _w.Submit(0, new SetThrust(pins % 2 == 0 ? 1000 : -1000, 0, 0)); _w.Step(5); FlightSeconds += 5.0 / Tps; EverySecondIfDue(ref _flyTicks, 5); }
                 bestDistance = double.MaxValue; lastGain = i;
             }
             else if (i - lastGain > 60 && _flyDone is not null)
