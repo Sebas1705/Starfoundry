@@ -17,6 +17,7 @@ public partial class Play
     {
         if (_demo || !Net.HasPlayer(Player)) return HintInteract.None;
         if (_focus is not null) return HintInteract.Console;
+        if (StackInReach() is not null) return HintInteract.PickUp;
         if (Standing)
         {
             if (LadderWay() is not null) return HintInteract.Climb;
@@ -61,6 +62,7 @@ public partial class Play
             case HintInteract.Shipyard: OpenComputer(ComputerTab.Designer); break;
             case HintInteract.Bench: ToggleRefinery(); break;
             case HintInteract.Drones: AssignDronesKey(); break;
+            case HintInteract.PickUp: PickUpAimed(); break;
             case HintInteract.Dock: case HintInteract.DockAssist: case HintInteract.DockCancel: case HintInteract.Undock: DockKey(); break;
             case HintInteract.Climb: case HintInteract.Sit: case HintInteract.SitFar: case HintInteract.Stand: ToggleSeat(); break;
         }

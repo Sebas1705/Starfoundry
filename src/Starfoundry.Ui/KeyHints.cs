@@ -73,6 +73,7 @@ public enum HintInteract
     Console,
     Bench,
     Drones,
+    PickUp,
 }
 
 /// <summary>How a row is drawn: normal, highlighted (the tool or menu is active), dimmed (unavailable, with a reason), alert (a threat is on) or plain information without a key.</summary>
@@ -329,6 +330,7 @@ public static class KeyHints
         HintInteract.Console => Act("interact", "interact", "console"),
         HintInteract.Bench => Act("interact", "interact", "refine", Lit(s.Refining)),
         HintInteract.Drones => Act("interact", "interact", "drones"),
+        HintInteract.PickUp => Act("interact", "interact", "pickup"),
         _ => Act("interact", "interact", "interact"),
     };
 

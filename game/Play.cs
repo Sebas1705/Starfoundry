@@ -926,6 +926,7 @@ void fragment() {
             if (r.Command is DesignerApply) { _designerRejected = !r.Ok; if (!r.Ok) ToastLogistics(Why(r.Reject)); continue; } // the designer panel says "applied" only when it was
             if (r.Command is DockAt or Undock or TransferItems) { DockResult(r); continue; }
             if (r.Command is MoveItems or SetFeedSource or SortInventory) { InventoryResult(r); continue; }
+            if (r.Command is DropItems or PickUp) { GroundResult(r); continue; }
             if (!r.Ok)
             {
                 if (r.Reject == Reject.OutOfRange) _outOfRangeSeen = true;

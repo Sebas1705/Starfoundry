@@ -23,6 +23,10 @@ public static partial class Loc
         ["settings.tip.aimAssist"] = ("Con los cañones, apunta solo a un enemigo que esté cerca de la mira. Apagada: los disparos van donde apunta la mira.", "With the guns, aims at an enemy close to the crosshair. Off: shots go where the crosshair points."),
 
         // hold overflow
+        ["toast.dropped"] = ("Tirado al suelo: {0} x {1}", "Dropped on the ground: {0} x {1}"),
+        ["toast.pickedUp"] = ("Recogido: {0} x {1}", "Picked up: {0} x {1}"),
+        ["tip.stack"] = ("{0} x {1}\nF para recoger", "{0} x {1}\nF to pick up"),
+        ["key.pickup"] = ("Recoger", "Pick up"),
         ["toast.holdOverflow"] = ("Bodega llena: el sobrante flota junto a la roca. Acércate para recogerlo cuando haya sitio.", "Hold full: the surplus floats beside the rock. Fly close to collect it when there is room."),
         ["toast.pickupCollected"] = ("Recogido: {0}", "Picked up: {0}"),
         ["toast.holdFullFloat"] = ("¡Bodega llena! El láser sigue rompiendo rocas y el sobrante flota junto a ellas; gasta o descarga objetos para hacer sitio y recógelo.", "Hold full! The laser still breaks rocks and the surplus floats beside them; spend or unload items to make room, then pick it up."),

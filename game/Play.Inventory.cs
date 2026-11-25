@@ -21,6 +21,7 @@ public partial class Play
     {
         _inventory = new InventoryPanel(() => Net, () => Player, _content, c => Send(c), t => ToastLogistics(t, 4.0));
         _inventory.CloseRequested += CloseInventory;
+        _inventory.DropToWorldRequested += DropToWorld;
         _uiRoot.AddChild(_inventory);
     }
 
