@@ -1722,9 +1722,9 @@ public partial class Play
         var thrust = (0, 0, 0);
         if (_mouseLook)
         {
-            int forward = (Input.IsPhysicalKeyPressed(Key.W) ? 1 : 0) - (Input.IsPhysicalKeyPressed(Key.S) ? 1 : 0);
-            int right = (Input.IsPhysicalKeyPressed(Key.D) ? 1 : 0) - (Input.IsPhysicalKeyPressed(Key.A) ? 1 : 0);
-            int up = (Input.IsPhysicalKeyPressed(Key.Space) ? 1 : 0) - (Input.IsPhysicalKeyPressed(Key.C) ? 1 : 0);
+            int forward = HeldKeys.Axis("move", 0, 2);
+            int right = HeldKeys.Axis("move", 3, 1);
+            int up = HeldKeys.Axis("climb", 0, 1);
             if (forward != 0 || right != 0 || up != 0)
             {
                 _waypoint = null; // flying by hand takes over from the autopilot

@@ -112,30 +112,17 @@ public static class InputActions
     /// <summary>The cap text of the first key of an action (see <see cref="Cap"/>).</summary>
     public static string PrimaryCap(string id) => Cap(Primary(id));
 
-    /// <summary>Replaces the keys of some actions (the stub of the rebinding screen); an unknown action is ignored.</summary>
+    /// <summary>Replaces the keys of some actions (the player's rebinding, see <see cref="KeyBindingEditor"/>); an unknown action or a wrong key count is ignored.</summary>
     public static void SetOverrides(IReadOnlyDictionary<string, string[]>? overrides) =>
-        _overrides = overrides is null ? new Dictionary<string, string[]>() : overrides.Where(p => ById.ContainsKey(p.Key)).ToDictionary(p => p.Key, p => p.Value);
+        _overrides = overrides is null ? new Dictionary<string, string[]>() : overrides.Where(p => ById.TryGetValue(p.Key, out var a) && p.Value.Length == a.Keys.Length).ToDictionary(p => p.Key, p => p.Value);
 
-    /// <summary>Parses the settings value of the overrides: <c>action=Key,Key;action=Key</c>.</summary>
-    public static Dictionary<string, string[]> ParseOverrides(string? text)
-    {
-        var map = new Dictionary<string, string[]>();
-        foreach (var part in (text ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        {
-            int eq = part.IndexOf('=');
-            if (eq <= 0) continue;
-            var keys = part[(eq + 1)..].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            if (keys.Length > 0) map[part[..eq].Trim()] = keys;
-        }
-        return map;
-    }
-
-    public static string FormatOverrides(IReadOnlyDictionary<string, string[]> map) =>
-        string.Join(';', map.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => p.Key + "=" + string.Join(',', p.Value)));
+    /// <summary>The slot (position in the key list) a key has in an action, or -1. Actions with several keys (roll, tabs, the map arrows) read it to know which one was pressed.</summary>
+    public static int SlotOf(string id, string key) => Array.IndexOf(KeysOf(id), key);
 
     /// <summary>The action a key triggers in the active contexts, or null. A fixed pseudo key ("@wheel") is looked up the same way.</summary>
     public static InputAction? Find(string key, InputContext active)
     {
+        if (key == KeyRules.Unbound) return null;
         foreach (var a in All)
             if ((a.Contexts & active) != 0 && KeysOf(a.Id).Contains(key)) return a;
         return null;
@@ -169,7 +156,22 @@ public static class InputActions
     /// <summary>The text of a key cap: a Godot key name as the player knows it, or an "@name" cap that the UI looks up as <c>key.cap.name</c>.</summary>
     public static string Cap(string key) => key switch
     {
+        "None" => "–",
         "Escape" => "Esc",
+        "Minus" => "-",
+        "Equal" => "=",
+        "Semicolon" => ";",
+        "Slash" => "/",
+        "Backslash" => "\\",
+        "Apostrophe" => "'",
+        "Quoteleft" => "`",
+        "Bracketleft" => "[",
+        "Bracketright" => "]",
+        "Pageup" => "PgUp",
+        "Pagedown" => "PgDn",
+        "Backspace" => "Bksp",
+        "Delete" => "Del",
+        "Insert" => "Ins",
         "Comma" => ",",
         "Period" => ".",
         "Space" => "@space",

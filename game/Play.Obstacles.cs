@@ -69,7 +69,7 @@ public partial class Play
     private void UpdateBoost()
     {
         if (_content.World is null || !Net.CanFly(Player) || Net.JumpRemaining(Player) > 0 || _obsShotPath is not null) return;
-        bool want = !Standing && !_paused && Input.IsKeyPressed(Key.Shift) && !_mapOpen && _uiFocusFree();
+        bool want = !Standing && !_paused && HeldKeys.Down("boost", 0) && !_mapOpen && _uiFocusFree();
         if (want == _boostWanted && want == Net.IsBoosting(Player)) return;
         if (want == _boostWanted && _world.PendingCommands > 0) return;
         _boostWanted = want;

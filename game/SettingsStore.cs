@@ -75,6 +75,7 @@ public static class SettingsStore
     private static void Apply(GameSettings s)
     {
         Loc.Lang = s.Language;
+        KeyBindingStore.Sync(s);
         AudioServer.SetBusVolumeDb(0, s.MasterVolume <= 0.001f ? -80f : Mathf.LinearToDb(s.MasterVolume));
         AudioManager.ApplyBusVolumes(s);
         bool isFullscreen = DisplayServer.WindowGetMode() == DisplayServer.WindowMode.Fullscreen;

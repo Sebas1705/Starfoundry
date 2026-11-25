@@ -440,9 +440,8 @@ public partial class Play
 {
     /// <summary>A key that flies the ship is down (thrust, roll, boost): the screen frame lets go.</summary>
     private static bool AnyFlightKey() =>
-        Input.IsPhysicalKeyPressed(Key.W) || Input.IsPhysicalKeyPressed(Key.A) || Input.IsPhysicalKeyPressed(Key.S) || Input.IsPhysicalKeyPressed(Key.D)
-        || Input.IsPhysicalKeyPressed(Key.Space) || Input.IsPhysicalKeyPressed(Key.C) || Input.IsPhysicalKeyPressed(Key.Q) || Input.IsPhysicalKeyPressed(Key.E)
-        || Input.IsKeyPressed(Key.Shift);
+        HeldKeys.Axis("move", 0, 2) != 0 || HeldKeys.Axis("move", 3, 1) != 0 || HeldKeys.Axis("climb", 0, 1) != 0 || HeldKeys.Axis("roll", 1, 0) != 0
+        || HeldKeys.Down("boost", 0);
 
     /// <summary>The navigation map under the crosshair, on whichever display shows the nav page.</summary>
     private bool NavMapUnderAim() =>

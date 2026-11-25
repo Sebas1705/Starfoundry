@@ -105,9 +105,30 @@ public class InputActionsTests
         }
         finally { InputActions.SetOverrides(null); }
         Assert.Equal("K", InputActions.Primary("scan"));
-        var parsed = InputActions.ParseOverrides("scan=J,K;interact=G; bad ;=x");
-        Assert.Equal(new[] { "J", "K" }, parsed["scan"]);
-        Assert.Equal("interact=G;scan=J,K", InputActions.FormatOverrides(parsed));
+        Assert.Null(InputActions.Find("None", InputActions.Active(false, false, false, false)));
+    }
+
+    [Fact]
+    public void ALiveEditorFeedsTheHandlerTheCapsAndTheHelp()
+    {
+        var fly = InputActions.Active(false, false, false, false);
+        var ed = new KeyBindingEditor(live: true);
+        try
+        {
+            ed.Assign("scan", 0, "J");
+            Assert.Equal("scan", InputActions.Find("J", fly)!.Id);
+            Assert.Null(InputActions.Find("K", fly));
+            Assert.Equal("J", InputActions.PrimaryCap("scan"));
+            Assert.Contains("J  " + Loc.T("act.scan.name"), InputActions.HelpText());
+            ed.Clear("assist", 0);
+            Assert.Equal("–", InputActions.PrimaryCap("assist"));
+            Assert.Null(InputActions.Find("None", fly));
+            Assert.Equal(0, InputActions.SlotOf("roll", "Q"));
+            ed.Swap("roll", 0, "E");
+            Assert.Equal(1, InputActions.SlotOf("roll", "Q"));
+        }
+        finally { ed.ResetAll(); InputActions.SetOverrides(null); }
+        Assert.Equal("K", InputActions.Primary("scan"));
     }
 
     [Fact]

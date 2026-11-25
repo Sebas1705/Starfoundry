@@ -56,6 +56,7 @@ public partial class MenuScreen : Control
         Position = rect.Position;
         Size = rect.Size;
         if (_panel is not null) { _panel.Position = Vector2.Zero; _panel.Size = rect.Size; }
+        if (Current == Page.Controls) CallDeferred(MethodName.FitKeysPage);
     }
 
     public void AddEntry(Func<string> text, Action onPressed, Func<bool>? enabled = null, Func<string>? detail = null) =>
@@ -91,6 +92,7 @@ public partial class MenuScreen : Control
     /// <summary>Shows the menu on a page (Main by default) with the first button focused.</summary>
     public void Open(Page page = Page.Main)
     {
+        if (page == Page.Controls && Current != Page.Controls) _controlsFrom = Current;
         Current = page;
         _focusName = null;
         Visible = true;
@@ -108,6 +110,8 @@ public partial class MenuScreen : Control
     {
         if (_body is null) return;
         foreach (var child in _body.GetChildren()) { _body.RemoveChild(child); child.QueueFree(); }
+        _keysPage = null;
+        _scroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
         switch (Current)
         {
             case Page.Settings: BuildSettings(); break;
@@ -119,6 +123,7 @@ public partial class MenuScreen : Control
         _status.Text = _statusText;
         _status.HorizontalAlignment = HorizontalAlignment.Center;
         _body.AddChild(_status);
+        CallDeferred(MethodName.FitKeysPage);
         CallDeferred(MethodName.FitScroll);
         CallDeferred(MethodName.GrabInitialFocus);
     }
@@ -198,22 +203,30 @@ public partial class MenuScreen : Control
         _body.AddChild(hint);
     }
 
+    private KeyBindingsPage? _keysPage;
+    private Page _controlsFrom = Page.Main;
+
     private void BuildControls()
     {
-        _panel.CustomMinimumSize = new Vector2(1000, 0);
+        if (!Embedded) _panel.CustomMinimumSize = new Vector2(900, 0);
         Header();
-        string text = InputActions.HelpText() + Loc.T("help.cockpit") + Loc.T("help.inventory");
-        int firstBlank = text.IndexOf("\n\n", StringComparison.Ordinal);
-        if (firstBlank >= 0) text = text[(firstBlank + 2)..]; // the overlay's "(F1 to close)" title makes no sense here
-        var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, 440), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FocusMode = FocusModeEnum.All, Name = "ControlsScroll" };
-        var label = UiKit.Text(14);
-        label.Text = text;
-        label.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        label.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        scroll.AddChild(label);
-        _body.AddChild(scroll);
-        _body.AddChild(BackButton());
+        _keysPage = new KeyBindingsPage { Name = "KeyBindingsPage" };
+        _body.AddChild(_keysPage);
+        var back = UiKit.Button(Loc.T("controls.back"), () => Open(_controlsFrom), 16);
+        back.Name = "BackButton";
+        back.CustomMinimumSize = new Vector2(0, 38);
+        _body.AddChild(back);
         _focusName ??= "BackButton";
+    }
+
+    /// <summary>Gives the key page the height the window leaves, so its list scrolls inside the page instead of the whole menu scrolling.</summary>
+    private void FitKeysPage()
+    {
+        if (_keysPage is null || !IsInstanceValid(_keysPage) || !IsInsideTree() || Current != Page.Controls) return;
+        float avail = Embedded ? Size.Y - 2f * 14f : GetViewportRect().Size.Y - 2f * 22f - 24f;
+        _keysPage.CustomMinimumSize = Vector2.Zero;
+        float other = _body.GetCombinedMinimumSize().Y - _keysPage.GetCombinedMinimumSize().Y;
+        _keysPage.CustomMinimumSize = new Vector2(0, Math.Max(_keysPage.GetCombinedMinimumSize().Y, avail - other - 4f));
     }
 
     private Button BackButton()
@@ -313,10 +326,14 @@ public partial class MenuScreen : Control
         AddCheck("LowTexturesCheck", Loc.T("settings.lowTextures"), s.LowTextures, on => SettingsStore.Current with { LowTextures = on }, "settings.tip.lowTextures");
 
         _body.AddChild(_tip);
+        var keys = UiKit.Button(Loc.T("settings.keys"), () => Open(Page.Controls), 14);
+        keys.Name = "KeysButton";
+        keys.TooltipText = Loc.T("settings.tip.keys");
+        _body.AddChild(keys);
         var reset = UiKit.Button(Loc.T("settings.reset"), () =>
         {
             _focusName = "ResetButton";
-            SettingsStore.Set(GameSettings.Defaults(OS.GetLocale()) with { Language = SettingsStore.Current.Language });
+            SettingsStore.Set(GameSettings.Defaults(OS.GetLocale()) with { Language = SettingsStore.Current.Language, Bindings = SettingsStore.Current.Bindings }); // the keys have their own reset
             CallDeferred(MethodName.Rebuild);
         }, 14);
         reset.Name = "ResetButton";

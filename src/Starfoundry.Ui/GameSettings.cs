@@ -75,6 +75,9 @@ public sealed record GameSettings
     /// <summary>Legacy: the goal-waves slider of older versions. It is still parsed and written so an old settings file round-trips, but no screen shows it and no game reads it: the difficulty preset or scenario (<c>WorldRules.GoalWaves</c>) decides the goal.</summary>
     public int GoalWaves { get; init; } = GoalSettings.DefaultWaves;
 
+    /// <summary>The player's key overrides (<c>bind.actionId=KEY1,KEY2</c> in the file), only for the actions that differ from the defaults. See <see cref="KeyBindingEditor"/>.</summary>
+    public KeyOverrides Bindings { get; init; } = KeyOverrides.None;
+
     /// <summary>The defaults for a system locale: Spanish for "es*" locales, English for any other known one, Spanish when there is none.</summary>
     public static GameSettings Defaults(string? locale = null) =>
         new() { Language = string.IsNullOrWhiteSpace(locale) ? Language.Es : Loc.FromLocale(locale) };
@@ -102,7 +105,7 @@ public sealed record GameSettings
     public IReadOnlyList<KeyValuePair<string, string>> ToPairs()
     {
         var s = Clamped();
-        return new[]
+        return new KeyValuePair<string, string>[]
         {
             new KeyValuePair<string, string>("language", s.Language == Language.Es ? "es" : "en"),
             new KeyValuePair<string, string>("mouse_sensitivity", s.MouseSensitivity.ToString("0.###", CultureInfo.InvariantCulture)),
@@ -125,7 +128,7 @@ public sealed record GameSettings
             new KeyValuePair<string, string>("low_textures", s.LowTextures ? "true" : "false"),
             new KeyValuePair<string, string>("blender_cockpit", s.BlenderCockpit ? "true" : "false"),
             new KeyValuePair<string, string>("goal_waves", s.GoalWaves.ToString(CultureInfo.InvariantCulture)),
-        };
+        }.Concat(new KeyBindingEditor(s.Bindings).ToPairs()).ToList();
     }
 
     /// <summary>One <c>key=value</c> pair per line.</summary>
@@ -137,7 +140,8 @@ public sealed record GameSettings
         var s = baseline.Clamped();
         bool sawInertia = false;
         bool? oldSmooth = null;
-        foreach (var (rawKey, rawValue) in pairs)
+        var pairList = pairs.ToList();
+        foreach (var (rawKey, rawValue) in pairList)
         {
             string key = rawKey.Trim().ToLowerInvariant();
             string value = rawValue.Trim().Trim('"');
@@ -171,7 +175,8 @@ public sealed record GameSettings
         }
         // An older file only knows smooth_look: a pilot who had turned it off keeps the plain, quick response (inertia off).
         if (!sawInertia && oldSmooth == false) s = s with { ShipInertia = ShipInertia.Off };
-        return s.Clamped();
+        var binds = new KeyBindingEditor(KeyBindingEditor.ParsePairs(pairList));
+        return s.Clamped() with { Bindings = new KeyOverrides(new Dictionary<string, string[]>(binds.Overrides)) };
     }
 
     /// <summary>Parses the text form; lines that are not <c>key=value</c> (blank lines, <c>[sections]</c>, comments, garbage) are ignored.</summary>
