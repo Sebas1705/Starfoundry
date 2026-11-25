@@ -97,10 +97,9 @@ public partial class Play
             case "interact": InteractKey(); break;
             case "assist": ToggleFlightAssist(); break;
             case "scan": Send(new Scan()); break;
-            case "weaponNext": CycleWeaponGroup(); break;
+            case "weaponNext": ArsenalStep(1); break;
             case "weaponPick":
-                if (digit == 0) PickWeaponGroup(WeaponGroup.Laser);
-                else if (digit == 1) PickWeaponGroup(WeaponGroup.Guns);
+                if (digit >= 0) ArsenalSelect(digit);
                 break;
             case "hotbar":
                 if (digit >= 0 && digit < _palette.Count && !_palette[digit].IsModule && !_palette[digit].IsStation) SelectBuild(digit);

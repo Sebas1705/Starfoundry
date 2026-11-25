@@ -287,6 +287,6 @@ public partial class Play
             }
             return;
         }
-        CycleWeaponGroup(); // the two groups: any step goes to the other one
+        ArsenalStep(step < 0 ? -1 : 1); // the wheel steps through the arsenal slots (inside the ship computer it zooms: WheelStep is not reached there)
     }
 }
