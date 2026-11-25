@@ -9,6 +9,7 @@ namespace Starfoundry.Sim.Tests;
 /// check that the front of every kind of cockpit holds against every approach: from the seat, from the doorway behind, at walking and running speed, in
 /// short and very long frames, straight and at every angle.
 /// </summary>
+[Trait("Tier", "Slow")]
 public class ShellVarietyTests
 {
     private static BodyBox[] Layout(Dictionary<(int Mx, int My, int Mz), ModuleKind> mods) =>

@@ -10,6 +10,7 @@ namespace Starfoundry.Sim.Tests;
 /// four-corner test: every walk samples a grid of points over the whole footprint and several heights of the body and asks, point by point,
 /// whether it is clear of the shell.
 /// </summary>
+[Trait("Tier", "Slow")]
 public class BodyShellBruteForceTests
 {
     private static readonly ModuleKind[] ShipKinds = Enum.GetValues<ModuleKind>().Where(k => ModuleKindIds.AllowedOn(StructureKind.Ship, k)).ToArray();

@@ -10,6 +10,7 @@ namespace Starfoundry.Sim.Tests;
 /// The shipped scenario files are valid, every goal can be reached, and a scripted player wins the levels it can play (01, 02 and 03).
 /// Levels 04 and 05 are validated by reachability analysis only: the bot has no plan for them.
 /// </summary>
+[Trait("Tier", "Slow")]
 public class ScenarioContentTests
 {
     private static readonly ContentDb C = TestContent.CoreFloor;

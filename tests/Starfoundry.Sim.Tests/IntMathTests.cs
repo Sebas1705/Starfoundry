@@ -18,13 +18,13 @@ public class IntMathTests
     private static int OldFloorDiv(int a, int b) => (int)Math.Floor(a / (double)b);
     private static int OldCeilDiv(int a, int b) => (int)Math.Ceiling(a / (double)b);
 
-    [Fact]
+    [Fact, Trait("Tier", "Slow")]
     public void ISqrt_matches_the_old_version_for_every_small_value()
     {
         for (long v = -5; v <= 3_000_000; v++) Assert.Equal(OldISqrt(v), IntMath.ISqrt(v));
     }
 
-    [Fact]
+    [Fact, Trait("Tier", "Slow")]
     public void ISqrt_matches_the_old_version_around_every_square_up_to_the_sim_range()
     {
         for (long r = 0; r <= 4_000_000; r += 1)
@@ -64,7 +64,7 @@ public class IntMathTests
         Assert.Equal(3_037_000_499L, IntMath.ISqrt(long.MaxValue));
     }
 
-    [Fact]
+    [Fact, Trait("Tier", "Slow")]
     public void FloorDiv_and_CeilDiv_match_the_old_version_over_the_sim_range()
     {
         for (int b = 1; b <= 64; b++)
@@ -75,7 +75,7 @@ public class IntMathTests
             }
     }
 
-    [Fact]
+    [Fact, Trait("Tier", "Slow")]
     public void FloorDiv_and_CeilDiv_match_the_old_version_for_random_and_edge_values()
     {
         var rng = new System.Random(99);

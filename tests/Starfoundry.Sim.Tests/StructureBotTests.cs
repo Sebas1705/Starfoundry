@@ -10,6 +10,7 @@ namespace Starfoundry.Sim.Tests;
 /// docs/prototypes/structure-bot.md for the timeline and every place where it got stuck). The bounds are generous: they catch a content
 /// or rule change that makes a stage impossible or absurdly slow, not small shifts.
 /// </summary>
+[Trait("Tier", "Slow")]
 public class StructureBotTests
 {
     private const ulong Seed = 20261121UL;
