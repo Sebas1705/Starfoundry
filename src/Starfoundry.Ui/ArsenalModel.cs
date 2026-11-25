@@ -228,7 +228,7 @@ public sealed class ArsenalVisibility
         bool allowed = Allowed(c, anyFitted);
         if (used || c.ThreatNear || c.ComputerOpen) Idle = 0f; else Idle += dt;
         float target = allowed && Idle < IdleSeconds ? 1f : 0f;
-        float rate = target > Alpha ? 14f : 3.5f;
+        float rate = target > Alpha ? 14f : allowed ? 3.5f : 10f; // an idle fade is slow, a context that forbids the bar takes it away at once
         Alpha = Math.Clamp(UiMotion.Approach(Alpha, target + (target > Alpha ? 0.05f : -0.05f), dt, rate), 0f, 1f);
         if (MathF.Abs(Alpha - target) < 0.01f) Alpha = target;
         return Alpha;

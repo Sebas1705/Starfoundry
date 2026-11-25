@@ -18,6 +18,7 @@ public partial class Play
     private readonly ArsenalVisibility _arsenalVis = new();
     private ArsenalBar? _arsenalBar;
     private double _arsenalFitClock = 99.0;
+    private float _arsenalTop = -1f; // top edge of the bar on screen, eased with its fade (-1: not drawn); the hint and the toasts stay above it
 
     /// <summary>What the bar and the cockpit weapons page draw from.</summary>
     internal ArsenalModel Arsenal => _arsenal;
@@ -105,7 +106,7 @@ public partial class Play
         }
         _arsenalBar.Compact = _arsenalVis.Compact;
         _arsenalBar.Visible = alpha > 0.01f;
-        if (!_arsenalBar.Visible) return;
+        if (!_arsenalBar.Visible) { _arsenalTop = -1f; return; }
         _arsenalBar.Modulate = new Color(1f, 1f, 1f, alpha);
         _arsenalBar.MouseFilter = alpha > 0.4f && !_mouseLook ? Control.MouseFilterEnum.Stop : Control.MouseFilterEnum.Ignore; // clickable with the mouse free (the ship computer)
 
@@ -120,6 +121,7 @@ public partial class Play
             if (new Rect2(pos, bar).Grow(6f).Intersects(o)) pos.Y = Math.Min(pos.Y, o.Position.Y - bar.Y - 8f); // never over the hold strip or the key panel
         }
         _arsenalBar.Position = pos;
+        _arsenalTop = size.Y - (size.Y - pos.Y + 4f) * alpha;
         _arsenalBar.QueueRedraw();
     }
 }
