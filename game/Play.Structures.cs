@@ -14,7 +14,7 @@ namespace Starfoundry.Game;
 public partial class Play
 {
     private bool _structureDemo;
-    private float _demoYaw = 0.5f, _demoPitch = 0.5f;
+    private float _demoYaw = 0.5f, _demoPitch = 0.5f, _demoOrbit;
     private Vector3 _demoFocus;
     private int _demoShip, _demoStation, _demoFrames;
     private bool _demoThrust;
@@ -29,6 +29,7 @@ public partial class Play
         _demoThrust = args.Contains("--demo-thrust");
         _demoYaw = Mathf.DegToRad(DemoArg(args, "--demo-yaw", 30f));
         _demoPitch = Mathf.DegToRad(DemoArg(args, "--demo-pitch", 30f));
+        _demoOrbit = Mathf.DegToRad(DemoArg(args, "--demo-orbit", 0f)); // degrees per second
         _overviewDistance = DemoArg(args, "--demo-dist", 60f);
         var net = Net;
         const long cu = Units.CellUnits;

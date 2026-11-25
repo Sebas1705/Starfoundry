@@ -582,6 +582,7 @@ void fragment() {
     {
         if (Overview)
         {
+            if (_structureDemo && _demoOrbit != 0f) _demoYaw += _demoOrbit * (float)GetProcessDeltaTime(); // --demo-orbit: a slow camera orbit for movies and flicker checks
             float yaw = _structureDemo ? _demoYaw : 0.2f, pitch = _structureDemo ? _demoPitch : 1.15f; // fixed look, for the scripted modes only
             var offset = new Vector3(MathF.Sin(yaw) * MathF.Cos(pitch), MathF.Sin(pitch), MathF.Cos(yaw) * MathF.Cos(pitch)) * _overviewDistance;
             _camera.LookAtFromPosition(_overviewTarget + offset, _overviewTarget);

@@ -25,6 +25,7 @@ public partial class ArsenalBar : Control
     public ArsenalBar(ArsenalModel model)
     {
         _model = model;
+        Name = "ArsenalBar"; // slots are drawn, not nodes: agents pick one with the keys 1-9 or ArsenalBar.Picked
         MouseFilter = MouseFilterEnum.Ignore;
         FocusMode = FocusModeEnum.None;
     }

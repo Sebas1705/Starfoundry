@@ -1649,7 +1649,7 @@ public partial class Play
     private void UpdateCapture()
     {
         bool interactive = !_demo && _stressMachines == 0 && !_saveTest;
-        bool focused = DisplayServer.WindowIsFocused();
+        bool focused = Launch.Agent || DisplayServer.WindowIsFocused(); // --agent: an agent-driven window never has the OS focus
         if (!focused) _wantCapture = false; // clicking in the window takes it back
         bool want = interactive && _wantCapture && focused && !PanelOpen();
         if (want == _mouseLook) return;
