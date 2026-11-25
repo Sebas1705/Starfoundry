@@ -2,7 +2,9 @@
 
 Status: built (2026-11-21). **Nobody has listened to it yet.** Everything below was checked by tests, by the `--audio-test` level report and by running the game once with the dummy audio driver; none of it was heard. Treat every level, pitch and timing as a first guess to be tuned by ear.
 
-The game has no audio assets and none may be added: every sound is synthesised from code at startup. The repository stays asset-free.
+Sound sources (ADR 0037, which supersedes the earlier "no audio assets" rule): every sound can be synthesised from code at startup, and one-shot effects can also be played from recorded OGG files (CC0, from Kenney, listed in [ASSETS.md](../../ASSETS.md)) through the table `game/assets/audio/sfx_map.json` (effect id to files, per-effect `gainDb` and `pitchJitter`; one variant is picked at random). The synthesiser stays for the loops (engine, reactor, machines, ambience, music) and as the fallback when a file is missing or the setting "Sounds: synthetic" is chosen (Settings; saved as `recorded_sounds`, default recorded). `--audio-ab` plays each one-shot synthesised and then recorded, printing `AB <id> synthetic|recorded`, for listening side by side (needs a window and speakers).
+
+**Status of the recorded set: the table is empty.** Kenney's site refused the automated download (HTTP 403), so no recorded file is bundled yet and the setting changes nothing until files are added: drop the chosen OGG files under `game/assets/audio/kenney/<pack>/` with the pack's `License.txt`, add a row each to ASSETS.md, map them in `sfx_map.json` and run the tests. The mapping code was not exercised with a real OGG file, and nobody has heard either version.
 
 ## Where the code is
 | Part | File |

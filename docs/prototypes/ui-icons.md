@@ -1,6 +1,12 @@
 # UI icons and the shared look
 
-Status: implemented prototype. Everything is drawn by code: no external art, no copied assets, no network.
+Status: implemented prototype. Icons, models and the look are drawn by code (no external art, no copied assets, no network). The one exception is the typefaces (ADR 0037, [ASSETS.md](../../ASSETS.md)).
+
+## Fonts
+- **Inter** (variable TTF, SIL OFL 1.1) is the default font of `UiTheme.Create`: body text, buttons, tooltips.
+- **Rajdhani SemiBold** (OFL) is the display face: `UiKit.Text` uses it for sizes of 16 and above (titles, card headers, tool name) through `UiFonts.Title`. Chosen over Exo 2 (variable only, wider) and Orbitron (wide, poor legibility at small sizes) because it is static, condensed, has full Latin accents (checked in the font file for áéíóúüñ¿¡) and keeps digits clear at 16 px. Not compared by eye.
+- **JetBrains Mono Regular** (OFL) is `UiFonts.Mono` / `UiFonts.Num(control)` for numeric readouts; it is available but only applied where a screen opts in.
+- Fonts are read as raw bytes from `res://assets/fonts` by `UiFonts` (no editor import; a missing file falls back to the engine font). The OFL text sits next to each family.
 
 ## Icon system
 - **Glyphs** (`src/Starfoundry.Ui/IconGlyphs.cs`): one SVG fragment per glyph on a 24 by 24 grid, stroke 1.75, round caps and joins, an optional 30 percent fill for the main mass. White: the game tints them.
