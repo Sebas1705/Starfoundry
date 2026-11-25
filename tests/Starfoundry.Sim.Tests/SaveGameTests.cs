@@ -3,6 +3,7 @@ using Xunit;
 
 namespace Starfoundry.Sim.Tests;
 
+[Trait("Tier", "Slow")]
 public class SaveGameTests
 {
     private static readonly ContentDb C = TestContent.Core;

@@ -8,6 +8,7 @@ namespace Starfoundry.Sim.Tests;
 /// Wave balance of structure worlds (docs/prototypes/defence.md): how far an ammo-fed battery and the ship cannon get through the
 /// waves, measured on a ship of cockpit, workshop, defence module and engine with no repair bay and a two minute pause between waves.
 /// </summary>
+[Trait("Tier", "Slow")]
 public class WaveBalanceTests
 {
     private const int Tps = Units.TicksPerSecond;

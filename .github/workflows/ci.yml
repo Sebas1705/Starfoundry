@@ -4,6 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: '17 3 * * *' # nightly: the slow tier only
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -35,7 +38,10 @@ jobs:
           echo "Runner: $runner"
           echo "runner=$runner" >> "$GITHUB_OUTPUT"
 
-  build-and-test:
+  # Fast tier (tests without the Slow trait), the Godot project build and the benchmark. Skipped on the nightly run.
+  fast:
+    name: Fast tests, build and benchmark
+    if: github.event_name != 'schedule'
     needs: pick-runner
     runs-on: ${{ fromJSON(needs.pick-runner.outputs.runner) }}
     timeout-minutes: 15
@@ -46,11 +52,45 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Test simulation
-        run: dotnet test -c Release
+      - name: Test simulation (fast tier)
+        run: dotnet test -c Release --filter "Tier!=Slow"
 
       - name: Build Godot project
         run: dotnet build game -c Debug
 
       - name: Simulation benchmark (fails if p99 tick exceeds the 30 UPS budget)
         run: dotnet run -c Release --project tools/Starfoundry.Bench
+
+  # Slow tier: bot runs, brute-force walks and long replays (tests with [Trait("Tier", "Slow")]). Runs in parallel with `fast`.
+  slow:
+    name: Slow tests
+    needs: pick-runner
+    runs-on: ${{ fromJSON(needs.pick-runner.outputs.runner) }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Test simulation (slow tier)
+        run: dotnet test -c Release --filter "Tier=Slow"
+
+  # The required status check (branch protection): passes only when both tiers pass (fast is skipped on the nightly run).
+  build-and-test:
+    name: build-and-test
+    if: always()
+    needs: [fast, slow]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require both tiers
+        env:
+          FAST: ${{ needs.fast.result }}
+          SLOW: ${{ needs.slow.result }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          echo "fast=$FAST slow=$SLOW"
+          [ "$SLOW" = success ] || exit 1
+          if [ "$EVENT" = schedule ]; then [ "$FAST" = skipped ]; else [ "$FAST" = success ]; fi

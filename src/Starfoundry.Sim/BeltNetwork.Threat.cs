@@ -6,11 +6,27 @@ internal static class IntMath
     public static long ISqrt(long v)
     {
         if (v <= 0) return 0;
-        long x = (long)Math.Sqrt(v);
-        while (x * x > v) x--;
-        while ((x + 1) * (x + 1) <= v) x++;
-        return x;
+        // Bit-by-bit method: pure integer, no floating point seed (determinism, see BannedSymbols.txt).
+        long result = 0, bit = 1L << 62;
+        while (bit > v) bit >>= 2;
+        while (bit != 0)
+        {
+            if (v >= result + bit)
+            {
+                v -= result + bit;
+                result = (result >> 1) + bit;
+            }
+            else result >>= 1;
+            bit >>= 2;
+        }
+        return result;
     }
+
+    /// <summary>Floor division (rounds toward negative infinity) for a positive divisor.</summary>
+    public static int FloorDiv(int a, int b) => a / b - (a % b < 0 ? 1 : 0);
+
+    /// <summary>Ceiling division (rounds toward positive infinity) for a positive divisor.</summary>
+    public static int CeilDiv(int a, int b) => a / b + (a % b > 0 ? 1 : 0);
 }
 
 internal sealed class SystemThreat

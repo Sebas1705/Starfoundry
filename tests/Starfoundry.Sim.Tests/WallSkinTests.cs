@@ -5,6 +5,7 @@ using Xunit;
 namespace Starfoundry.Sim.Tests;
 
 /// <summary>The wall skins with depth (ribbed, stepped, niched): every skin occurs, its furniture is solid for the body on closed walls only, and the joints between skins stay closed.</summary>
+[Trait("Tier", "Slow")]
 public class WallSkinTests
 {
     private static readonly int[] DeepSkins = { HullProfile.SkinRibbed, HullProfile.SkinStepped, HullProfile.SkinNiched };

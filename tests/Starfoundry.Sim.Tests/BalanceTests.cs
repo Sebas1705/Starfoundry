@@ -7,6 +7,7 @@ namespace Starfoundry.Sim.Tests;
 /// Pacing targets for the first stretch of the campaign, checked by a scripted player (see docs/prototypes/balance-pass.md).
 /// If a content change breaks one of these, either the change or the target needs a conscious decision.
 /// </summary>
+[Trait("Tier", "Slow")]
 public class BalanceTests
 {
     private static BalanceReport Play(double delay, int observeMinutes = 0, ulong seed = 20261120UL) =>

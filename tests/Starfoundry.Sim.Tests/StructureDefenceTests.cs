@@ -9,6 +9,7 @@ namespace Starfoundry.Sim.Tests;
 /// defence modules strengthen turrets, a station dies with its core and a ship with its last cockpit. See ADR 0021 and
 /// docs/prototypes/defence.md.
 /// </summary>
+[Trait("Tier", "Slow")]
 public class StructureDefenceTests
 {
     private const int Tps = Units.TicksPerSecond;

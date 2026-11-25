@@ -15,6 +15,7 @@ Contract for agents working in this repository.
 ## Checks
 ```
 git diff --check
+dotnet test --filter "Tier!=Slow"   # fast loop; the full dotnet test below also runs the slow tier
 dotnet test
 dotnet build game -c Debug
 ```

@@ -145,14 +145,7 @@ public sealed partial class BeltNetwork
         return s.DockedTo >= 0 && _structures.TryGetValue(s.DockedTo, out var st) ? st : null;
     }
 
-    private static long ISqrt(long n)
-    {
-        if (n <= 0) return 0;
-        long x = (long)Math.Sqrt(n);
-        while (x * x > n) x--;
-        while ((x + 1) * (x + 1) <= n) x++;
-        return x;
-    }
+    private static long ISqrt(long n) => IntMath.ISqrt(n);
 
     /// <summary>
     /// How fast the player's ship goes, in thousandths of a unit per tick (0 without a ship structure): the commanded speed, and with flight inertia
