@@ -15,7 +15,7 @@ public static partial class Loc
         ["module.gunmk2"] = ("Cañón Mk2", "Mk2 gun"),
         ["module.gunmk2.purpose"] = ("Cañón potente: 170 % del daño de un cañón Mk1.", "A strong gun: 170 percent of the damage of a mark 1 gun."),
         ["module.shipyard"] = ("Astillero", "Shipyard"),
-        ["module.shipyard.purpose"] = ("Solo en estaciones: con una nave atracada abre el diseñador (F2) para añadir, mover o mejorar sus módulos y armas.", "Stations only: with a ship docked it opens the designer (F2) to add, move or upgrade its modules and weapons."),
+        ["module.shipyard.purpose"] = ("Solo en estaciones: con una nave atracada abre el diseñador (Tab) para añadir, mover o mejorar sus módulos y armas.", "Stations only: with a ship docked it opens the designer (Tab) to add, move or upgrade its modules and weapons."),
 
         // rejects
         ["toast.reject.noLaser"] = ("La nave no tiene láser de minería: instala uno en un astillero", "The ship has no mining laser: fit one at a shipyard"),
@@ -69,7 +69,7 @@ public static partial class Loc
         ["designer.edit.tooMany"] = ("La nave ya tiene demasiados módulos", "The ship already has too many modules"),
         ["designer.edit.empty"] = ("No hay ningún módulo ahí", "There is no module there"),
         ["designer.edit.sameCell"] = ("Elige otra celda", "Pick another cell"),
-        ["learn.shipyard"] = ("Construye un astillero en la estación, atraca la nave y pulsa F2: el diseñador añade o mejora láseres y cañones.", "Build a shipyard at the station, dock the ship and press F2: the designer adds or upgrades lasers and guns."),
+        ["learn.shipyard"] = ("Construye un astillero en la estación, atraca la nave y abre el ordenador (Tab, Diseñador): el diseñador añade o mejora láseres y cañones.", "Build a shipyard at the station, dock the ship and open the computer (Tab, Designer): the designer adds or upgrades lasers and guns."),
     };
 
     static Loc()
@@ -80,6 +80,7 @@ public static partial class Loc
         foreach (var (key, value) in MaterialsTable) Table[key] = value;
         foreach (var (key, value) in MissionsTable) Table[key] = value;
         foreach (var (key, value) in InventoryTable) Table[key] = value;
+        foreach (var (key, value) in ControlsTable) Table[key] = value;
         AddIconStrings();
         foreach (var (key, value) in CockpitTable) Table[key] = value;
         // the camel-case forms of the names (the game looks modules up both ways, as for droneBay)

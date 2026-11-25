@@ -16,8 +16,8 @@ public static partial class Loc
         ["tip.groupGuns"] = ("Toma los cañones (M cambia de arma). Mantén el clic izquierdo para disparar donde apuntas, haya enemigo o no.", "Take the guns (M switches weapon). Hold the left click to fire where you aim, enemy or not."),
         ["toast.weaponGroupLaser"] = ("En mano: láser de minería ({0} cambia)", "In hand: mining laser ({0} switches)"),
         ["toast.weaponGroupGuns"] = ("En mano: cañones ({0} cambia)", "In hand: guns ({0} switches)"),
-        ["key.weaponLaser"] = ("En mano: láser de minería (M cambia)", "In hand: mining laser (M switches)"),
-        ["key.weaponGuns"] = ("En mano: cañones (M cambia)", "In hand: guns (M switches)"),
+        ["key.weaponLaser"] = ("En mano: láser de minería (V cambia)", "In hand: mining laser (V switches)"),
+        ["key.weaponGuns"] = ("En mano: cañones (V cambia)", "In hand: guns (V switches)"),
         ["key.takeLaser"] = ("Toma el láser de minería", "Take the mining laser"),
         ["key.fireGuns"] = ("Mantén el clic para disparar donde apuntas", "Hold the click to fire where you aim"),
 

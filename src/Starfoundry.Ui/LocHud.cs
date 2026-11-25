@@ -13,9 +13,8 @@ public static partial class Loc
         ["hud.detail.detailed"] = ("DETALLADO", "DETAILED"),
         ["cp.detail"] = ("DETALLE", "DETAIL"),
         ["toast.hudDetail"] = ("Detalle del HUD: {0}", "HUD detail: {0}"),
-        ["key.hudDetail"] = ("Detalle del HUD: {0} (Mayús+F3 cambia)", "HUD detail: {0} (Shift+F3 switches)"),
         ["settings.hudDetail"] = ("Detalle del HUD: {0}", "HUD detail: {0}"),
-        ["settings.tip.hudDetail"] = ("Cuánta información da el HUD: mínimo (solo lo vital), estándar o detallado (riesgo de apagón, módulos dañados, ingresos por minuto, progreso del objetivo). Mayús+F3 también lo cambia.", "How much the HUD says: minimal (the vitals only), standard or detailed (brownout risk, damaged modules, income per minute, objective progress). Shift+F3 also changes it."),
+        ["settings.tip.hudDetail"] = ("Cuánta información da el HUD: mínimo (solo lo vital), estándar o detallado (riesgo de apagón, módulos dañados, ingresos por minuto, progreso del objetivo). H también lo cambia.", "How much the HUD says: minimal (the vitals only), standard or detailed (brownout risk, damaged modules, income per minute, objective progress). H also changes it."),
 
         // interface sounds
         ["settings.uiClick"] = ("Sonido al pulsar botones", "Click sound on buttons"),

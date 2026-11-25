@@ -192,13 +192,13 @@ public class HudDetailTests
         var groups = new[]
         {
             new KeyGroup("key.ctx.alert", Array.Empty<object>(), new[] { R("weapons", KeyRowState.Alert) }),
-            new KeyGroup("key.ctx.ship", Array.Empty<object>(), new[] { R("build"), R("research"), R("map", KeyRowState.Active), R("seat"), R("help"), R("hudmode"), R("roll", KeyRowState.Info) }),
+            new KeyGroup("key.ctx.ship", Array.Empty<object>(), new[] { R("build"), R("research"), R("map", KeyRowState.Active), R("seat"), R("help"), R("hudDetail"), R("roll", KeyRowState.Info) }),
             new KeyGroup("key.ctx.other", Array.Empty<object>(), new[] { R("build"), R("scan") }),
         };
         var trimmed = HudDetails.TrimKeys(groups, HudDetail.Minimal);
         Assert.Equal(2, trimmed.Count); // the group with only learned rows is gone
         Assert.Equal(new[] { "weapons" }, trimmed[0].Rows.Select(r => r.Id));
-        Assert.Equal(new[] { "map", "seat", "help", "hudmode" }, trimmed[1].Rows.Select(r => r.Id));
+        Assert.Equal(new[] { "map", "seat", "help", "hudDetail" }, trimmed[1].Rows.Select(r => r.Id));
         Assert.Same(groups, HudDetails.TrimKeys(groups, HudDetail.Standard));
         Assert.Same(groups, HudDetails.TrimKeys(groups, HudDetail.Detailed));
     }
@@ -216,7 +216,7 @@ public class HudDetailTests
         {
             var rows = HudDetails.TrimKeys(KeyHints.For(s), HudDetail.Minimal).SelectMany(g => g.Rows).Select(r => r.Id).ToList();
             Assert.Contains("help", rows);
-            Assert.Contains("hudmode", rows);
+            Assert.Contains("hudDetail", rows);
             Assert.True(rows.Count <= HudDetails.TrimKeys(KeyHints.For(s), HudDetail.Standard).SelectMany(g => g.Rows).Count());
         }
     }

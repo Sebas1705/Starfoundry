@@ -211,7 +211,7 @@ public static class HudDetails
     /// <summary>The key rows the minimal level drops: the actions a pilot learns in the first minutes. Alerts and rows that are lit stay.</summary>
     private static readonly HashSet<string> LearnedRows = new()
     {
-        "build", "research", "map", "scan", "mine", "refine", "weapons", "found", "module", "boost", "roll", "look", "console", "info", "run",
+        "build", "research", "map", "scan", "mine", "refine", "weapons", "found", "module", "boost", "roll", "look", "console", "info", "run", "assist",
     };
 
     /// <summary>
