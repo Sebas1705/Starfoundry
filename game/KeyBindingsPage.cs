@@ -20,6 +20,7 @@ public partial class KeyBindingsPage : VBoxContainer
     private static readonly Color PanelEdge = new(0.35f, 0.45f, 0.65f, 0.9f);
     private static readonly Color CapBg = new(0.1f, 0.13f, 0.2f);
     private static readonly Color CapEdge = new(0.45f, 0.58f, 0.82f, 0.6f);
+    private static readonly StyleBoxFlat CapBoxNormal = UiKit.Box(CapBg, CapEdge, 5, 4f), CapBoxCustom = UiKit.Box(CapBg, Gold, 5, 4f); // shared by every cap
 
     /// <summary>True while a dialog of this page is open: the game ignores its own keys (Tab, Esc and the actions) so a key press is only a candidate for the binding.</summary>
     public static bool Capturing { get; private set; }
@@ -30,7 +31,9 @@ public partial class KeyBindingsPage : VBoxContainer
 
     private KeyBindingEditor Editor => KeyBindingStore.Editor;
     private readonly List<Row> _rows = new();
-    private readonly List<Control> _headers = new();
+    private readonly List<(Control Node, int Section)> _headers = new();
+    private readonly Queue<Action> _pending = new();
+    private const int RowsPerFrame = 8;
     private VBoxContainer _list = null!;
     private ScrollContainer _scroll = null!;
     private LineEdit _search = null!;
@@ -45,6 +48,8 @@ public partial class KeyBindingsPage : VBoxContainer
     private KeySlot _target;
     private string _focusName = "";
     private string _statusText = "";
+    private bool _compact;
+    private const float CompactBelow = 660f;
 
     public override void _Ready()
     {
@@ -95,7 +100,8 @@ public partial class KeyBindingsPage : VBoxContainer
 
         BuildOverlay();
         Editor.Changed += OnEditorChanged;
-        BuildRows();
+        Resized += () => { if (Size.X > 0 && (Size.X < CompactBelow) != _compact) { _compact = Size.X < CompactBelow; CallDeferred(MethodName.Reflow); } };
+        BuildRows(gradual: true);
     }
 
     public override void _ExitTree()
@@ -120,6 +126,7 @@ public partial class KeyBindingsPage : VBoxContainer
 
     public override void _Process(double delta)
     {
+        if (_pending.Count > 0) Drain(RowsPerFrame);
         var bar = _scroll.GetVScrollBar();
         float max = (float)(bar.MaxValue - bar.Page);
         _fadeTop.Visible = _scroll.ScrollVertical > 3;
@@ -158,28 +165,41 @@ public partial class KeyBindingsPage : VBoxContainer
         return Loc.Has(slotKey) ? $"{name} · {Loc.T(slotKey)}" : Loc.T("controls.slotOf", name, slot + 1, a.Keys.Length);
     }
 
-    private void BuildRows()
+    /// <summary>Rebuilds the rows. The first call after the page opens builds a few rows per frame (the page appears at once); later rebuilds are immediate so focus can be restored.</summary>
+    private void BuildRows(bool gradual = false)
     {
         foreach (var c in _list.GetChildren()) { _list.RemoveChild(c); c.QueueFree(); }
         _rows.Clear();
         _headers.Clear();
+        _pending.Clear();
         for (int g = 0; g < GroupOrder.Length; g++)
         {
-            var actions = InputActions.All.Where(a => GroupKey(a) == GroupOrder[g]).ToList();
+            int section = g;
+            var actions = InputActions.All.Where(a => GroupKey(a) == GroupOrder[section]).ToList();
             if (actions.Count == 0) continue;
-            var header = UiKit.Text(15, new Color(0.55f, 0.8f, 1f));
-            header.Text = Loc.T("controls.group." + GroupOrder[g]);
-            header.CustomMinimumSize = new Vector2(0, 28);
-            header.VerticalAlignment = VerticalAlignment.Bottom;
-            _list.AddChild(header);
-            _headers.Add(header);
+            _pending.Enqueue(() =>
+            {
+                var header = UiKit.Text(15, new Color(0.55f, 0.8f, 1f));
+                header.Text = Loc.T("controls.group." + GroupOrder[section]);
+                header.CustomMinimumSize = new Vector2(0, 28);
+                header.VerticalAlignment = VerticalAlignment.Bottom;
+                _list.AddChild(header);
+                _headers.Add((header, section));
+            });
             foreach (var a in actions)
             {
-                if (KeyRules.IsRebindable(a))
-                    for (int slot = 0; slot < a.Keys.Length; slot++) AddRow(a, slot, g);
-                else AddFixedRow(a, g);
+                var action = a;
+                if (KeyRules.IsRebindable(action))
+                    for (int slot = 0; slot < action.Keys.Length; slot++) { int sl = slot; _pending.Enqueue(() => AddRow(action, sl, section)); }
+                else _pending.Enqueue(() => AddFixedRow(action, section));
             }
         }
+        Drain(gradual ? RowsPerFrame : int.MaxValue);
+    }
+
+    private void Drain(int count)
+    {
+        while (count-- > 0 && _pending.Count > 0) _pending.Dequeue()();
         ApplyFilter();
     }
 
@@ -197,12 +217,16 @@ public partial class KeyBindingsPage : VBoxContainer
         title.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
         title.TooltipText = name + "\n" + Loc.T(a.HintKey);
         title.MouseFilter = MouseFilterEnum.Pass;
-        var ctx = UiKit.Text(10, Muted);
-        ctx.Text = context;
-        ctx.ClipText = true;
-        ctx.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
         text.AddChild(title);
-        text.AddChild(ctx);
+        if (_compact) title.TooltipText += "\n" + context; // a narrow page has no room for the contexts under the name
+        else
+        {
+            var ctx = UiKit.Text(10, Muted);
+            ctx.Text = context;
+            ctx.ClipText = true;
+            ctx.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+            text.AddChild(ctx);
+        }
         row.AddChild(text);
         _list.AddChild(row);
         _rows.Add(new Row(row, (name + " " + context + " " + caps + " " + Loc.T(a.HintKey)).ToLowerInvariant(), section));
@@ -212,7 +236,7 @@ public partial class KeyBindingsPage : VBoxContainer
     private static Control Cap(string text, bool custom, bool muted = false)
     {
         var box = new PanelContainer { CustomMinimumSize = new Vector2(64, 28), SizeFlagsVertical = SizeFlags.ShrinkCenter };
-        box.AddThemeStyleboxOverride("panel", UiKit.Box(CapBg, custom ? Gold : CapEdge, 5, 4f));
+        box.AddThemeStyleboxOverride("panel", custom ? CapBoxCustom : CapBoxNormal);
         var l = UiKit.Text(14, custom ? Gold : muted ? Muted : Colors.White);
         l.Text = text;
         l.HorizontalAlignment = HorizontalAlignment.Center;
@@ -241,21 +265,23 @@ public partial class KeyBindingsPage : VBoxContainer
         var row = NewRow(a, name, ContextText(a), section, CapText(key) + " " + key);
         row.AddChild(Cap(CapText(key), custom, key == KeyRules.Unbound));
         string id = a.Id;
-        row.AddChild(Small(Loc.T("controls.rebind"), Loc.T("controls.tip.rebind", name), () => BeginCapture(new KeySlot(id, slot)), 92, $"rb_{id}_{slot}"));
+        row.AddChild(Small(Loc.T("controls.rebind"), Loc.T("controls.tip.rebind", name), () => BeginCapture(new KeySlot(id, slot)), _compact ? 78 : 92, $"rb_{id}_{slot}"));
+        int small = _compact ? 30 : 72;
         if (KeyRules.IsOptional(id))
         {
-            var clear = Small(Loc.T("controls.clear"), Loc.T("controls.tip.clear"), () => { Editor.Clear(id, slot); SetStatus(Loc.T("controls.cleared", name)); }, 72, $"clr_{id}_{slot}");
+            var clear = Small(_compact ? "×" : Loc.T("controls.clear"), Loc.T("controls.clear") + ": " + Loc.T("controls.tip.clear"), () => { Editor.Clear(id, slot); SetStatus(Loc.T("controls.cleared", name)); }, small, $"clr_{id}_{slot}");
             clear.Disabled = key == KeyRules.Unbound;
             row.AddChild(clear);
         }
         else
         {
-            var spacer = new Control { CustomMinimumSize = new Vector2(72, 0), TooltipText = Loc.T("controls.tip.required") };
+            var spacer = new Control { CustomMinimumSize = new Vector2(small, 0), TooltipText = Loc.T("controls.tip.required") };
             row.AddChild(spacer);
         }
-        var reset = Small(Loc.T("controls.reset"), Loc.T("controls.tip.reset"), () => { Editor.Reset(id); SetStatus(Loc.T("controls.reset") + ": " + Loc.T(a.NameKey)); }, 84, $"rst_{id}_{slot}");
-        reset.Disabled = !Editor.IsCustom(id);
-        row.AddChild(reset);
+        int resetWidth = _compact ? 30 : 84;
+        if (Editor.IsCustom(id))
+            row.AddChild(Small(_compact ? "↺" : Loc.T("controls.reset"), Loc.T("controls.reset") + ": " + Loc.T("controls.tip.reset"), () => { Editor.Reset(id); SetStatus(Loc.T("controls.reset") + ": " + Loc.T(a.NameKey)); }, resetWidth, $"rst_{id}_{slot}"));
+        else row.AddChild(new Control { CustomMinimumSize = new Vector2(resetWidth, 0) }); // a default key has nothing to reset: no button, same column
     }
 
     private void AddFixedRow(InputAction a, int section)
@@ -268,7 +294,7 @@ public partial class KeyBindingsPage : VBoxContainer
         row.AddChild(cap);
         var fixedLabel = UiKit.Text(12, Muted);
         fixedLabel.Text = Loc.T("controls.fixed");
-        fixedLabel.CustomMinimumSize = new Vector2(92 + 72 + 84 + 16, 0);
+        fixedLabel.CustomMinimumSize = _compact ? new Vector2(78 + 30 + 30 + 16, 0) : new Vector2(92 + 72 + 84 + 16, 0);
         fixedLabel.HorizontalAlignment = HorizontalAlignment.Center;
         fixedLabel.VerticalAlignment = VerticalAlignment.Center;
         fixedLabel.MouseFilter = MouseFilterEnum.Stop;
@@ -286,12 +312,14 @@ public partial class KeyBindingsPage : VBoxContainer
             r.Node.Visible = on;
             if (on) shown.Add(r.Section);
         }
-        int h = 0;
-        for (int g = 0; g < GroupOrder.Length; g++)
-            if (InputActions.All.Any(a => GroupKey(a) == GroupOrder[g])) _headers[h++].Visible = shown.Contains(g);
+        foreach (var (node, section) in _headers) node.Visible = shown.Contains(section);
+        if (_pending.Count > 0) shown.Add(-1); // rows still coming: no "no match" yet
         if (_noMatch is not null) _noMatch.Visible = shown.Count == 0;
         if (_resetAll is not null) _resetAll.Disabled = Editor.Overrides.Count == 0;
     }
+
+    /// <summary>The page changed width class (narrow or wide rows): rebuilds the rows a few per frame.</summary>
+    private void Reflow() { if (IsInsideTree()) BuildRows(gradual: true); }
 
     private void RebuildKeepingView()
     {
