@@ -12,7 +12,7 @@ namespace Starfoundry.Game;
 /// </summary>
 public partial class MenuScreen : Control
 {
-    public enum Page { Main, Settings, Controls }
+    public enum Page { Main, Settings, Controls, Credits }
 
     public sealed record Entry(Func<string> Text, Action OnPressed, Func<bool>? Enabled = null, Func<string>? Detail = null);
 
@@ -112,6 +112,7 @@ public partial class MenuScreen : Control
         {
             case Page.Settings: BuildSettings(); break;
             case Page.Controls: BuildControls(); break;
+            case Page.Credits: BuildCredits(); break;
             default: BuildMain(); break;
         }
         _status = UiKit.Text(13, new Color(0.6f, 0.9f, 0.65f));
@@ -152,7 +153,7 @@ public partial class MenuScreen : Control
     {
         if (Embedded) return;
         var title = UiKit.Text(Current == Page.Main && _titleKey == "menu.title" ? 40 : 28, Colors.White);
-        title.Text = Loc.T(Current == Page.Main ? _titleKey : Current == Page.Settings ? "settings.title" : "menu.controls");
+        title.Text = Loc.T(Current == Page.Main ? _titleKey : Current == Page.Settings ? "settings.title" : Current == Page.Credits ? "menu.credits" : "menu.controls");
         title.HorizontalAlignment = HorizontalAlignment.Center;
         _body.AddChild(title);
         _body.AddChild(UiTheme.Rule(UiTheme.Accent, 0.4f));
@@ -217,7 +218,7 @@ public partial class MenuScreen : Control
 
     private Button BackButton()
     {
-        var b = UiKit.Button(Loc.T("menu.back"), () => Open(Page.Main), 16);
+        var b = UiKit.Button(Loc.T("menu.back"), () => Open(BackTarget), 16);
         b.Name = "BackButton";
         b.CustomMinimumSize = new Vector2(0, 38);
         return b;
@@ -280,6 +281,17 @@ public partial class MenuScreen : Control
         WithTip(hudModeButton, "settings.tip.hudMode");
         _body.AddChild(hudModeButton);
         AddCheck("UiClickCheck", Loc.T("settings.uiClick"), s.UiClickSound, on => SettingsStore.Current with { UiClickSound = on }, "settings.tip.uiClick");
+        var soundSet = UiKit.Button(Loc.T("settings.soundSet", Loc.T("settings.soundSet." + (s.RecordedSounds ? "recorded" : "synthetic"))), () =>
+        {
+            var c = SettingsStore.Current;
+            _focusName = "SoundSetButton";
+            SettingsStore.Set(c with { RecordedSounds = !c.RecordedSounds });
+            CallDeferred(MethodName.Rebuild);
+        }, 14);
+        soundSet.Name = "SoundSetButton";
+        soundSet.Alignment = HorizontalAlignment.Left;
+        WithTip(soundSet, "settings.tip.soundSet");
+        _body.AddChild(soundSet);
         AddCheck("UiHoverCheck", Loc.T("settings.uiHover"), s.UiHoverSound, on => SettingsStore.Current with { UiHoverSound = on }, "settings.tip.uiHover");
 
         AddCheck("InvertCheck", Loc.T("settings.invertY"), s.InvertMouseY, on => SettingsStore.Current with { InvertMouseY = on }, "settings.tip.invertY");
@@ -309,6 +321,9 @@ public partial class MenuScreen : Control
         }, 14);
         reset.Name = "ResetButton";
         _body.AddChild(reset);
+        var credits = UiKit.Button(Loc.T("menu.credits"), OpenCredits, 14);
+        credits.Name = "CreditsButton";
+        _body.AddChild(credits);
         if (!Embedded) _body.AddChild(BackButton());
         var file = UiKit.Text(11, new Color(0.5f, 0.56f, 0.68f));
         file.Text = Loc.T("settings.file");
@@ -365,7 +380,7 @@ public partial class MenuScreen : Control
     {
         if (Embedded || !Visible || e is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape }) return;
         GetViewport().SetInputAsHandled();
-        if (Current != Page.Main) Open(Page.Main);
+        if (Current != Page.Main) Open(BackTarget);
         else CloseRequested?.Invoke();
     }
 }

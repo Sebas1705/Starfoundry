@@ -62,6 +62,7 @@ public partial class MainMenu : Control
         _menu.AddEntry(() => Loc.T("menu.new"), () => OpenNewGame());
         _menu.AddEntry(() => Loc.T("menu.settings"), () => _menu.Open(MenuScreen.Page.Settings));
         _menu.AddEntry(() => Loc.T("menu.controls"), () => _menu.Open(MenuScreen.Page.Controls));
+        _menu.AddEntry(() => Loc.T("menu.credits"), () => _menu.OpenCredits());
         _menu.AddEntry(() => Loc.T("menu.quit"), () => GetTree().Quit());
         _menu.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(_menu);

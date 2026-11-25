@@ -29,6 +29,7 @@ public partial class MainMenu
         s.Add(("settle", () => { }));
         s.Add(("menu", () => { Back(); _menu.Open(MenuScreen.Page.Main); }));
         s.Add(("menu.settings", () => { Back(); _menu.Open(MenuScreen.Page.Settings); }));
+        s.Add(("menu.credits", () => { Back(); _menu.OpenCredits(); }));
         s.Add(("menu.controls", () => { Back(); _menu.Open(MenuScreen.Page.Controls); }));
         s.Add(("newgame.campaign", () => { Back(); OpenNewGame(NewGameScreen.Tab.Campaign); }));
         s.Add(("newgame.story", () => _newGame?.ShowTab(NewGameScreen.Tab.Story)));
