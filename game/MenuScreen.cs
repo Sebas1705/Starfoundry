@@ -204,11 +204,14 @@ public partial class MenuScreen : Control
     }
 
     private KeyBindingsPage? _keysPage;
+
+    /// <summary>The rebinding page while the Controls page is shown (screenshot and audit drivers use it).</summary>
+    public KeyBindingsPage? KeysPage => _keysPage;
     private Page _controlsFrom = Page.Main;
 
     private void BuildControls()
     {
-        if (!Embedded) _panel.CustomMinimumSize = new Vector2(900, 0);
+        if (!Embedded) _panel.CustomMinimumSize = new Vector2(820, 0);
         Header();
         _keysPage = new KeyBindingsPage { Name = "KeyBindingsPage" };
         _body.AddChild(_keysPage);

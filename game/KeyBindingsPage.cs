@@ -375,6 +375,12 @@ public partial class KeyBindingsPage : VBoxContainer
         RebuildKeepingView();
     }
 
+    /// <summary>Closes the open dialog, if any (screenshot and audit drivers).</summary>
+    public void Dismiss() { if (_mode != Mode.None) CloseDialog(); }
+
+    /// <summary>Scrolls the list to a pixel offset (screenshot drivers).</summary>
+    public void ScrollTo(int pixels) => _scroll.ScrollVertical = pixels;
+
     /// <summary>Opens the "press the new key" dialog for one slot.</summary>
     public void BeginCapture(KeySlot slot)
     {
