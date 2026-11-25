@@ -89,7 +89,12 @@ public partial class IconCount : HBoxContainer
 
     private void Apply(string text, Color colour, string tooltip)
     {
-        if (_label.Text != text) _label.Text = text;
+        if (_label.Text != text)
+        {
+            _label.Text = text;
+            if (!_limited) // reserve the measured width (plus a pixel of slack) so a wider face never clips the last digit
+                _label.CustomMinimumSize = new Vector2(Mathf.Ceil(_label.GetThemeFont("font").GetStringSize(text, HorizontalAlignment.Left, -1, _label.GetThemeFontSize("font_size")).X) + 2f, 0);
+        }
         if (_colour != colour) { _colour = colour; _label.AddThemeColorOverride("font_color", colour); }
         if (_tip != tooltip) { _tip = tooltip; TooltipText = tooltip; }
     }

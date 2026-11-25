@@ -128,6 +128,46 @@ public partial class AudioManager : Node
         return s;
     }
 
+    // ---- recorded one-shots (ADR 0037) -------------------------------------------------------------------
+
+    private static SfxMap? _map;
+    private readonly Dictionary<string, AudioStream?> _recordedFiles = new();
+
+    /// <summary>A/B listening: true forces the recorded set, false the synthesised one, null follows the setting.</summary>
+    public bool? ForceRecorded;
+
+    private static SfxMap Map
+    {
+        get
+        {
+            if (_map is not null) return _map;
+            string json = FileAccess.FileExists("res://assets/audio/sfx_map.json") ? FileAccess.GetFileAsString("res://assets/audio/sfx_map.json") : "{}";
+            return _map = SfxMap.Parse(json);
+        }
+    }
+
+    /// <summary>Whether a recorded file exists for the effect (so both versions can be compared).</summary>
+    public static bool HasRecorded(Sfx id) => !SoundCatalog.Get(id).Loop && Map.TryGet(id, out _);
+
+    /// <summary>The recorded stream for a one-shot (one variant at random) with its table entry, or null to use the synthesised sound.</summary>
+    private AudioStream? GetRecorded(Sfx id, out SfxFileEntry entry)
+    {
+        entry = null!;
+        if (!(ForceRecorded ?? SettingsStore.Current.RecordedSounds) || SoundCatalog.Get(id).Loop || !Map.TryGet(id, out entry)) return null;
+        string file = entry.Files[entry.Files.Count == 1 ? 0 : (int)(_rng.Next() * entry.Files.Count) % entry.Files.Count];
+        if (_recordedFiles.TryGetValue(file, out var cached)) return cached;
+        AudioStream? s = null;
+        string path = "res://assets/audio/" + file;
+        if (FileAccess.FileExists(path))
+        {
+            byte[] bytes = FileAccess.GetFileAsBytes(path);
+            if (bytes is { Length: > 0 }) s = AudioStreamOggVorbis.LoadFromBuffer(bytes);
+        }
+        if (s is null) GD.PrintErr($"AUDIO recorded file missing or unreadable, using the synthesised sound: {file}");
+        _recordedFiles[file] = s;
+        return s;
+    }
+
     // ---- buses ---------------------------------------------------------------------------------------
 
     /// <summary>Makes sure the Sfx, Ambience and Ui buses exist (each sends to Master) and that Master has a limiter against clipping.</summary>
@@ -176,15 +216,18 @@ public partial class AudioManager : Node
         var spec = SoundCatalog.Get(id);
         if (spec.Loop) return;
         if (!_limiter.Allow((int)id, Now, spec.MinInterval)) return;
-        var stream = GetStream(id);
+        AudioStream? stream = GetRecorded(id, out var rec);
+        float gainDb = spec.GainDb, jitter = 0.05f;
+        if (stream is not null) { gainDb += rec.GainDb; jitter = rec.PitchJitter; }
+        else stream = GetStream(id);
         if (stream is null) return;
-        float pitch = 0.95f + 0.1f * _rng.Next();
+        float pitch = 1f + jitter * (2f * _rng.Next() - 1f);
         if (pos is { } p)
         {
             var pl = Free3D();
             pl.Stream = stream;
             pl.Bus = BusName(spec.Bus);
-            pl.VolumeDb = spec.GainDb;
+            pl.VolumeDb = gainDb;
             pl.PitchScale = pitch;
             pl.GlobalPosition = p;
             pl.Play();
@@ -194,7 +237,7 @@ public partial class AudioManager : Node
             var pl = Free2D();
             pl.Stream = stream;
             pl.Bus = BusName(spec.Bus);
-            pl.VolumeDb = spec.GainDb;
+            pl.VolumeDb = gainDb;
             pl.PitchScale = spec.Bus == AudioBus.Ui ? 1f : pitch;
             pl.Play();
         }

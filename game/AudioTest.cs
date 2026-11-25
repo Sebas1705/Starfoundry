@@ -8,6 +8,44 @@ using Starfoundry.Ui;
 namespace Starfoundry.Game;
 
 /// <summary>
+/// <c>--audio-ab</c>: plays every one-shot effect through the real audio device, first the synthesised version and then, where the
+/// table (<c>sfx_map.json</c>) has a file, the recorded one, with a line printed before each (<c>AB UiClick synthetic</c>), for listening
+/// and comparing; then quits. It needs a window and speakers (not headless).
+/// </summary>
+public partial class AudioAb : Node
+{
+    private readonly System.Collections.Generic.List<(Sfx Id, bool Recorded)> _queue = new();
+    private AudioManager? _audio;
+    private double _wait = 1.5;
+    private int _next;
+
+    public override void _Ready()
+    {
+        _audio = AudioManager.Create(this);
+        foreach (var spec in SoundCatalog.All)
+        {
+            if (spec.Loop) continue;
+            _queue.Add((spec.Id, false));
+            if (AudioManager.HasRecorded(spec.Id)) _queue.Add((spec.Id, true));
+        }
+        GD.Print($"AUDIO-AB {_queue.Count} sounds to play (synthesised first, then recorded where a file is mapped). Listen and note what is wrong.");
+    }
+
+    public override void _Process(double delta)
+    {
+        if (_audio is null) return;
+        _wait -= delta;
+        if (_wait > 0) return;
+        if (_next >= _queue.Count) { GD.Print("AUDIO-AB done"); GetTree().Quit(); return; }
+        var (id, rec) = _queue[_next++];
+        _audio.ForceRecorded = rec;
+        GD.Print($"AB {id} {(rec ? "recorded" : "synthetic")}");
+        _audio.Play(id);
+        _wait = 1.3;
+    }
+}
+
+/// <summary>
 /// <c>--audio-test</c> (optionally <c>--audio-out=dir</c>): renders every sound to a WAV file (default <c>user://audio_test/</c>) and
 /// prints its length, peak and RMS in dBFS, and for loops whether the seam is smooth, then quits. The exit code is 1 when a sound
 /// clips (peak above 0.95) or a loop has a seam. Nobody can listen in a headless run; this is how the levels are inspected.
@@ -17,6 +55,12 @@ public static class AudioTest
     /// <summary>Runs the test when the flag is present and quits the tree; returns true when it did.</summary>
     public static bool Handle(SceneTree tree, string[] args)
     {
+        if (args.Contains("--audio-ab"))
+        {
+            AudioManager.Enabled = true;
+            tree.Root.AddChild(new AudioAb { Name = "AudioAb" });
+            return true;
+        }
         if (!args.Contains("--audio-test")) return false;
         string? outArg = args.FirstOrDefault(a => a.StartsWith("--audio-out="))?["--audio-out=".Length..];
         string dir = outArg ?? ProjectSettings.GlobalizePath("user://audio_test");
