@@ -219,6 +219,7 @@ public partial class Play
         yield return ("aim-card", _targetPanel);
         yield return ("aim-tooltip", _tooltipPanel);
         yield return ("wave-banner", _waveBanner);
+        if (_arsenalBar is not null) yield return ("arsenal-bar", _arsenalBar);
         foreach (var (name, c) in SweepExtraControls()) yield return (name, c);
     }
 

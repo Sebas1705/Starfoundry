@@ -55,6 +55,7 @@ public partial class Play
         var s = _auditSteps;
         s.Add(("settle", () => { }));
         s.Add(("hud", () => { CloseAllPanels(); Toasts(); }));
+        s.Add(("hud.arsenal", () => { CloseAllPanels(); _arsenalVis.Touch(); Toasts(); })); // the arsenal bar at the bottom centre with the busy toasts above it
         s.Add(("hud.details", () => { CloseAllPanels(); _detailsOpen = true; _mapOpen = true; }));
         s.Add(("hud.help", () => { CloseAllPanels(); _helpOpen = true; }));
         // The three HUD detail levels (Shift+F3), seated and standing, with the busy toasts: nothing may overflow, overlap or reach the centre.
