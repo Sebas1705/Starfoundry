@@ -13,7 +13,7 @@ Phase 4 of the [controls redesign](../superpowers/specs/2026-11-25-controls-rede
 - **Reserved keys:** `Esc` (cancel, back, pause), `F1` (help) and `Tab` (the ship computer is read before the focus system can take it). They cannot be assigned to anything.
 - **Fixed actions:** cancel, help, the computer key, every mouse action (`fire`, `place`, `demolish`, wheel) and the number rows (weapon pick, hotbar, tab pick: they select by position). Mouse buttons cannot be rebound because the registry has no rebindable mouse action; the page shows them as *Fixed*.
 - **Optional actions** can be cleared (an unbound slot is written `None`, its cap is a dash): look, assist, scan, unload, load, next weapon, rotate, recipe, kind, the three computer shortcuts, map reset, HUD detail, quick save and load, fullscreen. Movement, interact, roll, tabs and the map keys need a key.
-- **Capture.** `Esc` cancels; Ctrl chords and keys the game cannot read (Ctrl, Meta, function-less specials) are refused with a message; a reserved key shows an explanation and *Try another*. While a dialog is open the game ignores its own keys.
+- **Capture.** `Esc` cancels; Ctrl chords and keys the game cannot read are refused with a message; a reserved key shows an explanation and *Try another*. While a dialog is open the game ignores its own keys.
 
 ## Saving and applying
 - `settings.cfg` gets one line per changed action: `bind.scan=J`, `bind.roll=E,Q`, `bind.assist=None`. Defaults write nothing, so there is nothing to migrate.

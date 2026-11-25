@@ -392,7 +392,11 @@ public partial class KeyBindingsPage : VBoxContainer
             _dialogButtons.AddChild(b);
         }
         _layer.Visible = true;
-        if (_dialogButtons.GetChildCount() > 0) ((Button)_dialogButtons.GetChild(0)).CallDeferred(Control.MethodName.GrabFocus);
+        if (_dialogButtons.GetChildCount() > 0)
+        {
+            var first = (Button)_dialogButtons.GetChild(0);
+            Callable.From(() => { if (IsInstanceValid(first) && first.IsInsideTree()) first.GrabFocus(); }).CallDeferred();
+        }
     }
 
     private void CloseDialog()
