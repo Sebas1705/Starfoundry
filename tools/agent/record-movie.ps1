@@ -19,7 +19,7 @@ $ErrorActionPreference = 'Stop'
 $made = $false
 if (-not $Project) { $Project = (& (Join-Path $PSScriptRoot 'new-play-copy.ps1') | Select-Object -Last 1); $made = $true }
 if (-not $Out) { $d = Join-Path $env:TEMP 'sf-movies'; New-Item -ItemType Directory -Force $d | Out-Null; $Out = Join-Path $d ("clip-{0}.mp4" -f (Get-Date -Format 'yyyyMMdd-HHmmss')) }
-$Out = [IO.Path]::GetFullPath($Out)
+$Out = [IO.Path]::GetFullPath($Out); New-Item -ItemType Directory -Force (Split-Path $Out) | Out-Null
 if ($Out.StartsWith((Get-RepoRoot), [StringComparison]::OrdinalIgnoreCase)) { throw 'Write the clip outside the repository.' }
 $avi = [IO.Path]::ChangeExtension($Out, '.avi')
 $frames = [int][math]::Ceiling($Seconds * $Fps)
@@ -27,7 +27,7 @@ try {
     $a = @('--path', $Project, '--windowed', '--resolution', $Resolution, '--write-movie', $avi, '--fixed-fps', $Fps, '--quit-after', $frames, '--') + ($GameArgs -split '\s+' | Where-Object { $_ })
     $p = Start-Process (Get-GodotConsole) -ArgumentList $a -NoNewWindow -PassThru -Wait -RedirectStandardOutput ([IO.Path]::ChangeExtension($Out, '.log'))
     if (-not (Test-Path $avi)) { throw "Godot wrote no movie (exit $($p.ExitCode)); see $([IO.Path]::ChangeExtension($Out, '.log'))" }
-    & (Get-Ffmpeg) -y -loglevel error -i $avi -c:v libx264 -crf 18 -pix_fmt yuv420p -an $Out
+    & (Get-Ffmpeg) -y -loglevel error -i $avi -c:v libx264 -crf 23 -pix_fmt yuv420p -an $Out
     if ($LASTEXITCODE -ne 0) { throw 'ffmpeg failed' }
     Remove-Item $avi
     Write-Host $Out

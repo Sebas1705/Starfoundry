@@ -13,9 +13,12 @@
 param([Parameter(Mandatory)][string]$Video)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'common.ps1')
-$tmp = Join-Path $env:TEMP ("flk-{0}.txt" -f [guid]::NewGuid().ToString('N'))
+$Video = (Resolve-Path $Video).Path
+$name = "flk-{0}.txt" -f [guid]::NewGuid().ToString('N')
+$tmp = Join-Path $env:TEMP $name
+Push-Location $env:TEMP # the metadata filter takes a plain relative file name, which avoids drive-letter escaping
 try {
-    $vf = "tblend=all_mode=difference,signalstats,metadata=print:key=lavfi.signalstats.YAVG:file='" + ($tmp -replace '\', '/' -replace ':', '\:') + "'"
+    $vf = "tblend=all_mode=difference,signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=$name"
     & (Get-Ffmpeg) -y -loglevel error -i $Video -vf $vf -f null - 
     if ($LASTEXITCODE -ne 0) { throw 'ffmpeg failed' }
     $v = @(Select-String -Path $tmp -Pattern 'YAVG=([0-9.]+)' | ForEach-Object { [double]::Parse($_.Matches[0].Groups[1].Value, [Globalization.CultureInfo]::InvariantCulture) })
@@ -27,4 +30,4 @@ try {
     $j = 0.0; for ($i = 1; $i -lt $v.Count; $i++) { $j += [math]::Abs($v[$i] - $v[$i - 1]) }; $j = $j / ($v.Count - 1)
     $inv = [Globalization.CultureInfo]::InvariantCulture
     Write-Host ("frames={0} meanDiff={1} spike={2} jitter={3}" -f $v.Count, $mean.ToString('F3', $inv), ($p99 / [math]::Max($med, 1e-6)).ToString('F2', $inv), ($j / [math]::Max($mean, 1e-6)).ToString('F3', $inv))
-} finally { Remove-Item $tmp -ErrorAction SilentlyContinue }
+} finally { Pop-Location; Remove-Item $tmp -ErrorAction SilentlyContinue }
