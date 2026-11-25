@@ -33,7 +33,7 @@ public partial class MainMenu : Control
         // Any other flag means a scripted run or a screenshot: no menu.
         // --content=path only says where core.json is; it does not make the run scripted.
         _newGameShotPath = args.FirstOrDefault(a => a.StartsWith("--newgame-shot="))?["--newgame-shot=".Length..];
-        if (args.Any(a => !a.StartsWith("--menu-shot=") && !a.StartsWith("--newgame-shot=") && a != "--ui-audit-menu" && !a.StartsWith("--audit-sizes=") && !a.StartsWith("--audit-shots=") && !a.StartsWith(ContentLocator.ContentFlag) && !a.StartsWith("--ui-lang=")))
+        if (args.Any(a => !a.StartsWith("--menu-shot=") && !a.StartsWith("--newgame-shot=") && a != "--ui-audit-menu" && !a.StartsWith("--audit-sizes=") && !a.StartsWith("--audit-shots=") && !a.StartsWith(ContentLocator.ContentFlag) && !a.StartsWith("--ui-lang=") && a != "--agent"))
         {
             Launch.Mode = Launch.Intent.New;
             CallDeferred(MethodName.StartGame);

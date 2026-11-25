@@ -48,6 +48,7 @@ public partial class InventorySlot : Control
         Container = container;
         Slot = slot;
         _pixels = pixels;
+        Name = $"Slot_{container.Kind}_{container.Id}_{slot}"; // stable handle for agents (docs/prototypes/agent-play.md)
         CustomMinimumSize = new Vector2(pixels, pixels);
         FocusMode = FocusModeEnum.All;
         MouseFilter = MouseFilterEnum.Stop;

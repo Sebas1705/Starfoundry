@@ -90,6 +90,12 @@ public static class Launch
 
     public static Intent Mode = Intent.New;
 
+    /// <summary>
+    /// <c>--agent</c>: an agent drives this window (see docs/prototypes/agent-play.md). The game then ignores the OS window focus
+    /// (no focus: still flies and reads keys) and the main menu stays up. Nothing else changes.
+    /// </summary>
+    public static readonly bool Agent = Array.Exists(OS.GetCmdlineUserArgs(), a => a == "--agent");
+
     /// <summary>The save to load when <see cref="Mode"/> is <see cref="Intent.Continue"/> ("quicksave" or "autosave").</summary>
     public static string? ContinueSave;
 
