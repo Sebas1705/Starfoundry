@@ -259,12 +259,5 @@ public sealed class Galaxy
     }
 
     /// <summary>Integer square root (floor).</summary>
-    private static int ISqrt(long v)
-    {
-        if (v <= 0) return 0;
-        long x = (long)Math.Sqrt(v);
-        while (x * x > v) x--;
-        while ((x + 1) * (x + 1) <= v) x++;
-        return (int)x;
-    }
+    private static int ISqrt(long v) => (int)IntMath.ISqrt(v);
 }

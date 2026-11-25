@@ -18,9 +18,9 @@ public static class StationGrid
     public static int MinZ => MinCoord(ModuleZ);
     public static int MaxZ => MaxCoord(ModuleZ);
 
-    private static int MinCoord(int size) => (int)Math.Ceiling(-SimWorld.MaxCoord / (double)size);
+    private static int MinCoord(int size) => IntMath.CeilDiv(-SimWorld.MaxCoord, size);
 
-    private static int MaxCoord(int size) => (int)Math.Floor((SimWorld.MaxCoord + 1) / (double)size) - 1;
+    private static int MaxCoord(int size) => IntMath.FloorDiv(SimWorld.MaxCoord + 1, size) - 1;
 
     /// <summary>The layer, inside a module, whose cells rest on the floor: machines and belts are built there only (ADR 0031).</summary>
     public const int FloorLayer = 0;
@@ -34,7 +34,7 @@ public static class StationGrid
     public static bool IsValidModule(int mx, int my, int mz) =>
         mx >= MinX && mx <= MaxX && my >= MinY && my <= MaxY && mz >= MinZ && mz <= MaxZ;
 
-    private static int FloorDiv(int a, int b) => (int)Math.Floor(a / (double)b);
+    private static int FloorDiv(int a, int b) => IntMath.FloorDiv(a, b);
 
     /// <summary>The module coordinates containing a cell.</summary>
     public static (int Mx, int My, int Mz) ModuleOfCell(int x, int y, int z) =>

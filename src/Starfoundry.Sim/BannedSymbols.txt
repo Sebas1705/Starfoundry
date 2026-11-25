@@ -1,0 +1,38 @@
+# Determinism guard for the simulation (enforced by Microsoft.CodeAnalysis.BannedApiAnalyzers, RS0030).
+# The sim is integer-only and must give identical results on every platform and run.
+T:System.Random;Use the seeded integer generator in the sim
+T:System.Diagnostics.Stopwatch;Wall-clock time must not influence the sim
+P:System.DateTime.Now;Wall-clock time must not influence the sim
+P:System.DateTime.UtcNow;Wall-clock time must not influence the sim
+P:System.DateTimeOffset.Now;Wall-clock time must not influence the sim
+P:System.DateTimeOffset.UtcNow;Wall-clock time must not influence the sim
+M:System.Guid.NewGuid();Non-deterministic
+P:System.Environment.TickCount;Wall-clock time must not influence the sim
+P:System.Environment.TickCount64;Wall-clock time must not influence the sim
+T:System.MathF;Floating point is not exactly specified across platforms; use integer math
+M:System.Math.Sin(System.Double);Floating point is not exactly specified across platforms
+M:System.Math.Cos(System.Double);Floating point is not exactly specified across platforms
+M:System.Math.Tan(System.Double);Floating point is not exactly specified across platforms
+M:System.Math.Asin(System.Double);Floating point is not exactly specified across platforms
+M:System.Math.Acos(System.Double);Floating point is not exactly specified across platforms
+M:System.Math.Atan(System.Double);Floating point is not exactly specified across platforms
+M:System.Math.Atan2(System.Double,System.Double);Floating point is not exactly specified across platforms
+M:System.Math.Sinh(System.Double);Floating point is not exactly specified across platforms
+M:System.Math.Cosh(System.Double);Floating point is not exactly specified across platforms
+M:System.Math.Tanh(System.Double);Floating point is not exactly specified across platforms
+M:System.Math.Pow(System.Double,System.Double);Floating point is not exactly specified across platforms
+M:System.Math.Exp(System.Double);Floating point is not exactly specified across platforms
+M:System.Math.Log(System.Double);Floating point is not exactly specified across platforms
+M:System.Math.Log(System.Double,System.Double);Floating point is not exactly specified across platforms
+M:System.Math.Log10(System.Double);Floating point is not exactly specified across platforms
+M:System.Math.Log2(System.Double);Floating point is not exactly specified across platforms
+M:System.Math.Cbrt(System.Double);Floating point is not exactly specified across platforms
+M:System.Math.Sqrt(System.Double);Use IntMath.ISqrt
+M:System.Math.Floor(System.Double);Use integer floor division
+M:System.Math.Ceiling(System.Double);Use integer ceiling division
+M:System.Math.Round(System.Double);Use integer rounding
+M:System.Math.Truncate(System.Double);Use integer division
+M:System.Double.Parse(System.String);Culture dependent; use int.Parse with InvariantCulture
+M:System.Single.Parse(System.String);Culture dependent
+M:System.Int32.Parse(System.String);Culture dependent; pass CultureInfo.InvariantCulture
+M:System.Int64.Parse(System.String);Culture dependent; pass CultureInfo.InvariantCulture
