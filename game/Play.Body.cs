@@ -177,11 +177,11 @@ public partial class Play
         if (_bodyVolumes.Length == 0) { Sit(); return; }
         if (!BodyMotion.Contains(Sys(_body), _bodyVolumes, _bodySolids)) _body = FromSys(BodyMotion.Nearest(Sys(_body), _bodyVolumes, _bodySolids)); // the module under the feet was removed
         var wishDir = Vector3.Zero;
-        float speed = Input.IsKeyPressed(Key.Shift) ? BodyMotion.RunSpeed : BodyMotion.WalkSpeed;
+        float speed = HeldKeys.Down("run", 0) ? BodyMotion.RunSpeed : BodyMotion.WalkSpeed;
         if (_mouseLook)
         {
-            float forward = (Input.IsPhysicalKeyPressed(Key.W) ? 1 : 0) - (Input.IsPhysicalKeyPressed(Key.S) ? 1 : 0);
-            float right = (Input.IsPhysicalKeyPressed(Key.D) ? 1 : 0) - (Input.IsPhysicalKeyPressed(Key.A) ? 1 : 0);
+            float forward = HeldKeys.Axis("move", 0, 2);
+            float right = HeldKeys.Axis("move", 3, 1);
             var fwd = new Vector3(-MathF.Sin(_yaw), 0f, -MathF.Cos(_yaw));
             wishDir = fwd * forward + CockpitRight() * right;
             if (wishDir.LengthSquared() > 1f) wishDir = wishDir.Normalized();

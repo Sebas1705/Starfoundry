@@ -88,6 +88,7 @@ public partial class Play
             var t = tab;
             s.Add(("computer." + t.ToString().ToLowerInvariant(), () => { CloseAllPanels(); OpenComputer(t); }));
         }
+        s.Add(("computer.settings.keys", () => { CloseAllPanels(); OpenComputer(ComputerTab.Settings); _settingsPage.Open(MenuScreen.Page.Controls); }));
         foreach (var node in new[] { "core:rapid_loader", "core:repair_drones", "core:advanced_logistics" })
         {
             var id = node;

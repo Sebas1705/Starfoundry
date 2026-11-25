@@ -32,8 +32,9 @@ public partial class MainMenu : Control
         _menuShotPath = args.FirstOrDefault(a => a.StartsWith("--menu-shot="))?["--menu-shot=".Length..];
         // Any other flag means a scripted run or a screenshot: no menu.
         // --content=path only says where core.json is; it does not make the run scripted.
+        _rebindShotPath = args.FirstOrDefault(a => a.StartsWith("--rebind-shot="))?["--rebind-shot=".Length..];
         _newGameShotPath = args.FirstOrDefault(a => a.StartsWith("--newgame-shot="))?["--newgame-shot=".Length..];
-        if (args.Any(a => !a.StartsWith("--menu-shot=") && !a.StartsWith("--newgame-shot=") && a != "--ui-audit-menu" && !a.StartsWith("--audit-sizes=") && !a.StartsWith("--audit-shots=") && !a.StartsWith(ContentLocator.ContentFlag) && !a.StartsWith("--ui-lang=") && a != "--agent"))
+        if (args.Any(a => !a.StartsWith("--menu-shot=") && !a.StartsWith("--newgame-shot=") && a != "--ui-audit-menu" && !a.StartsWith("--rebind-shot=") && !a.StartsWith("--audit-sizes=") && !a.StartsWith("--audit-shots=") && !a.StartsWith(ContentLocator.ContentFlag) && !a.StartsWith("--ui-lang=") && a != "--agent"))
         {
             Launch.Mode = Launch.Intent.New;
             CallDeferred(MethodName.StartGame);
@@ -133,6 +134,7 @@ public partial class MainMenu : Control
         if (_camera is not null) _camera.Rotation = new Vector3(0.12f * MathF.Sin((float)_time * 0.13f), (float)_time * 0.05f, 0f);
         if (_menuAudit) { MenuAuditFrame(); return; }
         if (_newGameShotPath is not null) { NewGameShotFrame(); return; }
+        if (_rebindShotPath is not null) { RebindShotFrame(); return; }
         if (_menuShotPath is null) return;
         _frame++;
         if (_frame == 45) Save(_menuShotPath);

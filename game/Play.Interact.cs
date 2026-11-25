@@ -70,14 +70,15 @@ public partial class Play
 
     private void OnKey(InputEventKey k)
     {
+        if (KeyBindingsPage.Capturing) return; // the rebinding page is waiting for a key
         if (k.CtrlPressed || k.MetaPressed) return; // no binding uses them
         if (CockpitKey(k)) return; // the keys of a focused display
         string key = k.Keycode == Key.KpEnter ? "Enter" : k.Keycode.ToString();
         var active = InputActions.Active(ComputerOpen, _tool == ToolMode.Build, Standing, IsDockedNow);
-        if (InputActions.Find(key, active) is { } action) RunAction(action.Id, k.Keycode);
+        if (InputActions.Find(key, active) is { } action) RunAction(action.Id, k.Keycode, InputActions.SlotOf(action.Id, key));
     }
 
-    private void RunAction(string id, Key key)
+    private void RunAction(string id, Key key, int slot)
     {
         int digit = key == Key.Key0 ? 9 : key is >= Key.Key1 and <= Key.Key9 ? (int)(key - Key.Key1) : -1;
         switch (id)
@@ -111,15 +112,15 @@ public partial class Play
                 int module = _palette.FindIndex(b => b.IsModule);
                 if (module >= 0) SelectBuild(module);
                 break;
-            case "layer" when _tool == ToolMode.Build && !(FloorRule && !ModuleSelected): _cursorY += key == Key.E ? 1 : -1; break; // on the floor rule only the module tool has layers
+            case "layer" when _tool == ToolMode.Build && !(FloorRule && !ModuleSelected): _cursorY += slot == 1 ? 1 : -1; break; // on the floor rule only the module tool has layers
             case "unload": UnloadKey(); break;
             case "load": LoadKey(); break;
-            case "tabs" when _computerTab is { } tab: SwitchComputerTab(ShipComputerTabs.Step(tab, key == Key.Q ? -1 : 1, ComputerAvail)); break;
+            case "tabs" when _computerTab is { } tab: SwitchComputerTab(ShipComputerTabs.Step(tab, slot == 0 ? -1 : 1, ComputerAvail)); break;
             case "tabPick" when digit >= 0:
                 if (ShipComputerTabs.FromNumber(digit + 1, ComputerAvail) is { } picked) SwitchComputerTab(picked);
                 break;
-            case "mapChoose" when _computerTab == ComputerTab.Map: CycleSystem(key == Key.Up ? -1 : 1); break;
-            case "mapTurn" when _computerTab == ComputerTab.Map: _map.Orbit(key == Key.Left ? -0.25f : 0.25f, 0f); break; // rotate the 3D map
+            case "mapChoose" when _computerTab == ComputerTab.Map: CycleSystem(slot == 0 ? -1 : 1); break;
+            case "mapTurn" when _computerTab == ComputerTab.Map: _map.Orbit(slot == 0 ? -0.25f : 0.25f, 0f); break; // rotate the 3D map
             case "mapJump" when _computerTab == ComputerTab.Map: SendJump(); break;
             case "mapReset" when _computerTab == ComputerTab.Map: _map.ResetView(); break;
         }
@@ -144,6 +145,7 @@ public partial class Play
     /// <summary>The ship computer key is read before the focus system can take Tab for itself (a focused button would swallow it).</summary>
     public override void _Input(InputEvent e)
     {
+        if (KeyBindingsPage.Capturing) return; // the rebinding page is waiting for a key
         if (e is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Tab } k || k.CtrlPressed || k.AltPressed || k.ShiftPressed) return;
         if (_demo || PauseOpen || EndOpen || StoryOpen) return;
         GetViewport().SetInputAsHandled();

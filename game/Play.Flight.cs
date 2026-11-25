@@ -72,7 +72,7 @@ public partial class Play
     /// True while the mouse steers the ship (and the roll keys work): seated, free, not docked, no build tool in hand and Alt not held. Otherwise the
     /// mouse turns the head inside the ship, upright in the ship's own frame.
     /// </summary>
-    private bool Piloting => (_mouseLook || TurnShotActive) && _focus is null && !Standing && !IsDockedNow && _tool != ToolMode.Build && !PanelOpen() && !Input.IsKeyPressed(Key.Alt);
+    private bool Piloting => (_mouseLook || TurnShotActive) && _focus is null && !Standing && !IsDockedNow && _tool != ToolMode.Build && !PanelOpen() && !HeldKeys.Down("look", 0);
 
     /// <summary>The ship's root transform: its attitude, turned about the pilot seat so the seat stays at the simulated position.</summary>
     private Transform3D ShipRootTransform(Vector3 shipPos)
@@ -135,7 +135,7 @@ public partial class Play
         else if (!Piloting) _shipQuat = _turn.Step(_shipQuat, dt, 0f, stats, FlightAssistOn); // not at the controls: the assist (or free spin) goes on
         if (Piloting)
         {
-            float roll = (Input.IsPhysicalKeyPressed(Key.E) ? 1f : 0f) - (Input.IsPhysicalKeyPressed(Key.Q) ? 1f : 0f);
+            float roll = HeldKeys.Axis("roll", 1, 0);
             if (UsesDynamics) _shipQuat = _turn.Step(_shipQuat, dt, roll, stats, FlightAssistOn);
             else
             {
