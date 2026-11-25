@@ -359,7 +359,39 @@ public sealed partial class StructureBot
         var (tx, ty, tz) = (wx * Cell, wy * Cell, wz * Cell);
         // Stop a little short, towards the ship.
         var p = Net.GetPlayerInfo(0);
-        FlyTo(tx - Math.Sign(tx - p.X) * 8L * Cell, ty, tz - Math.Sign(tz - p.Z) * 8L * Cell, 4L * Cell);
+        tx -= Math.Sign(tx - p.X) * 8L * Cell; tz -= Math.Sign(tz - p.Z) * 8L * Cell;
+        // A deposit's rock is solid and the ship is 8 cells wide and 16 long (ADR 0033): the point must leave every module box clear of the rocks (with the hull padding the
+        // sim adds), or the ship is pinned against one on the way in (seed 777: the home iron rock). The nearest clear pose that still has the cell in build range.
+        var ship = Net.GetStructure(Net.ShipStructure(0));
+        var boxes = ship.Modules.Keys.Select(k => Net.ModuleWorldBounds(ship, k)).ToArray();
+        long margin = (_c.World?.HullPadUnits ?? 160) + 40L;
+        long range = (PlayerRules.BuildRangeCells - 6) * (long)Cell;
+        bool PoseClear(long ox, long oy, long oz)
+        {
+            long dx = ox - ship.OriginX, dy = oy - ship.OriginY, dz = oz - ship.OriginZ;
+            foreach (var (min, max) in boxes)
+                if (Net.BoxTouchesDepositRock(min.X + dx, min.Y + dy, min.Z + dz, max.X + dx, max.Y + dy, max.Z + dz, margin)) return false;
+            return true;
+        }
+        long cx = wx * Cell + Cell / 2, cy = wy * Cell + Cell / 2, cz = wz * Cell + Cell / 2;
+        if (!PoseClear(tx, ty, tz))
+        {
+            (long X, long Y, long Z)? best = null;
+            double bestD = double.MaxValue;
+            for (int ddy = -4; ddy <= 12; ddy += 2)
+                for (int ddx = -12; ddx <= 12; ddx += 2)
+                    for (int ddz = -12; ddz <= 12; ddz += 2)
+                    {
+                        long qx = tx + ddx * (long)Cell, qy = ty + ddy * (long)Cell, qz = tz + ddz * (long)Cell;
+                        long ex = cx - qx, ey = cy - qy, ez = cz - qz;
+                        if (ex * ex + ey * ey + ez * ez > range * range) continue;
+                        double d = ddx * ddx + ddy * ddy * 2.0 + ddz * ddz;
+                        if (d >= bestD || !PoseClear(qx, qy, qz)) continue;
+                        bestD = d; best = (qx, qy, qz);
+                    }
+            if (best is { } b) (tx, ty, tz) = b;
+        }
+        FlyTo(tx, ty, tz, 3L * Cell);
     }
 
     /// <summary>Returns to where the ship hand mines (its first mining spot).</summary>
