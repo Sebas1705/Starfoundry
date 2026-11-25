@@ -166,7 +166,7 @@ public partial class Play
             HudMode = HudMode.Cockpit,
             Flight = new FlightDisplayData(18.4f, 24f, 0.8f, true, true, 20f, 22, 100, 31, 40, 420, 2, 60 * 25, 100, 100),
             Systems = new SystemsDisplayData(9, 3, 22, 100, 100, 100, 4, true),
-            Weapons = new WeaponsDisplayData(true, true, true, WeaponGroup.Guns, true, false, true, true, 3),
+            Weapons = new WeaponsDisplayData(true, true, true, WeaponGroup.Guns, true, false, true, true, 3, 12, 240, false, SyntheticArsenal()),
             Axes = axes,
             Velocity = CockpitMath.Velocity(0.4f, 0.2f, 5f),
             SystemName = "Kepler",
@@ -214,4 +214,15 @@ public partial class Play
         new(NavKind.Port, 0, "Port", 26f, 30f, "status:port", false, new System.Numerics.Vector3(-14f, -6f, 20f)),
         new(NavKind.Deposit, 7, "Ice", 1450f, 170f, "item:core:ice", false, new System.Numerics.Vector3(-900f, 300f, -1100f)),
     };
+
+    /// <summary>Made-up arsenal of the cockpit shots: two Mk1 lasers, a Mk2 laser and a Mk2 gun, the guns in hand and firing.</summary>
+    private static ArsenalModel SyntheticArsenal()
+    {
+        var a = new ArsenalModel();
+        a.Fit(new[] { new FittedWeapon(ArsenalKind.Laser, 1, 2), new FittedWeapon(ArsenalKind.Laser, 2, 1), new FittedWeapon(ArsenalKind.Gun, 2, 1) });
+        a.Select(2);
+        a.SetLive(ArsenalKind.Laser, new ArsenalLive(HasDeposit: true, MineTenths: 12, DepositLeft: 240));
+        a.SetLive(ArsenalKind.Gun, new ArsenalLive(Firing: true));
+        return a;
+    }
 }

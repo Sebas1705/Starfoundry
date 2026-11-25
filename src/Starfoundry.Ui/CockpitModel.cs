@@ -43,6 +43,8 @@ public enum CockpitAction
     MapZoom,
     /// <summary>The next HUD detail level (minimal, standard, detailed).</summary>
     CycleHudDetail,
+    /// <summary>Take the arsenal slot <c>Arg</c> in hand (the weapons page lists the same slots as the HUD bar).</summary>
+    PickWeaponSlot,
 }
 
 /// <summary>A clickable rectangle of a display, in the pixels of that display's texture.</summary>
@@ -231,7 +233,7 @@ public readonly record struct SystemsDisplayData(int Modules, int DamagedModules
 
 /// <summary>The data the weapons display shows.</summary>
 public readonly record struct WeaponsDisplayData(bool Hardpoints, bool HasLaser, bool HasGun, WeaponGroup Group, bool Armed, bool Mining, bool LaserFiring, bool ThreatActive, int Enemies,
-    int MineTenthsPerSecond = 0, int DepositLeft = -1, bool Slowed = false)
+    int MineTenthsPerSecond = 0, int DepositLeft = -1, bool Slowed = false, ArsenalModel? Arsenal = null)
 {
     /// <summary>The group in hand (the fire button uses it), or null when the ship has nothing to fire (ADR 0036: every world has the group, M cycles it).</summary>
     public WeaponGroup? ActiveGroup => Group == WeaponGroup.Guns && HasGun ? WeaponGroup.Guns : HasLaser ? WeaponGroup.Laser : HasGun ? WeaponGroup.Guns : null;

@@ -64,7 +64,7 @@ public static class InputActions
         // ---- weapons ----
         new("fire", new[] { "@click" }, Fly, HelpGroup.Weapons, "tool:fireGuns"),
         new("weaponNext", new[] { "V" }, Body, HelpGroup.Weapons, "tool:weapons"),
-        new("weaponPick", new[] { "Key1", "Key2", "Key3", "Key4" }, Fly, HelpGroup.Weapons, "tool:weapons"),
+        new("weaponPick", new[] { "Key1", "Key2", "Key3", "Key4", "Key5", "Key6", "Key7", "Key8", "Key9" }, Fly, HelpGroup.Weapons, "tool:weapons"),
         new("weaponWheel", new[] { "@wheel" }, Fly, HelpGroup.Weapons, "tool:weapons"),
         // ---- building (a tool in hand) ----
         new("place", new[] { "@click" }, Tool, HelpGroup.Build, "tool:place"),

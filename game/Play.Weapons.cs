@@ -25,7 +25,6 @@ public partial class Play
     private readonly Dictionary<int, MeshInstance3D> _pickupNodes = new();
     private StandardMaterial3D? _tracerMat, _sparkMat, _flashMat, _guideMat, _pickupMat;
     private MeshInstance3D? _guideBarrel, _guideLine;
-    private Label? _weaponLabel;
     private float _kick;
     private readonly HashSet<int> _overflowToasted = new();
     private bool _dryToasted;
@@ -52,12 +51,12 @@ public partial class Play
         if (group == WeaponGroup.Guns)
         {
             SetLaser(false);
-            Toast(L("toast.weaponGroupGuns", InputActions.PrimaryCap("weaponNext")), 3.0);
+            if (_arsenalVis.Alpha < 0.5f) Toast(L("toast.weaponGroupGuns", InputActions.PrimaryCap("weaponNext")), 3.0); // the bar says it when it is on screen
         }
         else
         {
             if (Net.GetPlayerInfo(Player).Armed) Send(new SetWeapons(false));
-            Toast(L("toast.weaponGroupLaser", InputActions.PrimaryCap("weaponNext")), 3.0);
+            if (_arsenalVis.Alpha < 0.5f) Toast(L("toast.weaponGroupLaser", InputActions.PrimaryCap("weaponNext")), 3.0);
         }
         AudioManager.PlayUi(Sfx.UiClick);
     }
@@ -251,7 +250,7 @@ public partial class Play
         UpdateSparks(dt);
         UpdatePickups();
         UpdateGuide();
-        UpdateWeaponLabel();
+        UpdateArsenal(dt);
         if (_kick > 0.001f)
         {
             // The kick tips the camera up and a little sideways, then settles; applied after the camera was placed, so it never builds up.
@@ -384,29 +383,6 @@ public partial class Play
         _guideMat!.AlbedoColor = guns ? new Color(1f, 0.45f, 0.4f, firing ? 0.95f : 0.5f) : new Color(0.4f, 1f, 0.6f, firing ? 0.95f : 0.5f);
     }
 
-    private void UpdateWeaponLabel()
-    {
-        bool show = !Standing && !PanelOpen() && _tool != ToolMode.Build && Net.HasPlayer(Player) && !Overview && !_demo;
-        if (_weaponLabel is null)
-        {
-            if (!show) return;
-            _weaponLabel = MakeText(15, new Color(0.9f, 0.95f, 1f));
-            _weaponLabel.AddThemeColorOverride("font_outline_color", Colors.Black);
-            _weaponLabel.AddThemeConstantOverride("outline_size", 5);
-            _weaponLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
-            _weaponLabel.HorizontalAlignment = HorizontalAlignment.Center;
-            _uiRoot.AddChild(_weaponLabel);
-        }
-        _weaponLabel.Visible = show;
-        if (!show) return;
-        bool guns = _weaponGroup == WeaponGroup.Guns;
-        _weaponLabel.Text = L("hud.weaponInHand", L(guns ? "hud.weaponGuns" : "hud.weaponLaser")) + "   " + L("hud.weaponHint");
-        _weaponLabel.AddThemeColorOverride("font_color", guns ? new Color(1f, 0.6f, 0.55f) : new Color(0.6f, 1f, 0.75f));
-        var size = GetViewport().GetVisibleRect().Size;
-        _weaponLabel.Size = new Vector2(size.X, 24f);
-        _weaponLabel.HorizontalAlignment = HorizontalAlignment.Center;
-        _weaponLabel.Position = new Vector2(0f, 150f); // under the frame gizmo at the top centre: clear of the middle of the view, the toasts and the hold strip
-    }
 
     /// <summary>
     /// The mining readout of the weapon card: items per second in tenths (the laser as it is now, slowed past the hold limit) at the deposit being mined or aimed at, and how

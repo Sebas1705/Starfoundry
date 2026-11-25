@@ -113,7 +113,7 @@ public class InputActionsTests
     [Fact]
     public void CapsWriteRangesAndSpecialKeys()
     {
-        Assert.Equal(new[] { "1-4" }, InputActions.Caps("weaponPick"));
+        Assert.Equal(new[] { "1-9" }, InputActions.Caps("weaponPick"));
         Assert.Equal(new[] { "1-0" }, InputActions.Caps("hotbar"));
         Assert.Equal("Esc", InputActions.Cap("Escape"));
         Assert.Equal(",", InputActions.Cap("Comma"));

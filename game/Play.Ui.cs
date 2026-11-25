@@ -1398,7 +1398,8 @@ public partial class Play
         _modeHint.HorizontalAlignment = HorizontalAlignment.Center;
         _modeHint.CustomMinimumSize = new Vector2(hintWidth, 0);
         _modeHint.ResetSize();
-        _modeHint.Position = new Vector2(12f + (freeRight - 12f - hintWidth) / 2f, _toolbar.Position.Y - 10 - _modeHint.Size.Y);
+        float stripTop = Math.Min(_toolbar.Position.Y, _arsenalTop < 0f ? size.Y : _arsenalTop); // the arsenal bar sits at the bottom centre: the hint and the toasts rise above it
+        _modeHint.Position = new Vector2(12f + (freeRight - 12f - hintWidth) / 2f, stripTop - 10 - _modeHint.Size.Y);
 
         // Notifications: up to three lines in a column above the hint, wrapped to a readable width and centred on the view.
         float toastWidth = Math.Clamp(size.X * 0.6f, 300f, 760f);

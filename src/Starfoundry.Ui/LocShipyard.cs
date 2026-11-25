@@ -76,6 +76,7 @@ public static partial class Loc
     {
         foreach (var (key, value) in ShipyardTable) Table[key] = value;
         foreach (var (key, value) in FeelTable) Table[key] = value;
+        foreach (var (key, value) in ArsenalTable) Table[key] = value;
         foreach (var (key, value) in FlightTable) Table[key] = value;
         foreach (var (key, value) in MaterialsTable) Table[key] = value;
         foreach (var (key, value) in MissionsTable) Table[key] = value;

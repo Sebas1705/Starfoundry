@@ -6,10 +6,6 @@ public static partial class Loc
     private static readonly Dictionary<string, (string Es, string En)> FeelTable = new()
     {
         // the weapon in hand (M cycles; the left click fires it)
-        ["hud.weaponInHand"] = ("En mano: {0}", "In hand: {0}"),
-        ["hud.weaponLaser"] = ("láser de minería", "mining laser"),
-        ["hud.weaponGuns"] = ("cañones", "guns"),
-        ["hud.weaponHint"] = ("V cambia · clic izquierdo dispara", "V switches · left click fires"),
         ["btn.groupLaser"] = ("Láser de minería", "Mining laser"),
         ["btn.groupGuns"] = ("Cañones", "Guns"),
         ["tip.groupLaser"] = ("Toma el láser de minería (V cambia de arma). Mantén el clic izquierdo sobre un yacimiento para minar.", "Take the mining laser (V switches weapon). Hold the left click on a deposit to mine."),

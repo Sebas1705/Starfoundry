@@ -741,13 +741,14 @@ public partial class CockpitScreenView : Control
     {
         var w = Snapshot.Weapons;
         float half = (size.X - 24f - 8f) / 2f;
+        bool slots = w.Arsenal is { IsEmpty: false };
         float y = 54f;
-        DrawWeaponCard(new Rect2(12, y, half, 112), Loc.T("cp.wpn.laser"), "tool:mine", !w.Hardpoints || w.HasLaser, w.ActiveGroup == WeaponGroup.Laser,
+        if (!slots) DrawWeaponCard(new Rect2(12, y, half, 112), Loc.T("cp.wpn.laser"), "tool:mine", !w.Hardpoints || w.HasLaser, w.ActiveGroup == WeaponGroup.Laser,
             w.LaserFiring ? Loc.T("cp.wpn.firing") : w.Mining ? Loc.T("cp.wpn.mining") : Loc.T("cp.wpn.ready"), w.LaserFiring || w.Mining ? Green : UiTheme.Muted,
             MiningDetail(w));
-        DrawWeaponCard(new Rect2(12 + half + 8, y, half, 112), Loc.T("cp.wpn.guns"), "tool:fireGuns", !w.Hardpoints || w.HasGun, w.ActiveGroup == WeaponGroup.Guns,
+        if (!slots) DrawWeaponCard(new Rect2(12 + half + 8, y, half, 112), Loc.T("cp.wpn.guns"), "tool:fireGuns", !w.Hardpoints || w.HasGun, w.ActiveGroup == WeaponGroup.Guns,
             w.Armed ? Loc.T("cp.wpn.armed") : Loc.T("cp.wpn.safe"), w.Armed ? Red : UiTheme.Muted);
-        y += 126f;
+        y += slots ? DrawArsenalRows(w.Arsenal!, new Rect2(12, y, size.X - 24f, Math.Max(88f, size.Y - y - 200f))) : 126f;
         DrawGroupButton(new Rect2(12, y, size.X - 24, 38));
         y += 46f;
         bool laserOk = !w.Hardpoints || w.HasLaser;
@@ -755,6 +756,34 @@ public partial class CockpitScreenView : Control
         y += 50f;
         Txt(Fit(w.ThreatActive ? (w.Enemies > 0 ? Loc.T("cp.sys.hostiles", w.Enemies) : Loc.T("cp.sys.calm")) : Loc.T("cp.wpn.noThreat"), 14, size.X - 28f), 14, y, 14, w.Enemies > 0 ? UiTheme.Bad : UiTheme.Muted);
         Txt(Fit(Loc.T("cp.wpn.hint"), 12, size.X - 28f), 14, y + 22, 12, UiTheme.Dim);
+    }
+
+    /// <summary>
+    /// The arsenal slots of the weapons page, one row each (the same <see cref="ArsenalModel"/> as the HUD bar): number key, icon in its state ring, name and count, readout.
+    /// A click takes the slot in hand. Returns the height used, gap included.
+    /// </summary>
+    private float DrawArsenalRows(ArsenalModel a, Rect2 area)
+    {
+        const float rowH = 40f, step = 44f;
+        int rows = Math.Min(a.Slots.Count, Math.Max(2, (int)(area.Size.Y / step)));
+        for (int i = 0; i < rows; i++)
+        {
+            var slot = a.Slots[i];
+            var state = a.StateOf(i);
+            bool sel = i == a.Selected;
+            var r = new Rect2(area.Position.X, area.Position.Y + i * step, area.Size.X, rowH);
+            bool hot = Hover is { } h && r.HasPoint(h);
+            Color sc = state switch { SlotState.Firing => Green, SlotState.Dry or SlotState.NoPower => Red, SlotState.Ready => Cyan, _ => new Color(1f, 0.72f, 0.3f) };
+            Fill(r, sel ? new Color(Red, 0.16f) : hot ? new Color(0.16f, 0.24f, 0.36f) : new Color(0.06f, 0.08f, 0.12f), 6);
+            Frame(r, sel ? Red : new Color(1f, 1f, 1f, hot ? 0.6f : 0.2f), null, 6, sel ? 2 : 1);
+            Txt(ArsenalModel.KeyHint(i), r.Position.X + 8, r.Position.Y + 12, 14, sel ? Colors.White : UiTheme.Muted);
+            Icon(slot.Icon, r.Position.X + 28, r.Position.Y + 7, 26, sel ? Red : UiTheme.Text);
+            float tx = r.Position.X + 62f;
+            Txt(Fit(Loc.T(slot.NameKey) + (slot.Count > 1 ? " x" + slot.Count : ""), 14, r.End.X - tx - 8f), tx, r.Position.Y + 4, 14, UiTheme.Text);
+            Txt(Fit(a.Detail(i), 12, r.End.X - tx - 8f), tx, r.Position.Y + 22, 12, sc);
+            Buttons.Add(new CockpitButton(r.Position.X, r.Position.Y, r.Size.X, r.Size.Y, CockpitAction.PickWeaponSlot, i));
+        }
+        return rows * step + 4f;
     }
 
     /// <summary>The third line of the laser card: items per second and what is left in the deposit; the slowdown past the hold limit says so instead.</summary>

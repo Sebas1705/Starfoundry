@@ -170,7 +170,7 @@ public partial class Play
         snap.Systems = new SystemsDisplayData(modules, damaged, p.Hull, maxHull, holdUsed, holdCap, 0, threatNow);
         snap.Weapons = new WeaponsDisplayData(HardpointsOn, !HardpointsOn || Net.HasMiningLaser(Player), !HardpointsOn || Net.HasGun(Player), _weaponGroup, p.Armed,
             _laserOn, Net.LaserFiring(Player), Net.ThreatActive, enemies,
-            MiningReadout(out int mineDeposit, out bool mineSlowed), mineDeposit, mineSlowed);
+            MiningReadout(out int mineDeposit, out bool mineSlowed), mineDeposit, mineSlowed, _arsenal);
 
         // navigation
         snap.HasGalaxy = Net.Galaxy is not null;
@@ -259,6 +259,7 @@ public partial class Play
             case CockpitAction.ToggleWeaponGroup:
             case CockpitAction.ToggleArmed: ToggleWeapons(); break;
             case CockpitAction.ToggleMining: ToggleMining(); break;
+            case CockpitAction.PickWeaponSlot: ArsenalSelect(button.Arg); break;
             case CockpitAction.ToggleAutopilot: ToggleAutopilot(); break;
             case CockpitAction.ToggleDockAssist: DockKey(); break;
             case CockpitAction.CycleHudMode: CycleHudMode(); break;
