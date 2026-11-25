@@ -15,14 +15,14 @@ public static class CommandCodec
         TagStartMining = 16, TagStopMining = 17, TagSetShipRecipe = 18, TagSetResearch = 19,
         TagLinkDeposit = 20, TagUnlinkDeposit = 21, TagSetMovement = 22, TagScan = 23, TagJump = 24, TagSetWeapons = 25, TagRepair = 26, TagSetThrust = 27, TagPlaceModule = 28, TagRemoveModule = 29,
         TagPlaceMachineIn = 30, TagPlaceSegmentIn = 31, TagPlaceModuleIn = 32, TagRemoveModuleIn = 33, TagFoundStation = 34, TagAssignDrones = 35, TagDumpItems = 36, TagFireLaser = 37, TagSetBoost = 38, TagDockAt = 39, TagUndock = 40, TagTransferItems = 41, TagSetAttitude = 42, TagDesignerApply = 46, TagSetAim = 59,
-        TagMoveItems = 56, TagSetFeedSource = 57, TagSortInventory = 58;
+        TagMoveItems = 56, TagSetFeedSource = 57, TagSortInventory = 58, TagDropItems = 60, TagPickUp = 61;
 
     private static readonly byte[] Magic = Encoding.ASCII.GetBytes("SFCL");
 
     /// <summary>Version 2 added the content hash to the header, version 3 the game mode, version 4 the galaxy seed, version 5 the threat flag.</summary>
     /// Version 6 added the station-rules flag (bit 1); the structures flag (bit 2) uses a bit that version 6 left free,
     /// so logs written before it simply read as structures off and the version stays 6.
-    private const byte LogVersion = 18;
+    private const byte LogVersion = 19;
     /// Version 7 added the world rules block (flags bit 3, written only for non-default rules). Version 8 added the scenario id (flags bit 4).
     /// Version 10 added the SetBoost command (tag 38) and the wide galaxy with obstacles: logs of versions 5 to 9 read with <see cref="WorldRules.LegacyGalaxy"/> on (ADR 0028).
     /// Version 9 added the FireLaser command (tag 37) and the mining laser's power draw: logs of versions 5 to 8 read with <see cref="WorldRules.LegacyLaser"/> on, so they replay without it (ADR 0027).
@@ -30,6 +30,7 @@ public static class CommandCodec
     /// Version 14 added the DesignerApply command (tag 46) and the hardpoint modules (ADR 0032): logs of versions 5 to 13 read with <see cref="WorldRules.LegacyHardpoints"/> on, so the ship keeps its implicit laser and gun; the reader refuses the command in them.
     /// Version 15 added no command: it changes how a ship flies and collides (ADR 0033: acceleration limits and inertia, solid deposits, padded hit volumes). Logs of versions 5 to 14 read with <see cref="WorldRules.LegacyCollisions"/> and <see cref="WorldRules.LegacyFlight"/> on, so they replay as recorded.
     /// Version 17 added the SetAim command (tag 59) and ADR 0036: free fire with projectiles and recoil, hold overflow, regrowing deposits and the resource density rule. Logs of versions 5 to 16 read with <see cref="WorldRules.LegacyFeel"/> and <see cref="WorldRules.LegacyResources"/> on, so they replay as recorded; the reader refuses SetAim in them.
+    /// Version 19 added dropping items and picking them up by hand (ADR 0038): the DropItems and PickUp commands (tags 60 and 61). The reader refuses them in logs of versions 5 to 18; the world rules do not change.
     /// Version 18 added the personal inventory (ADR 0035): the MoveItems, SetFeedSource and SortInventory commands (tags 56 to 58). Logs of versions 5 to 17 read with <see cref="WorldRules.LegacyInventory"/> on, so they replay as recorded; the reader refuses the commands in them.
     /// Version 12 added the SetAttitude command (tag 42, ADR 0030). Logs of older versions never carry it, so they replay with every ship level, exactly as recorded; the reader refuses it in them.
     /// Version 13 added no command: it changes where machines and belts may be built (the floor of a fabrication bay, ADR 0031). Logs of versions 5 to 12 read with <see cref="WorldRules.LegacyBuilding"/> on, so they replay with free building as recorded.
@@ -71,6 +72,10 @@ public static class CommandCodec
             case SetFeedSource fs:
                 return Enum.IsDefined(fs.Source);
             case SortInventory:
+                return true;
+            case DropItems di:
+                return Encodable(di.From);
+            case PickUp:
                 return true;
             case SetAttitude sa:
                 return FitsShort(sa.W) && FitsShort(sa.X) && FitsShort(sa.Y) && FitsShort(sa.Z);
@@ -232,6 +237,12 @@ public static class CommandCodec
             case TransferItems ti:
                 w.Write(TagTransferItems); w.Write(ti.Item); w.Write(ti.Count); w.Write(ti.ToStation);
                 break;
+            case DropItems di:
+                w.Write(TagDropItems); WriteContainer(w, di.From); w.Write(di.Slot); w.Write(di.Count); w.Write(di.X); w.Write(di.Y); w.Write(di.Z);
+                break;
+            case PickUp pu:
+                w.Write(TagPickUp); w.Write(pu.Entity); w.Write(pu.Seated); w.Write(pu.X); w.Write(pu.Y); w.Write(pu.Z);
+                break;
             case MoveItems mv:
                 w.Write(TagMoveItems); WriteContainer(w, mv.From); w.Write(mv.FromSlot); WriteContainer(w, mv.To); w.Write(mv.ToSlot); w.Write(mv.Count);
                 break;
@@ -353,6 +364,8 @@ public static class CommandCodec
                 return new DesignerApply(modules);
             }
             case TagSetAim: return new SetAim(r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
+            case TagDropItems: return new DropItems(ReadContainer(r), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
+            case TagPickUp: return new PickUp(r.ReadInt32(), r.ReadBoolean(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
             case TagMoveItems: return new MoveItems(ReadContainer(r), r.ReadInt32(), ReadContainer(r), r.ReadInt32(), r.ReadInt32());
             case TagSetFeedSource:
             {
@@ -534,11 +547,13 @@ public static class CommandCodec
             if (version < 14 && HasDesigner(command)) throw new InvalidDataException("A log older than version 14 cannot hold a DesignerApply command.");
             if (version < 17 && HasAim(command)) throw new InvalidDataException("A log older than version 17 cannot hold a SetAim command.");
             if (version < 18 && HasInventoryCommand(command)) throw new InvalidDataException("A log older than version 18 cannot hold an inventory command.");
+            if (version < 19 && HasDropCommand(command)) throw new InvalidDataException("A log older than version 19 cannot hold a drop or pick-up command.");
             log.Add(new LoggedCommand(tick, player, command));
         }
         return log;
     }
 
+    private static bool HasDropCommand(Command c) => c is DropItems or PickUp || (c is Batch b && b.Commands.Any(HasDropCommand));
     private static bool HasAim(Command c) => c is SetAim || (c is Batch b && b.Commands.Any(HasAim));
     private static bool HasInventoryCommand(Command c) => c is MoveItems or SetFeedSource or SortInventory || (c is Batch b && b.Commands.Any(HasInventoryCommand));
     private static bool HasDesigner(Command c) => c is DesignerApply || (c is Batch b && b.Commands.Any(HasDesigner));

@@ -691,6 +691,12 @@ public sealed partial class SimWorld
                 return Reject.None;
             }
 
+            case DropItems di:
+                return Network.DropItemsCore(player, di.From, di.Slot, di.Count, di.X, di.Y, di.Z);
+
+            case PickUp pu:
+                return Network.PickUpCore(player, pu.Entity, pu.Seated, pu.X, pu.Y, pu.Z);
+
             case SortInventory:
                 if (Network.Rules.LegacyInventory) return Reject.NotAllowedHere;
                 Network.SortInventory(player);
