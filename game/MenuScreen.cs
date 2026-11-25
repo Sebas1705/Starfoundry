@@ -383,6 +383,7 @@ public static class UiKit
         var l = new Label { MouseFilter = Control.MouseFilterEnum.Ignore };
         l.AddThemeColorOverride("font_color", color ?? Colors.White);
         l.AddThemeFontSizeOverride("font_size", size);
+        if (size >= UiTheme.Heading) UiFonts.Title(l);
         return l;
     }
 

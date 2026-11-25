@@ -81,6 +81,7 @@ public static class UiTheme
     public static Theme Create()
     {
         var t = new Theme { DefaultFontSize = Body };
+        if (UiFonts.Body is { } body) t.DefaultFont = body;
         foreach (var type in new[] { "Button", "OptionButton", "CheckButton", "CheckBox", "MenuButton" })
         {
             t.SetStylebox("normal", type, Box(new Color(0.1f, 0.13f, 0.2f, 0.95f), new Color(0.35f, 0.45f, 0.65f, 0.7f), 5, 6f));

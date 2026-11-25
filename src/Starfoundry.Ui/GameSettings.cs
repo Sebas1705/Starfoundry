@@ -46,6 +46,9 @@ public sealed record GameSettings
     /// <summary>How rich the HUD is on top of the mode: minimal, standard (default) or detailed (the cockpit button and the settings page change it; see <see cref="Starfoundry.Ui.HudDetail"/>).</summary>
     public HudDetail HudDetail { get; init; } = HudDetails.Default;
 
+    /// <summary>Sound set (ADR 0037): true plays the recorded one-shots where a file exists (default), false the synthesised ones. Loops are always synthesised.</summary>
+    public bool RecordedSounds { get; init; } = true;
+
     /// <summary>A soft click the moment an interface button is pressed (not when it is released).</summary>
     public bool UiClickSound { get; init; } = true;
 
@@ -112,6 +115,7 @@ public sealed record GameSettings
             new KeyValuePair<string, string>("aim_assist", s.AimAssist ? "true" : "false"),
             new KeyValuePair<string, string>("hud_mode", HudModes.Id(s.HudMode)),
             new KeyValuePair<string, string>("hud_detail", HudDetails.Id(s.HudDetail)),
+            new KeyValuePair<string, string>("recorded_sounds", s.RecordedSounds ? "true" : "false"),
             new KeyValuePair<string, string>("ui_click_sound", s.UiClickSound ? "true" : "false"),
             new KeyValuePair<string, string>("ui_hover_sound", s.UiHoverSound ? "true" : "false"),
             new KeyValuePair<string, string>("smooth_look", s.SmoothLook ? "true" : "false"),
@@ -156,6 +160,7 @@ public sealed record GameSettings
                 case "ship_inertia" when ShipInertias.TryParse(value, out var si): s = s with { ShipInertia = si }; sawInertia = true; break;
                 case "flight_assist" when bool.TryParse(value, out bool fa): s = s with { FlightAssist = fa }; break;
                 case "hud_detail" when HudDetails.TryParse(value, out var hd): s = s with { HudDetail = hd }; break;
+                case "recorded_sounds" when bool.TryParse(value, out bool rs): s = s with { RecordedSounds = rs }; break;
                 case "ui_click_sound" when bool.TryParse(value, out bool uc): s = s with { UiClickSound = uc }; break;
                 case "ui_hover_sound" when bool.TryParse(value, out bool uh): s = s with { UiHoverSound = uh }; break;
                 case "fullscreen" when bool.TryParse(value, out bool fs): s = s with { Fullscreen = fs }; break;

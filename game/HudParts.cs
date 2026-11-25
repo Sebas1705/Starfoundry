@@ -139,6 +139,7 @@ public partial class ToolReadout : HBoxContainer
         MouseFilter = MouseFilterEnum.Pass;
         AddThemeConstantOverride("separation", 8);
         _name.AddThemeFontSizeOverride("font_size", UiTheme.Heading);
+        UiFonts.Title(_name);
         _note.AddThemeFontSizeOverride("font_size", UiTheme.Body);
         _cost.AddThemeConstantOverride("separation", 10);
         AddChild(_icon);
