@@ -31,7 +31,7 @@ public static partial class Loc
         ["credits.project"] = ("Starfoundry, licencia {0}. {1}", "Starfoundry, {0} licence. {1}"),
         ["credits.assets"] = ("TIPOGRAFÍAS Y SONIDOS DE TERCEROS", "THIRD-PARTY FONTS AND SOUNDS"),
         ["credits.libs"] = ("BIBLIOTECAS", "LIBRARIES"),
-        ["credits.pack"] = ("{0}: {1}, licencia {2} ({3} archivos)", "{0}: {1}, {2} licence ({3} files)"),
+        ["credits.pack"] = ("{0}: {1}, licencia {2} ({3} archivo(s))", "{0}: {1}, {2} licence ({3} file(s))"),
         ["credits.none"] = ("Aún no hay sonidos de terceros.", "No third-party sounds yet."),
 
         // extra rows of the ship card

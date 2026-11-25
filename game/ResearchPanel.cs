@@ -122,6 +122,7 @@ public partial class ResearchPanel : Control
         _progressRow.AddThemeConstantOverride("separation", 8);
         _bar = new GaugeBar(120f, 10f);
         _percent = UiKit.Text(UiTheme.Body, Muted);
+        _percent.CustomMinimumSize = new Vector2(44, 0); // "100%" fits in any face
         _progressRow.AddChild(_bar);
         _progressRow.AddChild(_percent);
         detail.AddChild(_progressRow);

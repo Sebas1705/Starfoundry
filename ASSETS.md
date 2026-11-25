@@ -13,3 +13,7 @@ Columns: file (relative to the repository root), pack (the family or sound pack,
 ## Not bundled yet
 
 - Kenney Sci-fi Sounds and Interface Sounds (CC0, https://kenney.nl/assets/sci-fi-sounds, https://kenney.nl/assets/interface-sounds): approved, but kenney.nl refused automated downloads (403), so the files were not added. Drop the chosen OGG files under `game/assets/audio/kenney/<pack>/` with the pack's `License.txt`, add a row each and map them in `game/assets/audio/sfx_map.json`.
+
+## Size
+
+Fonts: 1,537,140 bytes (three TTF files) plus the three licence texts (about 13 KB). Sounds: none yet. `game/assets/credits.tsv` is under 1 KB.
