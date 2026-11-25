@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Godot;
 using Starfoundry.Sim;
@@ -34,10 +34,13 @@ public partial class Play
     }
 
     /// <summary>Releases a stack dragged out of the inventory window: it lands a step in front of the player (on the floor when walking, ahead of the ship when seated).</summary>
-    private void DropToWorld(ContainerRef from, int slot, int count)
+    private void DropToWorld(ContainerRef from, int slot, int count) => DropToWorldAt(from, slot, count, 0f);
+
+    private void DropToWorldAt(ContainerRef from, int slot, int count, float side)
     {
         var dir = -_camera.GlobalTransform.Basis.Z;
-        var at = Standing ? AimOrigin() + new Vector3(dir.X, 0f, dir.Z).Normalized() * 1.2f + Vector3.Down * 0.9f : AimOrigin() + dir * 3f;
+        var at = Standing ? AimOrigin() + new Vector3(dir.X, 0f, dir.Z).Normalized() * 1.2f + Vector3.Down * 0.9f : AimOrigin() + dir * 4f + Vector3.Down * 3.5f;
+        at += _camera.GlobalTransform.Basis.X * side;
         at *= CellUnits;
         var stack = Net.ContainerStacks(Player, from);
         foreach (var (s, item, have) in stack)
