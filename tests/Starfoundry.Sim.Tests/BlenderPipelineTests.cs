@@ -53,11 +53,10 @@ public class BlenderPipelineTests
     [Fact]
     public void ScreensStayInsideTheConsoleFootprint()
     {
-        // every screen corner, after the tilt and the squeeze, lies within the solid footprint of the console (the screens sit on the desk the body cannot enter)
+        // every screen corner of the starter layout, after the screen tilt, the deck tilt and the squeeze, lies within the solid footprint of the console (the screens sit on the desk the body cannot enter)
         foreach (var s in CockpitShell.Screens)
-            foreach (var (sx, sz) in new[] { (-1f, -1f), (1f, -1f), (1f, 1f), (-1f, 1f) })
+            foreach (var p in CockpitShell.ScreenCorners(s))
             {
-                var p = CockpitShell.DeckPoint(new Vector3(s.X + sx * s.Width / 2f, CockpitShell.SurfaceHeight, s.Z + sz * s.Depth / 2f));
                 Assert.InRange(p.X, HullProfile.ConsoleX0, HullProfile.ConsoleX1);
                 Assert.InRange(p.Z, HullProfile.ConsoleZ0, HullProfile.ConsoleZ1);
             }

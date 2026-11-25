@@ -202,3 +202,13 @@ Re-measured after rebasing onto the glazed cockpit and sampled-body collision (#
 
 ## Weapons feel round (2026-11-24)
 [ADR 0036](../adr/0036-free-fire-recoil-hold-overflow-and-resource-density.md). The bot sends no aim, so its guns fire at the enemy the simulation picks as before, and recoil never applies to it. The economy it plays is two to three times faster (laser 250 percent, drone bay 14 ticks, starter hold 400), so the wave clock was moved back (`threat.alert_max` 234000; see [difficulty](difficulty.md#weapons-feel-economy-and-resource-density-2026-11-24)). Two changes to the bot: `--density=N` plays with any resource density (the presets carry 150, 140, 120 and 100; `--richness` now keeps the density), and a flight leg that is pinned twice at the same place slides sideways (alternating sides) after climbing out, so the descent to the mining spot comes in elsewhere. On seed 777 the home iron rock still pins a wing for a while; a better approach (a spot chosen with the ship's width in mind) is the real fix.
+
+### Pose for build trips (2026-11-25)
+The pin on seed 777 came from `EnsureRange`: it flew the ship's origin to a point level with the cell to build, 8 cells short, ignoring that the ship's boxes (8 cells wide, 16 long) would then sit inside the home iron rock. It now searches the nearest pose (within 12 cells sideways, 4 below to 12 above) where no module box comes within the hull padding plus 40 units of a deposit rock and the cell is still in build range, and flies there; with a clear default point nothing changes. Result, 6 s per action, all won:
+
+| Seed | Relaxed | Normal | Hard |
+|---|---|---|---|
+| 20261121 | 45:24 | 47:35 | 51:13 |
+| 20261120 | 45:33 | 47:44 | 54:16 |
+| 777 | 44:27 | 47:19 | 51:54 |
+

@@ -93,17 +93,20 @@ class Build:
     def console(self):
         hull, struct, glass = self.part('Console_Hull'), self.part('Console_Struct'), self.part('Glass')
         gl = {k: self.part('Glow_' + k) for k in ('Amber', 'Green', 'Cyan', 'Red')}
-        HX, ZF, ZN, TOP, FLOOR, CH = 2.55, -0.60, 0.60, 0.19, 0.09, 0.02
+        # The plate is wide and deep enough for the three screens of the layout (shell.json): the screens are tilted up from the deck about their near edge, so
+        # the dash runs forward (-z) of them for the gauges and the switch row and stops just past the near rim of the middle screen.
+        HX, ZF, ZN, TOP, FLOOR, CH = 2.55, -1.05, 0.64, 0.19, 0.09, 0.02
         up = self.Dv(0, 1, 0).normalized()
         # ---- the body under the deck: dark housing, steel side plates, a toe kick ---------------------------------------
         def under(zl):  # module (z, y) of the underside of the deck at deck-z zl
             p = self.D(0, 0, zl)
             return p.z, p.y
-        zf, yf = under(-0.5888)
-        zn, yn = under(0.5783)
-        body = [(zf, 0.086), (2.88, 0.086), (3.10, 0.30), (zn, yn), (zf, yf)]
+        zf, yf = under(ZF + 0.0112)
+        zn, yn = under(ZN - 0.0217)
+        toe = zn - 3.10  # the toe kick, the hatches and the vents sit on the pilot's face of the body: they follow the near edge
+        body = [(zf, 0.086), (2.88 + toe, 0.086), (3.10 + toe, 0.30), (zn, yn), (zf, yf)]
         self.prism_x(hull, body, 4 - 2.5 * 0.72, 4 + 2.5 * 0.72, DARK)
-        side = [(zf - 0.03, 0.086), (2.9, 0.086), (3.13, 0.30), (zn + 0.02, yn + 0.02), (zf - 0.03, yf + 0.02)]
+        side = [(zf - 0.03, 0.086), (2.9 + toe, 0.086), (3.13 + toe, 0.30), (zn + 0.02, yn + 0.02), (zf - 0.03, yf + 0.02)]
         for s in (-1, 1):
             x = 4 + s * 2.5 * 0.72
             self.prism_x(hull, side, x - 0.045 if s < 0 else x, x if s < 0 else x + 0.045, STEEL)
@@ -111,21 +114,29 @@ class Build:
         hull.box((4, 0.40, zf - 0.006), (3.5, 0.045, 0.014), ACCENT)
         hull.box((4, 0.31, zf - 0.006), (3.5, 0.02, 0.014), ROLE)
         for hx in (-1.6, 0, 1.6):
-            hull.box((4 + hx * 0.72 * 0.8, 0.50, 3.108), (1.0, 0.20, 0.03), DECK, bevel=0.01)
-            struct.box((4 + hx * 0.72 * 0.8, 0.50, 3.128), (0.40, 0.035, 0.02), STEEL, bevel=0.006)
+            hull.box((4 + hx * 0.72 * 0.8, 0.50, 3.108 + toe), (1.0, 0.20, 0.03), DECK, bevel=0.01)
+            struct.box((4 + hx * 0.72 * 0.8, 0.50, 3.128 + toe), (0.40, 0.035, 0.02), STEEL, bevel=0.006)
         for i in range(9):  # vent slats on the toe kick
             t = i / 8
-            struct.box((4, 0.115 + 0.15 * t * 1.0, 2.90 + 0.17 * t), (2.9, 0.014, 0.02), STEEL, rot=(-45, 0, 0))
+            struct.box((4, 0.115 + 0.15 * t * 1.0, 2.90 + toe + 0.17 * t), (2.9, 0.014, 0.02), STEEL, rot=(-45, 0, 0))
 
         # ---- the deck plate: top with a recessed pocket for each screen --------------------------------------------------
         def quad_deck(part, pts, colour, out=(0, 1, 0)):
             part.quad(*[self.D(*p) for p in pts], colour, out=self.Dv(*out))
 
-        pockets = []
+        # Each screen is a rectangle (width x depth) turned up from the deck by its tilt about its near edge. Its bezel plane carries a dark frame; the well under it
+        # is the footprint of the tilted bezel on the deck (the frame rim included), with side cheeks and a back wall where the panel stands above the deck.
+        M = self.deck['bezelMargin']
+        BH, SH = self.deck['bezelHeight'], self.deck['surfaceHeight']
+        pockets, panels = [], []
         for sc in self.s['console']['screens']:
             x, z, w, d = sc['x'], sc['z'], sc['width'], sc['depth']
-            m = 0.03
-            inner = (x - w / 2 - m, z - d / 2 - m, x + w / 2 + m, z + d / 2 + m)
+            t = math.radians(sc['tiltDegrees'])
+            ct, st = math.cos(t), math.sin(t)
+            zn = z + d / 2
+            x0, x1 = x - w / 2 - M, x + w / 2 + M
+            panels.append(dict(x=x, w=w, d=d, zn=zn, ct=ct, st=st, x0=x0, x1=x1))
+            inner = (x0, zn - (d + M) * ct, x1, zn + M * ct)
             outer = (inner[0] - CH, inner[1] - CH, inner[2] + CH, inner[3] + CH)
             pockets.append((inner, outer))
         # top surface as a grid that leaves the pocket openings out
@@ -153,8 +164,37 @@ class Build:
                 quad_deck(struct, [(xa, wall_top, za), (xb, wall_top, zb), (xb, FLOOR, zb), (xa, FLOOR, za)], DARK, nrm)
             quad_deck(struct, [(x0, FLOOR, z0), (x1, FLOOR, z0), (x1, FLOOR, z1), (x0, FLOOR, z1)], WELL)
 
+        # ---- the bezel of every screen: the dark frame in its tilted plane, the backing behind the lit surface, the cheeks and the back wall ----------------------
+        for pn in panels:
+            ct, st, zn, d = pn['ct'], pn['st'], pn['zn'], pn['d']
+            n = (0, ct, st)  # the normal of the screen plane in deck coordinates (towards the pilot's eye)
+
+            def P(xx, sv, off=0.0, pn=pn):  # a point of the bezel plane at distance sv up the screen from the near edge, off along the normal
+                return (xx, BH + sv * pn['st'] + off * pn['ct'], pn['zn'] - sv * pn['ct'] + off * pn['st'])
+
+            lip = 0.012
+            outer_r = [(pn['x0'], -M), (pn['x1'], -M), (pn['x1'], d + M), (pn['x0'], d + M)]
+            inner_r = [(pn['x'] - pn['w'] / 2, 0.0), (pn['x'] + pn['w'] / 2, 0.0), (pn['x'] + pn['w'] / 2, d), (pn['x'] - pn['w'] / 2, d)]
+            for k in range(4):
+                a0, a1 = outer_r[k], outer_r[(k + 1) % 4]
+                b1, b0 = inner_r[(k + 1) % 4], inner_r[k]
+                struct.quad(*[self.D(*P(xx, sv, 0.006)) for xx, sv in (a0, a1, b1, b0)], DARK, out=self.Dv(*n))
+            # a thin steel lip round the frame, standing a little above the lit surface
+            for k in range(4):
+                a0, a1 = outer_r[k], outer_r[(k + 1) % 4]
+                grow = lambda q: (q[0] + (lip if q[0] > pn['x'] else -lip), q[1] + (lip if q[1] > d / 2 else -lip))
+                struct.quad(*[self.D(*P(xx, sv, off)) for (xx, sv), off in ((grow(a0), -0.02), (grow(a1), -0.02), (a1, 0.006), (a0, 0.006))], STEEL, out=self.Dv(*n))
+            # dark backing under the lit surface: no gap shows if the display is missing
+            struct.quad(*[self.D(*P(xx, sv, 0.002)) for xx, sv in inner_r], WELL, out=self.Dv(*n))
+            # cheeks (above the deck top only) and the back wall
+            sc_ = max(-M, (TOP - BH) / st)  # where the frame plane crosses the deck top
+            for xx, nx in ((pn['x0'], -1), (pn['x1'], 1)):
+                pts = [P(xx, sc_), P(xx, d + M), (xx, TOP, zn - (d + M) * ct), (xx, TOP, zn - sc_ * ct)]
+                struct.quad(*[self.D(*q) for q in pts], DARK, out=self.Dv(nx, 0, 0))
+            struct.quad(*[self.D(*q) for q in (P(pn['x0'], d + M), P(pn['x1'], d + M), (pn['x1'], TOP, zn - (d + M) * ct), (pn['x0'], TOP, zn - (d + M) * ct))], DARK, out=self.Dv(0, 0, -1))
+
         # ---- the coaming along the far edge with the gauge pods and the warning row --------------------------------------
-        cz = -0.545
+        cz = ZF + 0.14
         hull.obox(self.D(0, TOP + 0.045, cz), self.Dv(4.9, 0, 0), self.Dv(0, 0.09, 0), self.Dv(0, 0, 0.10), DARK, bevel=0.02)
         for gx, g_col in ((-2.12, 'Green'), (-1.72, 'Amber'), (-1.32, 'Cyan'), (1.32, 'Cyan'), (1.72, 'Green'), (2.12, 'Amber')):
             c0 = self.D(gx, TOP + 0.09, cz)
@@ -172,18 +212,16 @@ class Build:
         # ---- switch rows along the near edge --------------------------------------------------------------------------------
         ex, ez = self.Dv(1, 0, 0).normalized(), self.Dv(0, 0, 1).normalized()
         keys = ['Amber', 'Green', 'Cyan', 'Amber', 'Red', 'Green']
+        SZ = ZF + 0.30  # the switch row sits on the dash in front of the gauges, clear of the screens
         for i in range(24):
             x = -2.3 + i * 0.2
             guard = i % 6 == 5
-            struct.obox(self.D(x, TOP + 0.03, 0.47), self.Dv(0.045, 0, 0), self.Dv(0, 0.06, 0), self.Dv(0, 0, 0.05), RED if guard else (PANEL if i % 2 else STEEL))
-            c0 = self.D(x, TOP + 0.003, 0.555)
+            struct.obox(self.D(x, TOP + 0.03, SZ), self.Dv(0.045, 0, 0), self.Dv(0, 0.06, 0), self.Dv(0, 0, 0.05), RED if guard else (PANEL if i % 2 else STEEL))
+            c0 = self.D(x, TOP + 0.003, SZ + 0.085)
             gl[keys[i % 6]].quad(c0 - ex * 0.04 - ez * 0.012, c0 + ex * 0.04 - ez * 0.012, c0 + ex * 0.04 + ez * 0.012, c0 - ex * 0.04 + ez * 0.012, NOCOL, out=up)
         for x in (-2.38, -1.2, 1.2, 2.38):  # rotary knobs
-            c0 = self.D(x, TOP, 0.50)
+            c0 = self.D(x, TOP, SZ + 0.07)
             struct.cyl(c0, c0 + up * 0.07, 0.05, PANEL, segs=8, r2=0.04)
-        # the strip between the screens: a trim line and the role stripe
-        for gx in (-1.0225, 1.0225):
-            quad_deck(hull, [(gx - 0.012, TOP + 0.002, ZF + 0.12), (gx + 0.012, TOP + 0.002, ZF + 0.12), (gx + 0.012, TOP + 0.002, ZN - 0.12), (gx - 0.012, TOP + 0.002, ZN - 0.12)], ACCENT)
 
     def ring(self, part, outer, inner, y_out, y_in, colour, flip_in=False):
         """Four trapezoids between two rectangles (x0, z0, x1, z1) of the deck frame, the outer at height y_out and the inner at y_in."""

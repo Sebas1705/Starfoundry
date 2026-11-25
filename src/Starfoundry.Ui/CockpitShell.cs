@@ -8,28 +8,45 @@ namespace Starfoundry.Ui;
 
 /// <summary>
 /// The engine-free numbers of the starter cockpit: the console deck, the three display rectangles, the shell section the glazing sits in and the solid
-/// footprints. The game's <c>CockpitScreenLayout</c> reads its constants from here, and <see cref="ToJson"/> writes them to <c>tools/blender/shell.json</c>
+/// footprints. The numbers are the game's own starter layout (<see cref="CockpitLayouts.BuiltInStarter"/>, one source of truth) and <see cref="ToJson"/> writes them to <c>tools/blender/shell.json</c>
 /// so the Blender generator (<c>tools/blender/cockpit.py</c>) builds the cockpit detail on exactly the same dimensions. A test fails when the file is stale.
 /// All lengths are cells of the 8 x 4 x 8 module box (X right, Y up, Z back; the front of a ship is z = 0).
 /// </summary>
 public static class CockpitShell
 {
+    /// <summary>The starter console of the game: the single source of every number below (<c>content/cockpit_layouts.json</c> carries the same numbers; a test keeps them equal).</summary>
+    public static CockpitLayout Layout => CockpitLayouts.BuiltInStarter;
+
     /// <summary>The deck of the console (a plate tilted about X) in the module's frame before the squeeze.</summary>
-    public const float DeckOriginX = 4f, DeckOriginY = 1.02f, DeckOriginZ = 2.55f, DeckTiltDegrees = 18f;
+    public static Vector3 DeckOrigin => Layout.DeckOrigin;
+    public static float DeckTiltDegrees => Layout.DeckTiltDegrees;
     /// <summary>The squeeze a ship applies to the whole console, about the middle of the module (X only), and the X it keeps fixed.</summary>
-    public const float SqueezeX = 0.72f, SqueezeY = 0.78f, SqueezeZ = 1f, SqueezeAboutX = 4f;
+    public static Vector3 Squeeze => Layout.Squeeze;
+    public static float SqueezeAboutX => Layout.SqueezeAboutX;
     /// <summary>Height of the lit screen surface and of the bezel box above the deck plate, and the bezel margin round a screen, in deck cells.</summary>
-    public const float SurfaceHeight = 0.13f, BezelHeight = 0.112f, BezelMargin = 0.06f;
+    public static float SurfaceHeight => Layout.SurfaceHeight;
+    public static float BezelHeight => Layout.BezelHeight;
+    public static float BezelMargin => Layout.BezelMargin;
 
-    /// <summary>A screen is a rectangle on the deck: centre (<see cref="X"/>, <see cref="Z"/>) on the deck, size in deck cells before the squeeze, and the pixels of its texture.</summary>
-    public readonly record struct ScreenRect(CockpitScreen Screen, float X, float Z, float Width, float Depth, int PxW, int PxH);
+    /// <summary>
+    /// A screen is a rectangle on the deck: centre (<see cref="X"/>, <see cref="Z"/>) on the deck, size in deck cells before the squeeze, the pixels of its texture and
+    /// how far it is turned up from the deck about its near edge.
+    /// </summary>
+    public readonly record struct ScreenRect(CockpitScreen Screen, float X, float Z, float Width, float Depth, int PxW, int PxH, float TiltDegrees);
 
-    public static readonly ScreenRect[] Screens =
+    public static IReadOnlyList<ScreenRect> Screens { get; } = new[] { CockpitScreen.Left, CockpitScreen.Center, CockpitScreen.Right }
+        .Select(c => { var r = CockpitLayouts.BuiltInStarter.Of(c); return new ScreenRect(c, r.X, r.Z, r.Width, r.Depth, r.PxW, r.PxH, r.TiltDegrees); }).ToArray();
+
+    /// <summary>The corners of a screen's lit surface in the module's frame (tilt and squeeze applied), in the order of the deck corners (-1,-1), (1,-1), (1,1), (-1,1) of x and z (z towards the pilot).</summary>
+    public static Vector3[] ScreenCorners(ScreenRect s)
     {
-        new(CockpitScreen.Left, -1.72f, -0.01f, 1.25f, 0.74f, 496, 400),
-        new(CockpitScreen.Center, 0f, -0.02f, 1.9f, 0.78f, 720, 400),
-        new(CockpitScreen.Right, 1.72f, -0.01f, 1.25f, 0.74f, 496, 400),
-    };
+        var m = Layout.ScreenToModule(CockpitLayouts.BuiltInStarter.Of(s.Screen));
+        var c = new Vector3[4];
+        int k = 0;
+        foreach (var (sx, sz) in new[] { (-1f, -1f), (1f, -1f), (1f, 1f), (-1f, 1f) })
+            c[k++] = Vector3.Transform(new Vector3(sx * s.Width / 2f, -sz * s.Depth / 2f, 0f), m); // quad Y (up the screen) is deck -Z
+        return c;
+    }
 
     /// <summary>
     /// The mask of the starter ship's cockpit as <see cref="HullProfile.MaskOf"/> computes it for the modules of <c>starter_ship</c> in <c>content/core.json</c>
@@ -51,18 +68,8 @@ public static class CockpitShell
     /// <summary>True when a ship cockpit with this mask has the shell of the starter cockpit (the Blender detail is made for that shell).</summary>
     public static bool IsStarterShell(int mask) => (mask & ShellBits) == (StarterMask() & ShellBits);
 
-    private static Vector3 Rot(Vector3 p)
-    {
-        float a = DeckTiltDegrees * MathF.PI / 180f, c = MathF.Cos(a), s = MathF.Sin(a);
-        return new Vector3(p.X, p.Y * c - p.Z * s, p.Y * s + p.Z * c);
-    }
-
     /// <summary>A point of the deck frame (X right, Y out of the deck, Z towards the pilot) in the module's frame: the tilt, then the squeeze about the middle of the module.</summary>
-    public static Vector3 DeckPoint(Vector3 p)
-    {
-        var r = Rot(p);
-        return new Vector3(r.X * SqueezeX + DeckOriginX * SqueezeX + SqueezeAboutX * (1f - SqueezeX), r.Y * SqueezeY + DeckOriginY * SqueezeY, r.Z * SqueezeZ + DeckOriginZ * SqueezeZ);
-    }
+    public static Vector3 DeckPoint(Vector3 p) => Vector3.Transform(p, Layout.DeckToModule);
 
     // ---- the JSON --------------------------------------------------------------------------------------------------------------
 
@@ -153,9 +160,9 @@ public static class CockpitShell
             w.WriteStartObject("console");
             Box(w, "footprint", HullProfile.ConsoleX0, HullProfile.ConsoleZ0, HullProfile.ConsoleX1, HullProfile.ConsoleZ1);
             w.WriteStartObject("deck");
-            Vec(w, "origin", new Vector3(DeckOriginX, DeckOriginY, DeckOriginZ));
+            Vec(w, "origin", DeckOrigin);
             w.WriteNumber("tiltDegrees", R(DeckTiltDegrees));
-            Vec(w, "squeeze", new Vector3(SqueezeX, SqueezeY, SqueezeZ));
+            Vec(w, "squeeze", Squeeze);
             w.WriteNumber("squeezeAboutX", R(SqueezeAboutX));
             w.WriteNumber("surfaceHeight", R(SurfaceHeight));
             w.WriteNumber("bezelHeight", R(BezelHeight));
@@ -172,12 +179,10 @@ public static class CockpitShell
                 w.WriteString("name", s.Screen.ToString().ToLowerInvariant());
                 w.WriteNumber("x", R(s.X)); w.WriteNumber("z", R(s.Z)); w.WriteNumber("width", R(s.Width)); w.WriteNumber("depth", R(s.Depth));
                 w.WriteNumber("pxW", s.PxW); w.WriteNumber("pxH", s.PxH);
+                w.WriteNumber("tiltDegrees", R(s.TiltDegrees));
                 w.WriteStartArray("cornersModule");
-                foreach (var (sx, sz) in new[] { (-1f, -1f), (1f, -1f), (1f, 1f), (-1f, 1f) })
-                {
-                    var p = DeckPoint(new Vector3(s.X + sx * s.Width / 2f, SurfaceHeight, s.Z + sz * s.Depth / 2f));
-                    w.WriteStartArray(); w.WriteNumberValue(R(p.X)); w.WriteNumberValue(R(p.Y)); w.WriteNumberValue(R(p.Z)); w.WriteEndArray();
-                }
+                foreach (var p in ScreenCorners(s))
+                { w.WriteStartArray(); w.WriteNumberValue(R(p.X)); w.WriteNumberValue(R(p.Y)); w.WriteNumberValue(R(p.Z)); w.WriteEndArray(); }
                 w.WriteEndArray();
                 w.WriteEndObject();
             }

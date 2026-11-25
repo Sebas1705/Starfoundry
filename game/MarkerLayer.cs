@@ -62,6 +62,13 @@ public partial class MarkerLayer : Control
             // The full name and details are for the important marks (priority 2 and up) and the near ones; the rest are an icon with its distance.
             string text = item.Priority >= 2 || item.ShortText.Length == 0 || p.Distance < NearLabel ? item.Text : item.ShortText;
             w = font.GetStringSize(text, HorizontalAlignment.Left, -1, FontSize).X;
+            // A label wider than the room left of the right limit (the ship computer's column) is cut with an ellipsis instead of running under it.
+            float room = (RightLimit > 0f ? Math.Min(RightLimit, Size.X) : Size.X) - 8f;
+            while (w > room && text.Length > 4)
+            {
+                text = text[..^2].TrimEnd() + "…";
+                w = font.GetStringSize(text, HorizontalAlignment.Left, -1, FontSize).X;
+            }
             var candidates = new List<Vector2>();
             if (p.OnScreen)
             {
