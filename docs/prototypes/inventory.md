@@ -46,5 +46,8 @@ Decision: [ADR 0035](../adr/0035-personal-inventory-container-moves-and-reactor-
 - Tests: `InventoryTests` (sim), `InventoryViewTests` (engine-free panel logic and texts).
 - `--inventory-shot=path` renders the reactor panel at 1280x720 and 1920x1080 in Spanish and English (`path.<size>.<lang>.reactor.png`) and, at 1280x720 in English, the hold with the ore filter (`.hold.png`), a machine's input and output (`.machine.png`) and the bin's question (`.bin.png`). `--ui-audit` opens the panel in several states at every window size.
 
+## Dropping and picking up (ADR 0038)
+Drag a bag or hold stack out of the window and release it over the world: `DropItems(container, slot, count, x, y, z)` puts a ground stack there (the client sends a point in front of the player; the sim checks it is within 40 cells of the ship). Stacks of one item within a cell merge; at most 64 lie about; a stack lasts 30 minutes. `F` on an aimed stack sends `PickUp(id, seated, x, y, z)`: within 3 cells of the player on foot, or within the tractor range of the ship's nearest module when seated; it goes to the bag first and then the hold, and what does not fit stays. Dropping is not confirmed (it can be undone by picking up). Stacks are world-space: a ship that flies away leaves them behind. Tests: `DropTests`. Screenshot: `--drop-shot=path`.
+
 ## Not done here
-Crates and dropping items into the world, picking items out of the world on foot (the bag fills from containers only), an inventory for a second player, item weight, turret ammo and drone slots as containers, and gamepad-specific glyphs (the focus ring and `ui_accept` work with a pad).
+Storage crates (a machine that holds items), an inventory for a second player, item weight, turret ammo and drone slots as containers, and gamepad-specific glyphs (the focus ring and `ui_accept` work with a pad).
