@@ -609,26 +609,27 @@ public class DockingTests
     public void Docking_rows_appear_only_near_a_port_or_while_docked()
     {
         var far = new Starfoundry.Ui.KeyState { StructuresOn = true, CanWalk = true };
-        Assert.DoesNotContain("dock", KeyIds(far));
-        Assert.DoesNotContain("undock", KeyIds(far));
+        Assert.DoesNotContain("dockGuide", KeyIds(far));
+        Assert.DoesNotContain("unload", KeyIds(far));
 
         var near = far with { Dock = Starfoundry.Ui.DockHint.Near, DockDistanceCells = 14, DockSpeedPercent = 60 };
-        Assert.Equal("dock", KeyIds(near)[0]);
-        Assert.Equal("key.dockAssist", Starfoundry.Ui.KeyHints.For(near).Last().Rows[0].LabelKey);
+        var nearAssist = near with { Interact = Starfoundry.Ui.HintInteract.DockAssist };
+        Assert.Equal("interact", KeyIds(nearAssist)[0]);
+        Assert.Equal("key.dockAssist", Starfoundry.Ui.KeyHints.For(nearAssist).Last().Rows[0].LabelKey);
         var guide = Starfoundry.Ui.KeyHints.For(near).Last().Rows.Single(r => r.Id == "dockGuide");
         Assert.Equal(new object[] { 14, 60 }, guide.LabelArgs);
         Assert.Equal(Starfoundry.Ui.KeyRowState.Info, guide.State);
-        Assert.Equal("key.dock", Starfoundry.Ui.KeyHints.For(near with { DockReady = true }).Last().Rows[0].LabelKey);
-        var assisting = Starfoundry.Ui.KeyHints.For(near with { DockAssisting = true }).Last().Rows[0];
+        Assert.Equal("key.dock", Starfoundry.Ui.KeyHints.For(near with { DockReady = true, Interact = Starfoundry.Ui.HintInteract.Dock }).Last().Rows[0].LabelKey);
+        var assisting = Starfoundry.Ui.KeyHints.For(near with { DockAssisting = true, Interact = Starfoundry.Ui.HintInteract.DockCancel }).Last().Rows[0];
         Assert.Equal("key.dockCancel", assisting.LabelKey);
         Assert.Equal(Starfoundry.Ui.KeyRowState.Active, assisting.State);
 
-        var docked = far with { Dock = Starfoundry.Ui.DockHint.Docked, StockUsed = 3, StockCapacity = 60 };
-        Assert.Equal(new[] { "undock", "unload", "load", "stock" }, KeyIds(docked).Take(4).ToArray());
-        Assert.DoesNotContain("dock", KeyIds(docked));
+        var docked = far with { Dock = Starfoundry.Ui.DockHint.Docked, StockUsed = 3, StockCapacity = 60, Interact = Starfoundry.Ui.HintInteract.Undock };
+        Assert.Equal(new[] { "interact", "unload", "load", "stock" }, KeyIds(docked).Take(4).ToArray());
+        Assert.Equal("key.undock", Starfoundry.Ui.KeyHints.For(docked).Last().Rows[0].LabelKey);
         // On foot the same rows show too.
         var walking = docked with { Standing = true };
-        Assert.Contains("undock", KeyIds(walking));
+        Assert.Contains("unload", KeyIds(walking));
         Assert.Contains("stock", KeyIds(walking));
     }
 

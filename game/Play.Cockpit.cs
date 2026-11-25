@@ -344,17 +344,10 @@ public partial class Play
     /// <summary>Keys that belong to the displays; true when one was used.</summary>
     private bool CockpitKey(InputEventKey k)
     {
-        if (k.Keycode == Key.F3) { if (k.ShiftPressed) CycleHudDetail(); else CycleHudMode(); return true; }
-        if (k.Keycode == Key.F4)
-        {
-            if (_focus is not null) SetFocus(null);
-            else SetFocus(CockpitScreen.Center);
-            return true;
-        }
         if (_focus is not { } f) return false;
         switch (k.Keycode)
         {
-            case Key.Escape: SetFocus(null); return true;
+            case Key.Escape: case Key.F: SetFocus(null); return true;
             case Key.Left: SetFocus(CockpitPages.Step(f, -1)); return true;
             case Key.Right: SetFocus(CockpitPages.Step(f, 1)); return true;
             case Key.Up: _cockpit!.Pages.Cycle(f, -1); _cockpit.Refresh(); return true;
@@ -447,8 +440,8 @@ public partial class Play
     /// <summary>A key that flies the ship is down (thrust, roll, boost): the screen frame lets go.</summary>
     private static bool AnyFlightKey() =>
         Input.IsPhysicalKeyPressed(Key.W) || Input.IsPhysicalKeyPressed(Key.A) || Input.IsPhysicalKeyPressed(Key.S) || Input.IsPhysicalKeyPressed(Key.D)
-        || Input.IsPhysicalKeyPressed(Key.Space) || Input.IsPhysicalKeyPressed(Key.C) || Input.IsPhysicalKeyPressed(Key.Z) || Input.IsPhysicalKeyPressed(Key.X)
-        || Input.IsPhysicalKeyPressed(Key.Left) || Input.IsPhysicalKeyPressed(Key.Right) || Input.IsKeyPressed(Key.Shift);
+        || Input.IsPhysicalKeyPressed(Key.Space) || Input.IsPhysicalKeyPressed(Key.C) || Input.IsPhysicalKeyPressed(Key.Q) || Input.IsPhysicalKeyPressed(Key.E)
+        || Input.IsKeyPressed(Key.Shift);
 
     /// <summary>The navigation map under the crosshair, on whichever display shows the nav page.</summary>
     private bool NavMapUnderAim() =>

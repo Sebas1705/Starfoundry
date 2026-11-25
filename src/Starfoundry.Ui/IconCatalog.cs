@@ -107,6 +107,7 @@ public static class IconCatalog
         ("recipe", "cycle"), ("kind", "tag"), ("tab", "tabs"), ("start", "play"), ("info", "info"), ("stock", "depot"), ("module", "cargo"),
         ("drones", "drone"), ("place", "build"), ("quick", "bolt"), ("run", "bolt"), ("hp", "heart"), ("menu", "tabs"), ("resume", "play"),
         ("hold", "cargo"), ("designer", "shipyard"), ("fireGuns", "gun"), ("belt", "belt"), ("machine", "arm"), ("target", "crosshair"), ("add", "plus"),
+        ("assist", "gauge"), ("computer", "tabs"), ("fullscreen", "layers"), ("systems", "gauge"),
     };
 
     /// <summary>The icons of the personal inventory panel (ADR 0035), by id (the part after <c>tool:</c>).</summary>
@@ -208,7 +209,7 @@ public static class IconCatalog
         "start" => "tool:start", "stock" => "tool:stock", "tab" => "tool:tab", "undock" => "tool:undock", "unload" => "tool:unload",
         "inventory" => "tool:inventory", "invDrag" => "tool:pick", "invQuick" => "tool:quick", "invKeys" => "tool:pick", "invClose" => "tool:close",
         "walk" => "tool:walk", "weapons" => "tool:weapons", "designer" => "tool:designer", "fireGuns" => "tool:fireGuns",
-        "console" => "tool:look", "assist" => "tool:boost", "hudmode" => "tool:info", "press" => "tool:pick", "leave" => "tool:close", "nav" => "tool:pick",
+        "console" => "tool:look", "assist" => "tool:assist", "hudDetail" => "tool:info", "interact" => "tool:seat", "computer" => "tool:computer", "tabs" => "tool:tab", "press" => "tool:pick", "leave" => "tool:close", "nav" => "tool:pick",
         _ => null,
     };
 

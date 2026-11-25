@@ -119,7 +119,7 @@ public partial class Play
         bool statusContent = _statusPanel.Visible;
         Fade(_statusPanel, shipCard, statusContent);
         bool flightClear = !shipCard || !new Rect2(_flightPanel.Position, _flightPanel.Size).Intersects(new Rect2(_statusPanel.Position, _statusPanel.Size));
-        Fade(_flightPanel, hud && layers.FlightReadout && ShipHudContext && GroupOn(HudGroup.Flight) && !building && !aiming && flightClear, _flightPanel.Visible);
+        Fade(_flightPanel, hud && !ComputerOpen && layers.FlightReadout && ShipHudContext && GroupOn(HudGroup.Flight) && !building && !aiming && flightClear, _flightPanel.Visible);
         Fade(_toolbar, holdOn || building, true);
         // The target, weapons and objective rows stay out of the way of the aim card and of the full status block.
         bool teleWanted = hud && layers.Cards && !aiming && !building && !info;
@@ -129,6 +129,6 @@ public partial class Play
         Fade(_tooltipPanel, true, _tooltipPanel.Visible, instantOut: true);
         // The build hint snaps; the one-line step and laser hints fade in and out like the cards.
         if (building) { _hudFade[_modeHint] = 1f; _modeHint.Modulate = Colors.White; _modeHint.Visible = _modeHint.Text.Length > 0; }
-        else Fade(_modeHint, !_mapOpen && !ResearchOpen && !BuildOpen && hud, _modeHint.Text.Length > 0);
+        else Fade(_modeHint, !_mapOpen && !ResearchOpen && !BuildOpen && !ComputerOpen && hud, _modeHint.Text.Length > 0);
     }
 }

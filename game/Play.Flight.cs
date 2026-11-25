@@ -135,8 +135,7 @@ public partial class Play
         else if (!Piloting) _shipQuat = _turn.Step(_shipQuat, dt, 0f, stats, FlightAssistOn); // not at the controls: the assist (or free spin) goes on
         if (Piloting)
         {
-            float roll = ((Input.IsPhysicalKeyPressed(Key.X) || Input.IsPhysicalKeyPressed(Key.Right)) ? 1f : 0f)
-                       - ((Input.IsPhysicalKeyPressed(Key.Z) || Input.IsPhysicalKeyPressed(Key.Left)) ? 1f : 0f);
+            float roll = (Input.IsPhysicalKeyPressed(Key.E) ? 1f : 0f) - (Input.IsPhysicalKeyPressed(Key.Q) ? 1f : 0f);
             if (UsesDynamics) _shipQuat = _turn.Step(_shipQuat, dt, roll, stats, FlightAssistOn);
             else
             {

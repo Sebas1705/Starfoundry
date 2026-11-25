@@ -12,9 +12,6 @@ namespace Starfoundry.Game;
 /// </summary>
 public partial class Play
 {
-    /// <summary>The key that opens the inventory. Every letter is taken by flight, building or the HUD, so it is a function key; the key panel row and F1 name it.</summary>
-    private const Key InventoryKey = Key.F10;
-
     private InventoryPanel? _inventory;
     private int _inventoryFrame;
 
@@ -28,18 +25,13 @@ public partial class Play
     }
 
     /// <summary>F10: opens the inventory on what the crosshair is on (a reactor module, a machine), otherwise beside the hold; a second press closes it.</summary>
-    private void ToggleInventory()
-    {
-        if (_inventory is null) return;
-        if (InventoryOpen) { CloseInventory(); return; }
-        CloseBuildMenu();
-        CloseResearchPanel();
-        _mapOpen = false;
-        var (target, machine) = InventoryAimTarget();
-        _inventory.Open(target, machine);
-    }
+    private void ToggleInventory() => ToggleComputerTab(ComputerTab.Inventory);
 
-    private void CloseInventory() => _inventory?.Close();
+    private void CloseInventory()
+    {
+        if (_computerTab == ComputerTab.Inventory) CloseComputer();
+        else _inventory?.Close();
+    }
 
     /// <summary>What the player is working with: a reactor module under the crosshair, or the machine under it (or the one selected).</summary>
     private (ContainerRef? Target, int Machine) InventoryAimTarget()
@@ -56,7 +48,8 @@ public partial class Play
     {
         if (_inventory is null || !_inventory.Visible) return;
         float bottom = _keyPanel is { Visible: true } ? _keyRect.Position.Y - 8f : size.Y - 8f;
-        _inventory.Layout(new Rect2(0, 0, size.X, Math.Max(280f, bottom)), size);
+        if (_computerTab == ComputerTab.Inventory) { var dock = DockRect(size); _inventory.Layout(dock, size); } // under the tab strip, in the computer's column
+        else _inventory.Layout(new Rect2(0, 0, size.X, Math.Max(280f, bottom)), size);
         if (++_inventoryFrame % 6 == 0) _inventory.Refresh();
     }
 

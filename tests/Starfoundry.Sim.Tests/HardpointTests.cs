@@ -257,8 +257,8 @@ public class HardpointTests
         Assert.Equal("key.weaponLaser", Rows(guns with { HasGunModule = false }).First(r => r.Id == "weapons").LabelKey); // ADR 0036: without a gun the laser stays in hand and M has nothing to switch to
         Assert.Equal(KeyRowState.Disabled, Rows(flying with { HasLaserModule = false, HasGunModule = false }).First(r => r.Id == "weapons").State); // ADR 0036: the weapons row is the one for both
         var docked = flying with { Dock = DockHint.Docked, ShipyardDocked = true };
-        Assert.Contains(Rows(docked), r => r.Id == "designer" && r.ActionKey == "F2");
-        Assert.DoesNotContain(Rows(flying with { Dock = DockHint.Docked }), r => r.Id == "designer");
+        Assert.DoesNotContain(Rows(docked), r => r.Id == "designer"); // the designer is a tab of the ship computer now
+        Assert.Contains(Rows(docked), r => r.Id == "computer" && r.ActionKey == "Tab");
         foreach (var key in new[] { "key.weaponLaser", "key.weaponGuns", "key.fireGuns", "key.designer", "key.why.noLaser", "key.why.noGun", "toast.reject.noLaser", "toast.reject.noGun", "toast.reject.noShipyard" })
             Assert.True(Loc.Has(key), key);
         Assert.Equal("toast.reject.noShipyard", RejectTexts.Key(Reject.NoShipyard));

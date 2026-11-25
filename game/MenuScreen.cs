@@ -34,6 +34,9 @@ public partial class MenuScreen : Control
 
     public Page Current { get; private set; } = Page.Main;
 
+    /// <summary>Embedded in another panel (the Settings tab of the ship computer): no dim, no title, no back button, sized by its owner.</summary>
+    public bool Embedded { get; init; }
+
     /// <summary>An optional line under the title of the main page (the pause menu shows the galaxy seed there).</summary>
     public Func<string>? InfoLine { get; init; }
 
@@ -47,25 +50,38 @@ public partial class MenuScreen : Control
         _dim = dim;
     }
 
+    /// <summary>Embedded: puts the page in a rectangle of its owner (the panel fills it).</summary>
+    public void Place(Rect2 rect)
+    {
+        Position = rect.Position;
+        Size = rect.Size;
+        if (_panel is not null) { _panel.Position = Vector2.Zero; _panel.Size = rect.Size; }
+    }
+
     public void AddEntry(Func<string> text, Action onPressed, Func<bool>? enabled = null, Func<string>? detail = null) =>
         _entries.Add(new Entry(text, onPressed, enabled, detail));
 
     public override void _Ready()
     {
         Theme = UiTheme.Create();
-        SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        if (!Embedded) SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         MouseFilter = MouseFilterEnum.Stop;
-        if (_dim) { var dim = new ColorRect { Color = new Color(0f, 0f, 0.02f, 0.62f), MouseFilter = MouseFilterEnum.Ignore }; AddChild(dim); dim.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect); }
-        var centre = new CenterContainer { MouseFilter = MouseFilterEnum.Ignore };
-        centre.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        AddChild(centre);
+        if (_dim && !Embedded) { var dim = new ColorRect { Color = new Color(0f, 0f, 0.02f, 0.62f), MouseFilter = MouseFilterEnum.Ignore }; AddChild(dim); dim.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect); }
         _panel = new PanelContainer();
-        _panel.AddThemeStyleboxOverride("panel", UiKit.Box(PanelBg, PanelEdge, 8, 22f));
-        centre.AddChild(_panel);
+        _panel.AddThemeStyleboxOverride("panel", UiKit.Box(PanelBg, PanelEdge, 8, Embedded ? 14f : 22f));
+        if (Embedded) { AddChild(_panel); _panel.ClipContents = true; }
+        else
+        {
+            var centre = new CenterContainer { MouseFilter = MouseFilterEnum.Ignore };
+            centre.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+            AddChild(centre);
+            centre.AddChild(_panel);
+        }
         _body = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _body.AddThemeConstantOverride("separation", 8);
         // A page taller than the window (Settings on a small screen) scrolls instead of running off it.
         _scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        if (Embedded) _scroll.SizeFlagsVertical = SizeFlags.ExpandFill;
         _scroll.AddChild(_body);
         _panel.AddChild(_scroll);
         VisibilityChanged += () => { if (Visible) Rebuild(); };
@@ -109,7 +125,7 @@ public partial class MenuScreen : Control
     /// <summary>Limits the page to the window height (less the panel margins) so a long page scrolls.</summary>
     private void FitScroll()
     {
-        if (!IsInsideTree() || _scroll is null) return;
+        if (!IsInsideTree() || _scroll is null || Embedded) return;
         float room = GetViewportRect().Size.Y - 2f * 22f - 24f;
         _scroll.CustomMinimumSize = new Vector2(_scroll.CustomMinimumSize.X, Math.Min(_body.GetCombinedMinimumSize().Y, Math.Max(200f, room)));
     }
@@ -134,6 +150,7 @@ public partial class MenuScreen : Control
 
     private void Header(string subtitleKey = "")
     {
+        if (Embedded) return;
         var title = UiKit.Text(Current == Page.Main && _titleKey == "menu.title" ? 40 : 28, Colors.White);
         title.Text = Loc.T(Current == Page.Main ? _titleKey : Current == Page.Settings ? "settings.title" : "menu.controls");
         title.HorizontalAlignment = HorizontalAlignment.Center;
@@ -184,7 +201,7 @@ public partial class MenuScreen : Control
     {
         _panel.CustomMinimumSize = new Vector2(1000, 0);
         Header();
-        string text = Loc.T("help.text") + Loc.T("help.cockpit");
+        string text = InputActions.HelpText() + Loc.T("help.cockpit") + Loc.T("help.inventory");
         int firstBlank = text.IndexOf("\n\n", StringComparison.Ordinal);
         if (firstBlank >= 0) text = text[(firstBlank + 2)..]; // the overlay's "(F1 to close)" title makes no sense here
         var scroll = new ScrollContainer { CustomMinimumSize = new Vector2(0, 440), HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FocusMode = FocusModeEnum.All, Name = "ControlsScroll" };
@@ -208,7 +225,7 @@ public partial class MenuScreen : Control
 
     private void BuildSettings()
     {
-        _panel.CustomMinimumSize = new Vector2(560, 0);
+        if (!Embedded) _panel.CustomMinimumSize = new Vector2(560, 0);
         Header();
         var s = SettingsStore.Current;
         _tip = UiKit.Text(12, Muted);
@@ -251,6 +268,17 @@ public partial class MenuScreen : Control
         detailButton.Alignment = HorizontalAlignment.Left;
         WithTip(detailButton, "settings.tip.hudDetail");
         _body.AddChild(detailButton);
+        var hudModeButton = UiKit.Button(Loc.T("settings.hudMode", Loc.T("cp.hud." + HudModes.Id(s.HudMode))), () =>
+        {
+            var c = SettingsStore.Current;
+            _focusName = "HudModeButton";
+            SettingsStore.Set(c with { HudMode = HudModes.Next(c.HudMode) });
+            CallDeferred(MethodName.Rebuild);
+        }, 14);
+        hudModeButton.Name = "HudModeButton";
+        hudModeButton.Alignment = HorizontalAlignment.Left;
+        WithTip(hudModeButton, "settings.tip.hudMode");
+        _body.AddChild(hudModeButton);
         AddCheck("UiClickCheck", Loc.T("settings.uiClick"), s.UiClickSound, on => SettingsStore.Current with { UiClickSound = on }, "settings.tip.uiClick");
         AddCheck("UiHoverCheck", Loc.T("settings.uiHover"), s.UiHoverSound, on => SettingsStore.Current with { UiHoverSound = on }, "settings.tip.uiHover");
 
@@ -281,7 +309,7 @@ public partial class MenuScreen : Control
         }, 14);
         reset.Name = "ResetButton";
         _body.AddChild(reset);
-        _body.AddChild(BackButton());
+        if (!Embedded) _body.AddChild(BackButton());
         var file = UiKit.Text(11, new Color(0.5f, 0.56f, 0.68f));
         file.Text = Loc.T("settings.file");
         file.HorizontalAlignment = HorizontalAlignment.Center;
@@ -335,7 +363,7 @@ public partial class MenuScreen : Control
 
     public override void _UnhandledInput(InputEvent e)
     {
-        if (!Visible || e is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape }) return;
+        if (Embedded || !Visible || e is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Escape }) return;
         GetViewport().SetInputAsHandled();
         if (Current != Page.Main) Open(Page.Main);
         else CloseRequested?.Invoke();

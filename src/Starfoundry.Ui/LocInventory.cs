@@ -81,11 +81,11 @@ public static partial class Loc
         ["key.invClose"] = ("Cerrar inventario", "Close inventory"),
         ["help.inventory"] = (
             "\n\nInventario personal\n" +
-            "  F10   abre tu inventario (24 huecos) junto a la bodega, el almacén de la estación, el reactor o la máquina que apuntas. Arrastra una pila de un hueco a otro (clic derecho: la mitad),\n" +
+            "  El inventario (24 huecos) se abre junto a la bodega, el almacén de la estación, el reactor o la máquina que apuntas. Arrastra una pila de un hueco a otro (clic derecho: la mitad),\n" +
             "       Mayús + clic la mueve al otro panel, el botón Ordenar junta y ordena, los filtros atenúan lo que no es de su tipo y la papelera tira lo que sueltes (pide confirmación).\n" +
             "  El reactor tiene una ranura de combustible: quema primero lo que hay en ella. Su selector de alimentación automática elige de dónde toma más cuando se vacía (ninguna, la bodega, tu inventario, o la bodega y luego el inventario).\n",
             "\n\nPersonal inventory\n" +
-            "  F10   opens your inventory (24 slots) beside the hold, the station stock, the reactor or the machine you are aiming at. Drag a stack from slot to slot (right button: half),\n" +
+            "  The inventory (24 slots) opens beside the hold, the station stock, the reactor or the machine you are aiming at. Drag a stack from slot to slot (right button: half),\n" +
             "       Shift + click moves it to the other panel, Sort merges and orders, the filters dim what is not of their kind and the bin throws away what you drop on it (it asks first).\n" +
             "  A reactor has a fuel slot: it burns what is in it first. Its auto-feed selector chooses where it takes more from when the slot runs empty (none, the hold, your inventory, or the hold and then the inventory).\n"),
 

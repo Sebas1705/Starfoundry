@@ -93,7 +93,7 @@ public partial class Play
     {
         switch (_uiFrame)
         {
-            case 20: SendKey(Key.T); break;
+            case 20: SendKey(Key.Tab); break; // the ship computer opens on its last tab (research the first time)
             case 26: GD.Print($"UIKEYS research_open={ResearchOpen} selected={_researchPanel?.Selected} current={Net.CurrentResearch}"); SendKey(Key.Down); break;
             case 32: GD.Print($"UIKEYS after_down selected={_researchPanel?.Selected}"); SendKey(Key.Enter); break;
             case 38: GD.Print($"UIKEYS after_enter current={Net.CurrentResearch} ({(Net.CurrentResearch >= 0 ? _content.Research[Net.CurrentResearch].Id : "none")})"); SendKey(Key.Escape); break;
@@ -103,7 +103,23 @@ public partial class Play
             case 62: SendKey(Key.Enter); break;
             case 68: GD.Print($"UIKEYS after_enter build_open={BuildOpen} tool={_tool} selected={(_selected < _palette.Count ? ItemName(_palette[_selected]) : "?")}"); SendKey(Key.B); break;
             case 74: GD.Print($"UIKEYS reopened={BuildOpen}"); SendKey(Key.Escape); break;
-            case 80: GD.Print($"UIKEYS after_esc build_open={BuildOpen} tool={_tool}"); GetTree().Quit(); break;
+            case 80: GD.Print($"UIKEYS after_esc build_open={BuildOpen} tool={_tool}"); _tool = ToolMode.Pointer; SendKey(Key.I); break;
+            // The new scheme, key by key (docs/superpowers/specs/2026-11-25-controls-redesign-design.md, section 7).
+            case 86: GD.Print($"UIKEYS I computer={_computerTab} inventory_open={InventoryOpen}"); SendKey(Key.E); break;
+            case 92: GD.Print($"UIKEYS E computer={_computerTab}"); SendKey(Key.Key1); break;
+            case 98: GD.Print($"UIKEYS 1 computer={_computerTab} map_open={_mapOpen}"); SendKey(Key.Tab); break;
+            case 104: GD.Print($"UIKEYS Tab computer={_computerTab}"); SendKey(Key.M); break;
+            case 110: GD.Print($"UIKEYS M computer={_computerTab} map_open={_mapOpen}"); SendKey(Key.Escape); break;
+            case 116: GD.Print($"UIKEYS Esc computer={_computerTab} pause_open={PauseOpen}"); SendKey(Key.Tab); break;
+            case 122: GD.Print($"UIKEYS Tab computer={_computerTab}"); SendKey(Key.Key8); break;
+            case 128: GD.Print($"UIKEYS 8 computer={_computerTab}"); SendKey(Key.Key7); break;
+            case 134: GD.Print($"UIKEYS 7 computer={_computerTab}"); SendKey(Key.Tab); break;
+            case 140: GD.Print($"UIKEYS Tab computer={_computerTab}"); SendKey(Key.V); break;
+            case 146: GD.Print($"UIKEYS V weapon={_weaponGroup}"); SendKey(Key.Key1); break;
+            case 152: GD.Print($"UIKEYS 1 weapon={_weaponGroup}"); SendKey(Key.Z); break;
+            case 158: GD.Print($"UIKEYS Z assist={FlightAssistOn}"); SendKey(Key.F); break;
+            case 164: GD.Print($"UIKEYS F standing={Standing}"); SendKey(Key.F2); SendKey(Key.F10); SendKey(Key.T); SendKey(Key.G); SendKey(Key.U); break;
+            case 170: GD.Print($"UIKEYS old keys computer={_computerTab} designer={DesignerOpen} research={ResearchOpen} map={_mapOpen} pause={PauseOpen}"); GetTree().Quit(); break;
         }
     }
 }

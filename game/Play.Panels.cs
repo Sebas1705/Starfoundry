@@ -118,6 +118,7 @@ public partial class Play
         _buildMenu.CloseRequested += CloseBuildMenu;
         _uiRoot.AddChild(_buildMenu);
         BuildInventoryPanel();
+        BuildComputer();
     }
 
     /// <summary>Per frame: keeps the open panel in step with the world (a few times a second is plenty).</summary>
@@ -133,24 +134,21 @@ public partial class Play
     /// <summary>The right-hand column of the screen the research panel and the build menu dock to: about 40 percent of the width, from the top down to the key panel.</summary>
     private Rect2 DockRect(Vector2 size)
     {
-        float width = Math.Clamp(size.X * 0.4f, 440f, 860f);
+        float width = _computerTab == ComputerTab.Inventory ? Math.Clamp(size.X - 350f, 440f, 960f) : Math.Clamp(size.X * 0.4f, 440f, 860f); // the inventory has two panels side by side
         float bottom = _keyPanel is { Visible: true } ? _keyRect.Position.Y - 8f : size.Y - 8f;
-        return new Rect2(size.X - width - 10f, 10f, width, Math.Max(200f, bottom - 10f));
+        float top = ComputerOpen ? 10f + ShipComputerBar.Height + 6f : 10f; // the ship computer's tab strip sits above the panel
+        return new Rect2(size.X - width - 10f, top, width, Math.Max(200f, bottom - top));
     }
 
     // ---- research ---------------------------------------------------------------------------------------------------
 
-    private void ToggleResearchPanel()
-    {
-        if (_researchPanel is null) return;
-        if (ResearchOpen) { CloseResearchPanel(); return; }
-        CloseBuildMenu();
-        CloseInventory();
-        _mapOpen = false;
-        _researchPanel.Open();
-    }
+    private void ToggleResearchPanel() => ToggleComputerTab(ComputerTab.Research);
 
-    private void CloseResearchPanel() => _researchPanel?.Close();
+    private void CloseResearchPanel()
+    {
+        if (_computerTab == ComputerTab.Research) CloseComputer();
+        else _researchPanel?.Close();
+    }
 
     private void StartResearch(int node)
     {
@@ -160,17 +158,13 @@ public partial class Play
 
     // ---- build menu -------------------------------------------------------------------------------------------------
 
-    private void ToggleBuildMenu()
-    {
-        if (_buildMenu is null) return;
-        if (BuildOpen) { CloseBuildMenu(); return; }
-        CloseResearchPanel();
-        CloseInventory();
-        _mapOpen = false;
-        _buildMenu.Open(_tool == ToolMode.Build ? CategoryOfSelection() : null);
-    }
+    private void ToggleBuildMenu() => ToggleComputerTab(ComputerTab.Build);
 
-    private void CloseBuildMenu() => _buildMenu?.Close();
+    private void CloseBuildMenu()
+    {
+        if (_computerTab == ComputerTab.Build) CloseComputer();
+        else _buildMenu?.Close();
+    }
 
     /// <summary>The tab of the current tool, so the menu opens where the player last built.</summary>
     private BuildCategory? CategoryOfSelection()
