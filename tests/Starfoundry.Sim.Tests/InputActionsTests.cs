@@ -120,3 +120,36 @@ public class InputActionsTests
         Assert.Equal("@space", InputActions.Cap("Space"));
     }
 }
+
+public class ShipComputerTabsTests
+{
+    private static readonly ComputerAvailability Both = new(true, true), None = new(false, false);
+
+    [Fact]
+    public void EveryTabHasAnIconAndNamesInBothLanguages()
+    {
+        Assert.Equal(8, ShipComputerTabs.All.Count);
+        var table = Loc.All.ToDictionary(p => p.Key, p => p.Value);
+        foreach (var tab in ShipComputerTabs.All)
+        {
+            Assert.True(IconCatalog.All.Contains(ShipComputerTabs.Icon(tab)), tab.ToString());
+            Assert.True(table.TryGetValue(ShipComputerTabs.NameKey(tab), out var t) && t.Es.Length > 0 && t.En.Length > 0, tab.ToString());
+            if (ShipComputerTabs.WhyOff(tab, None) is { } why) Assert.True(table.ContainsKey(why), why);
+        }
+    }
+
+    [Fact]
+    public void NumbersAndStepsSkipTheTabsThatAreOff()
+    {
+        Assert.Equal(ComputerTab.Map, ShipComputerTabs.FromNumber(1, Both));
+        Assert.Equal(ComputerTab.Systems, ShipComputerTabs.FromNumber(8, Both));
+        Assert.Null(ShipComputerTabs.FromNumber(1, None));
+        Assert.Null(ShipComputerTabs.FromNumber(6, None));
+        Assert.Null(ShipComputerTabs.FromNumber(0, Both));
+        Assert.Null(ShipComputerTabs.FromNumber(9, Both));
+        Assert.Equal(ComputerTab.Research, ShipComputerTabs.Step(ComputerTab.Map, 1, Both));
+        Assert.Equal(ComputerTab.Systems, ShipComputerTabs.Step(ComputerTab.Map, -1, Both));
+        Assert.Equal(ComputerTab.Settings, ShipComputerTabs.Step(ComputerTab.Info, 1, None)); // the designer is off
+        Assert.Equal(ComputerTab.Research, ShipComputerTabs.Step(ComputerTab.Systems, 1, None)); // so is the map
+    }
+}

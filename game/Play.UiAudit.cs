@@ -33,6 +33,7 @@ public partial class Play
 
     private void CloseAllPanels()
     {
+        CloseComputer();
         CloseBuildMenu();
         CloseResearchPanel();
         CloseInventory();
@@ -80,6 +81,12 @@ public partial class Play
         }));
         s.Add(("keys.belt", () => { CloseAllPanels(); SelectBuild(0); _detailsOpen = true; }));
         s.Add(("research", () => { CloseAllPanels(); ToggleResearchPanel(); }));
+        // The ship computer: its tab strip over every tab (the panels inside are audited above and below on their own).
+        foreach (var tab in ShipComputerTabs.All)
+        {
+            var t = tab;
+            s.Add(("computer." + t.ToString().ToLowerInvariant(), () => { CloseAllPanels(); OpenComputer(t); }));
+        }
         foreach (var node in new[] { "core:rapid_loader", "core:repair_drones", "core:advanced_logistics" })
         {
             var id = node;

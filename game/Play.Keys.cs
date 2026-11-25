@@ -110,7 +110,9 @@ public partial class Play
             InfoOpen = _detailsOpen,
             HasConsole = ConsoleReady,
             ConsoleFocus = _focus is not null,
-            HudMode = CurrentHudMode,
+            HudDetail = CurrentHudDetail,
+            ComputerOpen = ComputerOpen,
+            Interact = InteractNow(),
             FlightAssist = FlightAssistOn,
             HasTurnInertia = UsesDynamics,
             CanWalk = CanWalk,
@@ -267,18 +269,24 @@ public partial class Play
             case 105: GD.Print($"KEYSSHOT aim hover={_hover.Kind} context={KeyHints.ContextOf(KeyStateNow())}"); Shot("aim"); break;
             case 106: _seated = true; ToggleSeat(); _body = new Vector3(4f, 0f, 20f); _yaw = MathF.PI * 0.8f; _pitch = -0.1f; break; // in the cargo module: nothing to aim at
             case 136: Shot("walking"); break;
-            case 137: _body = StandSpot; ToggleSeat(); _yaw = MathF.PI; _pitch = -0.35f; _mapOpen = true; break;
+            case 137: _body = StandSpot; ToggleSeat(); _yaw = MathF.PI; _pitch = -0.35f; OpenComputer(ComputerTab.Map); break;
             case 167: Shot("map"); break;
-            case 168: _mapOpen = false; ToggleBuildMenu(); break;
+            case 168: OpenComputer(ComputerTab.Build); break;
             case 200: Shot("menu"); break;
-            case 201: ToggleBuildMenu(); ToggleResearchPanel(); break; // the build menu closes, the research panel opens in its place
+            case 201: OpenComputer(ComputerTab.Research); break; // the build tab gives way to the research tab
             case 235: Shot("research"); break;
-            case 236: ToggleResearchPanel(); _helpOpen = true; break;
+            case 236: CloseComputer(); _helpOpen = true; break;
             case 262: Shot("help"); break;
-            case 263: _helpOpen = false; _tool = ToolMode.Pointer; _yaw = 0f; _pitch = 0.25f; _detailsOpen = true; break; // the info panels (H) while seated
+            case 263: _helpOpen = false; _tool = ToolMode.Pointer; _yaw = 0f; _pitch = 0.25f; OpenComputer(ComputerTab.Info); break; // the info tab while seated
             case 295: Shot("info"); break;
-            case 296: _detailsOpen = false; break;
-            case 297: GetTree().Quit(); break;
+            case 296: OpenComputer(ComputerTab.Systems); break;
+            case 325: Shot("systems"); break;
+            case 326: OpenComputer(ComputerTab.Settings); break;
+            case 355: Shot("settings"); break;
+            case 356: OpenComputer(ComputerTab.Inventory); break;
+            case 385: Shot("inventory"); break;
+            case 386: CloseComputer(); break;
+            case 387: GetTree().Quit(); break;
         }
     }
 }

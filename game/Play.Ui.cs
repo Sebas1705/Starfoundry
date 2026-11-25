@@ -195,7 +195,7 @@ public partial class Play
         _btnMine = MakeButton("", ToggleMining, toggle: true, minWidth: 170);
         _btnRefine = MakeButton("", ToggleRefinery, toggle: true, minWidth: 170);
         _btnScan = MakeButton("", () => Send(new Scan()), minWidth: 170);
-        _btnMap = MakeButton("", () => _mapOpen = !_mapOpen, toggle: true, minWidth: 170);
+        _btnMap = MakeButton("", () => ToggleComputerTab(ComputerTab.Map), toggle: true, minWidth: 170);
         _btnWeapons = MakeButton("", () => PickWeaponGroup(WeaponGroup.Guns), toggle: true, minWidth: 170);
         _btnResearch = MakeButton("", ToggleResearchPanel, toggle: true, minWidth: 170);
         _btnRepair = MakeButton("", RepairAll, minWidth: 170);
@@ -430,7 +430,7 @@ public partial class Play
     }
 
     /// <summary>Palette entries reached by the number keys: 1-9, 0 and Q. The module (N) and station (I) tools have their own key; everything else is in the build menu (B).</summary>
-    private const int DirectKeys = 11;
+    private const int DirectKeys = 10;
 
     /// <summary>Width of the hold readout in the bottom strip (ore, ingots and plates fit; longer lists are clipped).</summary>
     private const float HoldItemsWidth = 520f;
@@ -546,7 +546,7 @@ public partial class Play
         if (_toastLabels[0].Visible) textTop = Math.Min(textTop, _toastBox.Position.Y);
         if (_modeHint.Text.Length > 0) textTop = Math.Min(textTop, _modeHint.Position.Y);
         float bottom = Math.Max(24f, size.Y - textTop + 10f);
-        _markers.RightLimit = ResearchOpen || BuildOpen ? DockRect(size).Position.X - 6f : 0f;
+        _markers.RightLimit = ResearchOpen || BuildOpen || ComputerOpen ? DockRect(size).Position.X - 6f : 0f;
         // Marker labels keep off the cards that carry text over the view (the full info card, the steps card, the star map and its list).
         _markers.KeepOut.Clear();
         if (_detailsOpen) { foreach (var card in new Control[] { _statusPanel, _objectivesPanel }) if (card.Visible) _markers.KeepOut.Add(new Rect2(card.Position, card.Size).Grow(4f)); }
@@ -1107,7 +1107,7 @@ public partial class Play
     }
 
     /// <summary>The key that picks build item i: 1 to 9, then 0, then Q.</summary>
-    private string KeyLabel(int i) => _palette[i].IsModule ? "N" : _palette[i].IsStation ? "I" : i < 9 ? (i + 1).ToString() : i == 9 ? "0" : i == 10 ? "Q" : "";
+    private string KeyLabel(int i) => _palette[i].IsModule ? "N" : _palette[i].IsStation ? "" : i < 9 ? (i + 1).ToString() : i == 9 ? "0" : "";
 
     private string ItemName(BuildItem item) =>
         item.IsStation ? L("ui.foundStation") : item.IsModule ? ModuleName() : item.IsBelt ? L("ui.belt", (int)item.Tier + 1) : MachineName(item.Machine);
@@ -1251,7 +1251,7 @@ public partial class Play
 
     private void UpdateObjectivesPanel()
     {
-        _objectivesPanel.Visible = !(ResearchOpen || BuildOpen); // a docked panel takes its place at the right
+        _objectivesPanel.Visible = ComputerOpen ? _computerTab == ComputerTab.Info : !(ResearchOpen || BuildOpen); // a docked panel takes its place at the right
         UpdateGoalLine();
         _btnObjectives.Visible = GuidedSteps;
         _stepStrip.Visible = GuidedSteps && _objectivesOpen;
@@ -1280,7 +1280,7 @@ public partial class Play
     private void UpdateHelp()
     {
         _helpPanel.Visible = _helpOpen;
-        if (_helpOpen) _helpText.Text = L("help.text") + L("help.cockpit") + L("help.inventory");
+        if (_helpOpen) _helpText.Text = InputActions.HelpText();
     }
 
     private void UpdateToasts()
@@ -1381,6 +1381,7 @@ public partial class Play
         var dock = DockRect(size);
         if (_researchPanel is not null) _researchPanel.Dock = dock;
         if (_buildMenu is not null) _buildMenu.Dock = dock;
+        UpdateComputer(size);
         UpdateInventory(size);
 
         // The bottom strip (hold and tool in hand) is one line at the bottom left; it shrinks to fit narrow windows.
@@ -1422,19 +1423,22 @@ public partial class Play
             _toastBox.Position = new Vector2(toastCentre - toastWidth / 2f, _modeHint.Position.Y - 8 - _toastBox.Size.Y);
         }
         var objSize = _objectivesPanel.GetCombinedMinimumSize();
-        _objectivesPanel.Position = new Vector2(size.X - objSize.X - 12, 10);
-        float y = _detailsOpen && _objectivesPanel.Visible ? _objectivesPanel.Position.Y + objSize.Y + 10 : 10f; // the steps card is only there with the info panels open
+        var column = DockRect(size);
+        float re = ComputerOpen ? column.End.X + 2f : size.X; // the right edge of the column the info cards and the map use: the ship computer's, when it is open
+        float top0 = ComputerOpen ? column.Position.Y : 10f;
+        _objectivesPanel.Position = new Vector2(re - objSize.X - 12, top0);
+        float y = _detailsOpen && _objectivesPanel.Visible ? _objectivesPanel.Position.Y + objSize.Y + 10 : top0; // the steps card is only there with the info panels open
         if (_mapOpen && Net.Galaxy is not null)
         {
             // The map shrinks (down to 100 px) so that the map, the system list and the Jump button all end above the key panel.
             var listSize = _mapList.GetCombinedMinimumSize();
             var jumpSize = _btnJump.GetCombinedMinimumSize();
-            float side = Math.Clamp(keyTop - 4f - y - listSize.Y - jumpSize.Y - 12f, 100f, 320f); // down to 100 px when a tall info card leaves little room
+            float side = Math.Clamp(keyTop - 4f - y - listSize.Y - jumpSize.Y - 12f, 100f, ComputerOpen ? Math.Max(100f, Math.Min(column.Size.X - 14f, 520f)) : 320f); // down to 100 px when a tall info card leaves little room
             _map.CustomMinimumSize = new Vector2(side, side);
             _map.Size = _map.CustomMinimumSize;
-            _map.Position = new Vector2(size.X - side - 12, y);
-            _mapList.Position = new Vector2(size.X - 380, y + side + 6);
-            _btnJump.Position = new Vector2(size.X - 162, _mapList.Position.Y + listSize.Y + 6);
+            _map.Position = new Vector2(re - side - 12, y);
+            _mapList.Position = new Vector2(re - 380, y + side + 6);
+            _btnJump.Position = new Vector2(re - 162, _mapList.Position.Y + listSize.Y + 6);
             // When the column does not fit above the key panel (a tall steps card), the Jump button moves to the left of the map.
             if (_btnJump.Position.Y + jumpSize.Y > keyTop - 4f) _btnJump.Position = new Vector2(_map.Position.X - jumpSize.X - 8f, _map.Position.Y + side - jumpSize.Y);
         }
@@ -1538,6 +1542,11 @@ public partial class Play
     private void OnMouseButton(InputEventMouseButton mb)
     {
         if (CockpitMouse(mb)) return; // a click on a cockpit display (Play.Cockpit.cs)
+        if (mb.Pressed && mb.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown)
+        {
+            if (_mouseLook) WheelStep(mb.ButtonIndex == MouseButton.WheelUp ? -1 : 1); // the weapon group in flight, the build entries with a tool
+            return;
+        }
         if (!mb.Pressed && mb.ButtonIndex != MouseButton.Left) return;
         // A click while the cursor is free (and no panel is open) takes the mouse back instead of acting in the world.
         if (!_mouseLook)
@@ -1613,7 +1622,7 @@ public partial class Play
         }
 
         // Pointer: inspect machines and pick deposits.
-        if (_structuresOn && AimedModule() is { } reactorAim && ModuleKindIds.IsReactor(reactorAim.Kind)) { _inventory?.Open(ContainerRef.Reactor(reactorAim.S, reactorAim.Key.Mx, reactorAim.Key.My, reactorAim.Key.Mz)); return; } // a click on a reactor opens its fuel slot
+        if (_structuresOn && AimedModule() is { } reactorAim && ModuleKindIds.IsReactor(reactorAim.Kind)) { OpenInventoryOn(ContainerRef.Reactor(reactorAim.S, reactorAim.Key.Mx, reactorAim.Key.My, reactorAim.Key.Mz)); return; } // a click on a reactor opens its fuel slot
         switch (_hover.Kind)
         {
             case HoverKind.Machine:
@@ -1633,7 +1642,7 @@ public partial class Play
     // ---- cursor capture ------------------------------------------------------------------------------------
 
     /// <summary>Panels that need the pointer: the help overlay, the research panel, the build menu and the star map.</summary>
-    private bool PanelOpen() => PauseOpen || EndOpen || StoryOpen || _helpOpen || ResearchOpen || BuildOpen || InventoryOpen || DesignerOpen || (_mapOpen && Net.Galaxy is not null);
+    private bool PanelOpen() => PauseOpen || EndOpen || StoryOpen || _helpOpen || ComputerOpen || ResearchOpen || BuildOpen || InventoryOpen || DesignerOpen || (_mapOpen && Net.Galaxy is not null);
 
     /// <summary>Releases or captures the mouse so it matches what the player wants and what is on screen.</summary>
     private void UpdateCapture()
@@ -1657,86 +1666,6 @@ public partial class Play
             _beltAnchor = null;
             _dragStart = null;
             SendThrust((0, 0, 0), force: true);
-        }
-    }
-
-    private void OnKey(InputEventKey k)
-    {
-        if (CockpitKey(k)) return; // F3 (HUD mode), F4 (look at the displays) and the keys of a focused display
-        int digit = k.Keycode is >= Key.Key1 and <= Key.Key9 ? (int)(k.Keycode - Key.Key1) : -1;
-        if (k.Keycode == Key.Key0) digit = 9;
-        if (k.Keycode == Key.Q) digit = 10;
-        if (digit >= 0 && digit < _palette.Count && !_palette[digit].IsModule && !_palette[digit].IsStation) { SelectBuild(digit); return; }
-        if (k.Keycode == Key.N)
-        {
-            if (_structuresOn) { CycleModuleKind(); return; } // first press: the module tool; next ones: the kind
-            int module = _palette.FindIndex(b => b.IsModule);
-            if (module >= 0) SelectBuild(module);
-            return;
-        }
-        if (k.Keycode == Key.I && _structuresOn)
-        {
-            int station = _palette.FindIndex(b => b.IsStation);
-            if (station >= 0) SelectBuild(station);
-            return;
-        }
-
-        switch (k.Keycode)
-        {
-            case Key.Escape:
-                if (InventoryOpen) { if (!_inventory!.HandleEscape()) CloseInventory(); }
-                else if (DesignerOpen) CloseDesigner();
-                else if (ResearchOpen) CloseResearchPanel();
-                else if (BuildOpen) CloseBuildMenu();
-                else if (_helpOpen) _helpOpen = false;
-                else if (_beltAnchor is not null) { _beltAnchor = null; _dragStart = null; } // first Esc cancels a belt line in progress
-                else if (_selMachine >= 0) _selMachine = -1;
-                else if (_tool == ToolMode.Build) _tool = ToolMode.Pointer;
-                else if (_mapOpen) _mapOpen = false;
-                else { _waypoint = null; _wantCapture = false; OpenPause(); } // last: let go of the mouse and open the pause menu
-                break;
-            case Key.F1: _helpOpen = !_helpOpen; break;
-            case Key.F8: ToggleFlightAssist(); break;
-            case Key.F2: ToggleDesigner(); break;
-            case InventoryKey: ToggleInventory(); break;
-            case Key.F11:
-                SettingsStore.Set(SettingsStore.Current with { Fullscreen = DisplayServer.WindowGetMode() != DisplayServer.WindowMode.Fullscreen });
-                break;
-            case Key.F6: SaveGameToDisk("quicksave", silent: false); break;
-            case Key.F9: LoadGameFromDisk(); break;
-            case Key.F7: AssignDronesKey(); break;
-            case Key.Delete when k.CtrlPressed: DumpSpareOre(); break;
-            case Key.L: ToggleLanguage(); break;
-            case Key.O: _objectivesOpen = !_objectivesOpen; break;
-            case Key.H: _detailsOpen = !_detailsOpen; break;
-            case Key.Tab: _wantCapture = !_wantCapture; break; // free the cursor to use the buttons, or take it back
-            case Key.Y: CycleRecipeKey(); break;
-            case Key.R: _dir = _dir switch { Dir.PosX => Dir.PosZ, Dir.PosZ => Dir.NegX, Dir.NegX => Dir.NegZ, _ => Dir.PosX }; Toast(L("toast.beltFacing", _dir.ToString())); break;
-            case Key.Z when _tool == ToolMode.Build && !(FloorRule && !ModuleSelected): _cursorY--; break; // flying: Z and X roll the ship instead; on the floor rule only the module tool has layers
-            case Key.X when _tool == ToolMode.Build && !(FloorRule && !ModuleSelected): _cursorY++; break;
-            case Key.M: CycleWeaponGroup(); break; // ADR 0036: M switches the weapon in hand; the click fires it
-            case Key.E: ToggleSeat(); break;
-            case Key.U: DockKey(); break;
-            case Key.Comma: UnloadKey(); break;
-            case Key.Period: LoadKey(); break;
-            case Key.Backspace: RepairAll(); break;
-            case Key.Bracketleft: CycleDeposit(-1); break;
-            case Key.Bracketright: CycleDeposit(1); break;
-            case Key.K: Send(new Scan()); break;
-            case Key.V: ToggleWeapons(); break;
-            case Key.G: _mapOpen = !_mapOpen; break;
-            case Key.J: SendJump(); break;
-            case Key.Up: CycleSystem(-1); break;
-            case Key.Down: CycleSystem(1); break;
-            case Key.Left when _mapOpen: _map.Orbit(-0.25f, 0f); break; // rotate the 3D map (the roll keys of the flight are not in play with the map open)
-            case Key.Right when _mapOpen: _map.Orbit(0.25f, 0f); break;
-            case Key.Home when _mapOpen: _map.ResetView(); break;
-            case Key.F: ToggleRefinery(); break;
-            case Key.T: ToggleResearchPanel(); break;
-            case Key.B: ToggleBuildMenu(); break;
-            case Key.P: _paused = !_paused; break;
-            case Key.Equal: case Key.Plus: case Key.KpAdd: _speed = Math.Min(10, _speed + 1); break;
-            case Key.Minus: case Key.KpSubtract: _speed = Math.Max(1, _speed - 1); break;
         }
     }
 

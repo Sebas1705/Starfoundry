@@ -52,12 +52,12 @@ public partial class Play
         if (group == WeaponGroup.Guns)
         {
             SetLaser(false);
-            Toast(L("toast.weaponGroupGuns", "M"), 3.0);
+            Toast(L("toast.weaponGroupGuns", InputActions.PrimaryCap("weaponNext")), 3.0);
         }
         else
         {
             if (Net.GetPlayerInfo(Player).Armed) Send(new SetWeapons(false));
-            Toast(L("toast.weaponGroupLaser", "M"), 3.0);
+            Toast(L("toast.weaponGroupLaser", InputActions.PrimaryCap("weaponNext")), 3.0);
         }
         AudioManager.PlayUi(Sfx.UiClick);
     }

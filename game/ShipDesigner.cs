@@ -76,6 +76,20 @@ public partial class ShipDesigner : Control
         ModuleKind.GunMk2 => "G2", ModuleKind.Core => "CO", ModuleKind.Shipyard => "SY", _ => "??",
     };
 
+    private PanelContainer? _frame;
+    private float _topInset;
+
+    /// <summary>Extra space above the window (the tab strip of the ship computer sits there).</summary>
+    public float TopInset
+    {
+        get => _topInset;
+        set
+        {
+            _topInset = value;
+            if (_frame is not null) _frame.OffsetTop = 24 + value;
+        }
+    }
+
     public override void _Ready()
     {
         Theme = UiTheme.Create();
@@ -85,9 +99,10 @@ public partial class ShipDesigner : Control
         AddChild(dim);
 
         var panel = new PanelContainer { MouseFilter = MouseFilterEnum.Stop };
+        _frame = panel;
         panel.AddThemeStyleboxOverride("panel", UiTheme.Dock());
         panel.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        panel.OffsetLeft = 36; panel.OffsetRight = -36; panel.OffsetTop = 24; panel.OffsetBottom = -24;
+        panel.OffsetLeft = 36; panel.OffsetRight = -36; panel.OffsetTop = 24 + _topInset; panel.OffsetBottom = -24;
         AddChild(panel);
 
         var root = new VBoxContainer();

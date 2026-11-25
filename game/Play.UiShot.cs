@@ -93,7 +93,7 @@ public partial class Play
     {
         switch (_uiFrame)
         {
-            case 20: SendKey(Key.T); break;
+            case 20: SendKey(Key.Tab); break; // the ship computer opens on its last tab (research the first time)
             case 26: GD.Print($"UIKEYS research_open={ResearchOpen} selected={_researchPanel?.Selected} current={Net.CurrentResearch}"); SendKey(Key.Down); break;
             case 32: GD.Print($"UIKEYS after_down selected={_researchPanel?.Selected}"); SendKey(Key.Enter); break;
             case 38: GD.Print($"UIKEYS after_enter current={Net.CurrentResearch} ({(Net.CurrentResearch >= 0 ? _content.Research[Net.CurrentResearch].Id : "none")})"); SendKey(Key.Escape); break;

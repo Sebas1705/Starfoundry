@@ -40,15 +40,14 @@ public partial class Play
     private void ToggleDesigner()
     {
         if (_designer is null || !_structuresOn) return;
-        if (DesignerOpen) { CloseDesigner(); return; }
-        if (!ShipyardDocked) { Toast(L("toast.noShipyardHere"), 5.0); return; }
-        SetLaser(false);
-        _designer.Open();
-        _wantCapture = false;
-        SetMouseCapture(false);
+        ToggleComputerTab(ComputerTab.Designer);
     }
 
-    private void CloseDesigner() => _designer?.Close();
+    private void CloseDesigner()
+    {
+        if (_computerTab == ComputerTab.Designer) CloseComputer();
+        else _designer?.Close();
+    }
 
     /// <summary>Per frame: after an apply, waits for the simulation and reloads the layout; closes the panel if the shipyard is gone.</summary>
     private void UpdateDesigner()

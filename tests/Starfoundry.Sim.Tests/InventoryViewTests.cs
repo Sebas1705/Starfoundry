@@ -174,10 +174,10 @@ public class InventoryViewTests
         var openState = new KeyState { InventoryOpen = true };
         var open = KeyHints.For(openState);
         Assert.Equal(HintContext.Inventory, KeyHints.ContextOf(openState));
-        Assert.Contains(open.SelectMany(g => g.Rows), r => r.Id == "inventory" && r.ActionKey == "F10" && r.State == KeyRowState.Active);
+        Assert.Contains(open.SelectMany(g => g.Rows), r => r.Id == "close" && r.ActionKey == "Tab" && r.State == KeyRowState.Active);
         Assert.Contains(open.SelectMany(g => g.Rows), r => r.Id == "invQuick");
         foreach (var state in new[] { new KeyState(), new KeyState { Standing = true } })
-            Assert.Contains(KeyHints.For(state).SelectMany(g => g.Rows), r => r.Id == "inventory" && r.ActionKey == "F10" && r.Clickable);
+            Assert.Contains(KeyHints.For(state).SelectMany(g => g.Rows), r => r.Id == "computer" && r.ActionKey == "Tab" && r.Clickable); // the inventory opens from the computer (or its own key I)
         foreach (var row in open.SelectMany(g => g.Rows)) Assert.True(Loc.Has(row.LabelKey), row.LabelKey);
         Assert.Equal(HintContext.BuildMenu, KeyHints.ContextOf(new KeyState { InventoryOpen = true, BuildOpen = true })); // an older panel keeps priority if both are somehow open
     }

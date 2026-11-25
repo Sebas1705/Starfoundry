@@ -25,11 +25,11 @@ public class ObstacleTextsTests
     [Fact]
     public void The_boost_row_appears_only_with_boost_and_lights_up_while_boosting()
     {
-        bool Has(KeyState s) => KeyHints.For(s).SelectMany(g => g.Rows).Any(r => r.Id == "boost");
-        Assert.False(Has(new KeyState()));
-        Assert.True(Has(new KeyState { BoostAvailable = true }));
-        var on = KeyHints.For(new KeyState { BoostAvailable = true, Boosting = true }).SelectMany(g => g.Rows).Single(r => r.Id == "boost");
-        Assert.Equal(KeyRowState.Active, on.State);
-        Assert.True(Loc.Has(on.LabelKey));
+        // The key panel has no boost row any more (it is full); the key is in the registry and the F1 help.
+        Assert.DoesNotContain(KeyHints.For(new KeyState { BoostAvailable = true, Boosting = true }).SelectMany(g => g.Rows), r => r.Id == "boost");
+        var boost = InputActions.Get("boost");
+        Assert.Contains("Shift", boost.Keys);
+        Assert.True(boost.Contexts.HasFlag(InputContext.Flying));
+        Assert.True(Loc.Has(boost.NameKey));
     }
 }
