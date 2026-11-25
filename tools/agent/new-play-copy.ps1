@@ -33,4 +33,5 @@ if ($new -eq $t) { throw 'custom_user_dir_name not found in project.godot' }
 
 $p = Start-Process dotnet -ArgumentList @('build', (Join-Path $Path 'game'), '-c', 'Debug', '-m:1', '-nologo', '-v:q') -NoNewWindow -PassThru -Wait
 if ($p.ExitCode -ne 0) { throw "dotnet build failed ($($p.ExitCode)); copy kept at $Path" }
+& (Get-GodotConsole) --headless --path (Join-Path $Path 'game') --import *> $null # first import of assets, so the first run is fast
 Write-Host (Join-Path $Path 'game')
