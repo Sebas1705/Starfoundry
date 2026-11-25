@@ -11,7 +11,7 @@ namespace Starfoundry.Game;
 /// </summary>
 public partial class ShipComputerBar : PanelContainer
 {
-    public const float Height = 46f;
+    public const float Height = 58f;
 
     public event Action<ComputerTab>? TabChosen;
     public event Action? CloseRequested;
@@ -53,6 +53,7 @@ public partial class ShipComputerBar : PanelContainer
         _close.ExpandIcon = false;
         _close.FocusMode = FocusModeEnum.None;
         _close.Name = "CloseComputer";
+        _close.CustomMinimumSize = new Vector2(44f, 0f);
         _row.AddChild(_close);
     }
 
@@ -65,9 +66,7 @@ public partial class ShipComputerBar : PanelContainer
         if (sig == _signature) return;
         _signature = sig;
         _width = width;
-        CustomMinimumSize = new Vector2(width, Height);
-        Size = new Vector2(width, Height);
-        float inner = width - 10f - 4f * ShipComputerTabs.All.Count - 34f; // margins, gaps and the close button
+        float inner = width - 10f - 4f * ShipComputerTabs.All.Count - 56f; // margins, gaps and the close button
         float per = inner / ShipComputerTabs.All.Count;
         // The names show when each tab has room for its number, icon and a short name; otherwise the icon and the number stay and the name is the tooltip.
         bool names = per >= 96f;
@@ -86,5 +85,10 @@ public partial class ShipComputerBar : PanelContainer
             else b.ClipText = true;
         }
         _close.TooltipText = Loc.T("computer.close") + "  (Tab)";
+        // After the buttons: the strip may only shrink once their minimum widths have, or it would keep the old width.
+        _row.ResetSize();
+        CustomMinimumSize = new Vector2(width, Height);
+        ResetSize();
+        Size = new Vector2(width, Height);
     }
 }

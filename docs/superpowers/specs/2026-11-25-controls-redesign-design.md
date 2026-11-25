@@ -1,6 +1,6 @@
 # Controls redesign: few keys and one ship computer
 
-Status: proposed (2026-11-25). Owner feedback: "the keys and controls are too much of a mess." Decisions taken by the owner: **few keys plus one ship computer menu** (not radial wheels, not a mere reshuffle), and **Q/E roll, F interact**. Everything else is a *proposal* for the owner to react to in play.
+Status: phases 1 to 3 implemented on `feature/controls-redesign` (2026-11-25): the `InputActions` registry, the new bindings and the ship computer; the rebinding screen (phase 4) and the polish pass (phase 5) are not done. The registry keeps `SetOverrides` ready for the rebinding screen. Owner feedback: "the keys and controls are too much of a mess." Decisions taken by the owner: **few keys plus one ship computer menu** (not radial wheels, not a mere reshuffle), and **Q/E roll, F interact**. Everything else is a *proposal* for the owner to react to in play.
 
 ## 1. The problem (measured)
 The F1 help lists about 55 bindings: movement (W A S D, Space, C, Shift, Alt, Tab), roll on Z and X, sit on E, and a long tail of single letters (M V F K U R Y N I B T G J H P L O, brackets, plus and minus), ten function keys (F1, F3, Shift+F3, F4, F6, F7, F8, F9, F10), `1-9`, `0`, `Q`, `Ctrl+Delete` and `Backspace`. The same letter means different things by context (Z and X are roll or build layer; N is the module tool and its kind), several features were added with whatever key was free (inventory on F10, flight assist on F8), and the help is hand-written text in two languages that drifts from the code.

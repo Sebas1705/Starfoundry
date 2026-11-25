@@ -22,6 +22,7 @@ public partial class Play
     private Button _sysDrones = null!, _sysPause = null!;
     private readonly Button[] _sysScreens = new Button[3];
     private int _computerFrame;
+    private readonly System.Collections.Generic.List<(Control Node, string Key)> _sysStatic = new(); // labels and buttons with fixed text, re-read when the language changes
 
     private bool ComputerOpen => _computerTab is not null;
 
@@ -63,7 +64,7 @@ public partial class Play
         _systemsPage.AddChild(scroll);
         _uiRoot.AddChild(_systemsPage);
 
-        Label Title(string key) { var t = PageLabel(16, UiTheme.Gold); t.Text = Loc.T(key); t.Name = key; return t; }
+        Label Title(string key) { var t = PageLabel(16, UiTheme.Gold); t.Text = Loc.T(key); t.Name = key; _sysStatic.Add((t, key)); return t; }
 
         box.AddChild(Title("computer.systems.drones"));
         _sysDeposit = PageLabel(13, UiTheme.Muted);
@@ -91,8 +92,9 @@ public partial class Play
         box.AddChild(_sysSpeed);
         var row = new HBoxContainer();
         row.AddThemeConstantOverride("separation", 6);
-        var slower = UiKit.Button(Loc.T("computer.systems.slower"), () => _speed = Math.Max(1, _speed - 1), 14);
-        var faster = UiKit.Button(Loc.T("computer.systems.faster"), () => _speed = Math.Min(10, _speed + 1), 14);
+        var slower = UiKit.Button("", () => _speed = Math.Max(1, _speed - 1), 14);
+        var faster = UiKit.Button("", () => _speed = Math.Min(10, _speed + 1), 14);
+        _sysStatic.Add((slower, "computer.systems.slower")); _sysStatic.Add((faster, "computer.systems.faster"));
         _sysPause = UiKit.Button("", () => _paused = !_paused, 14);
         slower.Name = "SlowerButton"; faster.Name = "FasterButton"; _sysPause.Name = "PauseButton";
         foreach (var b in new[] { slower, faster, _sysPause }) { b.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill; row.AddChild(b); }
@@ -103,17 +105,22 @@ public partial class Play
         box.AddChild(_sysAssist);
         var assist = UiKit.Button("", ToggleFlightAssist, 14);
         assist.Name = "AssistButton";
-        assist.Text = Loc.T("act.assist.name");
+        _sysStatic.Add((assist, "computer.systems.assistToggle"));
         box.AddChild(assist);
-        var dump = UiKit.Button(Loc.T("computer.systems.dump"), DumpSpareOre, 14);
+        var dump = UiKit.Button("", DumpSpareOre, 14);
         dump.Name = "DumpButton";
-        dump.TooltipText = Loc.T("computer.systems.dumpTip");
+        _sysStatic.Add((dump, "computer.systems.dump"));
         box.AddChild(dump);
     }
 
     /// <summary>Per tick of the page: the texts that follow the world and the language.</summary>
     private void RefreshSystemsPage()
     {
+        foreach (var (node, key) in _sysStatic)
+        {
+            if (node is Label l) l.Text = Loc.T(key);
+            else if (node is Button b) { b.Text = Loc.T(key); if (key == "computer.systems.dump") b.TooltipText = Loc.T("computer.systems.dumpTip"); }
+        }
         int bay = _structuresOn && Net.HasPlayer(Player) ? DroneStructure() : -1;
         int deposit = DepositUsable(_selectedDeposit) ? _selectedDeposit : -1;
         _sysDeposit.Text = deposit >= 0 ? Loc.T("computer.systems.deposit", ItemName(Net.DepositItem(deposit))) : Loc.T("computer.systems.depositNone");
@@ -125,7 +132,7 @@ public partial class Play
             var screen = (CockpitScreen)i;
             bool has = ConsoleReady && _cockpit is not null;
             string page = has ? Loc.T("cp.page." + _cockpit!.Pages.PageOn(screen).ToString().ToLowerInvariant()) : "";
-            _sysScreens[i].Text = has ? Loc.T("computer.systems.focus", Loc.T("computer.screen." + screen.ToString().ToLowerInvariant()) + ": " + page) : Loc.T("computer.systems.displaysNone");
+            _sysScreens[i].Text = has ? Loc.T("computer.systems.focus", Loc.T("computer.screen." + screen.ToString().ToLowerInvariant()), page) : Loc.T("computer.systems.displaysNone");
             _sysScreens[i].Disabled = !has;
         }
         _sysSpeed.Text = Loc.T("computer.systems.speed", _speed);
@@ -254,7 +261,7 @@ public partial class Play
         if (!open) return;
         var dock = DockRect(size);
         _computerBar.Set(dock.Position.X, 10f, dock.Size.X, _computerTab, ComputerAvail);
-        if (_computerTab == ComputerTab.Settings) { _settingsPage.Position = dock.Position; _settingsPage.Size = dock.Size; }
+        if (_computerTab == ComputerTab.Settings) _settingsPage.Place(dock);
         if (_computerTab == ComputerTab.Systems)
         {
             _systemsPage.Position = dock.Position;

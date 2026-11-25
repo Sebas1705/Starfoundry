@@ -1365,7 +1365,7 @@ public partial class Play
         var objMin = _objectivesPanel.GetCombinedMinimumSize();
         _statusLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         // The essentials are short and narrow; the full block (H) is wide but never runs under the steps panel.
-        _statusLabel.CustomMinimumSize = new Vector2(_detailsOpen ? Math.Clamp(size.X - objMin.X - 60, 260, 760) : Math.Min(300f, Math.Max(180f, size.X * 0.22f)), 0);
+        _statusLabel.CustomMinimumSize = new Vector2(_detailsOpen ? Math.Clamp(size.X - Math.Max(objMin.X, ComputerOpen ? DockRect(size).Size.X : 0f) - 60, 260, 760) : Math.Min(300f, Math.Max(180f, size.X * 0.22f)), 0);
         _statusLabel.Visible = _statusLabel.Text.Length > 0;
         _statusPanel.Visible = _statusLabel.Visible || _powerBox.Visible || _integrityBox.Visible || _hullBox.Visible;
         _statusPanel.ResetSize();
@@ -1403,7 +1403,7 @@ public partial class Play
         // Notifications: up to three lines in a column above the hint, wrapped to a readable width and centred on the view.
         float toastWidth = Math.Clamp(size.X * 0.6f, 300f, 760f);
         float toastCentre = size.X / 2f;
-        if (ResearchOpen || BuildOpen) { toastCentre = (dock.Position.X - 12f) / 2f; toastWidth = Math.Min(toastWidth, dock.Position.X - 36f); } // the free left side of the view
+        if (ResearchOpen || BuildOpen || ComputerOpen) { toastCentre = (dock.Position.X - 12f) / 2f; toastWidth = Math.Min(toastWidth, dock.Position.X - 36f); } // the free left side of the view
         else toastWidth = Math.Min(toastWidth, Math.Max(300f, 2f * (keyLeft - 12f - size.X / 2f))); // not under the key panel
         // With the star map open the column narrows so it does not run under the map and its list on the right.
         if (_mapOpen && Net.Galaxy is not null) toastWidth = Math.Min(toastWidth, Math.Max(300f, size.X - 784f));

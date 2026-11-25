@@ -134,7 +134,7 @@ public partial class Play
     /// <summary>The right-hand column of the screen the research panel and the build menu dock to: about 40 percent of the width, from the top down to the key panel.</summary>
     private Rect2 DockRect(Vector2 size)
     {
-        float width = Math.Clamp(size.X * 0.4f, 440f, 860f);
+        float width = _computerTab == ComputerTab.Inventory ? Math.Clamp(size.X - 350f, 440f, 960f) : Math.Clamp(size.X * 0.4f, 440f, 860f); // the inventory has two panels side by side
         float bottom = _keyPanel is { Visible: true } ? _keyRect.Position.Y - 8f : size.Y - 8f;
         float top = ComputerOpen ? 10f + ShipComputerBar.Height + 6f : 10f; // the ship computer's tab strip sits above the panel
         return new Rect2(size.X - width - 10f, top, width, Math.Max(200f, bottom - top));

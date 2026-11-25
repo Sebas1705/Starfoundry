@@ -11,7 +11,7 @@ public static partial class Loc
         ["module.mininglasermk2"] = ("Láser de minería Mk2", "Mk2 mining laser"),
         ["module.mininglasermk2.purpose"] = ("Láser potente: 170 % de rendimiento y 14 celdas de alcance; gasta 8 de energía.", "A strong laser: 170 percent yield and 14 cells of reach; draws 8 power."),
         ["module.gun"] = ("Cañón", "Gun"),
-        ["module.gun.purpose"] = ("Montaje de la nave: dispara donde apuntas mientras mantienes el fuego (grupo de armas, M cambia).", "A ship hardpoint: fires where you aim while you hold fire (weapon group, M switches)."),
+        ["module.gun.purpose"] = ("Montaje de la nave: dispara donde apuntas mientras mantienes el fuego (grupo de armas, V cambia).", "A ship hardpoint: fires where you aim while you hold fire (weapon group, V switches)."),
         ["module.gunmk2"] = ("Cañón Mk2", "Mk2 gun"),
         ["module.gunmk2.purpose"] = ("Cañón potente: 170 % del daño de un cañón Mk1.", "A strong gun: 170 percent of the damage of a mark 1 gun."),
         ["module.shipyard"] = ("Astillero", "Shipyard"),

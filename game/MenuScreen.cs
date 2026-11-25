@@ -50,6 +50,14 @@ public partial class MenuScreen : Control
         _dim = dim;
     }
 
+    /// <summary>Embedded: puts the page in a rectangle of its owner (the panel fills it).</summary>
+    public void Place(Rect2 rect)
+    {
+        Position = rect.Position;
+        Size = rect.Size;
+        if (_panel is not null) { _panel.Position = Vector2.Zero; _panel.Size = rect.Size; }
+    }
+
     public void AddEntry(Func<string> text, Action onPressed, Func<bool>? enabled = null, Func<string>? detail = null) =>
         _entries.Add(new Entry(text, onPressed, enabled, detail));
 
@@ -61,7 +69,7 @@ public partial class MenuScreen : Control
         if (_dim && !Embedded) { var dim = new ColorRect { Color = new Color(0f, 0f, 0.02f, 0.62f), MouseFilter = MouseFilterEnum.Ignore }; AddChild(dim); dim.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect); }
         _panel = new PanelContainer();
         _panel.AddThemeStyleboxOverride("panel", UiKit.Box(PanelBg, PanelEdge, 8, Embedded ? 14f : 22f));
-        if (Embedded) { AddChild(_panel); _panel.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect); }
+        if (Embedded) { AddChild(_panel); _panel.ClipContents = true; }
         else
         {
             var centre = new CenterContainer { MouseFilter = MouseFilterEnum.Ignore };
