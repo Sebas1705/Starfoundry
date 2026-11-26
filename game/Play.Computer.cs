@@ -265,7 +265,10 @@ public partial class Play
         _computerBar.Visible = open;
         if (!open) return;
         var dock = DockRect(size);
-        _computerBar.Set(dock.Position.X, 10f, dock.Size.X, _computerTab, ComputerAvail);
+        // The strip keeps one width and place whatever tab is open (the inventory page is wider than the others): tabs that move under the cursor
+        // when one is chosen make the next click land on another tab, or on the page behind it.
+        float stripWidth = Math.Min(dock.Size.X, Math.Clamp(size.X * 0.4f, 440f, 860f));
+        _computerBar.Set(dock.End.X - stripWidth, 10f, stripWidth, _computerTab, ComputerAvail);
         if (_computerTab == ComputerTab.Settings) _settingsPage.Place(dock);
         if (_computerTab == ComputerTab.Systems)
         {

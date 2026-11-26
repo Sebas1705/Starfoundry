@@ -118,6 +118,26 @@ public partial class Play
             }
             if (d < HazardWarnCells && d < bestScore) { bestScore = d; best = L("hazard.near", Cap(Loc.Name("obstacle", def.Id)), MathF.Max(0f, MathF.Round(d)).ToString("F0", Loc.Culture)); }
         }
+        // The rocks of veins and of the field are solid too (ADR 0033, 0040) and are what a ship meets first near home: warn about them like any rock.
+        // Only revealed rocks are solid in the simulation, and only those within reach of the ship are looked at.
+        var at = Net.GetPlayerInfo(Player);
+        float near = HazardWarnCells + 40f;
+        for (int i = 0; i < Net.DepositCount; i++)
+        {
+            long rockR = Net.DepositRockRadius(i);
+            if (rockR <= 0) continue;
+            var dep = Net.GetDepositInfo(i);
+            if (!dep.Revealed || dep.Remaining <= 0) continue;
+            if (MathF.Abs(dep.X - at.X / (float)Units.CellUnits) > near || MathF.Abs(dep.Y - at.Y / (float)Units.CellUnits) > near || MathF.Abs(dep.Z - at.Z / (float)Units.CellUnits) > near) continue;
+            float d = float.MaxValue;
+            foreach (var c in centres)
+            {
+                float dx = c.X / (float)Units.CellUnits - dep.X, dy = c.Y / (float)Units.CellUnits - dep.Y, dz = c.Z / (float)Units.CellUnits - dep.Z;
+                d = MathF.Min(d, MathF.Sqrt(dx * dx + dy * dy + dz * dz) - 4f);
+            }
+            d -= rockR / (float)Units.CellUnits;
+            if (d < HazardWarnCells && d < bestScore) { bestScore = d; best = L("hazard.near", L("obstacle.depositRock", ItemName(dep.Item)), MathF.Max(0f, MathF.Round(d)).ToString("F0", Loc.Culture)); }
+        }
         // Rocks only matter when you are heading for them fast enough to hurt: below the safe speed a bump is harmless.
         if (best.Length > 0 && bestScore > 14f)
         {
@@ -160,7 +180,7 @@ public partial class Play
                     _vigAlpha = MathF.Max(_vigAlpha, Math.Clamp(0.2f + e.Damage / 200f, 0f, 0.8f));
                     _shake = MathF.Max(_shake, Math.Clamp(0.25f + e.Damage / 100f, 0f, 1.2f));
                     _audio?.Play(Sfx.RockThud, at);
-                    ToastThreat(L("toast.collision", e.Damage, ImpactModuleName(e.Structure)), 4.0);
+                    ToastThreat(L("toast.collision", e.Damage, ImpactModuleName(e.Structure), (e.Speed * (float)Units.TicksPerSecond / Units.CellUnits).ToString("F1", Loc.Culture)), 4.0);
                     break;
                 case ObstacleEventKind.Bump:
                     if (e.Structure != myShip) break;
