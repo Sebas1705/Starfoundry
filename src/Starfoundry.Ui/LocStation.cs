@@ -9,8 +9,10 @@ public static partial class Loc
         ["build.stationFirst"] = ("La automatización se construye en una estación", "Automation is built in a station"),
 
         // the workbench panel
+        ["bench.card.hintPanel"] = ("F: abrir el banco de trabajo", "F: open the workbench"),
         ["bench.panel.title"] = ("Banco de trabajo de la nave", "Ship workbench"),
         ["bench.panel.slow"] = ("Manual y lento: {0} s por fabricación", "Manual, slow: {0} s per craft"),
+        ["bench.panel.seconds"] = ("{0} s", "{0} s"),
         ["bench.panel.recipes"] = ("Recetas", "Recipes"),
         ["bench.panel.takes"] = ("Toma", "Takes"),
         ["bench.panel.makes"] = ("Hace", "Makes"),
