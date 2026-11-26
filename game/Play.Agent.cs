@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using Godot;
 using Starfoundry.Sim;
+using Starfoundry.Ui;
 
 namespace Starfoundry.Game;
 
@@ -32,6 +33,13 @@ public partial class Play
             var local = inv * world; // camera space: -Z is forward
             deposits.Add(new { id = d, item = _content.Items[Net.DepositItem(d)].Id, remaining = Net.DepositRemaining(d), dist = (world - _camera.GlobalPosition).Length(), cx = local.X, cy = local.Y, cz = local.Z, inRange = Net.InMineRange(Player, d) });
         }
+        object? bench = null;
+        if (BenchBox() is { } box && ShipStruct >= 0 && _stationView.StructureRoot(ShipStruct) is { } root)
+        {
+            var centre = root.GlobalTransform * (box.Min + box.Size / 2f);
+            var local = inv * centre;
+            bench = new { cx = local.X, cy = local.Y, cz = local.Z, dist = (centre - _camera.GlobalPosition).Length(), aimed = AimingAtBench(), recipe = info.ShipRecipe >= 0 ? _content.Recipes[info.ShipRecipe].Id : null, crafting = info.ShipCrafting, remaining = info.ShipRemaining };
+        }
         return JsonSerializer.Serialize(new
         {
             player = true,
@@ -52,6 +60,8 @@ public partial class Play
             outcome = _progress?.Outcome.ToString(),
             outcomeShown = _outcomeShown,
             goals,
+            bench,
+            scanCooldown = info.ScanCooldown,
             deposits,
             hover = new { kind = _hover.Kind.ToString(), id = _hover.Id },
             mouseLook = _mouseLook,
@@ -59,5 +69,18 @@ public partial class Play
             inventoryOpen = InventoryOpen,
             pauseOpen = PauseOpen,
         });
+    }
+
+    /// <summary>
+    /// Agent shortcut (not a player control): turns the ship at once so the crosshair points at a deposit; returns the angle left in degrees.
+    /// Mouse aiming with synthetic events is not reproducible headless, so the harness uses this and holds the real fire button after it.
+    /// </summary>
+    public float AgentFace(int deposit)
+    {
+        var q = Net.DepositPosition(deposit);
+        var local = _camera.GlobalTransform.AffineInverse() * new Vector3(q.X, q.Y, q.Z);
+        float yaw = Mathf.Atan2(local.X, -local.Z), pitch = Mathf.Atan2(local.Y, Mathf.Sqrt(local.X * local.X + local.Z * local.Z));
+        _shipQuat = FlightOrientation.Rotate(_shipQuat, pitch, yaw, 0f);
+        return Mathf.RadToDeg(Mathf.Acos(Mathf.Clamp(-local.Normalized().Z, -1f, 1f)));
     }
 }

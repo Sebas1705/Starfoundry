@@ -23,7 +23,11 @@ $env:DOTNET_CLI_USE_MSBUILD_SERVER = '0'
 $env:MSBUILDDISABLENODEREUSE = '1'
 $env:UseSharedCompilation = 'false'
 $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
-$sp = @{ FilePath = $Exe; NoNewWindow = $true; PassThru = $true }
+# Owner rule: nothing may open a window, flash a console or take focus. The child always starts with a hidden window style;
+# there is deliberately no switch to turn that off. Output must be redirected to files, because a hidden window has no console to read.
+if (-not $Out) { $Out = Join-Path $env:TEMP ('sf-quiet-' + [guid]::NewGuid().ToString('N').Substring(0, 8) + '.log') }
+$sp = @{ FilePath = $Exe; WindowStyle = 'Hidden'; PassThru = $true }
+if ($sp.WindowStyle -ne 'Hidden') { throw 'quiet.ps1 refuses to start a process without a hidden window style.' }
 if ($ArgLine) { $sp.ArgumentList = $ArgLine }
 if ($Out) { $sp.RedirectStandardOutput = $Out; $sp.RedirectStandardError = "$Out.err" }
 $p = Start-Process @sp
