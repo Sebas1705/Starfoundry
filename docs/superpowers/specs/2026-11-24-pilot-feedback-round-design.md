@@ -29,6 +29,8 @@ Implementation note (2026-11-24, branch `feature/nav-screen-turn-inertia`): sect
 
 ## E. Ship editing (designer)
 ### E1 Several designs and types
+**Status (2026-11-26, ADR 0045):** saved designs with slots, variants, presets (the player's own pinned designs), rename, duplicate and delete are built in the blueprint editor for ships and stations, stored in user data (not in the save game). **Not done:** shipped presets (miner, hauler, gunship, scout) and the module variants (hull skins, cockpit styles, engine tiers, cargo sizes).
+
 - **Saved designs**: the shipyard keeps named design slots per player (at least 8): save, load (preview, cost delta against the current ship), duplicate, rename, delete. Stored as a module list with positions and options, in the save file and the command log is untouched until `DesignerApply`.
 - **Presets**: a few shipped blueprints (miner, hauler, gunship, scout) that the player can load and then edit. Each is just data in `content/` and must validate against the designer rules.
 - **Module types**: more than one variant per kind, selectable in the designer: hull skin (the arched, boxy and wide variants from #82 become player-chosen as well as automatic), cockpit styles (wide pilot, nose, flank), engine tiers and layouts, cargo sizes (see S9), reactor sizes. A variant is a content entry with its own cost, stats and model id; the generated one stays the default so old designs still load.
