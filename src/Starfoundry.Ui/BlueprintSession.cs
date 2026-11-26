@@ -281,6 +281,22 @@ public sealed class BlueprintSession
         return Draft.Upgrade(_selection.First(), _content);
     }
 
+    /// <summary>The draft as a saved design (modules with rotation, and the interior of a station).</summary>
+    public DesignData ToDesign(string name, string variant = "", bool preset = false) =>
+        new(StructureKind == StructureKind.Station ? "station" : "ship", name, variant, preset,
+            Draft.Modules.Select(kv => (kv.Key, kv.Value, Draft.RotationOf(kv.Key))).ToList(),
+            StructureKind == StructureKind.Station ? Interior.ToInterior() : BlueprintInterior.Empty);
+
+    /// <summary>Puts a saved design into the draft as one undoable step per half (modules, then interior). Refuses a design for the other kind of structure.</summary>
+    public (int Done, int Skipped)? LoadDesign(DesignData d)
+    {
+        if (d.Structure != (StructureKind == StructureKind.Station ? "station" : "ship")) return null;
+        var r = Draft.ReplaceWith(d.Modules);
+        if (StructureKind == StructureKind.Station) Interior.ReplaceWith(d.Interior);
+        _selection.Clear(); Carrying = null; PlanSelection = null;
+        return (r.Done, r.Skipped);
+    }
+
     public bool Undo() => FloorModule is not null ? Interior.Undo() : Draft.Undo();
 
     public bool Redo() => FloorModule is not null ? Interior.Redo() : Draft.Redo();
