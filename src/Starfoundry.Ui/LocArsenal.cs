@@ -9,6 +9,7 @@ public static partial class Loc
         ["arsenal.name.laser2"] = ("Láser de minería Mk2", "Mk2 mining laser"),
         ["arsenal.name.gun1"] = ("Cañón Mk1", "Mk1 gun"),
         ["arsenal.name.gun2"] = ("Cañón Mk2", "Mk2 gun"),
+        ["arsenal.name.gun3"] = ("Cañón pesado", "Heavy cannon"),
         ["arsenal.state.ready"] = ("listo", "ready"),
         ["arsenal.state.firing"] = ("disparando", "firing"),
         ["arsenal.state.cooling"] = ("recargando", "cooling down"),

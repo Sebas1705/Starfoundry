@@ -49,7 +49,7 @@ public static partial class ModuleModels
             return;
         }
         if (c.Kind is ModuleKind.Workshop or ModuleKind.Defence or ModuleKind.DroneBay || c.Has(Up)) return;
-        float top = c.Kind == ModuleKind.Shield ? 1.2f : c.Kind == ModuleKind.Sensor ? 2.2f : Roof;
+        float top = c.Kind == ModuleKind.Shield || ModuleKindIds.IsAntenna(c.Kind) ? Starfoundry.Ui.HullProfile.RoofOf(c.Kind, c.Ship) : Roof;
         StrobeAt(c, "roof", W - 0.6f, top + 0.12f, 0.6f, new Color(1f, 0.15f, 0.12f));
     }
 
@@ -66,7 +66,7 @@ public static partial class ModuleModels
         ModuleKind.Cargo => (new Color(1f, 0.85f, 0.60f), 1.0f, 8f, 3.0f),
         ModuleKind.DroneBay => (new Color(0.85f, 0.55f, 1f), 1.3f, 8f, 3.0f),
         ModuleKind.Shield => (new Color(0.35f, 0.65f, 1f), 1.2f, 7f, 2.2f),
-        ModuleKind.Sensor => (new Color(0.30f, 1f, 0.60f), 1.1f, 7f, 2.6f),
+        ModuleKind.Sensor or ModuleKind.SensorShort or ModuleKind.SensorLong or ModuleKind.CommsAntenna => (new Color(0.30f, 1f, 0.60f), 1.1f, 7f, 2.6f),
         ModuleKind.Core => (new Color(1f, 0.80f, 0.40f), 1.8f, 9f, 2.4f),
         _ => (new Color(0.75f, 0.85f, 1f), 0.8f, 7f, 3.2f),
     };
@@ -81,12 +81,12 @@ public static partial class ModuleModels
         });
 
         bool openDeck = c.Kind is ModuleKind.Workshop or ModuleKind.Defence or ModuleKind.DroneBay;
-        bool lowShell = c.Kind is ModuleKind.Shield or ModuleKind.Sensor || (c.Ship && ModuleKindIds.IsHardpoint(c.Kind)); // pods have no ceiling to hang a strip on
+        bool lowShell = c.Kind is ModuleKind.Shield || ModuleKindIds.IsAntenna(c.Kind) || (c.Ship && ModuleKindIds.IsHardpoint(c.Kind)); // pods have no ceiling to hang a strip on
         float roof = Starfoundry.Ui.HullProfile.RoofOf(c.Kind, c.Ship);
         var strip = c.Kind switch { ModuleKind.Defence => new Color(1f, 0.25f, 0.22f), ModuleKind.Workshop => new Color(1f, 0.85f, 0.6f), _ => col };
         float wx = c.Ship ? 0.11f : 0.37f, wy = c.Ship ? 2.55f : 3.2f;
         if (c.Ship && !lowShell) wy = MathF.Min(wy, roof - Starfoundry.Ui.HullProfile.ChamfersOf(Starfoundry.Ui.HullProfile.SectionOfMask(c.M), 1f).Up - 0.2f); // on the vertical wall of this skin, not out in the air beside a sloping one
-        if (lowShell) wy = c.Kind == ModuleKind.Shield ? 0.9f : ModuleKindIds.IsHardpoint(c.Kind) ? 0.7f : 1.7f;
+        if (lowShell) wy = c.Kind == ModuleKind.Shield ? 0.9f : ModuleKindIds.IsHardpoint(c.Kind) ? 0.7f : c.Kind == ModuleKind.Sensor ? 1.7f : roof - MathF.Min(Starfoundry.Ui.HullProfile.MaxChamfer, (roof - Starfoundry.Ui.HullProfile.FloorY) * Starfoundry.Ui.HullProfile.ChamferShare) - 0.2f;
         Models.Add(c.R, "GlowStrip", $"{c.K}.strips", Models.Glow(strip, 1.7f), mb =>
         {
             mb.At(default);
@@ -221,7 +221,7 @@ public static partial class ModuleModels
     /// <summary>Chevron marks along the centre lane of a ship deck pointing to the nose, and hazard corner marks on a station deck.</summary>
     private static void DecalsBody(Cx c, Models.Mb mb)
     {
-        if (c.Kind is ModuleKind.Workshop or ModuleKind.Defence or ModuleKind.Reactor or ModuleKind.ReactorMk2 or ModuleKind.Core or ModuleKind.Shield or ModuleKind.Sensor) return;
+        if (c.Kind is ModuleKind.Workshop or ModuleKind.Defence or ModuleKind.Reactor or ModuleKind.ReactorMk2 or ModuleKind.Core or ModuleKind.Shield || ModuleKindIds.IsAntenna(c.Kind)) return;
         {
             mb.At(default);
             const float y0 = 0.095f, y1 = 0.104f;
@@ -299,7 +299,7 @@ public static partial class ModuleModels
 
         // station: louvres and roof vents on the exposed walls, a red aviation strobe on a roof corner
         if (c.Kind is ModuleKind.Workshop or ModuleKind.Defence or ModuleKind.DroneBay) return;
-        float top = c.Kind == ModuleKind.Shield ? 1.2f : c.Kind == ModuleKind.Sensor ? 2.2f : Roof;
+        float top = c.Kind == ModuleKind.Shield || ModuleKindIds.IsAntenna(c.Kind) ? Starfoundry.Ui.HullProfile.RoofOf(c.Kind, c.Ship) : Roof;
         {
             mb.At(default);
             foreach (float s in new[] { -1f, 1f })

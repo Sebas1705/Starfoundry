@@ -81,8 +81,8 @@ public sealed class ShipDesignEditor
     private static readonly ModuleKind[] Order =
     {
         ModuleKind.Cockpit, ModuleKind.Engine, ModuleKind.Reactor, ModuleKind.ReactorMk2, ModuleKind.Cargo, ModuleKind.Workshop, ModuleKind.Hull,
-        ModuleKind.MiningLaser, ModuleKind.MiningLaserMk2, ModuleKind.Gun, ModuleKind.GunMk2,
-        ModuleKind.Defence, ModuleKind.DroneBay, ModuleKind.Shield, ModuleKind.Sensor, ModuleKind.Dock,
+        ModuleKind.MiningLaser, ModuleKind.MiningLaserMk2, ModuleKind.Gun, ModuleKind.GunMk2, ModuleKind.GunHeavy,
+        ModuleKind.Defence, ModuleKind.DroneBay, ModuleKind.Shield, ModuleKind.Sensor, ModuleKind.SensorShort, ModuleKind.SensorLong, ModuleKind.CommsAntenna, ModuleKind.Dock,
     };
 
     /// <summary>True when a module of the map stands against one of the six faces of the cell.</summary>

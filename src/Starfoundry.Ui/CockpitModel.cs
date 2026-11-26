@@ -147,6 +147,13 @@ public static class NavList
         return cut;
     }
 
+    /// <summary>
+    /// What the best antenna of the ship can see (ADR 0042): the rows within <paramref name="reachCells"/> of the ship. A gate (distance in map units), a port
+    /// and the selected row always stay; <see cref="long.MaxValue"/> (a world from before the antennas) keeps everything.
+    /// </summary>
+    public static IEnumerable<NavTarget> Within(IEnumerable<NavTarget> all, long reachCells) =>
+        reachCells == long.MaxValue ? all : all.Where(t => t.Kind is NavKind.Gate or NavKind.Port || t.Selected || t.Distance <= reachCells);
+
     /// <summary>The id of the deposit <paramref name="step"/> places after the selected one among the selectable rows, wrapping round; the first one when none is selected, -1 when there are none.</summary>
     public static int Step(IReadOnlyList<NavTarget> rows, int selectedId, int step)
     {

@@ -1857,7 +1857,8 @@
       "hold_capacity": 0,
       "thrust_speed_percent": 0,
       "power_use": 10,
-      "sensor_range_cells": 120
+      "sensor_range_cells": 120,
+      "nav_range_cells": 150
     },
     "reactor_mk2": {
       "cost": [{ "item": "core:circuit", "count": 20 }, { "item": "core:titanium_alloy", "count": 20 }, { "item": "core:iron_plate", "count": 20 }],
@@ -1919,6 +1920,46 @@
       "allows": [],
       "hold_capacity": 0,
       "thrust_speed_percent": 0
+    },
+    "sensor_short": {
+      "cost": [{ "item": "core:circuit", "count": 4 }, { "item": "core:silicon", "count": 5 }, { "item": "core:iron_plate", "count": 8 }],
+      "hp": 100,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0,
+      "power_use": 5,
+      "sensor_range_cells": 80,
+      "nav_range_cells": 60
+    },
+    "sensor_long": {
+      "cost": [{ "item": "core:circuit", "count": 10 }, { "item": "core:titanium_alloy", "count": 8 }, { "item": "core:silicon", "count": 12 }],
+      "hp": 120,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0,
+      "power_use": 18,
+      "sensor_range_cells": 520,
+      "nav_range_cells": 260
+    },
+    "comms_antenna": {
+      "cost": [{ "item": "core:circuit", "count": 10 }, { "item": "core:silicon", "count": 12 }, { "item": "core:iron_plate", "count": 12 }, { "item": "core:titanium_alloy", "count": 4 }],
+      "hp": 100,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0,
+      "power_use": 12,
+      "sensor_range_cells": 40,
+      "nav_range_cells": 700
+    },
+    "gun_heavy": {
+      "cost": [{ "item": "core:iron_plate", "count": 20 }, { "item": "core:circuit", "count": 6 }, { "item": "core:titanium_alloy", "count": 14 }, { "item": "core:composite_plate", "count": 2 }],
+      "hp": 220,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0,
+      "hardpoint_percent": 450,
+      "recoil": 4000,
+      "cooldown_percent": 300
     }
   },
   "structure_templates": {

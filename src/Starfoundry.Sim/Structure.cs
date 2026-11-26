@@ -2,7 +2,7 @@ namespace Starfoundry.Sim;
 
 public enum StructureKind { Ship, Station }
 
-public enum ModuleKind { Core, Cockpit, Engine, Reactor, Cargo, Workshop, Defence, Hull, DroneBay, Shield, Sensor, ReactorMk2, Dock, MiningLaser, MiningLaserMk2, Gun, GunMk2, Shipyard }
+public enum ModuleKind { Core, Cockpit, Engine, Reactor, Cargo, Workshop, Defence, Hull, DroneBay, Shield, Sensor, ReactorMk2, Dock, MiningLaser, MiningLaserMk2, Gun, GunMk2, Shipyard, SensorShort, SensorLong, CommsAntenna, GunHeavy }
 
 /// <summary>Content ids of module kinds: the enum name in snake case (<c>DroneBay</c> is <c>drone_bay</c>).</summary>
 public static class ModuleKindIds
@@ -11,13 +11,19 @@ public static class ModuleKindIds
     public static bool IsReactor(ModuleKind kind) => kind is ModuleKind.Reactor or ModuleKind.ReactorMk2;
 
     /// <summary>True for the hardpoint kinds (ADR 0032): the mining lasers and the guns of a ship.</summary>
-    public static bool IsHardpoint(ModuleKind kind) => kind is ModuleKind.MiningLaser or ModuleKind.MiningLaserMk2 or ModuleKind.Gun or ModuleKind.GunMk2;
+    public static bool IsHardpoint(ModuleKind kind) => kind is ModuleKind.MiningLaser or ModuleKind.MiningLaserMk2 or ModuleKind.Gun or ModuleKind.GunMk2 or ModuleKind.GunHeavy;
 
     /// <summary>True for the mining laser module and its mark 2.</summary>
     public static bool IsMiningLaser(ModuleKind kind) => kind is ModuleKind.MiningLaser or ModuleKind.MiningLaserMk2;
 
-    /// <summary>True for the gun module and its mark 2.</summary>
-    public static bool IsGun(ModuleKind kind) => kind is ModuleKind.Gun or ModuleKind.GunMk2;
+    /// <summary>True for every antenna kind (ADR 0042): the sensor, the short-range and long-range sensors and the comms antenna.</summary>
+    public static bool IsAntenna(ModuleKind kind) => kind is ModuleKind.Sensor or ModuleKind.SensorShort or ModuleKind.SensorLong or ModuleKind.CommsAntenna;
+
+    /// <summary>True for the kinds ADR 0042 added (the antenna variants and the heavy cannon): a world with <see cref="WorldRules.LegacyArms"/> refuses them.</summary>
+    public static bool IsArmsKind(ModuleKind kind) => kind is ModuleKind.SensorShort or ModuleKind.SensorLong or ModuleKind.CommsAntenna or ModuleKind.GunHeavy;
+
+    /// <summary>True for the gun module, its mark 2 and the heavy cannon.</summary>
+    public static bool IsGun(ModuleKind kind) => kind is ModuleKind.Gun or ModuleKind.GunMk2 or ModuleKind.GunHeavy;
 
     /// <summary>The next mark of a hardpoint (the mining laser becomes the mark 2, the gun becomes the mark 2), or null when there is none.</summary>
     public static ModuleKind? UpgradeOf(ModuleKind kind) => kind switch
@@ -41,7 +47,7 @@ public static class ModuleKindIds
     {
         ModuleKind.DroneBay => Ability.DroneBay,
         ModuleKind.Shield => Ability.Shield,
-        ModuleKind.Sensor => Ability.Sensor,
+        ModuleKind.Sensor or ModuleKind.SensorShort or ModuleKind.SensorLong or ModuleKind.CommsAntenna => Ability.Sensor,
         ModuleKind.ReactorMk2 => Ability.ReactorMk2,
         _ => null,
     };

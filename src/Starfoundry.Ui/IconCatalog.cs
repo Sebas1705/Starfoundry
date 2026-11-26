@@ -52,6 +52,7 @@ public static class IconCatalog
         Add("module:drone_bay", "drone", 0); Add("module:shield", "shield", 0); Add("module:sensor", "dish", 0); Add("module:reactor_mk2", "reactor2", 0);
         Add("module:dock", "dock", 0);
         Add("module:mining_laser", "laser", 0); Add("module:mining_laser_mk2", "laser2", 0); Add("module:gun", "gun", 0); Add("module:gun_mk2", "gun2", 0); Add("module:shipyard", "shipyard", 0);
+        Add("module:sensor_short", "antennaShort", 0); Add("module:sensor_long", "antennaLong", 0); Add("module:comms_antenna", "comms", 0); Add("module:gun_heavy", "gunHeavy", 0);
 
         // Machines. The ports take the colour of the ore they unload, so the five of them tell apart at a glance.
         Add("machine:core:extractor", "laser", 0); Add("machine:core:drill", "drill", 0); Add("machine:core:smelter", "furnace", 0);

@@ -32,6 +32,7 @@ public static partial class Loc
         // nav page
         ["cp.nav.targets"] = ("OBJETIVOS", "TARGETS"),
         ["cp.nav.none"] = ("Nada a la vista. K escanea.", "Nothing in range. K scans."),
+        ["cp.nav.noneReach"] = ("Nada a la vista (alcance {0} celdas). K escanea.", "Nothing in range ({0} cells). K scans."),
         ["cp.nav.auto"] = ("PILOTO AUTO", "AUTOPILOT"),
         ["cp.nav.autoOn"] = ("PILOTO AUTO: EN CURSO", "AUTOPILOT: ENGAGED"),
         ["cp.nav.dockAssist"] = ("APROXIMACIÓN", "DOCK ASSIST"),

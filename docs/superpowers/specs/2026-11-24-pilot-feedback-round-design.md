@@ -36,6 +36,8 @@ Implementation note (2026-11-24, branch `feature/nav-screen-turn-inertia`): sect
 - Acceptance: a design saved and reloaded gives the same module list (test); every shipped preset passes `CheckDesign`; legacy saves load; es and en strings; `--designer-shot` covers the new panels.
 
 ### E2 Antenna (sensor) types
+**Status (2026-11-26, ADR 0042):** done in the simulation, content, models, palette, icons and tests: `sensor_short`, `sensor_long`, `comms_antenna` (and the heavy cannon `gun_heavy`), stacking with diminishing returns, scanner and navigation reach from fitted antennas. The wide-against-narrow scan is range only (no scan direction yet).
+
 - Sensor kind gets variants: short-range wide scan, long-range narrow scan, and a comms antenna that extends the nav display (shows more systems, ports and gates on the map). Each has a model (mast and dish shapes, so they read from outside), power use and research gate.
 - Antenna shape and number show on the hull; several antennas stack their effect with diminishing returns (proposal: second gives 50 percent).
 - Acceptance: scanner range comes from the fitted antennas (content-driven), the nav display lists what the best antenna can see, the ship ends with at least one antenna model per variant, tests for stacking.

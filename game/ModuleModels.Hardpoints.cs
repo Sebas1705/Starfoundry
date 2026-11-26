@@ -28,6 +28,7 @@ public static partial class ModuleModels
         ModuleKind.MiningLaserMk2 => LaserCyan,
         ModuleKind.Gun => GunRed,
         ModuleKind.GunMk2 => new Color(1f, 0.30f, 0.45f),
+        ModuleKind.GunHeavy => new Color(1f, 0.18f, 0.12f),
         ModuleKind.Shipyard => YardOrange,
         _ => new Color(0.58f, 0.64f, 0.76f),
     };
@@ -43,6 +44,7 @@ public static partial class ModuleModels
             case ModuleKind.MiningLaserMk2: MiningLaserModel(c, mk2: true); break;
             case ModuleKind.Gun: GunModel(c, mk2: false); break;
             case ModuleKind.GunMk2: GunModel(c, mk2: true); break;
+            case ModuleKind.GunHeavy: GunModel(c, mk2: false, heavy: true); break;
             default: ShipyardModel(c); break;
         }
     }
@@ -87,15 +89,15 @@ public static partial class ModuleModels
         });
     }
 
-    private static void GunModel(Cx c, bool mk2)
+    private static void GunModel(Cx c, bool mk2, bool heavy = false)
     {
-        const float roof = HullProfile.GunRoof;
+        float roof = HullProfile.RoofOf(c.Kind, c.Ship);
         Skin(c, roof, nose: false, tail: false, detail: true, collars: false);
         Frame(c, roof);
         var spots = mk2 ? new[] { new Vector3(2.5f, roof, 4f), new Vector3(5.5f, roof, 4f) } : new[] { new Vector3(4f, roof, 4f) };
-        for (int i = 0; i < spots.Length; i++) Turret(c, i, spots[i]);
-        if (mk2)
-            Models.Add(c.R, "GunTrim", $"{c.K}.gun.trim", Models.Glow(new Color(1f, 0.3f, 0.45f), 1.8f), mb =>
+        for (int i = 0; i < spots.Length; i++) Turret(c, i, spots[i], heavy);
+        if (mk2 || heavy)
+            Models.Add(c.R, "GunTrim", $"{c.K}.gun.trim", Models.Glow(heavy ? new Color(1f, 0.18f, 0.12f) : new Color(1f, 0.3f, 0.45f), 1.8f), mb =>
             {
                 mb.At(default);
                 foreach (float s in new[] { 1.0f, W - 1.0f })
