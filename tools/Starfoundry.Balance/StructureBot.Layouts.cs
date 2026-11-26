@@ -505,17 +505,19 @@ public sealed partial class StructureBot
     /// </summary>
     private bool StarterFactory(int st, int ox, int oy, int oz)
     {
+        // The ingot line first (the cheapest thing that takes over from the workbench), then the plate assembler.
         int port = PlaceMachine(st, ox, oy, oz, "core:ore_unloader");
         int smelter = PlaceMachine(st, ox + 3, oy, oz, "core:smelter", "core:smelt_iron");
         int depot = PlaceMachine(st, ox + 7, oy, oz + 1, "core:depot");
-        int asm = PlaceMachine(st, ox + 3, oy, oz + 2, "core:assembler", "core:iron_plate");
-        if (port < 0 || smelter < 0 || depot < 0 || asm < 0) return false;
+        if (port < 0 || smelter < 0 || depot < 0) return false;
         _ingotSmelters.Add(smelter);
-        _starterAssembler = asm;
         _starterDepot = depot;
-        return Link(st, port, ox + 1, oy, oz, Dir.PosX, 2, smelter) >= 0
-            && Link(st, smelter, ox + 4, oy, oz, Dir.PosX, 4, depot) >= 0
-            && Link(st, smelter, ox + 3, oy, oz + 1, Dir.PosZ, 1, asm) >= 0
+        if (Link(st, port, ox + 1, oy, oz, Dir.PosX, 2, smelter) < 0 || Link(st, smelter, ox + 4, oy, oz, Dir.PosX, 4, depot) < 0) return false;
+        WaitUntil(() => Net.DepotDelivered > 0, 120);
+        int asm = PlaceMachine(st, ox + 3, oy, oz + 2, "core:assembler", "core:iron_plate");
+        if (asm < 0) return false;
+        _starterAssembler = asm;
+        return Link(st, smelter, ox + 3, oy, oz + 1, Dir.PosZ, 1, asm) >= 0
             && Link(st, asm, ox + 4, oy, oz + 2, Dir.PosX, 4, depot) >= 0;
     }
 

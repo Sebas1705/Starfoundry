@@ -35,8 +35,8 @@ public sealed partial class StructureBot
         {
             case "01_first_light":
                 MineIron();
-                FabricationBayOnly();
                 FoundStation();
+                FabricationBayOnly();
                 break;
             case "02_cold_fuel":
                 PlayColdFuel();
@@ -71,11 +71,11 @@ public sealed partial class StructureBot
 
     // ---- 01 first light: the optional fabrication bay ----------------------------------------------------
 
-    /// <summary>The optional goal of level 01: a fabrication bay beside the hull, paid from the workbench's ingots and plates (no factory in it).</summary>
+    /// <summary>The optional goal of level 01: a fabrication bay in the station, paid from the workbench's ingots and plates (no factory in it).</summary>
     private void FabricationBayOnly()
     {
-        Goal("1b a fabrication bay beside the hull (optional goal)");
-        PlaceModule(_ship, F1.X, F1.Y, F1.Z, ModuleKind.Workshop);
+        Goal("1b a fabrication bay in the station (optional goal)");
+        if (_station >= 0) PlaceModule(_station, S1.X, S1.Y, S1.Z, ModuleKind.Workshop);
     }
 
     // ---- docking helpers (levels 02 and 06) ---------------------------------------------------------------

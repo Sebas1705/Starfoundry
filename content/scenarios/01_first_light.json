@@ -4,10 +4,10 @@
   "order": 1,
   "name_es": "Primera luz",
   "name_en": "First Light",
-  "description_es": "Mina mineral a mano, fabrica placas y funda una estación. Sin amenazas.",
-  "description_en": "Mine ore by hand, make plates and found a station. No threats.",
-  "briefing_es": "Sistemas en marcha. Soy ORCA, la inteligencia de a bordo. La bodega está casi vacía; el yacimiento de hierro de al lado, no. Mina a mano, pulsa F para que el banco de trabajo lo convierta en lingotes y placas, y funda una estación para tener dónde plantarnos. Una bahía de fabricación es opcional aquí, pero es donde empieza una fábrica de verdad.",
-  "briefing_en": "Ship systems are up. I am ORCA, your onboard intelligence. The hold is nearly empty; the iron deposit next door is not. Mine by hand, press F so the workbench turns it into ingots and plates, then found a station so we have somewhere to stand. A fabrication bay is optional here, but it is where a real factory starts.",
+  "description_es": "Mina mineral a mano, fabrica placas en el banco de trabajo y funda una estación. Sin amenazas.",
+  "description_en": "Mine ore by hand, make plates at the workbench and found a station. No threats.",
+  "briefing_es": "Sistemas en marcha. Soy ORCA, la inteligencia de a bordo. La bodega está casi vacía; el yacimiento de hierro de al lado, no. Mina a mano, pulsa F en el banco de trabajo y pon en cola lingotes y placas (ocho segundos cada uno: es lento a propósito), y funda una estación. La nave no lleva fábrica: la automatización se construye en la estación. Una bahía de fabricación es opcional aquí, pero es donde empieza una fábrica de verdad.",
+  "briefing_en": "Ship systems are up. I am ORCA, your onboard intelligence. The hold is nearly empty; the iron deposit next door is not. Mine by hand, press F at the workbench and queue ingots and plates (eight seconds each: slow on purpose), then found a station. The ship carries no factory: automation is built in the station. A fabrication bay is optional here, but it is where a real factory starts.",
   "rules": { "preset": "relaxed", "threats_enabled": false },
   "start": { "seed": 20261121 },
   "goals": {
@@ -23,7 +23,7 @@
       { "id": "quick_station", "type": "found_stations", "count": 1, "time_limit_seconds": 480,
         "text_es": "Funda la estación en menos de 8 minutos", "text_en": "Found the station in under 8 minutes" },
       { "id": "fab_bay", "type": "build_module", "kind": "workshop", "count": 1,
-        "text_es": "Construye una bahía de fabricación junto al casco", "text_en": "Build a fabrication bay beside the hull" }
+        "text_es": "Construye una bahía de fabricación en tu estación", "text_en": "Build a fabrication bay in your station" }
     ]
   },
   "story": [
@@ -31,14 +31,14 @@
       "text_es": "Buenos días. Cabina sellada, motores calientes y nada hostil en el radar. Vuela al yacimiento de hierro y empieza a minar: mantén la tecla de minar cerca de él.",
       "text_en": "Good morning. Cockpit sealed, engines warm, nothing hostile on the scope. Fly to the iron deposit and start mining: hold the mine key near it." },
     { "trigger": "goal:mine_iron",
-      "text_es": "Ahí van 60 de mineral. Pulsa F: el banco de trabajo lo funde en lingotes y, pulsando otra vez, los prensa en placas. Despacio, pero solo.",
-      "text_en": "That is 60 ore. Press F: the workbench smelts it into ingots and, pressed again, turns them into plates. Slowly, but by itself." },
+      "text_es": "Ahí van 60 de mineral. Pulsa F en el banco de trabajo: pon en cola la fundición de lingotes y, después, el prensado en placas. Ocho segundos por pieza, de una en una: despacio, pero sin que lo vigiles.",
+      "text_en": "That is 60 ore. Press F at the workbench: queue the smelting into ingots and then the pressing into plates. Eight seconds a piece, one at a time: slow, but it needs no watching." },
     { "trigger": "goal:make_plates",
-      "text_es": "Placas en la bodega. Un núcleo de estación cuesta unas cuantas. Elige un sitio dentro del alcance de construcción y fúndala.",
-      "text_en": "Plates in the hold. A station core costs a few of them. Pick a spot within build range and found it." },
+      "text_es": "Placas en la bodega. Un núcleo de estación cuesta unas cuantas (y lingotes). Elige un sitio dentro del alcance de construcción y fúndala: a bordo no se construye automatización.",
+      "text_en": "Plates in the hold. A station core costs a few of them (and ingots). Pick a spot within build range and found it: no automation is built aboard." },
     { "trigger": "goal:fab_bay",
-      "text_es": "Bahía de fabricación en el casco. Sobre su suelo irán el puerto de mineral, el horno y el ensamblador: la fábrica de verdad.",
-      "text_en": "A fabrication bay on the hull. Its floor will take the ore port, the smelter and the assembler: the real factory." },
+      "text_es": "Bahía de fabricación en la estación. Sobre su suelo, y el del núcleo, irán el puerto de mineral, el horno y el ensamblador: la fábrica de verdad.",
+      "text_en": "A fabrication bay in the station. Its floor, and the core floor, will take the ore port, the smelter and the assembler: the real factory." },
     { "trigger": "win",
       "text_es": "Estación fundada. No es gran cosa, pero es nuestra. Buen trabajo.",
       "text_en": "Station founded. It is not much, but it is ours. Well done." }
