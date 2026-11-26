@@ -41,7 +41,7 @@ public class BuildCatalogTests
     [Fact]
     public void EveryModuleKindAppearsInStructureWorlds()
     {
-        var entries = BuildCatalog.Entries(C, structures: true, stationRules: false);
+        var entries = BuildCatalog.Entries(TestContent.CoreFloor, structures: true, stationRules: false);
         foreach (var kind in Enum.GetValues<ModuleKind>().Where(k => !ModuleKindIds.IsHardpoint(k))) // hardpoints are fitted in the ship designer (ADR 0032)
             Assert.True(entries.Any(e => e.Module == kind), $"{kind} is not in the build menu");
         Assert.All(entries.Where(e => e.Module is not null), e => Assert.Equal(BuildCategory.Structure, e.Category));

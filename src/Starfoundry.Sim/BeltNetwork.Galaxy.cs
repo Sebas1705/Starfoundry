@@ -84,7 +84,7 @@ public sealed partial class BeltNetwork
         if (p.ScanCooldown > 0) throw new InvalidOperationException("The scanner is recharging.");
         p.ScanCooldown = ExplorationRules.ScanCooldownTicks;
 
-        long range = (long)(Galaxy?.Wide == true ? ExplorationRules.WideScanRangeCells : ExplorationRules.ScanRangeCells) * Units.CellUnits;
+        long range = ScanRangeCells(player) * Units.CellUnits;
         var revealed = new List<int>();
         foreach (var d in _deposits)
         {

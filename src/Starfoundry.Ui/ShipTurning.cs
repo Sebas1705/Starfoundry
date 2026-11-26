@@ -76,7 +76,7 @@ public sealed class ShipHandling
         {
             ["core"] = 3f, ["cockpit"] = 1f, ["engine"] = 1.2f, ["reactor"] = 1.3f, ["cargo"] = 1.4f, ["workshop"] = 1.5f, ["defence"] = 1.5f, ["hull"] = 0.8f,
             ["drone_bay"] = 1f, ["shield"] = 0.8f, ["sensor"] = 0.4f, ["reactor_mk2"] = 1.6f, ["dock"] = 0.8f, ["mining_laser"] = 0.6f, ["mining_laser_mk2"] = 0.8f,
-            ["gun"] = 0.6f, ["gun_mk2"] = 0.8f, ["shipyard"] = 2f,
+            ["gun"] = 0.6f, ["gun_mk2"] = 0.8f, ["shipyard"] = 2f, ["sensor_short"] = 0.3f, ["sensor_long"] = 0.6f, ["comms_antenna"] = 0.5f, ["gun_heavy"] = 1.2f,
         },
     };
 

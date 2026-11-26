@@ -311,12 +311,13 @@ public partial class Gallery : Node3D
                 for (int i = 0; i < a.Length; i++) { parts[(0, 0, i)] = a[i]; parts[(3, 0, i)] = b[i]; }
                 parts[(0, 0, -1)] = ModuleKind.MiningLaserMk2;
                 parts[(0, 1, 1)] = ModuleKind.Gun; parts[(0, 1, 2)] = ModuleKind.Shield; parts[(0, 1, 3)] = ModuleKind.Sensor; parts[(3, 0, -1)] = ModuleKind.Gun;
+                parts[(0, 1, 4)] = ModuleKind.SensorShort; parts[(0, 1, 5)] = ModuleKind.CommsAntenna; parts[(0, 1, 8)] = ModuleKind.SensorLong; parts[(3, 1, 4)] = ModuleKind.GunHeavy;
             }
             else
             {
                 ModuleKind[] spine = { ModuleKind.Cockpit, ModuleKind.Workshop, ModuleKind.Cargo, ModuleKind.Reactor, ModuleKind.Cargo, ModuleKind.DroneBay, ModuleKind.Engine };
                 for (int i = 0; i < spine.Length; i++) { parts[(0, 0, i)] = spine[i]; if (i is >= 1 and <= 5) { parts[(-1, 0, i)] = ModuleKind.Cargo; parts[(1, 0, i)] = i == 3 ? ModuleKind.ReactorMk2 : ModuleKind.Hull; } }
-                parts[(0, 0, -1)] = ModuleKind.MiningLaser; parts[(0, 1, 0)] = ModuleKind.Gun; parts[(0, 1, 2)] = ModuleKind.Sensor; parts[(0, 1, 4)] = ModuleKind.Shield; parts[(0, 1, 6)] = ModuleKind.Hull; parts[(-1, 0, 6)] = ModuleKind.Engine; parts[(1, 0, 6)] = ModuleKind.Engine;
+                parts[(0, 0, -1)] = ModuleKind.MiningLaser; parts[(0, 1, 0)] = ModuleKind.Gun; parts[(0, 1, 2)] = ModuleKind.Sensor; parts[(0, 1, 4)] = ModuleKind.Shield; parts[(0, 1, 6)] = ModuleKind.Hull; parts[(-1, 1, 2)] = ModuleKind.SensorShort; parts[(1, 1, 3)] = ModuleKind.CommsAntenna; parts[(1, 1, 5)] = ModuleKind.SensorLong; parts[(-1, 1, 4)] = ModuleKind.GunHeavy; parts[(-1, 0, 6)] = ModuleKind.Engine; parts[(1, 0, 6)] = ModuleKind.Engine;
             }
             ModuleKind? KindAt(int x, int y, int z) => parts.TryGetValue((x, y, z), out var kind) ? kind : null;
             foreach (var ((x, y, z), k) in parts) Put(k, true, new Vector3(x * 8f, y * 4f, z * 8f), null, ModuleModels.NeighbourMask(KindAt, x, y, z));

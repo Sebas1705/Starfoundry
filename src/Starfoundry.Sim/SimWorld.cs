@@ -994,6 +994,7 @@ public sealed partial class SimWorld
         if (found != Reject.None) return found;
         if (!Enum.IsDefined(p.Kind)) return Reject.InvalidArgument;
         if (!kinds.IsDefined(p.Kind)) return Reject.KindNotAllowed;
+        if (Network.Rules.LegacyArms && ModuleKindIds.IsArmsKind(p.Kind)) return Reject.KindNotAllowed; // ADR 0042: a world from before the antenna variants and the heavy cannon has no such kinds
         if (!StructureGrid.IsValidLocalModule(p.Mx, p.My, p.Mz)) return Reject.OutOfBounds;
         if (ModuleKindIds.RequiredAbility(p.Kind) is { } needed && Campaign && !Network.HasAbility(needed)) return Reject.Locked;
         if (s!.Modules.ContainsKey((p.Mx, p.My, p.Mz))) return Reject.Overlap;

@@ -113,7 +113,7 @@ public sealed partial class BeltNetwork
             if (dx * dx + dy * dy + dz * dz <= range * range) percent += g.Percent;
         }
         target.Hp -= Math.Max(1, (int)((long)ShipWeaponDamage * percent / 100));
-        p.WeaponCooldown = rules.ShipWeaponIntervalTicks;
+        p.WeaponCooldown = VolleyInterval(guns, rules.ShipWeaponIntervalTicks);
         _shots.Add(new ShotEvent(ShotKind.Ship, (int)from.X, (int)from.Y, (int)from.Z, target.X, target.Y, target.Z));
     }
 

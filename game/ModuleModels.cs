@@ -104,9 +104,12 @@ public static partial class ModuleModels
         ModuleKind.DroneBay => new Color(0.80f, 0.45f, 0.95f),
         ModuleKind.Shield => new Color(0.30f, 0.60f, 1f),
         ModuleKind.Sensor => new Color(0.20f, 0.85f, 0.78f),
+        ModuleKind.SensorShort => new Color(0.45f, 0.95f, 0.55f),
+        ModuleKind.SensorLong => new Color(0.30f, 0.60f, 1f),
+        ModuleKind.CommsAntenna => new Color(1f, 0.70f, 0.25f),
         ModuleKind.Core => new Color(1f, 0.78f, 0.30f),
         ModuleKind.Dock => new Color(0.20f, 0.90f, 0.80f),
-        ModuleKind.MiningLaser or ModuleKind.MiningLaserMk2 or ModuleKind.Gun or ModuleKind.GunMk2 or ModuleKind.Shipyard => HardpointColour(kind),
+        ModuleKind.MiningLaser or ModuleKind.MiningLaserMk2 or ModuleKind.Gun or ModuleKind.GunMk2 or ModuleKind.GunHeavy or ModuleKind.Shipyard => HardpointColour(kind),
         _ => new Color(0.58f, 0.64f, 0.76f),
     };
 
@@ -135,9 +138,10 @@ public static partial class ModuleModels
             case ModuleKind.DroneBay: DroneBay(c); break;
             case ModuleKind.Shield: Shield(c); break;
             case ModuleKind.Sensor: Sensor(c); break;
+            case ModuleKind.SensorShort or ModuleKind.SensorLong or ModuleKind.CommsAntenna: AntennaModel(c); break; // ModuleModels.Antennas.cs
             case ModuleKind.ReactorMk2: ReactorMk2(c); break;
             case ModuleKind.Dock: DockModule(c); break;
-            case ModuleKind.MiningLaser or ModuleKind.MiningLaserMk2 or ModuleKind.Gun or ModuleKind.GunMk2 or ModuleKind.Shipyard: HardpointOrYard(c); break; // ModuleModels.Hardpoints.cs
+            case ModuleKind.MiningLaser or ModuleKind.MiningLaserMk2 or ModuleKind.Gun or ModuleKind.GunMk2 or ModuleKind.GunHeavy or ModuleKind.Shipyard: HardpointOrYard(c); break; // ModuleModels.Hardpoints.cs
             default: HullModule(c); break;
         }
         Joints(c);
@@ -307,7 +311,7 @@ public static partial class ModuleModels
                 mb.C(DeckCol).Prism(new(4, 0.09f, 4), 1.9f, 1.9f, 0.02f, 8, 22.5f);
                 break;
             case ModuleKind.Shield:
-            case ModuleKind.Sensor:
+            case ModuleKind.Sensor or ModuleKind.SensorShort or ModuleKind.SensorLong or ModuleKind.CommsAntenna:
                 mb.C(role).Prism(new(4, 0.072f, 4), 2.6f, 2.6f, 0.02f, 20);
                 mb.C(DeckCol).Prism(new(4, 0.075f, 4), 2.45f, 2.45f, 0.02f, 20);
                 break;
@@ -1056,6 +1060,7 @@ public static partial class ModuleModels
         float roof = c.Kind switch
         {
             ModuleKind.Shield => HullProfile.ShieldRoof, ModuleKind.Sensor => HullProfile.SensorRoof,
+            ModuleKind.SensorShort or ModuleKind.SensorLong or ModuleKind.CommsAntenna => HullProfile.RoofOf(c.Kind, c.Ship),
             _ => Roof,
         };
         bool windowed = c.Kind is ModuleKind.Core or ModuleKind.Engine; // the others have real viewports
@@ -1723,13 +1728,13 @@ public static partial class ModuleModels
         for (int i = 0; i < spots.Length; i++) Turret(c, i, spots[i]);
     }
 
-    private static void Turret(Cx c, int n, Vector3 pos)
+    private static void Turret(Cx c, int n, Vector3 pos, bool heavy = false)
     {
         var t = new Node3D { Name = $"Turret{n}", Position = pos };
         c.R.AddChild(t);
         Models.Add(t, "Mount", $"{c.K}.mount", ModuleHull(), mb =>
         {
-            mb.At(default).C(Dark).Prism(new(0, 0.07f, 0), 0.95f, 0.95f, 0.2f, 8);
+            mb.At(default).C(Dark).Prism(new(0, 0.07f, 0), heavy ? 1.35f : 0.95f, heavy ? 1.35f : 0.95f, 0.2f, 8);
             mb.C(Steel).Prism(new(0, 0.27f, 0), 0.8f, 0.55f, 0.35f, 8);
             mb.C(c.Acc).Prism(new(0, 0.26f, 0), 0.82f, 0.82f, 0.03f, 8);
         });
@@ -1745,6 +1750,16 @@ public static partial class ModuleModels
         Models.Add(barrel, "BarrelMesh", $"{c.K}.barrel", Models.Burnt(), mb =>
         {
             mb.At(default).C(Dark);
+            if (heavy)
+            {
+                // one fat barrel in a recoil shroud, a muzzle brake with a lit slit, and two cooling collars: every piece overlaps the one before it
+                mb.Block(new(1.3f, 0, 0), new(2.6f, 0.3f, 0.3f));
+                mb.C(Steel).Block(new(0.75f, 0, 0), new(1.5f, 0.5f, 0.5f));
+                mb.C(c.Acc).Block(new(1.15f, 0, 0), new(0.14f, 0.56f, 0.56f));
+                mb.C(Steel).Block(new(2.55f, 0, 0), new(0.5f, 0.42f, 0.42f));
+                mb.C(Dark).Block(new(1.8f, 0, 0), new(0.12f, 0.4f, 0.4f));
+                return;
+            }
             foreach (float z in new[] { -0.17f, 0.17f })
             {
                 mb.Block(new(0.8f, 0, z), new(1.6f, 0.15f, 0.15f));
@@ -1752,9 +1767,10 @@ public static partial class ModuleModels
                 mb.C(Dark);
             }
         });
-        Models.Add(barrel, "GlowMuzzle", "mod.muzzle", Models.GlowPlain(new Color(1f, 0.5f, 0.15f), 2f), mb =>
+        Models.Add(barrel, "GlowMuzzle", heavy ? "mod.muzzle.heavy" : "mod.muzzle", Models.GlowPlain(new Color(1f, 0.5f, 0.15f), 2f), mb =>
         {
             mb.At(default);
+            if (heavy) { mb.Block(new(2.56f, 0, 0), new(0.06f, 0.1f, 0.44f)); return; }
             foreach (float z in new[] { -0.17f, 0.17f }) mb.Block(new(1.75f, 0, z), new(0.04f, 0.1f, 0.1f));
         });
     }

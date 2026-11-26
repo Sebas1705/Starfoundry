@@ -76,7 +76,8 @@ public partial class ShipDesigner : Control
         ModuleKind.Cockpit => "CK", ModuleKind.Engine => "EN", ModuleKind.Reactor => "RE", ModuleKind.ReactorMk2 => "R2", ModuleKind.Cargo => "CG",
         ModuleKind.Workshop => "WK", ModuleKind.Defence => "DF", ModuleKind.Hull => "HL", ModuleKind.DroneBay => "DB", ModuleKind.Shield => "SH",
         ModuleKind.Sensor => "SN", ModuleKind.Dock => "DK", ModuleKind.MiningLaser => "ML", ModuleKind.MiningLaserMk2 => "L2", ModuleKind.Gun => "GN",
-        ModuleKind.GunMk2 => "G2", ModuleKind.Core => "CO", ModuleKind.Shipyard => "SY", _ => "??",
+        ModuleKind.GunMk2 => "G2", ModuleKind.Core => "CO", ModuleKind.Shipyard => "SY",
+        ModuleKind.SensorShort => "S1", ModuleKind.SensorLong => "S2", ModuleKind.CommsAntenna => "CM", ModuleKind.GunHeavy => "GH", _ => "??",
     };
 
     private PanelContainer? _frame;

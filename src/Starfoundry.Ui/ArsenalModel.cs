@@ -6,7 +6,7 @@ public enum ArsenalKind { Laser, Gun }
 /// <summary>What a slot of the arsenal is doing (the first one that applies wins, in the order of <see cref="ArsenalModel.StateOf"/>).</summary>
 public enum SlotState { Ready, Firing, Cooling, Blocked, LowPower, NoPower, Dry }
 
-/// <summary>One kind of weapon module the ship has fitted: <paramref name="Mark"/> is 1 or 2, <paramref name="Count"/> how many of them.</summary>
+/// <summary>One kind of weapon module the ship has fitted: <paramref name="Mark"/> is 1 or 2 (3 for the heavy cannon), <paramref name="Count"/> how many of them.</summary>
 public readonly record struct FittedWeapon(ArsenalKind Kind, int Mark, int Count);
 
 /// <summary>One slot of the arsenal: a weapon kind and mark, with the number of modules that share it.</summary>
@@ -16,10 +16,10 @@ public readonly record struct ArsenalSlot(ArsenalKind Kind, int Mark, int Count)
     public WeaponGroup Group => Kind == ArsenalKind.Laser ? WeaponGroup.Laser : WeaponGroup.Guns;
 
     /// <summary>The icon id of <see cref="IconCatalog"/>.</summary>
-    public string Icon => Kind == ArsenalKind.Laser ? (Mark >= 2 ? "module:mining_laser_mk2" : "module:mining_laser") : (Mark >= 2 ? "module:gun_mk2" : "module:gun");
+    public string Icon => Kind == ArsenalKind.Laser ? (Mark >= 2 ? "module:mining_laser_mk2" : "module:mining_laser") : (Mark >= 3 ? "module:gun_heavy" : Mark >= 2 ? "module:gun_mk2" : "module:gun");
 
     /// <summary>The Loc key of the name ("Mining laser Mk2").</summary>
-    public string NameKey => "arsenal.name." + (Kind == ArsenalKind.Laser ? "laser" : "gun") + (Mark >= 2 ? "2" : "1");
+    public string NameKey => "arsenal.name." + (Kind == ArsenalKind.Laser ? "laser" : "gun") + (Mark >= 3 && Kind == ArsenalKind.Gun ? "3" : Mark >= 2 ? "2" : "1");
 }
 
 /// <summary>What the client knows about a weapon kind right now. The simulation does not expose a gun cooldown, so <see cref="Cooldown"/> stays 0 unless a caller has one.</summary>
@@ -68,7 +68,7 @@ public sealed class ArsenalModel
         foreach (var w in weapons)
         {
             if (w.Count <= 0) continue;
-            var key = (w.Kind, w.Mark >= 2 ? 2 : 1);
+            var key = (w.Kind, w.Kind == ArsenalKind.Gun && w.Mark >= 3 ? 3 : w.Mark >= 2 ? 2 : 1);
             merged[key] = merged.GetValueOrDefault(key) + w.Count;
         }
         var next = merged.OrderBy(p => p.Key.Item1).ThenBy(p => p.Key.Item2).Take(MaxSlots).Select(p => new ArsenalSlot(p.Key.Item1, p.Key.Item2, p.Value)).ToList();

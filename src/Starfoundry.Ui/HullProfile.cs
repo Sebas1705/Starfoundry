@@ -33,7 +33,7 @@ public static class HullProfile
 
     /// <summary>True for the kinds that hang on the outside of a ship (see <see cref="PodFront"/>): the hardpoints, the shield and the sensor.</summary>
     public static bool IsPod(ModuleKind kind) =>
-        ModuleKindIds.IsHardpoint(kind) || kind is ModuleKind.Shield or ModuleKind.Sensor;
+        ModuleKindIds.IsHardpoint(kind) || ModuleKindIds.IsAntenna(kind) || kind == ModuleKind.Shield;
 
     /// <summary>
     /// The neighbour mask of the module at (mx, my, mz) given the kind (or null) of the module at any coordinate: the six neighbour bits plus
@@ -139,7 +139,7 @@ public static class HullProfile
     public const float MaxChamfer = 1.0f, ChamferShare = 0.3f;
 
     /// <summary>The top of a full-height shell, the lower roof of a shell that carries something on its roof, and the roofs of the small modules.</summary>
-    public const float Roof = 3.88f, LowRoof = 3.0f, ShieldRoof = 1.2f, SensorRoof = 2.2f, MiningRoof = 1.5f, GunRoof = 1.2f, ShipyardRoof = 3.2f;
+    public const float Roof = 3.88f, LowRoof = 3.0f, ShieldRoof = 1.2f, SensorRoof = 2.2f, SensorShortRoof = 1.6f, SensorLongRoof = 2.8f, CommsRoof = 2.4f, HeavyRoof = 1.6f, MiningRoof = 1.5f, GunRoof = 1.2f, ShipyardRoof = 3.2f;
 
     /// <summary>The nose of a ship cockpit runs from a tip of scale <see cref="NoseTipScale"/> at z = <see cref="NoseStart"/> to the full section at <see cref="NoseEnd"/>.</summary>
     public const float NoseStart = 0.05f, NoseEnd = 2.3f, NoseTipScale = 0.28f;
@@ -165,7 +165,7 @@ public static class HullProfile
     public static readonly (float X0, float X1, float Z0, float Z1)[] SkylightPanes = { (1.0f, 2.9f, 0.9f, 7.1f), (5.1f, 7.0f, 0.9f, 7.1f) };
 
     /// <summary>True for the kinds that stand on top of a ship and carry a glass roof of their own: a skylight in their floor lets the module below see out.</summary>
-    public static bool SkylightKinds(ModuleKind kind) => kind is ModuleKind.Gun or ModuleKind.GunMk2;
+    public static bool SkylightKinds(ModuleKind kind) => kind is ModuleKind.Gun or ModuleKind.GunMk2 or ModuleKind.GunHeavy;
 
     /// <summary>A ship module of <paramref name="kind"/> with a module below it (<paramref name="mask"/>) has skylight panes in its floor.</summary>
     public static bool HasSkylight(ModuleKind kind, bool ship, int mask) => ship && SkylightKinds(kind) && (mask & Down) != 0;
@@ -337,6 +337,10 @@ public static class HullProfile
     {
         ModuleKind.Shield => ShieldRoof,
         ModuleKind.Sensor => SensorRoof,
+        ModuleKind.SensorShort => SensorShortRoof,
+        ModuleKind.SensorLong => SensorLongRoof,
+        ModuleKind.CommsAntenna => CommsRoof,
+        ModuleKind.GunHeavy => HeavyRoof,
         ModuleKind.MiningLaser or ModuleKind.MiningLaserMk2 => MiningRoof,
         ModuleKind.Gun or ModuleKind.GunMk2 => GunRoof,
         _ => Roof,
