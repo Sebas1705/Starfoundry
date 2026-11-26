@@ -209,6 +209,44 @@ public partial class Play
                 Shot("section");
                 s.Camera.SetOrbit();
                 Shot("done");
+                _bpWait = 0; _bpPhase = 20; // on to the station shots
+                CloseBlueprint();
+                _wantCapture = false;
+                OpenBlueprint(_bpStation);
+                break;
+            case 20: // station, 3D plan then top-down (shot mode only; needs a window, the headless renderer draws nothing)
+                if (Wait(25)) break;
+                Shot("station.orbit");
+                ed.SetView(PlanView.Top);
+                break;
+            case 21:
+                if (Wait(20)) break;
+                Shot("station.top");
+                ed.SetView(PlanView.Orbit);
+                if (s.Draft.Modules.FirstOrDefault(kv => kv.Value == ModuleKind.Core) is { Value: ModuleKind.Core } core && ed.OpenFloor(core.Key))
+                {
+                    var c = core.Key;
+                    s.PickPlanMachine(_content.MachineIndex("core:smelter")); ed.FloorClick(FloorCell(c.Mx, c.Mz, 3, 3));
+                    s.PickPlanMachine(_content.MachineIndex("core:depot")); ed.FloorClick(FloorCell(c.Mx, c.Mz, 6, 3));
+                    s.SetPlanTier(BeltTier.Mk1); ed.FloorDrag(FloorCell(c.Mx, c.Mz, 4, 3), FloorCell(c.Mx, c.Mz, 5, 3));
+                }
+                break;
+            case 22:
+                if (Wait(20)) break;
+                Shot("floor");
+                ed.CloseFloor();
+                ed.RunAction("bpWalk", 0);
+                break;
+            case 23:
+                if (Wait(25)) break;
+                Shot("walk");
+                ed.Cancel();
+                ed.Store = new MemoryBlueprintStore();
+                ed.OpenDesigns();
+                break;
+            case 24:
+                if (Wait(15)) break;
+                Shot("designs");
                 GetTree().Quit();
                 break;
             case 7: // station blueprint (ADR 0043): the same editor on the station's modules
@@ -234,6 +272,14 @@ public partial class Play
             case 12:
                 if (_blueprintAwait || Net.Tick < _bpTick + 3) break;
                 BlueprintCheckFloorApplied();
+                break;
+            case 13: // saved designs and the walkthrough (phase 5)
+                if (Wait(4)) break;
+                BlueprintCheckDesigns();
+                break;
+            case 14:
+                if (Wait(4)) break;
+                BlueprintCheckWalkFrame();
                 break;
         }
     }
@@ -530,6 +576,93 @@ public partial class Play
         Check("floor: placing a machine in the world is refused", Net.InteriorBlueprintRules);
         ed.CloseFloor();
         Check("floor: back to the 3D plan", !ed.FloorOpenNow);
+        _bpWait = 0; _bpPhase = 13;
+    }
+
+    // ---- the saved designs and the walkthrough section of --blueprint-check (phase 5) ---------------------------------------
+
+    private void BlueprintCheckDesigns()
+    {
+        var ed = _blueprint!;
+        var s = ed.Session;
+        ed.Store = new MemoryBlueprintStore(); // never the user's own files
+        var lib = new BlueprintLibrary(ed.Store, _content);
+        ed.OpenDesigns();
+        Check("designs: the list opens", ed.DesignsOpen);
+        foreach (var n in new[] { "DesignsPanel", "DesignList", "DesignName", "DesignVariant", "DesignSave", "DesignLoad", "DesignRename", "DesignDuplicate", "DesignPreset", "DesignDelete", "DesignClose" })
+            Check("designs: node " + n, ed.FindChild(n, true, false) is Control { } c && c.IsVisibleInTree());
+        var original = Loc.Lang;
+        foreach (var lang in new[] { Language.Es, Language.En })
+        {
+            Loc.Lang = lang;
+            foreach (var size in new[] { new Vector2(1280, 720), new Vector2(1920, 1080), new Vector2(960, 540), new Vector2(1152, 648) })
+            {
+                ed.LayoutProblems(size);
+                var r = ed.FindChild("DesignsPanel", true, false) is Control p ? new Rect2(p.Position, p.Size) : default;
+                Check($"designs: panel fits {lang} {size.X}x{size.Y}", r.Position.X >= 0 && r.Position.Y >= 0 && r.End.X <= size.X + 0.5f && r.End.Y <= size.Y + 0.5f && r.Size.X > 300, r.ToString());
+            }
+        }
+        Loc.Lang = original;
+        var name = (LineEdit)ed.FindChild("DesignName", true, false)!;
+        var variant = (LineEdit)ed.FindChild("DesignVariant", true, false)!;
+        int machines = s.Interior.Machines.Count, belts = s.Interior.Belts.Count;
+        ed.SaveDesign();
+        Check("designs: an empty name saves nothing", lib.List("station").Count == 0);
+        name.Text = "Hall";
+        ed.SaveDesign();
+        Check("designs: a design is saved", lib.List("station").Count == 1 && lib.List("station")[0].Parts == machines + belts && machines + belts > 0);
+        ed.SaveDesign();
+        Check("designs: saving the same name needs a second press", lib.List("station").Count == 1);
+        ed.SaveDesign();
+        Check("designs: the second press replaces it", lib.List("station").Count == 1);
+        ((Button)ed.FindChild("Design_0", true, false)!).EmitSignal(BaseButton.SignalName.Pressed);
+        variant.Text = "compact";
+        ed.DuplicateDesign();
+        Check("designs: a variant is a second slot", lib.List("station").Count == 2 && lib.List("station").Any(i => i.Variant == "compact"));
+        // the draft changes, then the design brings it back
+        s.Interior.ClearModule(s.Draft.Modules.First(kv => kv.Value == ModuleKind.Core).Key);
+        Check("designs: the draft was emptied", s.Interior.PartCount < machines + belts);
+        ((Button)ed.FindChild("Design_0", true, false)!).EmitSignal(BaseButton.SignalName.Pressed);
+        ed.LoadDesign();
+        Check("designs: loading restores the parts and closes the list", !ed.DesignsOpen && s.Interior.Machines.Count == machines && s.Interior.Belts.Count == belts);
+        s.Undo();
+        s.Interior.Undo();
+        Check("designs: the load is undoable", s.Interior.PartCount < machines + belts);
+        s.Interior.Redo();
+        ed.QuickSave();
+        Check("designs: the quick save replaces the loaded design without a prompt", lib.List("station").Count == 2);
+        ed.OpenDesigns();
+        ((Button)ed.FindChild("Design_0", true, false)!).EmitSignal(BaseButton.SignalName.Pressed);
+        name.Text = "Foundry";
+        ed.RenameDesign();
+        Check("designs: rename", lib.List("station").Any(i => i.Name == "Foundry"));
+        ed.TogglePreset();
+        Check("designs: preset", lib.List("station").Any(i => i.Preset));
+        int before = lib.List("station").Count;
+        ed.DeleteDesign();
+        Check("designs: delete needs a second press", lib.List("station").Count == before);
+        ed.DeleteDesign();
+        Check("designs: delete", lib.List("station").Count == before - 1);
+        ed.RunAction("cancel", 0);
+        Check("designs: Esc closes the list first", !ed.DesignsOpen);
+
+        // the walkthrough
+        ed.RunAction("bpWalk", 0);
+        Check("walk: the key starts the walkthrough at eye height", s.Camera.View == PlanView.Walk && Math.Abs(s.Camera.Position.Y - (s.Camera.WalkLayer * StationGrid.ModuleY + BodyMotion.EyeHeight)) < 0.01f, s.Camera.Position.ToString());
+        var eye = s.Camera.Position;
+        ed.RunAction("bpNudge", 0);
+        Check("walk: an arrow walks", s.Camera.Position != eye);
+        _bpWait = 0; _bpPhase = 14;
+    }
+
+    private void BlueprintCheckWalkFrame()
+    {
+        var ed = _blueprint!;
+        var s = ed.Session;
+        var cam3 = ed.FindChild("PlanCamera", true, false) as Camera3D;
+        Check("walk: the camera is inside the module with the wide view", cam3 is not null && Math.Abs(cam3.Fov - BlueprintCamera.WalkFov) < 0.01f && Math.Abs(cam3.Position.Y - s.Camera.Position.Y) < 0.01f, cam3 is null ? "no camera" : $"fov={cam3.Fov} y={cam3.Position.Y}");
+        ed.Cancel();
+        Check("walk: Esc leaves it", s.Camera.View == PlanView.Orbit && Math.Abs(s.Camera.FovDegrees - 45f) < 0.01f);
         GD.Print($"BLUEPRINTCHECK done pass={_bpPass} fail={_bpFail}");
         GetTree().Quit(_bpFail > 0 ? 1 : 0);
     }
