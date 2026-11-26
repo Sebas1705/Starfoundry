@@ -320,7 +320,7 @@ public sealed partial class StructureBot
         var g = Net.Galaxy!;
         int best = -1;
         long bestD = long.MaxValue;
-        for (int d = 0; d < Net.DepositCount; d++)
+        for (int d = 0; d < g.Deposits.Count; d++)
         {
             if (Net.DepositItem(d) != item || Net.DepositRemaining(d) <= 0) continue;
             if (revealedOnly && !Net.IsDepositRevealed(d)) continue;

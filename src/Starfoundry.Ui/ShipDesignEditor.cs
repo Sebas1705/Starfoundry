@@ -14,6 +14,8 @@ public enum DesignEditResult
     NoUpgrade,
     SameCell,
     TooManyModules,
+    /// <summary>The module is the ship's last dock module, which a ship cannot do without (ADR 0041).</summary>
+    LastDock,
 }
 
 /// <summary>
@@ -79,11 +81,12 @@ public sealed class ShipDesignEditor
     private static readonly ModuleKind[] Order =
     {
         ModuleKind.Cockpit, ModuleKind.Engine, ModuleKind.Reactor, ModuleKind.ReactorMk2, ModuleKind.Cargo, ModuleKind.Workshop, ModuleKind.Hull,
-        ModuleKind.MiningLaser, ModuleKind.MiningLaserMk2, ModuleKind.Gun, ModuleKind.GunMk2,
-        ModuleKind.Defence, ModuleKind.DroneBay, ModuleKind.Shield, ModuleKind.Sensor, ModuleKind.Dock,
+        ModuleKind.MiningLaser, ModuleKind.MiningLaserMk2, ModuleKind.Gun, ModuleKind.GunMk2, ModuleKind.GunHeavy,
+        ModuleKind.Defence, ModuleKind.DroneBay, ModuleKind.Shield, ModuleKind.Sensor, ModuleKind.SensorShort, ModuleKind.SensorLong, ModuleKind.CommsAntenna, ModuleKind.Dock,
     };
 
-    private static bool Touches(IReadOnlyDictionary<(int Mx, int My, int Mz), ModuleKind> map, (int Mx, int My, int Mz) key)
+    /// <summary>True when a module of the map stands against one of the six faces of the cell.</summary>
+    public static bool Touches(IReadOnlyDictionary<(int Mx, int My, int Mz), ModuleKind> map, (int Mx, int My, int Mz) key)
     {
         foreach (var (dx, dy, dz) in Steps)
             if (map.ContainsKey((key.Mx + dx, key.My + dy, key.Mz + dz))) return true;
@@ -107,8 +110,12 @@ public sealed class ShipDesignEditor
         return DesignEditResult.Ok;
     }
 
+    /// <summary>True (the default) when the layout must keep a dock module (ADR 0041): the last one cannot be removed. False for worlds with <see cref="WorldRules.LegacyDock"/>.</summary>
+    public bool RequireDock { get; set; } = true;
+
     public DesignEditResult Remove((int Mx, int My, int Mz) key)
     {
+        if (RequireDock && _staged.TryGetValue(key, out var kind) && kind == ModuleKind.Dock && _staged.Values.Count(k => k == ModuleKind.Dock) <= 1) return DesignEditResult.LastDock;
         if (!_staged.Remove(key)) return DesignEditResult.Empty;
         return DesignEditResult.Ok;
     }
@@ -160,12 +167,16 @@ public sealed class ShipDesignEditor
     /// percent is capped like the simulation's, then raised by the research bonuses; the time is the content's acceleration time shortened by the acceleration bonus.
     /// Null without engines or when the world has no flight inertia (the time is then 0).
     /// </summary>
-    public (int Engines, double TopCellsPerSecond, double SecondsToTop)? Flight(ContentDb content, int speedBonusPercent, int accelBonusPercent)
+    public (int Engines, double TopCellsPerSecond, double SecondsToTop)? Flight(ContentDb content, int speedBonusPercent, int accelBonusPercent) =>
+        FlightOf(_staged.Values, content, speedBonusPercent, accelBonusPercent);
+
+    /// <summary>The same as <see cref="Flight"/> for any list of module kinds (the blueprint editor's stats use it).</summary>
+    public static (int Engines, double TopCellsPerSecond, double SecondsToTop)? FlightOf(IEnumerable<ModuleKind> modules, ContentDb content, int speedBonusPercent, int accelBonusPercent)
     {
         if (content.Structures is not { } kinds) return null;
         int engines = 0;
         long percent = 0;
-        foreach (var k in _staged.Values)
+        foreach (var k in modules)
             if (k == ModuleKind.Engine) { engines++; percent += kinds.EngineSpeedPercent(k); }
         if (engines == 0) return null;
         bool inertia = content.World is { HasInertia: true };

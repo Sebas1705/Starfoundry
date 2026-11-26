@@ -326,6 +326,12 @@ public enum Reject
     /// <summary>The item does not belong in the slot or container it was moved to (ADR 0035): a reactor takes fuel only, a machine only what it uses, and nothing is put into an output buffer.</summary>
     WrongItem,
 
+    /// <summary>The ship design has no dock module (ADR 0041): a ship always carries the dedicated module it docks with.</summary>
+    NoDockModule,
+
+    /// <summary>The module is the last dock module of its ship or station (ADR 0041), which cannot do without one.</summary>
+    LastDockModule,
+
     /// <summary>Automation is built in a station (ADR 0039): a ship holds no machines, belts, turrets, walls or Fabrication bays.</summary>
     UseStation,
 }

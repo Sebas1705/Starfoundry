@@ -216,7 +216,7 @@ public sealed partial class BeltNetwork
         long cu = Units.CellUnits;
         long cx = d.X * cu, cy = d.Y * cu, cz = d.Z * cu;
         long dx = p.X - cx, dy = p.Y - cy, dz = p.Z - cz, len = Math.Max(1, IntMath.ISqrt(dx * dx + dy * dy + dz * dz));
-        long reach = DepositRules.NominalRadiusUnits(d.Initial) + 120; // just outside the rock, on the side of the ship
+        long reach = d.RadiusUnits + 120; // just outside the rock, on the side of the ship
         var k2 = new OrePickup
         {
             Id = _nextPickupId++, Item = d.Item, Count = count, Source = d.Id, Life = FeelRules.PickupLifeTicks,
@@ -258,7 +258,7 @@ public sealed partial class BeltNetwork
     {
         foreach (var d in _deposits)
         {
-            if (d.Remaining > 0) continue;
+            if (d.Remaining > 0 || d.Streamed || d.Free) continue; // field rocks never regrow (ADR 0040)
             if (d.RegrowTicks == 0) { d.RegrowTicks = FeelRules.RegrowDelayTicks; continue; }
             if (--d.RegrowTicks > 0) continue;
             if (RegrowthBlocked(d)) { d.RegrowTicks = FeelRules.RegrowRetryTicks; continue; } // a rock may not come back inside a ship or station: wait until they are clear
@@ -273,7 +273,7 @@ public sealed partial class BeltNetwork
     private bool RegrowthBlocked(Deposit d)
     {
         long cu = Units.CellUnits, cx = d.X * cu, cy = d.Y * cu, cz = d.Z * cu;
-        long r = (long)DepositRules.NominalRadiusUnits(d.Initial) * (WorldGen?.DepositHitPercent ?? 100) / 100 + FeelRules.RegrowClearUnits;
+        long r = (long)d.RadiusUnits * (WorldGen?.DepositHitPercent ?? 100) / 100 + FeelRules.RegrowClearUnits;
         foreach (var s in _structures.Values)
             foreach (var key in s.ModuleMap.Keys)
                 if (BoxToPoint(s, key, cx, cy, cz).D2 < r * r) return true;
@@ -380,7 +380,7 @@ public sealed partial class BeltNetwork
             Vx = (int)(wx * FeelRules.ProjectileSpeedUnits / len), Vy = (int)(wy * FeelRules.ProjectileSpeedUnits / len), Vz = (int)(wz * FeelRules.ProjectileSpeedUnits / len),
         };
         _projectiles.Add(shot);
-        p.WeaponCooldown = interval;
+        p.WeaponCooldown = VolleyInterval(guns, interval);
         _shots.Add(new ShotEvent(ShotKind.Ship, shot.X, shot.Y, shot.Z, shot.X + shot.Vx * 2, shot.Y + shot.Vy * 2, shot.Z + shot.Vz * 2));
 
         // Recoil: opposite to the firing direction, in the world, scaled by the strength of the guns that fired and the mass of the ship.
@@ -390,6 +390,18 @@ public sealed partial class BeltNetwork
             foreach (var g in guns) recoil += (long)kinds.Recoil(g.Kind) * g.Percent / 100;
             if (recoil > 0) ApplyRecoil(p, ship, wx, wy, wz, len, recoil);
         }
+    }
+
+    /// <summary>
+    /// Ticks until the next volley: the weapon interval stretched by the <c>cooldown_percent</c> of the guns, averaged by their strength, so a heavy cannon
+    /// (ADR 0042) fires slowly and drags the rest of the battery with it; the ordinary guns leave the interval as it was.
+    /// </summary>
+    private int VolleyInterval(IReadOnlyList<HardpointMount> guns, int interval)
+    {
+        if (Content?.Structures is not { } kinds) return interval;
+        long weight = 0, weighted = 0;
+        foreach (var g in guns) { weight += g.Percent; weighted += (long)g.Percent * kinds.CooldownPercent(g.Kind); }
+        return weight <= 0 ? interval : (int)Math.Max(1, (long)interval * weighted / (weight * 100));
     }
 
     private bool ShipAmmoLacking(Player p, ThreatRules rules, int interval)
@@ -469,7 +481,7 @@ public sealed partial class BeltNetwork
         foreach (var d in _deposits)
         {
             if (d.Remaining <= 0 || !d.Revealed) continue;
-            if (SegmentHitsSphere(q, speed, d.X * cu, d.Y * cu, d.Z * cu, (long)DepositRules.NominalRadiusUnits(d.Initial) * hitPercent / 100, out long t) && t < bestT)
+            if (SegmentHitsSphere(q, speed, d.X * cu, d.Y * cu, d.Z * cu, (long)d.RadiusUnits * hitPercent / 100, out long t) && t < bestT)
             {
                 bestT = t; kind = ImpactKind.Deposit; id = d.Id;
             }
@@ -582,7 +594,7 @@ public sealed partial class BeltNetwork
         foreach (var q in _projectiles)
         {
             if (q.Life < 1 || q.Life > maxLife || q.Damage < 1) Fail("a projectile has a bad life or damage");
-            if (Math.Abs((long)q.X) > PlayerRules.WorldLimitUnits * 2L || Math.Abs((long)q.Y) > PlayerRules.WorldLimitUnits * 2L || Math.Abs((long)q.Z) > PlayerRules.WorldLimitUnits * 2L) Fail("a projectile is far outside the world");
+            if (Math.Abs((long)q.X) > WorldLimit * 2L || Math.Abs((long)q.Y) > WorldLimit * 2L || Math.Abs((long)q.Z) > WorldLimit * 2L) Fail("a projectile is far outside the world");
         }
         if (_pickups.Count > FeelRules.MaxPickups) Fail("more pickups than the cap");
         int lastId = -1, items = Content?.Items.Count ?? 0;

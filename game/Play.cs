@@ -80,7 +80,8 @@ public partial class Play : Node3D
 
     private readonly Dictionary<int, Geo> _geos = new();
     private Geo?[] _segGeo = Array.Empty<Geo?>(); // by segment id
-    private readonly List<DepositView> _depositNodes = new();
+    private readonly List<DepositView?> _depositNodes = new();
+    private readonly List<int> _depositSerials = new(); // which rock of the infinite field a slot held when its node was built (ADR 0040)
     private MeshInstance3D _ghost = null!, _dragGhost = null!;
 
     // Interaction
@@ -165,9 +166,10 @@ public partial class Play : Node3D
         _dockShot = _dockShotPath is not null;
         _designerShotPath = args.FirstOrDefault(a => a.StartsWith("--designer-shot="))?["--designer-shot=".Length..];
         _laserShotPath = args.FirstOrDefault(a => a.StartsWith("--laser-shot="))?["--laser-shot=".Length..];
+        BlueprintSetup(args);
         FeelShotSetup(args);
         ArsenalShotSetup(args);
-        bool threats = !(args.Contains("--demo") || _exploreDemo) && _stressMachines == 0 && !((_structuresShot || _walkShot || _dockShot || _flightShot || _designerShotPath is not null || _laserShotPath is not null || args.Any(a => a.StartsWith("--gun-shot=") || a.StartsWith("--arsenal-shot=") || a.StartsWith("--overflow-shot=") || a.StartsWith("--drop-shot="))) && !args.Contains("--threats") && _defenceShotPath is null && _endShotPath is null);
+        bool threats = !(args.Contains("--demo") || _exploreDemo) && _stressMachines == 0 && !((_structuresShot || _walkShot || _dockShot || _flightShot || _designerShotPath is not null || _laserShotPath is not null || BlueprintScripted || args.Any(a => a.StartsWith("--gun-shot=") || a.StartsWith("--arsenal-shot=") || a.StartsWith("--overflow-shot=") || a.StartsWith("--drop-shot="))) && !args.Contains("--threats") && _defenceShotPath is null && _endShotPath is null);
         _stationDemo = args.Contains("--station-demo");
         // --station-demo: a sandbox world with the station rules on and a scripted station, for screenshots of the build rules.
         _gameMode = _exploreDemo || _threatDemo || _stressMachines > 0 || (_stationDemo && !args.Contains("--station-campaign")) || args.Contains("--structure-demo")
@@ -404,16 +406,8 @@ public partial class Play : Node3D
         _cellHelper = BuildCellHelper();
         _ghost.AddChild(_cellHelper);
 
-        // Deposits: spheres where the simulation says they are, shrinking as they run dry.
-        for (int d = 0; d < Net.DepositCount; d++)
-        {
-            var (dx, dy, dz) = Net.DepositPosition(d);
-            var n = new DepositView(_content.Items[Net.DepositItem(d)].Id, Net.DepositDensity(d), Net.DepositInitial(d), d);
-            n.Refresh(Net.DepositRemaining(d));
-            n.Position = new Vector3(dx, dy, dz);
-            AddChild(n);
-            _depositNodes.Add(n);
-        }
+        // Deposits: spheres where the simulation says they are, shrinking as they run dry. Rocks of the infinite field come and go (ADR 0040): UpdateDeposits keeps the nodes in step.
+        for (int d = 0; d < Net.DepositCount; d++) SyncDepositNode(d);
 
         // The ship, with discs showing where it can build (big) and mine (small).
         _ship = Models.Ship();
@@ -813,12 +807,31 @@ void fragment() {
         _machinesInView = visible;
     }
 
+    /// <summary>Builds, rebuilds or drops the node of one deposit slot: a slot of the infinite field holds another rock after its sector was forgotten and loaded again, or none (initial 0).</summary>
+    private void SyncDepositNode(int d)
+    {
+        while (_depositNodes.Count <= d) { _depositNodes.Add(null); _depositSerials.Add(-1); }
+        int serial = Net.DepositSerial(d);
+        bool free = Net.DepositInitial(d) <= 0;
+        if (_depositNodes[d] is { } old && (free || _depositSerials[d] != serial)) { old.QueueFree(); _depositNodes[d] = null; }
+        if (free || _depositNodes[d] is not null) return;
+        var (dx, dy, dz) = Net.DepositPosition(d);
+        var n = new DepositView(_content.Items[Net.DepositItem(d)].Id, Net.DepositDensity(d), Net.DepositInitial(d), d, Net.DepositRockScalePermille(d));
+        n.Refresh(Net.DepositRemaining(d));
+        n.Position = new Vector3(dx, dy, dz);
+        AddChild(n);
+        _depositNodes[d] = n;
+        _depositSerials[d] = serial;
+    }
+
     private void UpdateDeposits()
     {
-        for (int d = 0; d < _depositNodes.Count; d++)
+        for (int d = 0; d < Net.DepositCount; d++)
         {
-            _depositNodes[d].Refresh(Net.DepositRemaining(d)); // chunks shrink in 5% steps; the rock keeps its size
-            _depositNodes[d].Visible = Net.IsDepositRevealed(d) && Net.DepositRemaining(d) > 0; // hidden until scanned
+            SyncDepositNode(d);
+            if (_depositNodes[d] is not { } node) continue;
+            node.Refresh(Net.DepositRemaining(d)); // chunks shrink in 5% steps; the rock keeps its size
+            node.Visible = Net.IsDepositRevealed(d) && Net.DepositRemaining(d) > 0; // hidden until scanned; an emptied rock is destroyed
         }
     }
 
@@ -1216,6 +1229,8 @@ void fragment() {
         if (_designerShotPath is not null || _laserShotPath is not null) DesignerShotFrame();
         if (FeelShotOn) FeelShotFrame();
         if (_arsenalShotPath is not null) ArsenalShotFrame();
+        if (BlueprintScripted) BlueprintShotFrame();
+        UpdateBlueprint();
         UpdateDesigner();
         if (!_structuresOn) _stationView.Sync(Net, Player, _cursorY);
         if (_structureDemo) StructureDemoTick();

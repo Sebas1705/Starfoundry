@@ -48,6 +48,9 @@ public partial class ShipDesigner : Control
 
     public event Action? CloseRequested;
 
+    /// <summary>The player asked for the full-screen 3D plan instead of this panel.</summary>
+    public event Action? PlanRequested;
+
     /// <summary>A refused edit or a result the game should say aloud (a toast).</summary>
     public event Action<string>? Say;
 
@@ -73,7 +76,8 @@ public partial class ShipDesigner : Control
         ModuleKind.Cockpit => "CK", ModuleKind.Engine => "EN", ModuleKind.Reactor => "RE", ModuleKind.ReactorMk2 => "R2", ModuleKind.Cargo => "CG",
         ModuleKind.Workshop => "WK", ModuleKind.Defence => "DF", ModuleKind.Hull => "HL", ModuleKind.DroneBay => "DB", ModuleKind.Shield => "SH",
         ModuleKind.Sensor => "SN", ModuleKind.Dock => "DK", ModuleKind.MiningLaser => "ML", ModuleKind.MiningLaserMk2 => "L2", ModuleKind.Gun => "GN",
-        ModuleKind.GunMk2 => "G2", ModuleKind.Core => "CO", ModuleKind.Shipyard => "SY", _ => "??",
+        ModuleKind.GunMk2 => "G2", ModuleKind.Core => "CO", ModuleKind.Shipyard => "SY",
+        ModuleKind.SensorShort => "S1", ModuleKind.SensorLong => "S2", ModuleKind.CommsAntenna => "CM", ModuleKind.GunHeavy => "GH", _ => "??",
     };
 
     private PanelContainer? _frame;
@@ -116,6 +120,8 @@ public partial class ShipDesigner : Control
         var sub = UiKit.Text(13, Muted); sub.Text = Loc.T("designer.subtitle");
         titles.AddChild(title); titles.AddChild(sub);
         head.AddChild(titles);
+        var plan = UiKit.Button(Loc.T("bp.classic.openPlan"), () => PlanRequested?.Invoke(), 14); plan.Name = "OpenPlanButton";
+        head.AddChild(plan);
         head.AddChild(UiKit.Button(Loc.T("designer.close"), () => CloseRequested?.Invoke(), 14));
         root.AddChild(head);
 
@@ -238,6 +244,7 @@ public partial class ShipDesigner : Control
         var net = _world().Network;
         int ship = net.ShipStructure(_player);
         if (ship >= 0) _editor.Load(net.GetStructure(ship).Modules);
+        _editor.RequireDock = !net.Rules.LegacyDock; // ADR 0041
         _sel = null; _moving = false; _kind = null;
         _layer = 0;
         _signature = "";
@@ -295,6 +302,7 @@ public partial class ShipDesigner : Control
             DesignEditResult.TooManyModules => "designer.edit.tooMany",
             DesignEditResult.Empty => "designer.edit.empty",
             DesignEditResult.SameCell => "designer.edit.sameCell",
+            DesignEditResult.LastDock => "designer.edit.lastDock",
             _ => null,
         };
         if (key is not null) Say?.Invoke(Loc.T(key));

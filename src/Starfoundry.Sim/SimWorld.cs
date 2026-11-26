@@ -89,14 +89,14 @@ public sealed partial class SimWorld
             net.EnsurePlayer(0);
             long cu = Units.CellUnits;
             foreach (var s in scenario.Structures)
-                net.BuildStructureFromTemplate(content.Templates[s.Template], s.Kind, 0, s.OffsetCells[0] * cu, s.OffsetCells[1] * cu, s.OffsetCells[2] * cu);
+                net.EnsureDockModule(net.BuildStructureFromTemplate(content.Templates[s.Template], s.Kind, 0, s.OffsetCells[0] * cu, s.OffsetCells[1] * cu, s.OffsetCells[2] * cu));
         }
         // The starter ship is part of the initial world, like the deposits: built before the first command, at no cost, at the
         // home anchor (the world origin), so replays and saves that call CreateGalaxy with the header flags get it too.
         else if (structures && content.StarterShip is { } ship)
         {
             net.EnsurePlayer(0);
-            net.BuildStructureFromTemplate(ship, StructureKind.Ship, 0, 0, 0, 0);
+            net.EnsureDockModule(net.BuildStructureFromTemplate(ship, StructureKind.Ship, 0, 0, 0, 0));
         }
         if (rules.StartingItems.Count > 0) net.GiveStartingItems(0, rules.StartingItems);
         return new SimWorld(net);
@@ -1016,6 +1016,7 @@ public sealed partial class SimWorld
         if (found != Reject.None) return found;
         if (!Enum.IsDefined(p.Kind)) return Reject.InvalidArgument;
         if (!kinds.IsDefined(p.Kind)) return Reject.KindNotAllowed;
+        if (Network.Rules.LegacyArms && ModuleKindIds.IsArmsKind(p.Kind)) return Reject.KindNotAllowed; // ADR 0042: a world from before the antenna variants and the heavy cannon has no such kinds
         if (!StructureGrid.IsValidLocalModule(p.Mx, p.My, p.Mz)) return Reject.OutOfBounds;
         if (ModuleKindIds.RequiredAbility(p.Kind) is { } needed && Campaign && !Network.HasAbility(needed)) return Reject.Locked;
         if (s!.Modules.ContainsKey((p.Mx, p.My, p.Mz))) return Reject.Overlap;
@@ -1059,6 +1060,8 @@ public sealed partial class SimWorld
         if (!StructurePointInRange(player, s, centre.X, centre.Y, centre.Z)) return Reject.OutOfRange;
 
         if (Network.IsDockPortInUse(r.Structure, r.Mx, r.My, r.Mz)) return Reject.ModuleOccupied; // undock first
+        // ADR 0041: a ship or station keeps at least one dock module, the only port it docks through.
+        if (!Network.Rules.LegacyDock && kind == ModuleKind.Dock && s.Modules.Values.Count(k => k == ModuleKind.Dock) <= 1) return Reject.LastDockModule;
         // The core anchors the structure: it can only go when it is the last module.
         if (kind == ModuleKind.Core && s.Modules.Count > 1) return Reject.ModuleOccupied;
         // The ship cannot do without its last cockpit, engine, reactor or cargo module (stations are unaffected).
@@ -1088,24 +1091,43 @@ public sealed partial class SimWorld
         if (!Network.StructureRules) return Reject.NotAllowedHere;
         if (Network.Content?.Structures is not { } kinds) return Reject.NoContent;
         long cu = Units.CellUnits;
-        long limit = PlayerRules.WorldLimitUnits / cu;
+        long limit = Network.WorldLimit / cu;
         if (Math.Abs((long)f.Wx) > limit || Math.Abs((long)f.Wy) > limit || Math.Abs((long)f.Wz) > limit) return Reject.OutOfBounds;
         long ox = f.Wx * cu, oy = f.Wy * cu, oz = f.Wz * cu;
 
         if (!Network.WorldPointInRange(player, ox + cu / 2, oy + cu / 2, oz + cu / 2, PlayerRules.BuildRangeCells)) return Reject.OutOfRange;
 
         // The core's volume, [origin, origin + module size) per axis, must not touch any module volume of another structure.
-        long ex = ox + StationGrid.ModuleX * cu, ey = oy + StationGrid.ModuleY * cu, ez = oz + StationGrid.ModuleZ * cu;
-        foreach (var other in Network.Structures())
+        Reject VolumeFree(long vx, long vy, long vz)
         {
-            foreach (var (m, _) in other.Modules)
+            long wx = vx + StationGrid.ModuleX * cu, wy = vy + StationGrid.ModuleY * cu, wz = vz + StationGrid.ModuleZ * cu;
+            foreach (var other in Network.Structures())
             {
-                var (bmin, bmax) = Network.ModuleWorldBounds(other, m); // a turned ship counts by the box around its turned modules
-                if (ox < bmax.X && bmin.X < ex && oy < bmax.Y && bmin.Y < ey && oz < bmax.Z && bmin.Z < ez)
-                    return Reject.Overlap;
+                foreach (var (m, _) in other.Modules)
+                {
+                    var (bmin, bmax) = Network.ModuleWorldBounds(other, m); // a turned ship counts by the box around its turned modules
+                    if (vx < bmax.X && bmin.X < wx && vy < bmax.Y && bmin.Y < wy && vz < bmax.Z && bmin.Z < wz)
+                        return Reject.Overlap;
+                }
             }
+            return Network.BoxTouchesDepositRock(vx, vy, vz, wx, wy, wz) ? Reject.OverlapsDeposit : Reject.None; // ADR 0033: a deposit's rock is solid
         }
-        if (Network.BoxTouchesDepositRock(ox, oy, oz, ex, ey, ez)) return Reject.OverlapsDeposit; // ADR 0033: a deposit's rock is solid
+        var coreFit = VolumeFree(ox, oy, oz);
+        if (coreFit != Reject.None) return coreFit;
+
+        // ADR 0041: a station is founded with its core and a dock module beside it (the first side whose volume is free: -Z, +Z, -X, +X; a dock on a Z side keeps both X faces free, so a ship can come from either side). The dock comes with the core at no extra cost.
+        (int Mx, int Mz)? dockAt = null;
+        if (!Network.Rules.LegacyDock && kinds.IsDefined(ModuleKind.Dock))
+        {
+            Reject dockFit = Reject.Overlap;
+            foreach (var (dx, dz) in new[] { (0, -1), (0, 1), (-1, 0), (1, 0) })
+            {
+                var fit = VolumeFree(ox + dx * StationGrid.ModuleX * cu, oy, oz + dz * StationGrid.ModuleZ * cu);
+                if (fit == Reject.None) { dockAt = (dx, dz); break; }
+                if (fit == Reject.OverlapsDeposit) dockFit = fit;
+            }
+            if (dockAt is null) return dockFit;
+        }
 
         var cost = kinds.ModuleCost(ModuleKind.Core);
         if (Campaign)
@@ -1115,6 +1137,7 @@ public sealed partial class SimWorld
         }
         int id = Network.CreateStructure(player, StructureKind.Station, ox, oy, oz);
         Network.AddStructureModuleUnchecked(id, 0, 0, 0, ModuleKind.Core);
+        if (dockAt is { } dk) Network.AddStructureModuleUnchecked(id, dk.Mx, 0, dk.Mz, ModuleKind.Dock);
         Network.CountStationFounded();
         return Reject.None;
     }

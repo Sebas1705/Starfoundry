@@ -149,7 +149,7 @@ public sealed partial class StructureBot
         // Bays are iron plates and ingots, so they are built as soon as the research is done. The station's bays mine the home iron;
         // the plate supply of the laboratories was the limit of the research (the hold limit throttles the drones when ore piles up).
         int placed = 0;
-        foreach (var (x, y, z) in new[] { (-1, 0, 0), (-1, 0, 1), (-1, 0, -1), (0, 0, -2), (1, 0, -1), (2, 0, -1) }) // beside the core and the laboratory bays (ADR 0039: the second laboratory bay stands at (0,0,-1)); a spot a deposit rock blocks is skipped
+        foreach (var (x, y, z) in new[] { (-1, 0, 0), (-2, 0, 0), (0, 0, -2), (1, 0, -1), (2, 0, -1) }) // (0,0,-1) is the dock module the station is founded with (ADR 0041); a spot a deposit rock blocks is skipped
         {
             if (placed >= DroneBaysOnIron) break;
             if (PlaceModule(_station, x, y, z, ModuleKind.DroneBay) <= 0) continue;

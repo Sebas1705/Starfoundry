@@ -1857,7 +1857,8 @@
       "hold_capacity": 0,
       "thrust_speed_percent": 0,
       "power_use": 10,
-      "sensor_range_cells": 120
+      "sensor_range_cells": 120,
+      "nav_range_cells": 150
     },
     "reactor_mk2": {
       "cost": [{ "item": "core:circuit", "count": 20 }, { "item": "core:titanium_alloy", "count": 20 }, { "item": "core:iron_plate", "count": 20 }],
@@ -1919,6 +1920,46 @@
       "allows": [],
       "hold_capacity": 0,
       "thrust_speed_percent": 0
+    },
+    "sensor_short": {
+      "cost": [{ "item": "core:circuit", "count": 4 }, { "item": "core:silicon", "count": 5 }, { "item": "core:iron_plate", "count": 8 }],
+      "hp": 100,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0,
+      "power_use": 5,
+      "sensor_range_cells": 80,
+      "nav_range_cells": 60
+    },
+    "sensor_long": {
+      "cost": [{ "item": "core:circuit", "count": 10 }, { "item": "core:titanium_alloy", "count": 8 }, { "item": "core:silicon", "count": 12 }],
+      "hp": 120,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0,
+      "power_use": 18,
+      "sensor_range_cells": 520,
+      "nav_range_cells": 260
+    },
+    "comms_antenna": {
+      "cost": [{ "item": "core:circuit", "count": 10 }, { "item": "core:silicon", "count": 12 }, { "item": "core:iron_plate", "count": 12 }, { "item": "core:titanium_alloy", "count": 4 }],
+      "hp": 100,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0,
+      "power_use": 12,
+      "sensor_range_cells": 40,
+      "nav_range_cells": 700
+    },
+    "gun_heavy": {
+      "cost": [{ "item": "core:iron_plate", "count": 20 }, { "item": "core:circuit", "count": 6 }, { "item": "core:titanium_alloy", "count": 14 }, { "item": "core:composite_plate", "count": 2 }],
+      "hp": 220,
+      "allows": [],
+      "hold_capacity": 0,
+      "thrust_speed_percent": 0,
+      "hardpoint_percent": 450,
+      "recoil": 4000,
+      "cooldown_percent": 300
     }
   },
   "structure_templates": {
@@ -2181,6 +2222,19 @@
     "collision": { "safe_speed_units": 10, "reference_speed_units": 48, "cooldown_ticks": 60, "hull_pad_units": 120, "deposits_solid": true, "deposit_damage": 6, "deposit_hit_percent": 150 },
     "flight": { "accel_ticks": 36, "brake_ticks": 18 },
     "salvage": { "range_cells": 12, "ticks": 60 },
+    "field": {
+      "sector_cells": 200, "load_cells": 360, "keep_cells": 480, "exclusion_cells": 470, "margin_cells": 8,
+      "rocks": [0, 5], "mass": [300, 8000], "mass_bias": 4, "density": [40, 180], "unit_amount": 60,
+      "step_ticks": 15, "max_loaded": 1500, "world_limit_cells": 4000000,
+      "items": [
+        { "item": "core:iron_ore", "weight": 40 },
+        { "item": "core:carbon", "weight": 20 },
+        { "item": "core:ice", "weight": 15 },
+        { "item": "core:titanium_ore", "weight": 10, "min_distance_cells": 2500 },
+        { "item": "core:nickel_ore", "weight": 8, "min_distance_cells": 3500 },
+        { "item": "core:quartz", "weight": 6, "min_distance_cells": 5000 }
+      ]
+    },
     "star_types": [
       { "id": "core:yellow_dwarf", "weight": 40, "richness_percent": 100, "asteroid_percent": 100, "hazard_percent": 100 },
       { "id": "core:red_dwarf", "weight": 25, "richness_percent": 90, "asteroid_percent": 130, "hazard_percent": 80 },

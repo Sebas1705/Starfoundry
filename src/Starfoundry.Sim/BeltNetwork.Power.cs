@@ -115,7 +115,7 @@ public sealed partial class BeltNetwork
         if (Content?.Structures is not { } kinds) return 0;
         int total = 0;
         foreach (var kind in s.ModuleMap.Values)
-            if (kind is ModuleKind.Shield or ModuleKind.Sensor) total += kinds.ModulePowerUse(kind);
+            if (kind == ModuleKind.Shield || ModuleKindIds.IsAntenna(kind)) total += kinds.ModulePowerUse(kind);
         return total;
     }
 

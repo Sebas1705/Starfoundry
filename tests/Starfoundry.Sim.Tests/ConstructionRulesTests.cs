@@ -16,7 +16,7 @@ public class ConstructionRulesTests
 
     private static SimWorld World(WorldRules? rules = null, bool station = false)
     {
-        var w = SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, threats: false, stationRules: false, structures: true, rules: (rules ?? new WorldRules { FreeBuild = true }).WithLegacyShipAutomation(true));
+        var w = SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, threats: false, stationRules: false, structures: true, rules: (rules ?? new WorldRules { FreeBuild = true }).WithLegacyDock(true).WithLegacyShipAutomation(true)); // these tests build bays at the flank of the starter ship, where the ADR 0041 dock would stand
         w.Network.EnsurePlayer(0);
         return w;
     }
@@ -172,7 +172,7 @@ public class ConstructionRulesTests
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, log, C.Hash, GameMode.Campaign, Seed, threats: false, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(20, bytes[4]);
+        Assert.Equal(23, bytes[4]);
         CommandCodec.ReadLog(new MemoryStream(bytes), out _, out _, out _, out _, out _, out _, out var now);
         Assert.False(now.LegacyBuilding);
         for (byte version = 6; version <= 12; version++)
@@ -197,9 +197,9 @@ public class ConstructionRulesTests
         var (w, s) = Ship3(rules);
         Run(w, new PlaceMachineIn(s, 9, 2, 9, Type("core:smelter"), -1));
         w.Step(100);
-        var replay = SimWorld.Replay(w.Log, w.Tick, initial: SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, false, false, true, rules));
+        var replay = SimWorld.Replay(w.Log, w.Tick, initial: SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, false, false, true, rules.WithLegacyDock(true)));
         Assert.Equal(w.Checksum(), replay.Checksum());
-        var strict = SimWorld.Replay(w.Log, w.Tick, initial: SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, false, false, true, new WorldRules { FreeBuild = true }.WithLegacyShipAutomation(true)));
+        var strict = SimWorld.Replay(w.Log, w.Tick, initial: SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, false, false, true, new WorldRules { FreeBuild = true }.WithLegacyDock(true).WithLegacyShipAutomation(true)));
         Assert.NotEqual(w.Checksum(), strict.Checksum()); // the same log under the new rule loses that machine
     }
 

@@ -33,7 +33,7 @@ public static class HullProfile
 
     /// <summary>True for the kinds that hang on the outside of a ship (see <see cref="PodFront"/>): the hardpoints, the shield and the sensor.</summary>
     public static bool IsPod(ModuleKind kind) =>
-        ModuleKindIds.IsHardpoint(kind) || kind is ModuleKind.Shield or ModuleKind.Sensor;
+        ModuleKindIds.IsHardpoint(kind) || ModuleKindIds.IsAntenna(kind) || kind == ModuleKind.Shield;
 
     /// <summary>
     /// The neighbour mask of the module at (mx, my, mz) given the kind (or null) of the module at any coordinate: the six neighbour bits plus
@@ -67,6 +67,8 @@ public static class HullProfile
     public const int SkinPlain = 0, SkinWide = 1, SkinArched = 2, SkinBoxy = 3;
     /// <summary>Skins that share a section with one of the four above and differ only in what stands along the walls: ribs, a plinth and window niches.</summary>
     public const int SkinRibbed = 4, SkinStepped = 5, SkinNiched = 6;
+    /// <summary>The seventh skin (ADR 0042): flared piers, stepped wedges that stand wide at the floor and narrow to nothing, on a plain section.</summary>
+    public const int SkinFlared = 7;
     /// <summary>Bit 30 of a mask: the module has a stairwell down to the module below (see <see cref="Stairwell"/>). Bit 31 is the high bit of the own skin.</summary>
     public const int StairDown = 1 << 30;
     private const int SkinHigh = 1 << 31;
@@ -75,7 +77,7 @@ public static class HullProfile
     public static int SkinBits(int skin) => ((skin & 3) << SkinShift) | ((skin & 4) != 0 ? SkinHigh : 0);
 
     /// <summary>The section family (0 to 3) a skin cuts: ribbed and stepped walls use the boxy section, niched ones the arched one.</summary>
-    public static int SectionClassOf(int skin) => skin switch { SkinRibbed or SkinStepped => SkinBoxy, SkinNiched => SkinArched, _ => skin };
+    public static int SectionClassOf(int skin) => skin switch { SkinRibbed or SkinStepped => SkinBoxy, SkinNiched => SkinArched, SkinFlared => SkinPlain, _ => skin };
 
     /// <summary>
     /// The skin of a ship module of <paramref name="kind"/> at (mx, my, mz): the cockpit is always the wide pilot section; the corridor kinds (hull, cargo,
@@ -87,7 +89,7 @@ public static class HullProfile
         if (kind is not (ModuleKind.Hull or ModuleKind.Cargo or ModuleKind.Workshop or ModuleKind.Reactor or ModuleKind.ReactorMk2 or ModuleKind.DroneBay)) return SkinPlain;
         uint h = unchecked((uint)(mx * 73856093) ^ (uint)(my * 19349663) ^ (uint)(mz * 83492791) ^ ((uint)(int)kind * 2654435761u));
         unchecked { h ^= h >> 13; h *= 0x5bd1e995; h ^= h >> 15; }
-        return (h % 20) switch { < 5 => SkinPlain, < 8 => SkinArched, < 10 => SkinBoxy, < 13 => SkinRibbed, < 16 => SkinStepped, _ => SkinNiched };
+        return (h % 20) switch { < 5 => SkinPlain, < 8 => SkinArched, < 10 => SkinBoxy, < 13 => SkinRibbed, < 16 => SkinStepped, < 18 => SkinNiched, _ => SkinFlared };
     }
 
     /// <summary>The own skin of a module from its mask (0 to 7).</summary>
@@ -139,7 +141,7 @@ public static class HullProfile
     public const float MaxChamfer = 1.0f, ChamferShare = 0.3f;
 
     /// <summary>The top of a full-height shell, the lower roof of a shell that carries something on its roof, and the roofs of the small modules.</summary>
-    public const float Roof = 3.88f, LowRoof = 3.0f, ShieldRoof = 1.2f, SensorRoof = 2.2f, MiningRoof = 1.5f, GunRoof = 1.2f, ShipyardRoof = 3.2f;
+    public const float Roof = 3.88f, LowRoof = 3.0f, ShieldRoof = 1.2f, SensorRoof = 2.2f, SensorShortRoof = 1.6f, SensorLongRoof = 2.8f, CommsRoof = 2.4f, HeavyRoof = 1.6f, MiningRoof = 1.5f, GunRoof = 1.2f, ShipyardRoof = 3.2f;
 
     /// <summary>The nose of a ship cockpit runs from a tip of scale <see cref="NoseTipScale"/> at z = <see cref="NoseStart"/> to the full section at <see cref="NoseEnd"/>.</summary>
     public const float NoseStart = 0.05f, NoseEnd = 2.3f, NoseTipScale = 0.28f;
@@ -165,7 +167,7 @@ public static class HullProfile
     public static readonly (float X0, float X1, float Z0, float Z1)[] SkylightPanes = { (1.0f, 2.9f, 0.9f, 7.1f), (5.1f, 7.0f, 0.9f, 7.1f) };
 
     /// <summary>True for the kinds that stand on top of a ship and carry a glass roof of their own: a skylight in their floor lets the module below see out.</summary>
-    public static bool SkylightKinds(ModuleKind kind) => kind is ModuleKind.Gun or ModuleKind.GunMk2;
+    public static bool SkylightKinds(ModuleKind kind) => kind is ModuleKind.Gun or ModuleKind.GunMk2 or ModuleKind.GunHeavy;
 
     /// <summary>A ship module of <paramref name="kind"/> with a module below it (<paramref name="mask"/>) has skylight panes in its floor.</summary>
     public static bool HasSkylight(ModuleKind kind, bool ship, int mask) => ship && SkylightKinds(kind) && (mask & Down) != 0;
@@ -214,9 +216,13 @@ public static class HullProfile
     public const float PlinthDepth = 0.5f, PlinthTopDepth = 0.28f, PlinthLow = 0.55f, PlinthHigh = 1.05f, PlinthEnd = 0.3f;
     /// <summary>Niched walls: a window niche and a recessed service bay (cell z of their centres), the width of each surround and how far it stands out of the wall.</summary>
     public const float NicheWindowZ = 1.2f, NicheBayZ = 6.8f, NicheWidth = 0.9f, NicheFrame = 0.2f;
+    /// <summary>Flared piers: where each stands along the wall (cell z of its centre, clear of the viewport band), how wide it is, how far its foot stands out of the wall and how many steps its flare has (each one narrower and 0.35 higher).</summary>
+    public static readonly float[] FlareStations = { 1.1f, 6.9f };
+    public const float FlareWidth = 1.0f, FlareDepth = 0.5f, FlareStepHeight = 0.35f;
+    public const int FlareSteps = 4;
 
     /// <summary>True for the skins whose walls carry their own furniture (ribs, a plinth, niches): the lockers stay off them.</summary>
-    public static bool HasWallFurniture(int mask) => SkinOfMask(mask) is SkinRibbed or SkinStepped or SkinNiched;
+    public static bool HasWallFurniture(int mask) => SkinOfMask(mask) is SkinRibbed or SkinStepped or SkinNiched or SkinFlared;
 
     /// <summary>The wall furniture of the skins that have some (see <see cref="SkinBoxy"/>, <see cref="SkinRibbed"/>, <see cref="SkinStepped"/>, <see cref="SkinNiched"/>), on the sides that are closed: solid for the walking body, drawn by the model from the same numbers.</summary>
     public static IEnumerable<Solid> SkinSolids(int mask)
@@ -240,6 +246,9 @@ public static class HullProfile
                     break;
                 case SkinNiched:
                     foreach (float z in new[] { NicheWindowZ, NicheBayZ }) yield return On(NicheFrame, z - NicheWidth / 2, z + NicheWidth / 2);
+                    break;
+                case SkinFlared:
+                    foreach (float z in FlareStations) yield return On(FlareDepth, z - FlareWidth / 2, z + FlareWidth / 2);
                     break;
             }
         }
@@ -337,6 +346,10 @@ public static class HullProfile
     {
         ModuleKind.Shield => ShieldRoof,
         ModuleKind.Sensor => SensorRoof,
+        ModuleKind.SensorShort => SensorShortRoof,
+        ModuleKind.SensorLong => SensorLongRoof,
+        ModuleKind.CommsAntenna => CommsRoof,
+        ModuleKind.GunHeavy => HeavyRoof,
         ModuleKind.MiningLaser or ModuleKind.MiningLaserMk2 => MiningRoof,
         ModuleKind.Gun or ModuleKind.GunMk2 => GunRoof,
         _ => Roof,

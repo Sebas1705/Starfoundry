@@ -89,7 +89,10 @@ public partial class Play
     private string DensityText(int deposit)
     {
         int d = Net.DepositDensity(deposit);
-        return L(d < 60 ? "density.poor" : d <= 120 ? "density.normal" : "density.rich", d);
+        string vein = L(d < 60 ? "density.poor" : d <= 120 ? "density.normal" : "density.rich", d);
+        if (!Net.DepositIsFieldRock(deposit)) return vein;
+        int size = Net.DepositRockScalePermille(deposit); // rocks of the infinite field vary in size (ADR 0040): the size word comes first
+        return L(size < 700 ? "size.small" : size < 1100 ? "size.medium" : size < 1600 ? "size.large" : "size.huge") + ", " + vein;
     }
 
     private string ItemName(int item) => Loc.Name("item", _content.Items[item].Id);
@@ -364,7 +367,7 @@ public partial class Play
         // Directional markers go last so they are never hidden under a panel.
         _markers = new MarkerLayer { Visible = false };
         _uiRoot.AddChild(_markers);
-        if (!_demo) { BuildPanels(); BuildDesigner(); }
+        if (!_demo) { BuildPanels(); BuildDesigner(); BuildBlueprint(); }
         if (!_demo) BuildPauseMenu();
         if (!_demo) BuildEndScreen();
     }
@@ -1527,6 +1530,7 @@ public partial class Play
     public override void _UnhandledInput(InputEvent e)
     {
         if (_demo || PauseOpen || EndOpen || StoryOpen) return;
+        if (BlueprintOpen && e is not InputEventKey) return; // the editor reads its own mouse
 
         switch (e)
         {
@@ -1645,7 +1649,7 @@ public partial class Play
     // ---- cursor capture ------------------------------------------------------------------------------------
 
     /// <summary>Panels that need the pointer: the help overlay, the research panel, the build menu and the star map.</summary>
-    private bool PanelOpen() => PauseOpen || EndOpen || StoryOpen || _helpOpen || ComputerOpen || ResearchOpen || BuildOpen || InventoryOpen || DesignerOpen || BenchPanelOpen || MachinePanelOpen || (_mapOpen && Net.Galaxy is not null);
+    private bool PanelOpen() => PauseOpen || EndOpen || StoryOpen || _helpOpen || ComputerOpen || ResearchOpen || BuildOpen || InventoryOpen || DesignerOpen || BlueprintOpen || BenchPanelOpen || MachinePanelOpen || (_mapOpen && Net.Galaxy is not null);
 
     /// <summary>Releases or captures the mouse so it matches what the player wants and what is on screen.</summary>
     private void UpdateCapture()
@@ -1878,7 +1882,7 @@ public partial class Play
         {
             if (!Net.IsDepositRevealed(d) || Net.DepositRemaining(d) <= 0) continue;
             var pos = Net.DepositPosition(d);
-            float scale = DepositView.RockScale(Net.DepositInitial(d));
+            float scale = Net.DepositRockScalePermille(d) / 1000f;
             if (RayHitsSphere(origin, dir, new Vector3(pos.X, pos.Y, pos.Z), 1.5f * scale, out float t) && t < best)
             {
                 best = t;

@@ -16,10 +16,20 @@ public static partial class Loc
         ["module.gunmk2.purpose"] = ("Cañón potente: 170 % del daño de un cañón Mk1.", "A strong gun: 170 percent of the damage of a mark 1 gun."),
         ["module.shipyard"] = ("Astillero", "Shipyard"),
         ["module.shipyard.purpose"] = ("Solo en estaciones: con una nave atracada abre el diseñador (Tab) para añadir, mover o mejorar sus módulos y armas.", "Stations only: with a ship docked it opens the designer (Tab) to add, move or upgrade its modules and weapons."),
+        ["module.sensorshort"] = ("Sensor de corto alcance", "Short-range sensor"),
+        ["module.sensorshort.purpose"] = ("Antena barata de barrido ancho: revela yacimientos a 80 celdas y amplía poco el radar de navegación.", "A cheap wide-sweep antenna: reveals deposits out to 80 cells and widens the navigation display a little."),
+        ["module.sensorlong"] = ("Sensor de largo alcance", "Long-range sensor"),
+        ["module.sensorlong.purpose"] = ("Plato estrecho de gran alcance: el escáner llega a 520 celdas y el radar de navegación se amplía mucho. Gasta 18 de energía.", "A narrow long-reach dish: the scanner reaches 520 cells and the navigation display widens a lot. Draws 18 power."),
+        ["module.commsantenna"] = ("Antena de comunicaciones", "Comms antenna"),
+        ["module.commsantenna.purpose"] = ("Extiende la pantalla de navegación: muestra más puertos, puertas y sistemas lejanos. Varias antenas se apilan con rendimientos decrecientes (la segunda aporta el 50 %).", "Extends the navigation display: it shows more distant ports, gates and systems. Several antennas stack with diminishing returns (the second gives 50 percent)."),
+        ["module.gunheavy"] = ("Cañón pesado", "Heavy cannon"),
+        ["module.gunheavy.purpose"] = ("Lento y devastador: 450 % del daño de un cañón Mk1 por disparo, cadencia a un tercio y un retroceso enorme que empuja la nave.", "Slow and devastating: 450 percent of the damage of a mark 1 gun per shot, a third of the rate of fire and a huge recoil that shoves the ship."),
 
         // rejects
         ["toast.reject.noLaser"] = ("La nave no tiene láser de minería: instala uno en un astillero", "The ship has no mining laser: fit one at a shipyard"),
         ["toast.reject.noGun"] = ("La nave no tiene cañón: instala uno en un astillero", "The ship has no gun: fit one at a shipyard"),
+        ["toast.reject.noDockModule"] = ("El diseño necesita un módulo de enganche: sin él la nave no puede atracar", "The design needs a dock module: without one the ship cannot dock"),
+        ["toast.reject.lastDockModule"] = ("Es el último módulo de enganche: una nave o estación no puede quedarse sin ninguno", "That is the last dock module: a ship or station cannot do without one"),
         ["toast.reject.noShipyard"] = ("Hace falta la nave atracada en una estación tuya con un astillero", "The ship must be docked at one of your stations that has a shipyard"),
 
         // key panel
@@ -67,6 +77,7 @@ public static partial class Loc
         ["designer.edit.kindNotAllowed"] = ("Una nave no admite ese módulo", "A ship does not take that module"),
         ["designer.edit.noUpgrade"] = ("Ese módulo no tiene mejora", "That module has no upgrade"),
         ["designer.edit.tooMany"] = ("La nave ya tiene demasiados módulos", "The ship already has too many modules"),
+        ["designer.edit.lastDock"] = ("Es el último módulo de enganche: la nave necesita uno para atracar", "That is the last dock module: the ship needs one to dock"),
         ["designer.edit.empty"] = ("No hay ningún módulo ahí", "There is no module there"),
         ["designer.edit.sameCell"] = ("Elige otra celda", "Pick another cell"),
         ["learn.shipyard"] = ("Construye un astillero en la estación, atraca la nave y abre el ordenador (Tab, Diseñador): el diseñador añade o mejora láseres y cañones.", "Build a shipyard at the station, dock the ship and open the computer (Tab, Designer): the designer adds or upgrades lasers and guns."),
@@ -80,13 +91,14 @@ public static partial class Loc
         foreach (var (key, value) in FlightTable) Table[key] = value;
         foreach (var (key, value) in MaterialsTable) Table[key] = value;
         foreach (var (key, value) in MissionsTable) Table[key] = value;
+        foreach (var (key, value) in BlueprintTable) Table[key] = value;
         foreach (var (key, value) in InventoryTable) Table[key] = value;
         foreach (var (key, value) in ControlsTable) Table[key] = value;
         foreach (var (key, value) in StationTable) Table[key] = value;
         AddIconStrings();
         foreach (var (key, value) in CockpitTable) Table[key] = value;
         // the camel-case forms of the names (the game looks modules up both ways, as for droneBay)
-        foreach (var (lower, camel) in new[] { ("mininglaser", "miningLaser"), ("mininglasermk2", "miningLaserMk2"), ("gunmk2", "gunMk2") })
+        foreach (var (lower, camel) in new[] { ("mininglaser", "miningLaser"), ("mininglasermk2", "miningLaserMk2"), ("gunmk2", "gunMk2"), ("sensorshort", "sensorShort"), ("sensorlong", "sensorLong"), ("commsantenna", "commsAntenna"), ("gunheavy", "gunHeavy") })
         {
             Table["module." + camel] = Table["module." + lower];
             Table["module." + camel + ".purpose"] = Table["module." + lower + ".purpose"];

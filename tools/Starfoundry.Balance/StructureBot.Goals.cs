@@ -10,7 +10,7 @@ public sealed partial class StructureBot
     // ADR 0039: a ship holds no automation, so every bay, machine and belt below stands in the station (core at (0,0,0), its floor is the first bay).
     private static readonly (int X, int Y, int Z) F0 = (0, 0, 0);        // the station core: its floor takes the starter factory
     private static readonly (int X, int Y, int Z) W2 = (0, 0, 1);        // laboratory bay
-    private static readonly (int X, int Y, int Z) W3 = (0, 0, -1);       // second laboratory bay
+    private static readonly (int X, int Y, int Z) W3 = (-1, 0, 1);       // second laboratory bay
     private static readonly (int X, int Y, int Z) R2 = (1, -1, 0);       // second station reactor (above the station bay)
     private static readonly (int X, int Y, int Z) B1 = (1, 0, 2);        // ship drone bay
     private static readonly (int X, int Y, int Z) S1 = (1, 0, 0);        // the station's bay, beside the core
@@ -371,7 +371,7 @@ public sealed partial class StructureBot
 
     // ---- hold, defence, power ---------------------------------------------------------------------------
 
-    private static readonly (int X, int Y, int Z)[] CargoSpots = { (1, 0, 3), (1, 0, 4), (-1, 0, 3), (-1, 0, 0) };
+    private static readonly (int X, int Y, int Z)[] CargoSpots = { (1, 0, 3), (1, 0, 4), (-1, 0, 3), (2, 0, 3) }; // (-1,0,0) is the ship's dock module (ADR 0041)
 
     /// <summary>Extra cargo modules (60 hold each): the depots' stock, hydrogen and hand-mined ore fill the starter hold's 45 usable slots.</summary>
     private void MoreCargo(int count)
@@ -421,7 +421,7 @@ public sealed partial class StructureBot
     private int HomeIceLeft()
     {
         int left = 0;
-        for (int d = 0; d < Net.DepositCount; d++)
+        for (int d = 0; d < Net.Galaxy!.Deposits.Count; d++)
             if (Net.DepositItem(d) == Item("core:ice") && Net.Galaxy!.Deposits[d].System == 0) left += Net.DepositRemaining(d);
         return left;
     }

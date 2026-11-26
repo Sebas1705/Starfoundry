@@ -7,6 +7,8 @@ internal static class TestContent
 {
     /// <summary>Rules of a world made before ADR 0039: a ship may hold machines, belts, turrets, walls and bays, and the workbench repeats a recipe (the older structure tests build on the ship).</summary>
     public static readonly WorldRules LegacyShip = new WorldRules().WithLegacyShipAutomation(true);
+    /// <summary>Default rules with <see cref="WorldRules.LegacyDock"/> on: the worlds of before ADR 0041, where the core and the cockpit are docking ports and no template carries a dock module.</summary>
+    public static WorldRules OldDock => new WorldRules().WithLegacyDock(true);
 
     /// <summary>
     /// The content as it was before the floor-building rule (ADR 0031; <c>floor_building</c> false): the starter ship has its workshop and factory and

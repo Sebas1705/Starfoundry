@@ -18,7 +18,7 @@ public class OrientedCollisionTests
     /// <summary>A quarter turn about Z (the nose axis): the long X axis of the test ship becomes the vertical.</summary>
     private static readonly Attitude Roll90 = Attitude.Of(11585, 0, 0, 11585);
 
-    private static SimWorld World() => SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true);
+    private static SimWorld World() => SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: TestContent.OldDock);
 
     private static int Ship(SimWorld w) => PowerTests.Ship(w, 1, 30);
 
@@ -170,7 +170,7 @@ public class OrientedCollisionTests
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, new List<LoggedCommand> { new(0, 0, new Batch(new Command[] { new SetAttitude(11585, 0, 0, 11585) })) }, C.Hash, GameMode.Sandbox, Seed, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(20, bytes[4]);
+        Assert.Equal(23, bytes[4]);
         Assert.Single(CommandCodec.ReadLog(new MemoryStream(bytes)));
         foreach (byte old in new byte[] { 5, 8, 10, 11 })
         {
@@ -183,7 +183,7 @@ public class OrientedCollisionTests
     [Fact]
     public void An_older_log_replays_byte_identically_to_the_level_ship_it_was_recorded_with()
     {
-        var w = SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: new WorldRules().WithLegacyFeel(true).WithLegacyResources(true)); // what a build of that time recorded (ADR 0036 did not exist)
+        var w = SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: new WorldRules().WithLegacyDock(true).WithLegacyFeel(true).WithLegacyResources(true)); // what a build of that time recorded (ADR 0036 did not exist)
         Ship(w);
         w.Submit(0, new SetThrust(0, 0, 512));
         w.Step(60);
@@ -401,7 +401,7 @@ public class OrientedCollisionTests
 
     private static SimWorld Dockable(out int ship, out int station)
     {
-        var w = SimWorld.CreateGalaxy(TestContent.Core, GameMode.Sandbox, Seed, threats: true, stationRules: false, structures: true);
+        var w = SimWorld.CreateGalaxy(TestContent.Core, GameMode.Sandbox, Seed, threats: true, stationRules: false, structures: true, rules: TestContent.OldDock);
         ship = w.Network.ShipStructure(0);
         station = w.Network.CreateStructure(0, StructureKind.Station, -18L * Cell, 0, 0);
         w.Network.AddStructureModuleUnchecked(station, 0, 0, 0, ModuleKind.Core);

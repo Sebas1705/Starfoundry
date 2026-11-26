@@ -21,10 +21,12 @@ public enum InputContext
     Docked = 32,
     /// <summary>The pause menu and the help overlay.</summary>
     Menu = 64,
+    /// <summary>The full-screen 3D plan of the blueprint editor (the ship designer's new shell) is open.</summary>
+    Blueprint = 128,
 }
 
 /// <summary>The section of the F1 help an action is listed under.</summary>
-public enum HelpGroup { Ship, Weapons, Build, Computer, System }
+public enum HelpGroup { Ship, Weapons, Build, Computer, Blueprint, System }
 
 /// <summary>
 /// One thing the player can do with a key. <see cref="Keys"/> are Godot <c>Key</c> enum names ("B", "F5", "Tab", "Key1", "Escape") or a
@@ -44,7 +46,7 @@ public sealed record InputAction(string Id, string[] Keys, InputContext Contexts
 /// </summary>
 public static class InputActions
 {
-    private const InputContext Fly = InputContext.Flying, Walk = InputContext.Walking, Tool = InputContext.Build, Pc = InputContext.Computer, Dock = InputContext.Docked, Any = InputContext.Global;
+    private const InputContext Fly = InputContext.Flying, Walk = InputContext.Walking, Tool = InputContext.Build, Pc = InputContext.Computer, Bp = InputContext.Blueprint, Dock = InputContext.Docked, Any = InputContext.Global;
     private const InputContext Body = Fly | Walk | Tool;
 
     public static readonly IReadOnlyList<InputAction> All = new InputAction[]
@@ -87,13 +89,38 @@ public static class InputActions
         new("mapJump", new[] { "Enter" }, Pc, HelpGroup.Computer, "tool:jump"),
         new("mapReset", new[] { "Home" }, Pc, HelpGroup.Computer, "tool:map"),
         new("mapZoom", new[] { "@wheel" }, Pc, HelpGroup.Computer, "tool:map"),
+        // ---- the blueprint editor (full-screen 3D plan; "@ctrlz" and friends are control combinations the editor resolves itself) ----
+        new("bpOrbit", new[] { "@rdrag" }, Bp, HelpGroup.Blueprint, "tool:look"),
+        new("bpPan", new[] { "@mdrag" }, Bp, HelpGroup.Blueprint, "tool:pick"),
+        new("bpZoom", new[] { "@wheel" }, Bp, HelpGroup.Blueprint, "tool:map"),
+        new("bpUse", new[] { "@click" }, Bp, HelpGroup.Blueprint, "tool:place"),
+        new("bpSelect", new[] { "V" }, Bp, HelpGroup.Blueprint, "tool:pick"),
+        new("bpPlace", new[] { "N" }, Bp, HelpGroup.Blueprint, "tool:place"),
+        new("bpMove", new[] { "G" }, Bp, HelpGroup.Blueprint, "tool:move"),
+        new("bpRotate", new[] { "R" }, Bp, HelpGroup.Blueprint, "tool:rotate"),
+        new("bpDelete", new[] { "Delete", "X" }, Bp, HelpGroup.Blueprint, "tool:demolish"),
+        new("bpMirror", new[] { "M" }, Bp, HelpGroup.Blueprint, "tool:mirror"),
+        new("bpUpgrade", new[] { "U" }, Bp, HelpGroup.Blueprint, "tool:add"),
+        new("bpNudge", new[] { "Up", "Down", "Left", "Right" }, Bp, HelpGroup.Blueprint, "tool:move"),
+        new("bpView", new[] { "T" }, Bp, HelpGroup.Blueprint, "tool:layer"),
+        new("bpTurn", new[] { "Q", "E" }, Bp, HelpGroup.Blueprint, "tool:rotate"),
+        new("bpLayer", new[] { "Pageup", "Pagedown" }, Bp, HelpGroup.Blueprint, "tool:layer"),
+        new("bpFrame", new[] { "F" }, Bp, HelpGroup.Blueprint, "tool:inspect"),
+        new("bpUndo", new[] { "@ctrlz" }, Bp, HelpGroup.Blueprint, "tool:undo"),
+        new("bpRedo", new[] { "@ctrly" }, Bp, HelpGroup.Blueprint, "tool:redo"),
+        new("bpCopy", new[] { "@ctrlc" }, Bp, HelpGroup.Blueprint, "tool:copy"),
+        new("bpPaste", new[] { "@ctrlv" }, Bp, HelpGroup.Blueprint, "tool:paste"),
+        new("bpSelectAll", new[] { "@ctrla" }, Bp, HelpGroup.Blueprint, "tool:pick"),
+        new("bpSave", new[] { "@ctrls" }, Bp, HelpGroup.Blueprint, "tool:save"),
+        new("bpApply", new[] { "Enter" }, Bp, HelpGroup.Blueprint, "status:check"),
+        new("bpRevert", new[] { "Backspace" }, Bp, HelpGroup.Blueprint, "tool:undo"),
         // ---- the system ----
         new("hudDetail", new[] { "H" }, Any, HelpGroup.System, "tool:info"),
-        new("help", new[] { "F1" }, Any | InputContext.Menu, HelpGroup.System, "tool:help"),
+        new("help", new[] { "F1" }, Any | InputContext.Menu | Bp, HelpGroup.System, "tool:help"),
         new("quickSave", new[] { "F5" }, Any, HelpGroup.System, "tool:save"),
         new("quickLoad", new[] { "F9" }, Any, HelpGroup.System, "tool:load"),
-        new("fullscreen", new[] { "F11" }, Any, HelpGroup.System, "tool:fullscreen"),
-        new("cancel", new[] { "Escape" }, Any | InputContext.Menu, HelpGroup.System, "tool:cancel"),
+        new("fullscreen", new[] { "F11" }, Any | Bp, HelpGroup.System, "tool:fullscreen"),
+        new("cancel", new[] { "Escape" }, Any | InputContext.Menu | Bp, HelpGroup.System, "tool:cancel"),
     };
 
     private static readonly Dictionary<string, InputAction> ById = All.ToDictionary(a => a.Id);
@@ -129,8 +156,9 @@ public static class InputActions
     }
 
     /// <summary>The contexts that are active together for what the player is doing.</summary>
-    public static InputContext Active(bool computerOpen, bool buildTool, bool standing, bool docked)
+    public static InputContext Active(bool computerOpen, bool buildTool, bool standing, bool docked, bool blueprint = false)
     {
+        if (blueprint) return InputContext.Blueprint;
         var c = InputContext.Global;
         if (computerOpen) return c | InputContext.Computer;
         c |= buildTool ? InputContext.Build : standing ? InputContext.Walking : InputContext.Flying;
@@ -149,6 +177,7 @@ public static class InputActions
         }
         yield return Active(true, false, false, false);
         yield return InputContext.Menu;
+        yield return InputContext.Blueprint;
     }
 
     // ---- how a key is written -----------------------------------------------------------------------

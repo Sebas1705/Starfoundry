@@ -15,7 +15,7 @@ Update this file in the same change as any decision. Move resolved items into an
 - Belts: individual items vs lane buckets for performance.
 - Fluids: pressure model or simple flow.
 - Flight: fuel for basic thrust? Assisted autopilot detail.
-- Docking (ADR 0029, a proposal): ports on the core, the cockpit flanks and a dock module; range 12 cells and 12 units a tick; stock of 60 + 40 per dock + cargo. TBD: several ships per port rules, ship-to-ship docking, stations powering a docked ship's machines, depots and ports that use the station stock, a fee or an exchange with traders.
+- Docking (ADR 0029, a proposal; ADR 0041 makes the dock module the only port and gives every ship and station one): ports on a dock module (before ADR 0041: the core, the cockpit flanks and a dock module); range 12 cells and 12 units a tick; stock of 60 + 40 per dock + cargo. TBD: several ships per port rules, ship-to-ship docking, stations powering a docked ship's machines, depots and ports that use the station stock, a fee or an exchange with traders.
 - Ship attitude (ADR 0030, a proposal): a quaternion command, about 15 degrees of docking alignment, the pilot seat as pivot. TBD: ship against station and ship against ship collision, docking with a yawed or upside-down port, a turn rate limit in the simulation, a pivot that survives losing the cockpit.
 - Flight feel (ADR 0033, a proposal): 36 ticks to full speed and 18 to stop at one engine, a hit sphere per rock at 155 percent of its radius plus half a cell for the hull, deposits solid. TBD: whether the numbers feel right by hand, a Mk2 engine module, a setting to reduce the camera effects, a rock that shrinks when hit, the assisted docking approach tuned for the ramp.
 - Personal inventory (ADR 0035, a proposal): a bag of 24 slots (stacks of 100, fuel cells 20), reach of 12 cells, one move command for the bag, hold, stock, reactor slot and machine buffers, auto-feed per reactor (default the hold). TBD: item weight, crates and dropping items in the world, picking up from the world on foot, turret ammo and drone slots as containers, the bag after a ship loss (kept in the first version), a second player's bag, whether stack sizes should scale with research.
@@ -41,3 +41,9 @@ See [the spec](../superpowers/specs/2026-11-24-pilot-feedback-round-design.md).
 - What "antenna" meant in the ship-editing request: sensor antenna types, or ship designs and hull types in general (the spec covers both).
 - Hold overflow while mining: surplus drifts as collectable pickups (proposed) versus jettisoned or voided.
 - Mining pace: raise yield and retune enemy pressure so Normal stays near 49 minutes, versus a faster game.
+
+## Infinite rock field (2026-11-26, ADR 0040)
+- Systems on the sector grid (an infinite galaxy of named systems with lanes, depth and jump goals) versus the finite campaign galaxy plus an infinite rock field.
+- Obstacle kinds, hazards and wrecks in the field (the scheme supports them; only resource asteroids are generated now).
+- A floating origin for the renderer: float positions lose precision hundreds of thousands of cells from home.
+- Whether a scanned rock should stay revealed after its sector is forgotten (today it must be scanned again).

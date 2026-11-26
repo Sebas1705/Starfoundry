@@ -221,6 +221,7 @@ public sealed partial class BeltNetwork
         StepResearch();
         StepThreat();
         StepObstacles(); // after the threat step, which clears the module hits of the tick
+        StepField(); // ADR 0040: rocks of the infinite field are loaded and forgotten around the ships
         StepFeel(); // ADR 0036: pickups, projectiles, free fire and regrowth
 
         foreach (var s in _segs)

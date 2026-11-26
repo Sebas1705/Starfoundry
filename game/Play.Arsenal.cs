@@ -57,7 +57,7 @@ public partial class Play
         else
         {
             foreach (var m in Net.MiningLasers(Player)) fitted.Add(new FittedWeapon(ArsenalKind.Laser, m.Kind == ModuleKind.MiningLaserMk2 ? 2 : 1, 1));
-            foreach (var m in Net.Guns(Player)) fitted.Add(new FittedWeapon(ArsenalKind.Gun, m.Kind == ModuleKind.GunMk2 ? 2 : 1, 1));
+            foreach (var m in Net.Guns(Player)) fitted.Add(new FittedWeapon(ArsenalKind.Gun, m.Kind == ModuleKind.GunHeavy ? 3 : m.Kind == ModuleKind.GunMk2 ? 2 : 1, 1));
         }
         _arsenal.Fit(fitted);
     }
