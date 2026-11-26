@@ -15,14 +15,14 @@ public static class CommandCodec
         TagStartMining = 16, TagStopMining = 17, TagSetShipRecipe = 18, TagSetResearch = 19,
         TagLinkDeposit = 20, TagUnlinkDeposit = 21, TagSetMovement = 22, TagScan = 23, TagJump = 24, TagSetWeapons = 25, TagRepair = 26, TagSetThrust = 27, TagPlaceModule = 28, TagRemoveModule = 29,
         TagPlaceMachineIn = 30, TagPlaceSegmentIn = 31, TagPlaceModuleIn = 32, TagRemoveModuleIn = 33, TagFoundStation = 34, TagAssignDrones = 35, TagDumpItems = 36, TagFireLaser = 37, TagSetBoost = 38, TagDockAt = 39, TagUndock = 40, TagTransferItems = 41, TagSetAttitude = 42, TagDesignerApply = 46, TagSetAim = 59,
-        TagMoveItems = 56, TagSetFeedSource = 57, TagSortInventory = 58, TagDropItems = 60, TagPickUp = 61, TagQueueBench = 63, TagClearBench = 64;
+        TagMoveItems = 56, TagSetFeedSource = 57, TagSortInventory = 58, TagDropItems = 60, TagPickUp = 61, TagQueueBench = 63, TagClearBench = 64, TagApplyBlueprint = 65;
 
     private static readonly byte[] Magic = Encoding.ASCII.GetBytes("SFCL");
 
     /// <summary>Version 2 added the content hash to the header, version 3 the game mode, version 4 the galaxy seed, version 5 the threat flag.</summary>
     /// Version 6 added the station-rules flag (bit 1); the structures flag (bit 2) uses a bit that version 6 left free,
     /// so logs written before it simply read as structures off and the version stays 6.
-    private const byte LogVersion = 23;
+    private const byte LogVersion = 24;
     /// Version 7 added the world rules block (flags bit 3, written only for non-default rules). Version 8 added the scenario id (flags bit 4).
     /// Version 10 added the SetBoost command (tag 38) and the wide galaxy with obstacles: logs of versions 5 to 9 read with <see cref="WorldRules.LegacyGalaxy"/> on (ADR 0028).
     /// Version 9 added the FireLaser command (tag 37) and the mining laser's power draw: logs of versions 5 to 8 read with <see cref="WorldRules.LegacyLaser"/> on, so they replay without it (ADR 0027).
@@ -32,6 +32,7 @@ public static class CommandCodec
     /// Version 17 added the SetAim command (tag 59) and ADR 0036: free fire with projectiles and recoil, hold overflow, regrowing deposits and the resource density rule. Logs of versions 5 to 16 read with <see cref="WorldRules.LegacyFeel"/> and <see cref="WorldRules.LegacyResources"/> on, so they replay as recorded; the reader refuses SetAim in them.
     /// Version 19 added dropping items and picking them up by hand (ADR 0038): the DropItems and PickUp commands (tags 60 and 61). The reader refuses them in logs of versions 5 to 18; the world rules do not change.
     /// Version 23 added the antenna variants (short and long range sensors, the comms antenna) and the heavy cannon (ADR 0042): scanner and navigation reach from fitted antennas, stacking with diminishing returns, and a slow heavy gun volley. It adds no command. Logs of versions 5 to 22 read with <see cref="WorldRules.LegacyArms"/> on, so they replay as recorded. (Version 22 belongs to the dock module.)
+    /// Version 24 added the blueprint editor for stations (ADR 0043): the ApplyBlueprint command (tag 65) and the refusal of the module tool and the in-world placement of station parts (Reject.UseBlueprint). Logs of versions 5 to 23 read with <see cref="WorldRules.LegacyBlueprint"/> on, so they replay as recorded; the reader refuses the command in them.
     /// Version 22 added dock modules as the only docking ports (ADR 0041): ships and stations carry a dedicated dock module, and core and cockpit ports are gone. It adds no command. Logs of versions 5 to 21 read with <see cref="WorldRules.LegacyDock"/> on, so they replay as recorded.
     /// Version 21 added the infinite rock field (ADR 0040): resource asteroids generated on demand around the ships, a wider world limit and rocks that vanish when emptied. It adds no command. Logs of versions 5 to 20 read with <see cref="WorldRules.LegacyField"/> on, so they replay as recorded. (Version 20 is reserved for the blueprint editor, ADR 0039.)
     /// Version 20 added the workbench queue (ADR 0039): the QueueBench and ClearBench commands (tags 63 and 64), and with it the station-first rules: a ship holds no machines, belts, turrets, walls or Fabrication bays, and the workbench crafts one item at a time in 8 s. Logs of versions 5 to 19 read with <see cref="WorldRules.LegacyShipAutomation"/> on, so they replay as recorded; the reader refuses the commands in them.
@@ -89,6 +90,8 @@ public static class CommandCodec
                 return FitsShort(sa.W) && FitsShort(sa.X) && FitsShort(sa.Y) && FitsShort(sa.Z);
             case DesignerApply da:
                 return da.Modules is not null && da.Modules.Length <= DesignerRules.MaxModules;
+            case ApplyBlueprint ab:
+                return ab.Modules is not null && ab.Modules.Length <= DesignerRules.MaxStationModules;
             default:
                 return false;
         }
@@ -270,6 +273,10 @@ public static class CommandCodec
                 w.Write(TagDesignerApply); w.Write(da.Modules.Length);
                 foreach (var m in da.Modules) { w.Write(m.Mx); w.Write(m.My); w.Write(m.Mz); w.Write((byte)m.Kind); }
                 break;
+            case ApplyBlueprint ab:
+                w.Write(TagApplyBlueprint); w.Write(ab.Structure); w.Write(ab.Modules.Length);
+                foreach (var m in ab.Modules) { w.Write(m.Mx); w.Write(m.My); w.Write(m.Mz); w.Write((byte)m.Kind); }
+                break;
             case SetAttitude sa:
                 w.Write(TagSetAttitude); w.Write((short)sa.W); w.Write((short)sa.X); w.Write((short)sa.Y); w.Write((short)sa.Z);
                 break;
@@ -376,6 +383,14 @@ public static class CommandCodec
                 var modules = new DesignModule[n];
                 for (int i = 0; i < n; i++) modules[i] = new DesignModule(r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), (ModuleKind)r.ReadByte());
                 return new DesignerApply(modules);
+            }
+            case TagApplyBlueprint:
+            {
+                int structure = r.ReadInt32(), n = r.ReadInt32();
+                if (n < 0 || n > DesignerRules.MaxStationModules) throw new InvalidDataException($"Blueprint size {n} out of range.");
+                var modules = new DesignModule[n];
+                for (int i = 0; i < n; i++) modules[i] = new DesignModule(r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), (ModuleKind)r.ReadByte());
+                return new ApplyBlueprint(structure, modules);
             }
             case TagSetAim: return new SetAim(r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
             case TagDropItems: return new DropItems(ReadContainer(r), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), r.ReadInt32());
@@ -539,6 +554,7 @@ public static class CommandCodec
         if (version < 21) rules = rules.WithLegacyField(true); // and before the infinite rock field (ADR 0040)
         if (version < 22) rules = rules.WithLegacyDock(true); // and before dock modules were the only docking ports (ADR 0041)
         if (version < 23) rules = rules.WithLegacyArms(true); // and before the antenna variants and the heavy cannon (ADR 0042)
+        if (version < 24) rules = rules.WithLegacyBlueprint(true); // and before stations were edited in the blueprint editor (ADR 0043)
         scenarioId = null;
         if ((flags & 16) != 0)
         {
@@ -567,6 +583,7 @@ public static class CommandCodec
             if (version < 14 && HasDesigner(command)) throw new InvalidDataException("A log older than version 14 cannot hold a DesignerApply command.");
             if (version < 17 && HasAim(command)) throw new InvalidDataException("A log older than version 17 cannot hold a SetAim command.");
             if (version < 18 && HasInventoryCommand(command)) throw new InvalidDataException("A log older than version 18 cannot hold an inventory command.");
+            if (version < 24 && HasBlueprint(command)) throw new InvalidDataException("A log older than version 24 cannot hold an ApplyBlueprint command.");
             if (version < 20 && HasBenchCommand(command)) throw new InvalidDataException("A log older than version 20 cannot hold a workbench queue command.");
             if (version < 19 && HasDropCommand(command)) throw new InvalidDataException("A log older than version 19 cannot hold a drop or pick-up command.");
             log.Add(new LoggedCommand(tick, player, command));
@@ -574,6 +591,7 @@ public static class CommandCodec
         return log;
     }
 
+    private static bool HasBlueprint(Command c) => c is ApplyBlueprint || (c is Batch b && b.Commands.Any(HasBlueprint));
     private static bool HasBenchCommand(Command c) => c is QueueBench or ClearBench || (c is Batch b && b.Commands.Any(HasBenchCommand));
     private static bool HasDropCommand(Command c) => c is DropItems or PickUp || (c is Batch b && b.Commands.Any(HasDropCommand));
     private static bool HasAim(Command c) => c is SetAim || (c is Batch b && b.Commands.Any(HasAim));

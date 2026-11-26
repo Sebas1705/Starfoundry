@@ -72,6 +72,8 @@ public enum HintInteract
     Machine,
     Reactor,
     Shipyard,
+    /// <summary>The core console of a station (ADR 0043): F opens the station's blueprint.</summary>
+    CoreConsole,
     Console,
     Bench,
     BenchPanel,
@@ -338,6 +340,7 @@ public static class KeyHints
         HintInteract.Machine => Act("interact", "interact", "interactMachine"),
         HintInteract.Reactor => Act("interact", "interact", "interactReactor"),
         HintInteract.Shipyard => Act("interact", "interact", "interactShipyard"),
+        HintInteract.CoreConsole => Act("interact", "interact", "interactCore"),
         HintInteract.Console => Act("interact", "interact", "console"),
         HintInteract.Bench => Act("interact", "interact", "refine", Lit(s.Refining)),
         HintInteract.BenchPanel => Act("interact", "interact", "interactBench"),
@@ -480,7 +483,7 @@ public static class KeyHints
     private static IEnumerable<KeyRow> AimModuleRows(KeyState s)
     {
         yield return new KeyRow("hp", Array.Empty<string>(), "key.hp", KeyRowState.Info, null, null, new object[] { s.AimHp, s.AimMaxHp });
-        if (s.Interact is HintInteract.Reactor or HintInteract.Shipyard) yield return InteractRow(s);
+        if (s.Interact is HintInteract.Reactor or HintInteract.Shipyard or HintInteract.CoreConsole) yield return InteractRow(s);
         yield return ComputerRow(s);
     }
 

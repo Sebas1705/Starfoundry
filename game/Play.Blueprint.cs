@@ -21,6 +21,14 @@ public partial class Play
 
     private bool UseBlueprintEditor => !SettingsStore.Current.ClassicDesigner;
 
+    /// <summary>The station the editor is on (ADR 0043), or -1 when it edits the ship.</summary>
+    private int _blueprintStation = -1;
+
+    /// <summary>The player's own station the ship is docked at, or -1: the Designer tab opens its blueprint there when no shipyard is at hand.</summary>
+    private int DockedOwnStation =>
+        _structuresOn && Net.HasPlayer(Player) && Net.BlueprintRules && Net.TryGetDock(Player, out var dock) && Net.StructureExists(dock.Station) && Net.GetStructure(dock.Station).Owner == Player
+            ? dock.Station : -1;
+
     private void BuildBlueprint()
     {
         _blueprint = new BlueprintEditor(_content, ClientContent.Handling, () => _world, Player, Stacks);
@@ -32,13 +40,21 @@ public partial class Play
         if (_designer is not null) _designer.PlanRequested += () => { CloseDesigner(); OpenBlueprint(); };
     }
 
-    /// <summary>Opens the 3D plan on the ship's current layout (docked at a shipyard).</summary>
-    private void OpenBlueprint()
+    /// <summary>Opens the 3D plan on the ship's current layout (docked at a shipyard), or on a station's modules (ADR 0043) when <paramref name="station"/> is its id.</summary>
+    private void OpenBlueprint(int station = -1)
     {
         if (_blueprint is null || !_structuresOn) return;
         SetLaser(false);
         _wantCapture = false;
-        _blueprint.Open();
+        _blueprintStation = station;
+        _blueprint.Open(station);
+    }
+
+    /// <summary>F at the station's core console: its blueprint opens (only in a world where stations are edited that way).</summary>
+    private void OpenStationBlueprint(int station)
+    {
+        if (_blueprint is null || !Net.BlueprintRules || !Net.StructureExists(station) || Net.GetStructure(station).Owner != Player) return;
+        OpenBlueprint(station);
     }
 
     private void CloseBlueprint()
@@ -52,14 +68,15 @@ public partial class Play
     private void OpenBlueprintFromComputer()
     {
         if (_computerTab == ComputerTab.Designer) CloseComputer();
-        OpenBlueprint();
+        OpenBlueprint(ShipyardDocked ? -1 : DockedOwnStation);
     }
 
     /// <summary>Per frame: closes the editor when the shipyard is gone; after an apply waits for the simulation and reloads the layout.</summary>
     private void UpdateBlueprint()
     {
         if (!BlueprintOpen) return;
-        if (!ShipyardDocked && !_uiAudit && !_blueprintCheckOn) { CloseBlueprint(); return; }
+        if (_blueprintStation >= 0) { if (!Net.StructureExists(_blueprintStation) && !_blueprintCheckOn) { CloseBlueprint(); return; } }
+        else if (!ShipyardDocked && !_uiAudit && !_blueprintCheckOn) { CloseBlueprint(); return; }
         if (_blueprintAwait && _world.PendingCommands == 0)
         {
             _blueprintAwait = false;
@@ -67,7 +84,7 @@ public partial class Play
             else
             {
                 _blueprint!.Reload();
-                Toast(L("bp.applied", Net.GetStructure(Net.ShipStructure(Player)).Modules.Count), 4.0);
+                Toast(L("bp.applied", Net.GetStructure(_blueprintStation >= 0 ? _blueprintStation : Net.ShipStructure(Player)).Modules.Count), 4.0);
                 AudioManager.PlayUi(Sfx.UiClick);
             }
         }
@@ -79,6 +96,9 @@ public partial class Play
     /// <summary>For the agent harness: opens the editor (the ship must be docked at a shipyard).</summary>
     public void AgentOpenBlueprint() => OpenBlueprint();
 
+    /// <summary>For the agent harness: opens the editor on a station's modules.</summary>
+    public void AgentOpenStationBlueprint(int station) => OpenStationBlueprint(station);
+
     // ---- --blueprint-check and --blueprint-shot=path ------------------------------------------------------------------
 
     private string? _blueprintShotPath;
@@ -87,6 +107,7 @@ public partial class Play
     private long _bpTick;
     private int _bpModulesBefore, _bpLasersBefore;
     private (int Mx, int My, int Mz) _bpSpot, _bpFar;
+    private int _bpStation = -1, _bpStationModules;
     private string _bpLang = "";
 
     private void BlueprintSetup(string[] args)
@@ -137,14 +158,17 @@ public partial class Play
             {
                 _wantCapture = false;
                 var o = Net.GetStructure(ship);
-                int st = Net.CreateStructure(Player, StructureKind.Station, o.OriginX - (8 + 10) * cu, o.OriginY, o.OriginZ);
+                // ADR 0041: the ship's dock module joins the dock module beside the station core (the same layout the editor tests use).
+                int st = Net.CreateStructure(Player, StructureKind.Station, o.OriginX - 26 * cu, o.OriginY, o.OriginZ + StationGrid.ModuleZ * cu);
                 Net.AddStructureModuleUnchecked(st, 0, 0, 0, ModuleKind.Core);
+                Net.AddStructureModuleUnchecked(st, 0, 0, -1, ModuleKind.Dock);
                 Net.AddStructureModuleUnchecked(st, 0, 0, 1, ModuleKind.Shipyard);
-                Net.AddStructureModuleUnchecked(st, 0, 0, -1, ModuleKind.Reactor);
+                Net.AddStructureModuleUnchecked(st, 1, 0, 0, ModuleKind.Reactor);
+                _bpStation = st;
                 foreach (var (item, n) in new[] { ("core:iron_plate", 80), ("core:iron_ingot", 40), ("core:carbon", 30), ("core:circuit", 20), ("core:titanium_alloy", 20), ("core:focus_lens", 4), ("core:coolant", 10), ("core:composite_plate", 4) })
                     Net.GiveStock(st, _content.ItemIndex(item), n);
                 if (Wait(5)) break;
-                Send(new DockAt(st, 0, 0, 0, Dir.PosX));
+                Send(new DockAt(st, 0, 0, -1, Dir.PosX));
                 break;
             }
             case 1:
@@ -186,6 +210,18 @@ public partial class Play
                 s.Camera.SetOrbit();
                 Shot("done");
                 GetTree().Quit();
+                break;
+            case 7: // station blueprint (ADR 0043): the same editor on the station's modules
+                if (Wait(6)) break;
+                BlueprintCheckStationOpen();
+                break;
+            case 8:
+                if (Wait(4)) break;
+                BlueprintCheckStationEdited();
+                break;
+            case 9:
+                if (_blueprintAwait || Net.Tick < _bpTick + 3) break;
+                BlueprintCheckStationApplied();
                 break;
         }
     }
@@ -320,6 +356,82 @@ public partial class Play
         int ship = ShipStruct;
         Check("the ship has the new module", Net.GetStructure(ship).Modules.Count == _bpModulesBefore + 1 && Net.MiningLasers(Player).Count == _bpLasersBefore + 1, $"modules={Net.GetStructure(ship).Modules.Count} lasers={Net.MiningLasers(Player).Count}");
         Check("the editor reloaded the applied layout", !s.Dirty && s.Draft.Count == Net.GetStructure(ship).Modules.Count && !s.CanApply);
+        _bpWait = 0; _bpPhase = 7; // on to the station
+        CloseBlueprint();
+        _wantCapture = false;
+        OpenBlueprint(_bpStation);
+    }
+
+    // ---- the station section of --blueprint-check ------------------------------------------------------------------
+
+    private void BlueprintCheckStationOpen()
+    {
+        var ed = _blueprint!;
+        var s = ed.Session;
+        Check("station: the editor opens on the station", ed.IsOpen && BlueprintOpen && _blueprintStation == _bpStation && s.StructureKind == StructureKind.Station && s.StructureId == _bpStation);
+        foreach (var n in new[] { "PlanView", "PalettePanel", "SidePanel", "FootBar", "CostPanel", "StatsPanel", "ValidationPanel", "ApplyButton", "Palette_Defence", "Palette_Shipyard", "Palette_Workshop" })
+            Check("station: node " + n, ed.FindChild(n, true, false) is not null);
+        Check("station: the palette has no ship parts", ed.FindChild("Palette_Cockpit", true, false) is null && ed.FindChild("Palette_Engine", true, false) is null && ed.FindChild("Palette_Gun", true, false) is null && ed.FindChild("Palette_Core", true, false) is null);
+        Check("station: the unchanged station has nothing to apply", !s.Dirty && !s.CanApply);
+        Check("station: no ship-only errors", !s.Validation.Entries.Any(e => e.Code is "noCockpit" or "noEngine" or "noReactor" or "noCargo"));
+        var d0 = ed.Describe();
+        Check("station: the real structure is drawn", d0.Contains($"realNodes={s.Draft.Original.Count} "), d0);
+        var original = Loc.Lang;
+        foreach (var lang in new[] { Language.Es, Language.En })
+        {
+            Loc.Lang = lang;
+            foreach (var size in new[] { new Vector2(1280, 720), new Vector2(1920, 1080), new Vector2(960, 540), new Vector2(1152, 648) })
+            {
+                var problems = ed.LayoutProblems(size);
+                Check($"station: layout {lang} {size.X}x{size.Y}", problems.Count == 0, string.Join(" | ", problems));
+            }
+        }
+        Loc.Lang = original;
+        _bpStationModules = s.Draft.Count;
+        _bpSpot = BlueprintSpots()[0];
+        ed.PickKind(ModuleKind.Defence);
+        ed.ClickCell(_bpSpot);
+        Check("station: a placed module makes the draft dirty", s.Dirty && s.Draft.Modules.TryGetValue(_bpSpot, out var k) && k == ModuleKind.Defence);
+    }
+
+    private void BlueprintCheckStationEdited()
+    {
+        var ed = _blueprint!;
+        var s = ed.Session;
+        Check("station: the simulation agrees with the diff", s.Report.Ok && s.Report.Added == s.Diff.AddedTotal && s.Report.Removed == s.Diff.RemovedTotal, s.Report.Reject.ToString());
+        Check("station: cost equals the simulation's", s.Cost.ToPay.SequenceEqual(s.Report.Cost) && s.Cost.ToRefund.SequenceEqual(s.Report.Refund));
+        Check("station: the draft can be applied", s.CanApply && s.ToCommand() is ApplyBlueprint ab && ab.Structure == _bpStation && ab.Modules.Length == _bpStationModules + 1);
+        // the core cannot go: an error, Apply blocked, and the validation entry frames it
+        var core = s.Draft.Modules.First(kv => kv.Value == ModuleKind.Core).Key;
+        ed.SetTool(BlueprintTool.Delete);
+        ed.ClickCell(core);
+        var e = s.Validation.Entries.FirstOrDefault(x => x.Code == "noCore");
+        Check("station: removing the core is an error", e is not null && e.Blocks && !s.CanApply && IconCatalog.IsRegistered(e.Icon) && e.Text(Language.Es) != e.Text(Language.En));
+        ed.RunAction("bpUndo", 0);
+        Check("station: undo restores the core", s.Draft.Modules.ContainsKey(core) && s.CanApply);
+        // a second dock module may be added but the last one cannot go (ADR 0041)
+        var dock = s.Draft.Modules.Where(kv => kv.Value == ModuleKind.Dock).Select(kv => ((int, int, int)?)kv.Key).FirstOrDefault();
+        if (dock is { } dk)
+        {
+            ed.ClickCell(dk);
+            Check("station: removing the last dock module is an error", s.Validation.Entries.Any(x => x.Code == "noDock" && x.Blocks) && !s.CanApply);
+            ed.RunAction("bpUndo", 0);
+        }
+        ed.SetTool(BlueprintTool.Select);
+        _bpTick = Net.Tick;
+        ed.Apply();
+        Check("station: apply sends one ApplyBlueprint", _blueprintAwait);
+        _bpWait = 0; _bpPhase = 9;
+    }
+
+    private void BlueprintCheckStationApplied()
+    {
+        var ed = _blueprint!;
+        var s = ed.Session;
+        var st = Net.GetStructure(_bpStation);
+        Check("station: the station has the new module", st.Modules.Count == _bpStationModules + 1 && st.Modules.TryGetValue(_bpSpot, out var k) && k == ModuleKind.Defence, $"modules={st.Modules.Count}");
+        Check("station: the editor reloaded the applied layout", !s.Dirty && s.Draft.Count == st.Modules.Count && !s.CanApply);
+        Check("station: the module tool is refused in the world", Net.BlueprintRules);
         GD.Print($"BLUEPRINTCHECK done pass={_bpPass} fail={_bpFail}");
         GetTree().Quit(_bpFail > 0 ? 1 : 0);
     }

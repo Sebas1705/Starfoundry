@@ -78,6 +78,23 @@ public sealed class ShipDesignEditor
         return list;
     }
 
+    /// <summary>The kinds the blueprint editor offers for a structure of this kind (ADR 0043): the ship's catalogue for a ship, and for a station every kind it may hold except the core (the first module, never placed).</summary>
+    public static IReadOnlyList<ModuleKind> Catalogue(ContentDb content, StructureKind structure)
+    {
+        if (structure == StructureKind.Ship) return Catalogue(content);
+        var list = new List<ModuleKind>();
+        if (content.Structures is not { } kinds) return list;
+        foreach (var k in StationOrder)
+            if (kinds.IsDefined(k) && ModuleKindIds.AllowedOn(StructureKind.Station, k)) list.Add(k);
+        return list;
+    }
+
+    private static readonly ModuleKind[] StationOrder =
+    {
+        ModuleKind.Reactor, ModuleKind.ReactorMk2, ModuleKind.Cargo, ModuleKind.Workshop, ModuleKind.Defence, ModuleKind.Hull, ModuleKind.Shipyard,
+        ModuleKind.DroneBay, ModuleKind.Shield, ModuleKind.Sensor, ModuleKind.SensorShort, ModuleKind.SensorLong, ModuleKind.CommsAntenna, ModuleKind.Dock,
+    };
+
     private static readonly ModuleKind[] Order =
     {
         ModuleKind.Cockpit, ModuleKind.Engine, ModuleKind.Reactor, ModuleKind.ReactorMk2, ModuleKind.Cargo, ModuleKind.Workshop, ModuleKind.Hull,

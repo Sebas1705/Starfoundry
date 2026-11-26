@@ -8,6 +8,9 @@ public static class DesignerRules
 {
     /// <summary>Most modules a ship design may have.</summary>
     public const int MaxModules = 128;
+
+    /// <summary>Most modules a station blueprint may have (ADR 0043).</summary>
+    public const int MaxStationModules = 256;
 }
 
 public sealed partial class BeltNetwork

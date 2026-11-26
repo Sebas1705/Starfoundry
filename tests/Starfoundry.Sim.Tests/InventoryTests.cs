@@ -655,7 +655,7 @@ public class InventoryTests
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, recorded.Log, C.Hash, GameMode.Sandbox, Seed, threats: false, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(23, bytes[4]);
+        Assert.Equal(24, bytes[4]);
         var empty = new MemoryStream();
         CommandCodec.WriteLog(empty, new List<LoggedCommand>(), C.Hash, GameMode.Sandbox, Seed, threats: false, structures: true);
         for (byte version = 6; version <= 17; version++)
@@ -707,8 +707,8 @@ public class InventoryTests
         Assert.False(legacy.WithLegacyInventory(false).LegacyInventory);
         Assert.All(WorldRules.Presets, p => Assert.False(p.Rules.LegacyInventory));
         byte[] bytes = legacy.Serialize();
-        bytes[1 + 8 * 4 + 1] = 128; // a flag nobody defined (bit 3 is the ship automation flag of ADR 0039)
-        Assert.Throws<InvalidDataException>(() => WorldRules.Deserialize(bytes));
+        bytes[1 + 8 * 4 + 1] = 128; // bit 7 is the blueprint flag of ADR 0043: every bit of the byte is defined now
+        Assert.True(WorldRules.Deserialize(bytes).LegacyBlueprint);
         Assert.Throws<InvalidDataException>(() => WorldRules.Deserialize(legacy.Serialize().AsSpan(0, legacy.Serialize().Length - 1)));
     }
 

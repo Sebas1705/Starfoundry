@@ -189,6 +189,15 @@ public sealed record SetAttitude(int W, int X, int Y, int Z) : Command;
 /// priced: modules that only move are free, a removed module refunds half its cost, the hold pays first and the station stock the rest. All or nothing.</summary>
 public sealed record DesignerApply(DesignModule[] Modules) : Command;
 
+/// <summary>
+/// Replaces the whole module list of one of the player's structures in a single atomic step (ADR 0043), the blueprint editor's apply: a station, or the player's ship
+/// (as <see cref="DesignerApply"/> does). The verdict and the price are exactly <see cref="SimWorld.CheckBlueprint"/>, which the client previews, so the two cannot disagree.
+/// A station keeps its core and at least one dock module, takes no cockpit, engine or hardpoint, stays one connected piece and loses no module that holds a machine or belt
+/// or the port a ship is docked with; modules that only move are free, a removed module refunds half its cost and the hold pays first and the station stock the rest.
+/// Refused with <see cref="Reject.NotAllowedHere"/> in a world with <see cref="WorldRules.LegacyBlueprint"/>.
+/// </summary>
+public sealed record ApplyBlueprint(int Structure, DesignModule[] Modules) : Command;
+
 /// <summary>Several commands applied atomically: either all succeed or the world is left untouched.</summary>
 public sealed record Batch(Command[] Commands) : Command;
 
@@ -334,6 +343,9 @@ public enum Reject
 
     /// <summary>Automation is built in a station (ADR 0039): a ship holds no machines, belts, turrets, walls or Fabrication bays.</summary>
     UseStation,
+
+    /// <summary>Stations are edited in the blueprint editor (ADR 0043): the module tool and the in-world placement of station parts are refused, send ApplyBlueprint.</summary>
+    UseBlueprint,
 }
 
 /// <summary>Outcome of one submitted command.</summary>

@@ -171,7 +171,7 @@ public partial class BlueprintEditor
     private void RefreshStats()
     {
         ClearChildren(_statsList);
-        foreach (var r in StatRows.Build(_s.Stats, _s.StatsBefore))
+        foreach (var r in _s.StatRows())
         {
             var row = new HBoxContainer { Name = "Stat_" + r.LabelKey[8..], SizeFlagsHorizontal = SizeFlags.ExpandFill };
             row.AddThemeConstantOverride("separation", 6);

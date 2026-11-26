@@ -16,7 +16,7 @@ public class ShipStationTests
 
     private static SimWorld World(WorldRules? rules = null)
     {
-        var w = SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, threats: false, stationRules: false, structures: true, rules: rules ?? new WorldRules { FreeBuild = true });
+        var w = SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, threats: false, stationRules: false, structures: true, rules: (rules ?? new WorldRules { FreeBuild = true }).WithLegacyBlueprint(true));
         w.Network.EnsurePlayer(0);
         return w;
     }
@@ -134,8 +134,8 @@ public class ShipStationTests
         Assert.True(legacy.WithResourceDensity(120).LegacyShipAutomation);
         Assert.False(legacy.WithLegacyShipAutomation(false).LegacyShipAutomation);
         var bad = legacy.Serialize();
-        bad[1 + 8 * 4 + 1] = 128;
-        Assert.Throws<InvalidDataException>(() => WorldRules.Deserialize(bad));
+        bad[1 + 8 * 4 + 1] = 128; // bit 7 is the blueprint flag of ADR 0043
+        Assert.True(WorldRules.Deserialize(bad).LegacyBlueprint);
     }
 
     [Fact]
@@ -144,7 +144,7 @@ public class ShipStationTests
         var w = World();
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, w.Log, C.Hash, GameMode.Campaign, Seed, threats: false, structures: true);
-        Assert.Equal(23, ms.ToArray()[4]);
+        Assert.Equal(24, ms.ToArray()[4]);
         CommandCodec.ReadLog(new MemoryStream(ms.ToArray()), out _, out _, out _, out _, out _, out _, out var now);
         Assert.False(now.LegacyShipAutomation);
         for (byte version = 6; version <= 19; version++)

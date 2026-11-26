@@ -302,7 +302,7 @@ public class ScenarioTests
         Ok(w, new SetMovement(1, 0, 0));
         byte[] plain = LogBytes(w, null);
         byte[] scen = LogBytes(w, def);
-        Assert.Equal(23, scen[4]);
+        Assert.Equal(24, scen[4]);
         const int flagsAt = 4 + 1 + 8 + 1 + 8;
         Assert.Equal(0, plain[flagsAt] & 16);
         Assert.Equal(16, scen[flagsAt] & 16);
@@ -460,7 +460,7 @@ public class ScenarioTests
     [Fact]
     public void Stations_founded_and_modules_built_count_commands_only()
     {
-        var w = SimWorld.CreateScenario(C, Catalog, "sandbox", Seed);
+        var w = SimWorld.CreateScenario(C, Catalog, "sandbox", Seed, WorldRules.Default.WithLegacyBlueprint(true));
         var net = w.Network;
         Assert.Equal(0, net.StationsFounded);
         var p = net.GetPlayerInfo(0);
@@ -481,7 +481,7 @@ public class ScenarioTests
         Assert.Equal(2, net.ModulesBuilt(ModuleKind.Reactor));
         w.ValidateInvariants();
         Assert.Equal(2, net.Clone().ModulesBuilt(ModuleKind.Reactor));
-        var replay = SimWorld.ReplayScenario(w.Log, w.Tick, C, Catalog, "sandbox", Seed);
+        var replay = SimWorld.ReplayScenario(w.Log, w.Tick, C, Catalog, "sandbox", Seed, WorldRules.Default.WithLegacyBlueprint(true));
         Assert.Equal(1, replay.Network.StationsFounded);
         Assert.Equal(2, replay.Network.ModulesBuilt(ModuleKind.Reactor));
     }

@@ -11,7 +11,7 @@ namespace Starfoundry.Game;
 /// The blueprint editor of ships (docs/prototypes/blueprint-editor.md): a full-screen mode with a 3D plan of the structure (orbit, pan, zoom, a top-down plan
 /// and a deck-by-deck section), ghosts of what the draft adds, removes and moves, a palette and tools, a cost and stats panel that is always on screen, a
 /// validation list whose entries frame the part, and Apply and Revert. The logic lives in the engine-free <see cref="BlueprintSession"/>; this class only draws
-/// it and forwards the mouse and the keys. Applying sends one <see cref="DesignerApply"/>. Every part has a name so the agent harness can find it.
+/// it and forwards the mouse and the keys. Applying sends one <see cref="DesignerApply"/> for the ship or one <see cref="ApplyBlueprint"/> for a station (ADR 0043). Every part has a name so the agent harness can find it.
 /// </summary>
 public partial class BlueprintEditor : Control
 {
@@ -43,7 +43,7 @@ public partial class BlueprintEditor : Control
     public float TopInset { get; set; }
 
     /// <summary>The player pressed Apply: the game submits the command.</summary>
-    public event Action<DesignerApply>? ApplyRequested;
+    public event Action<Command>? ApplyRequested;
 
     public event Action? CloseRequested;
 
@@ -209,7 +209,16 @@ public partial class BlueprintEditor : Control
         col.AddChild(palTitle);
         _paletteList = new VBoxContainer { Name = "PaletteList", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _paletteList.AddThemeConstantOverride("separation", 3);
-        foreach (var kind in ShipDesignEditor.Catalogue(_content))
+        FillPalette();
+        col.AddChild(new ScrollWithHint(_paletteList) { Name = "PaletteScroll" });
+    }
+
+    /// <summary>Fills the palette with the kinds the structure being edited may hold (a ship's catalogue, or a station's).</summary>
+    private void FillPalette()
+    {
+        foreach (var c in _paletteList.GetChildren()) { _paletteList.RemoveChild(c); c.QueueFree(); }
+        _palette.Clear();
+        foreach (var kind in ShipDesignEditor.Catalogue(_content, _s.StructureKind))
         {
             var k = kind;
             var row = new HBoxContainer { Name = "PaletteRow_" + k, SizeFlagsHorizontal = SizeFlags.ExpandFill };
@@ -240,7 +249,6 @@ public partial class BlueprintEditor : Control
             _paletteList.AddChild(row);
             _palette.Add((k, b));
         }
-        col.AddChild(new ScrollWithHint(_paletteList) { Name = "PaletteScroll" });
     }
 
     private PanelContainer SideSection(string name, string titleKey, string titleIcon, out VBoxContainer body, float ratio)
@@ -313,14 +321,18 @@ public partial class BlueprintEditor : Control
 
     // ---- state -----------------------------------------------------------------------------------------------------
 
-    /// <summary>Opens the editor on the ship's current layout.</summary>
-    public void Open()
+    private int _structure = -1;
+
+    /// <summary>Opens the editor on the ship's current layout, or on a station's modules when <paramref name="structure"/> is its id (ADR 0043).</summary>
+    public void Open(int structure = -1)
     {
         _discardArmed = false;
-        _s.Open();
+        _structure = structure;
+        _s.Open(structure);
+        FillPalette();
         _hoverCell = null;
         _lastSize = Vector2.Zero;
-        _title.SetFit(Loc.T("bp.title"));
+        _title.SetFit(Loc.T(structure >= 0 ? "bp.title.station" : "bp.title"));
         UiFx.Cancel(this);
         Visible = true;
         _refresh = true; _sceneDirty = true;
@@ -336,7 +348,7 @@ public partial class BlueprintEditor : Control
     /// <summary>Loads the ship's layout again (after an apply).</summary>
     public void Reload()
     {
-        _s.Open();
+        _s.Open(_structure);
         _discardArmed = false;
         SyncViewButtons();
     }
@@ -412,7 +424,7 @@ public partial class BlueprintEditor : Control
 
     // ---- the save-as-blueprint slot hook (a stub: one file per slot under user://; slots, presets and variants come later) ----------
 
-    private static string SlotPath(int slot) => $"user://blueprints/ship_slot{slot}.txt";
+    private string SlotPath(int slot) => $"user://blueprints/{(_structure >= 0 ? "station" : "ship")}_slot{slot}.txt";
 
     public bool SaveSlot(int slot)
     {
@@ -421,7 +433,7 @@ public partial class BlueprintEditor : Control
             DirAccess.MakeDirRecursiveAbsolute("user://blueprints");
             using var f = FileAccess.Open(SlotPath(slot), FileAccess.ModeFlags.Write);
             if (f is null) { Say?.Invoke(Loc.T("bp.saveFailed")); return false; }
-            f.StoreString(BlueprintFormat.Serialize(_s.Draft, "ship"));
+            f.StoreString(BlueprintFormat.Serialize(_s.Draft, _structure >= 0 ? "station" : "ship"));
             Say?.Invoke(Loc.T("bp.saved", slot));
             return true;
         }

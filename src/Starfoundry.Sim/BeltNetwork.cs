@@ -44,6 +44,9 @@ public sealed partial class BeltNetwork
     /// <summary>ADR 0039: structure worlds without <see cref="WorldRules.LegacyShipAutomation"/>: automation is built in stations only and the workbench is a slow queue.</summary>
     public bool StationFirst => StructureRules && !Rules.LegacyShipAutomation;
 
+    /// <summary>True when stations are edited in the blueprint editor (ADR 0043): structure rules on and no <see cref="WorldRules.LegacyBlueprint"/>.</summary>
+    public bool BlueprintRules => StructureRules && !Rules.LegacyBlueprint;
+
     /// <summary>True when machines and belts may stand at any layer of a module that allows them: <see cref="WorldRules.LegacyBuilding"/> or content that predates ADR 0031.</summary>
     public bool FreeBuilding => Rules.LegacyBuilding || !(Content?.FloorBuilding ?? true);
 

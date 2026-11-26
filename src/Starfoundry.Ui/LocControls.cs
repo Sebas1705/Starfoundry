@@ -151,6 +151,7 @@ public static partial class Loc
         ["key.interactMachine"] = ("Abrir la máquina", "Open the machine"),
         ["key.interactReactor"] = ("Abrir el reactor", "Open the reactor"),
         ["key.interactShipyard"] = ("Abrir el diseñador de naves", "Open the ship designer"),
+        ["key.interactCore"] = ("Editar la estación (plano 3D)", "Edit the station (3D plan)"),
         ["key.climb"] = ("Subir o bajar la escalera", "Climb the ladder"),
         ["key.hudMinimal"] = ("HUD mínimo (H cambia)", "Minimal HUD (H switches)"),
         ["key.hudStandard"] = ("HUD estándar (H cambia)", "Standard HUD (H switches)"),

@@ -49,6 +49,8 @@ public sealed class BlueprintValidation
         "noEngine" => "module:engine",
         "noReactor" => "module:reactor",
         "noCargo" => "module:cargo",
+        "noCore" => "module:core",
+        "noDock" => "module:dock",
         "power" => "status:power",
         "port" or "portBlocked" => "status:port",
         "view" => "tool:look",
@@ -65,24 +67,34 @@ public sealed class BlueprintValidation
     /// </summary>
     /// <param name="port">The cell of the ship's docked port, when the ship is docked (its module must stay and its face must stay free).</param>
     /// <param name="portFace">The cell in front of the port's face.</param>
-    public static BlueprintValidation Check(BlueprintDraft draft, ContentDb content, DesignReport? report, ShipStats after, ShipStats before, (int Mx, int My, int Mz)? port = null, (int Mx, int My, int Mz)? portFace = null, bool requireDock = true)
+    public static BlueprintValidation Check(BlueprintDraft draft, ContentDb content, DesignReport? report, ShipStats after, ShipStats before, (int Mx, int My, int Mz)? port = null, (int Mx, int My, int Mz)? portFace = null, bool requireDock = true, StructureKind kind = StructureKind.Ship)
     {
         var list = new List<ValidationEntry>();
         void Add(ValidationSeverity sev, string code, string key, IReadOnlyList<(int, int, int)>? cells = null, params object[] args) =>
             list.Add(new ValidationEntry(sev, code, IconFor(sev, code), key, args, (cells ?? Array.Empty<(int, int, int)>()).Select(c => (c.Item1, c.Item2, c.Item3)).ToList()));
 
         var mods = draft.Modules;
+        bool station = kind == StructureKind.Station;
         if (mods.Count == 0) Add(ValidationSeverity.Error, "empty", "bp.val.empty");
-        if (mods.Count > DesignerRules.MaxModules) Add(ValidationSeverity.Error, "tooMany", "bp.val.tooMany", null, mods.Count, DesignerRules.MaxModules);
+        if (mods.Count > draft.Max) Add(ValidationSeverity.Error, "tooMany", "bp.val.tooMany", null, mods.Count, draft.Max);
         if (mods.Count > 0)
         {
-            if (!mods.Values.Contains(ModuleKind.Cockpit)) Add(ValidationSeverity.Error, "noCockpit", "bp.val.noCockpit");
-            if (!mods.Values.Contains(ModuleKind.Engine)) Add(ValidationSeverity.Error, "noEngine", "bp.val.noEngine");
-            if (!mods.Values.Any(ModuleKindIds.IsReactor)) Add(ValidationSeverity.Error, "noReactor", "bp.val.noReactor");
-            if (!mods.Values.Contains(ModuleKind.Cargo)) Add(ValidationSeverity.Error, "noCargo", "bp.val.noCargo");
-            if (requireDock && !mods.Values.Contains(ModuleKind.Dock)) Add(ValidationSeverity.Error, "noDock", "bp.val.noDock"); // ADR 0041: the ship docks only through a dock module
-            var stray = Disconnected(mods, port);
-            if (stray.Count > 0) Add(ValidationSeverity.Error, "disconnected", "bp.val.disconnected", stray.Select(c => (c.Mx, c.My, c.Mz)).ToList(), stray.Count);
+            if (station)
+            {
+                // The core anchors a station (ADR 0043): it stays where and what it is.
+                var core = draft.Original.Where(kv => kv.Value == ModuleKind.Core).Select(kv => ((int Mx, int My, int Mz)?)kv.Key).FirstOrDefault();
+                if (core is { } c && (!mods.TryGetValue(c, out var ck) || ck != ModuleKind.Core)) Add(ValidationSeverity.Error, "noCore", "bp.val.noCore", new[] { (c.Mx, c.My, c.Mz) });
+            }
+            else
+            {
+                if (!mods.Values.Contains(ModuleKind.Cockpit)) Add(ValidationSeverity.Error, "noCockpit", "bp.val.noCockpit");
+                if (!mods.Values.Contains(ModuleKind.Engine)) Add(ValidationSeverity.Error, "noEngine", "bp.val.noEngine");
+                if (!mods.Values.Any(ModuleKindIds.IsReactor)) Add(ValidationSeverity.Error, "noReactor", "bp.val.noReactor");
+                if (!mods.Values.Contains(ModuleKind.Cargo)) Add(ValidationSeverity.Error, "noCargo", "bp.val.noCargo");
+            }
+            if (requireDock && !mods.Values.Contains(ModuleKind.Dock)) Add(ValidationSeverity.Error, "noDock", station ? "bp.val.noDockStation" : "bp.val.noDock"); // ADR 0041: a structure docks only through a dock module
+            var stray = Disconnected(mods, port ?? (station ? draft.Original.Where(kv => kv.Value == ModuleKind.Core).Select(kv => ((int, int, int)?)kv.Key).FirstOrDefault() : null));
+            if (stray.Count > 0) Add(ValidationSeverity.Error, "disconnected", station ? "bp.val.disconnectedStation" : "bp.val.disconnected", stray.Select(c => (c.Mx, c.My, c.Mz)).ToList(), stray.Count);
         }
         if (port is { } p)
         {
@@ -102,7 +114,7 @@ public sealed class BlueprintValidation
                 Reject.NoDockModule => list.Any(e => e.Code == "noDock"),
                 Reject.NotAdjacent => list.Any(e => e.Code == "disconnected"),
                 Reject.InvalidArgument => list.Any(e => e.Code is "empty" or "tooMany"),
-                Reject.ModuleOccupied => list.Any(e => e.Code is "port" or "portBlocked"),
+                Reject.ModuleOccupied => list.Any(e => e.Code is "port" or "portBlocked" or "noCore"),
                 _ => false,
             };
             if (!covered)
@@ -115,6 +127,8 @@ public sealed class BlueprintValidation
 
         if (after.PowerBalance < 0)
             Add(ValidationSeverity.Warning, "power", "bp.val.power", mods.Where(kv => ModuleKindIds.IsReactor(kv.Value)).Select(kv => (kv.Key.Mx, kv.Key.My, kv.Key.Mz)).ToList(), -after.PowerBalance);
+        if (!station)
+        {
         // Only what the draft adds: the starter ship's own gun deck over the cockpit is a known, glazed case that would warn forever.
         var already = DesignWarnings.ViewBlockers(draft.Original).Select(b => (b.Cockpit, b.Attachment, b.Why)).ToHashSet();
         var blockers = DesignWarnings.ViewBlockers(mods).Where(b => !already.Contains((b.Cockpit, b.Attachment, b.Why))).ToList();
@@ -124,6 +138,7 @@ public sealed class BlueprintValidation
             Add(ValidationSeverity.Warning, "noLaser", "bp.val.noLaser");
         if (before.Turn.RateDegPerSecond > 0f && after.Turn.RateDegPerSecond < before.Turn.RateDegPerSecond * 0.75f && mods.Count > 0)
             Add(ValidationSeverity.Warning, "turn", "bp.val.turn", null, (int)Math.Round(100f * (1f - after.Turn.RateDegPerSecond / before.Turn.RateDegPerSecond)));
+        }
 
         if (!draft.Dirty) Add(ValidationSeverity.Info, "unchanged", "bp.val.unchanged");
         else if (!list.Any(e => e.Blocks)) Add(ValidationSeverity.Info, "valid", "bp.val.valid");
