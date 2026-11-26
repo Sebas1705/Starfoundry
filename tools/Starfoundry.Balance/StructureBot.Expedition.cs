@@ -96,7 +96,7 @@ public sealed partial class StructureBot
         foreach (int s in _scanned)
         {
             if (s == 0 && item != Item("core:iron_ore") && item != Item("core:carbon") && item != Item("core:ice")) continue;
-            for (int d = 0; d < Net.DepositCount; d++)
+            for (int d = 0; d < g.Deposits.Count; d++)
                 if (g.Deposits[d].System == s && Net.DepositItem(d) == item && Net.IsDepositRevealed(d) && Net.DepositRemaining(d) > 20) { found.Add(s); break; }
         }
         return found;
