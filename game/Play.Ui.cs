@@ -1504,7 +1504,7 @@ public partial class Play
     private void SelectBuild(int index)
     {
         if (index < 0 || index >= _palette.Count) return;
-        if (ItemBlockedNow(_palette[index])) { ToastLogistics(StationFirstUi.Hint(true), 4.0); return; } // ADR 0039: automation is built in a station
+        if (ItemBlockedNow(_palette[index])) { ToastLogistics(BlockedHint(), 4.0); return; } // ADR 0039: automation is built in a station
         // Pressing the same number again keeps it selected (Esc puts it away): a double press while building must not undo the choice.
         _selected = index;
         _beltAnchor = null;

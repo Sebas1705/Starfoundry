@@ -115,7 +115,7 @@ public partial class Play
 
         _buildMenu = new BuildMenu(() => _catalog, EntryView);
         _buildMenu.Chosen += ChooseFromMenu;
-        _buildMenu.Banner = () => StationFirstUi.Hint(AutomationBlocked);
+        _buildMenu.Banner = BlockedHint;
         _buildMenu.CloseRequested += CloseBuildMenu;
         _uiRoot.AddChild(_buildMenu);
         BuildInventoryPanel();
@@ -199,7 +199,7 @@ public partial class Play
         string key = index >= 0 && (index < DirectKeys || _palette[index].IsStation || (_palette[index].IsModule && e.Kind != BuildEntryKind.Module)) ? KeyLabel(index) : "";
         string role = e.Kind == BuildEntryKind.Machine ? L("tip.role." + _content.Machines[e.Machine].Role.ToString().ToLowerInvariant()) : L(e.RoleKey);
         bool blocked = EntryBlockedNow(e); // ADR 0039
-        string status = blocked ? L("build.stationFirst") : st.Locked
+        string status = blocked ? (AutomationBlocked ? L("build.stationFirst") : L("build.useBlueprint")) : st.Locked
             ? (st.UnlockedBy >= 0 ? L("build.locked", Loc.Name("research", _content.Research[st.UnlockedBy].Id)) : L("build.lockedNoNode"))
             : !st.Affordable && st.Cost.Length > 0 ? Missing(st.Cost) : "";
         return new BuildEntryView(BuildCatalog.Name(_content, e), key, role, BuildCatalog.CostText(_content, e, st.Cost), BuildCatalog.PowerText(e),
@@ -209,7 +209,7 @@ public partial class Play
 
     private void ChooseFromMenu(BuildEntry e)
     {
-        if (EntryBlockedNow(e)) { ToastLogistics(Why(StationFirstUi.Problem(e, true)!.Value), 5.0); return; }
+        if (EntryBlockedNow(e)) { ToastLogistics(Why(FootTools.Problem(e, AutomationBlocked, InteriorBlueprintWorld)!.Value), 5.0); return; }
         var st = BuildCatalog.Status(_content, Net, Player, e);
         if (st.Locked)
         {

@@ -7,6 +7,7 @@ public static partial class Loc
     {
         // the hint where the build tool would be
         ["build.stationFirst"] = ("La automatización se construye en una estación", "Automation is built in a station"),
+        ["build.useBlueprint"] = ("Máquinas y cintas se dibujan en el plano de la estación (F en el núcleo); a pie solo reparas y demueles", "Machines and belts are drawn on the station's floor plan (F at the core); on foot you only repair and demolish"),
 
         // the workbench panel
         ["bench.card.hintPanel"] = ("F: abrir el banco de trabajo", "F: open the workbench"),
