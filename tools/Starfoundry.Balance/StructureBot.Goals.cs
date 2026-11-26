@@ -394,7 +394,7 @@ public sealed partial class StructureBot
     private int HomeIceLeft()
     {
         int left = 0;
-        for (int d = 0; d < Net.DepositCount; d++)
+        for (int d = 0; d < Net.Galaxy!.Deposits.Count; d++)
             if (Net.DepositItem(d) == Item("core:ice") && Net.Galaxy!.Deposits[d].System == 0) left += Net.DepositRemaining(d);
         return left;
     }

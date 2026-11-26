@@ -47,7 +47,8 @@ public sealed partial class DepositView : Node3D
     private readonly MeshInstance3D _rock, _chunks;
     private int _step = -1; // remaining in 5% steps (20 = full, 0 = empty)
 
-    public DepositView(string item, int density, int initial, int seed)
+    /// <param name="scalePermille">The rock size in thousandths when the simulation says it (a rock of the infinite field has its own size); 0 derives it from the amount.</param>
+    public DepositView(string item, int density, int initial, int seed, int scalePermille = 0)
     {
         _item = item; _density = density; _initial = Math.Max(1, initial); _seed = seed;
         Name = "Deposit";
@@ -55,7 +56,7 @@ public sealed partial class DepositView : Node3D
         _chunks = new MeshInstance3D { Name = "GlowCrystals" };
         AddChild(_rock);
         AddChild(_chunks);
-        Scale = Vector3.One * RockScale(initial);
+        Scale = Vector3.One * (scalePermille > 0 ? scalePermille / 1000f : RockScale(initial));
         Refresh(initial);
     }
 

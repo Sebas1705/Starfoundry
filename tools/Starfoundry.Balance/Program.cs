@@ -67,6 +67,8 @@ if (args.Contains("--structures"))
         };
     // --density=N plays with that resource density (50..300 percent, ADR 0036); the presets carry 150, 140, 120 and 100.
     if (Value("--density") is { } dens) rules = rules.WithResourceDensity(int.Parse(dens));
+    // --legacy-field plays the finite world as before ADR 0040 (no infinite rock field): the baseline to compare the field against.
+    if (args.Contains("--legacy-field")) rules = rules.WithLegacyField(true);
     var bot = new StructureBot(content, sSeed, threats: !args.Contains("--no-threats"), rules: rules)
     {
         ActionDelaySeconds = args.Any(a => a.StartsWith("--delay=")) ? delay : 6,

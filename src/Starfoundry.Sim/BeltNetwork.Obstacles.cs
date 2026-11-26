@@ -252,7 +252,7 @@ public sealed partial class BeltNetwork
 
     /// <summary>The radius within which a module of the ship hits the rock of a deposit, in units: the drawn rock (nominal radius times the hit percent) plus the hull padding.</summary>
     private long DepositHitRadius(Deposit dep, Structure ship) =>
-        (long)DepositRules.NominalRadiusUnits(dep.Initial) * WorldGen!.DepositHitPercent / 100 + HullPad(ship, WorldGen!);
+        (long)dep.RadiusUnits * WorldGen!.DepositHitPercent / 100 + HullPad(ship, WorldGen!);
 
     /// <summary>
     /// The radius within which a module of a ship hits an obstacle, in units: the generated radius scaled by the kind's hit percent (the drawn size) and
@@ -268,7 +268,7 @@ public sealed partial class BeltNetwork
 
     /// <summary>The hit radius of the rock of a deposit without hull padding, in units (zero in a world where deposits are not solid).</summary>
     public long DepositRockRadius(int deposit) =>
-        WorldGen is { DepositsSolid: true } w && !Rules.LegacyCollisions ? (long)DepositRules.NominalRadiusUnits(GetDeposit(deposit).Initial) * w.DepositHitPercent / 100 : 0;
+        WorldGen is { DepositsSolid: true } w && !Rules.LegacyCollisions ? (long)GetDeposit(deposit).RadiusUnits * w.DepositHitPercent / 100 : 0;
 
     /// <summary>
     /// True when a box (world units) comes within <paramref name="margin"/> of the rock of a deposit that is solid: a station module or core may not be
@@ -375,9 +375,9 @@ public sealed partial class BeltNetwork
 
     private void PushShip(Player p, Structure s, long dx, long dy, long dz)
     {
-        long nx = Math.Clamp(p.X + dx, -PlayerRules.WorldLimitUnits, PlayerRules.WorldLimitUnits);
-        long ny = Math.Clamp(p.Y + dy, -PlayerRules.WorldLimitUnits, PlayerRules.WorldLimitUnits);
-        long nz = Math.Clamp(p.Z + dz, -PlayerRules.WorldLimitUnits, PlayerRules.WorldLimitUnits);
+        long nx = Math.Clamp(p.X + dx, -WorldLimit, WorldLimit);
+        long ny = Math.Clamp(p.Y + dy, -WorldLimit, WorldLimit);
+        long nz = Math.Clamp(p.Z + dz, -WorldLimit, WorldLimit);
         s.OriginX += nx - p.X; s.OriginY += ny - p.Y; s.OriginZ += nz - p.Z;
         p.X = (int)nx; p.Y = (int)ny; p.Z = (int)nz;
     }

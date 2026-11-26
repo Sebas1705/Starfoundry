@@ -99,6 +99,9 @@ public sealed record WorldGenRules(
     /// <summary>Ticks a ship needs to stop from full engine speed (braking is stronger than accelerating).</summary>
     public int BrakeTicks { get; init; }
 
+    /// <summary>The infinite rock field (ADR 0040), or null when the content has none.</summary>
+    public FieldRules? Field { get; init; }
+
     /// <summary>True when the content defines flight inertia.</summary>
     public bool HasInertia => AccelTicks > 0 && BrakeTicks > 0;
 
@@ -113,7 +116,7 @@ public sealed record WorldGenRules(
     {
         if (galaxy is null) throw new InvalidDataException("'world' needs a galaxy section.");
         ContentDb.RequireObjectInternal(w, "world", "spacing_cells", "system_radius_cells", "home_star", "anchor_clear_cells", "deposit_clear_cells", "hazard_clear_cells",
-            "depth_richness_percent", "outer_richness_percent", "boost_percent", "collision", "salvage", "star_types", "obstacles", "flight");
+            "depth_richness_percent", "outer_richness_percent", "boost_percent", "collision", "salvage", "star_types", "obstacles", "flight", "field");
         int radius = ContentDb.IntInternal(w, "system_radius_cells", "world", galaxy.SystemRadiusCells, 800);
         int spacing = ContentDb.IntInternal(w, "spacing_cells", "world", galaxy.SpacingCells, 2200);
         if (spacing < 2 * radius) throw new InvalidDataException("'spacing_cells' in world must be at least twice 'system_radius_cells'.");
@@ -218,6 +221,7 @@ public sealed record WorldGenRules(
             ContentDb.IntInternal(sal, "range_cells", "salvage", 1, 100), ContentDb.IntInternal(sal, "ticks", "salvage", 1, 3600), stars.ToArray(), kinds.ToArray())
         {
             HullPadUnits = hullPad, DepositsSolid = depositsSolid, DepositDamage = depositDamage, DepositHitPercent = depositHit, AccelTicks = accelTicks, BrakeTicks = brakeTicks,
+            Field = w.TryGetProperty("field", out var fieldEl) ? FieldRules.Load(fieldEl, itemIds) : null,
         };
     }
 
@@ -231,6 +235,7 @@ public sealed record WorldGenRules(
         {
             mix(-3301); mix(HullPadUnits); mix(DepositsSolid ? 1 : 0); mix(DepositDamage); mix(DepositHitPercent); mix(AccelTicks); mix(BrakeTicks);
         }
+        Field?.MixInto(mix); // hashes only when the content has a field (ADR 0040)
         mix(StarTypes.Length);
         foreach (var s in StarTypes) { mixStr(s.Id); mix(s.Weight); mix(s.RichnessPercent); mix(s.AsteroidPercent); mix(s.HazardPercent); mix(s.MinDepth); }
         mix(Kinds.Length);

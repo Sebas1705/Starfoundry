@@ -22,7 +22,7 @@ public static class CommandCodec
     /// <summary>Version 2 added the content hash to the header, version 3 the game mode, version 4 the galaxy seed, version 5 the threat flag.</summary>
     /// Version 6 added the station-rules flag (bit 1); the structures flag (bit 2) uses a bit that version 6 left free,
     /// so logs written before it simply read as structures off and the version stays 6.
-    private const byte LogVersion = 19;
+    private const byte LogVersion = 21;
     /// Version 7 added the world rules block (flags bit 3, written only for non-default rules). Version 8 added the scenario id (flags bit 4).
     /// Version 10 added the SetBoost command (tag 38) and the wide galaxy with obstacles: logs of versions 5 to 9 read with <see cref="WorldRules.LegacyGalaxy"/> on (ADR 0028).
     /// Version 9 added the FireLaser command (tag 37) and the mining laser's power draw: logs of versions 5 to 8 read with <see cref="WorldRules.LegacyLaser"/> on, so they replay without it (ADR 0027).
@@ -31,6 +31,7 @@ public static class CommandCodec
     /// Version 15 added no command: it changes how a ship flies and collides (ADR 0033: acceleration limits and inertia, solid deposits, padded hit volumes). Logs of versions 5 to 14 read with <see cref="WorldRules.LegacyCollisions"/> and <see cref="WorldRules.LegacyFlight"/> on, so they replay as recorded.
     /// Version 17 added the SetAim command (tag 59) and ADR 0036: free fire with projectiles and recoil, hold overflow, regrowing deposits and the resource density rule. Logs of versions 5 to 16 read with <see cref="WorldRules.LegacyFeel"/> and <see cref="WorldRules.LegacyResources"/> on, so they replay as recorded; the reader refuses SetAim in them.
     /// Version 19 added dropping items and picking them up by hand (ADR 0038): the DropItems and PickUp commands (tags 60 and 61). The reader refuses them in logs of versions 5 to 18; the world rules do not change.
+    /// Version 21 added the infinite rock field (ADR 0040): resource asteroids generated on demand around the ships, a wider world limit and rocks that vanish when emptied. It adds no command. Logs of versions 5 to 20 read with <see cref="WorldRules.LegacyField"/> on, so they replay as recorded. (Version 20 is reserved for the blueprint editor, ADR 0039.)
     /// Version 18 added the personal inventory (ADR 0035): the MoveItems, SetFeedSource and SortInventory commands (tags 56 to 58). Logs of versions 5 to 17 read with <see cref="WorldRules.LegacyInventory"/> on, so they replay as recorded; the reader refuses the commands in them.
     /// Version 12 added the SetAttitude command (tag 42, ADR 0030). Logs of older versions never carry it, so they replay with every ship level, exactly as recorded; the reader refuses it in them.
     /// Version 13 added no command: it changes where machines and belts may be built (the floor of a fabrication bay, ADR 0031). Logs of versions 5 to 12 read with <see cref="WorldRules.LegacyBuilding"/> on, so they replay with free building as recorded.
@@ -519,6 +520,7 @@ public static class CommandCodec
         if (version < 15) rules = rules.WithLegacyCollisions(true).WithLegacyFlight(true); // and before solid deposits, padded hit volumes and inertia (ADR 0033)
         if (version < 17) rules = rules.WithLegacyFeel(true).WithLegacyResources(true); // and before free fire, recoil, hold overflow and the resource density (ADR 0036)
         if (version < 18) rules = rules.WithLegacyInventory(true); // and before the personal inventory (ADR 0035)
+        if (version < 21) rules = rules.WithLegacyField(true); // and before the infinite rock field (ADR 0040)
         scenarioId = null;
         if ((flags & 16) != 0)
         {

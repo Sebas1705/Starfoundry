@@ -161,7 +161,7 @@ public partial class Play
         {
             if (Net.DepositRemaining(i) <= 0 || !Net.IsDepositRevealed(i)) continue;
             var p = Net.DepositPosition(i);
-            float radius = Math.Max(Net.DepositRockRadius(i), DepositRules.NominalRadiusUnits(Net.DepositInitial(i))) / CellUnits;
+            float radius = Math.Max(Net.DepositRockRadius(i), Net.DepositRadiusUnits(i)) / CellUnits;
             Test(new Vector3(p.X, p.Y, p.Z), radius);
         }
         foreach (var e in Net.Enemies()) Test(new Vector3(e.X, e.Y, e.Z) / CellUnits, FeelRules.EnemyHitRadiusUnits / CellUnits);

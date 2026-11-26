@@ -2178,6 +2178,19 @@
     "collision": { "safe_speed_units": 10, "reference_speed_units": 48, "cooldown_ticks": 60, "hull_pad_units": 120, "deposits_solid": true, "deposit_damage": 6, "deposit_hit_percent": 150 },
     "flight": { "accel_ticks": 36, "brake_ticks": 18 },
     "salvage": { "range_cells": 12, "ticks": 60 },
+    "field": {
+      "sector_cells": 200, "load_cells": 360, "keep_cells": 480, "exclusion_cells": 470, "margin_cells": 8,
+      "rocks": [0, 5], "mass": [300, 8000], "mass_bias": 4, "density": [40, 180], "unit_amount": 60,
+      "step_ticks": 15, "max_loaded": 1500, "world_limit_cells": 4000000,
+      "items": [
+        { "item": "core:iron_ore", "weight": 40 },
+        { "item": "core:carbon", "weight": 20 },
+        { "item": "core:ice", "weight": 15 },
+        { "item": "core:titanium_ore", "weight": 10, "min_distance_cells": 2500 },
+        { "item": "core:nickel_ore", "weight": 8, "min_distance_cells": 3500 },
+        { "item": "core:quartz", "weight": 6, "min_distance_cells": 5000 }
+      ]
+    },
     "star_types": [
       { "id": "core:yellow_dwarf", "weight": 40, "richness_percent": 100, "asteroid_percent": 100, "hazard_percent": 100 },
       { "id": "core:red_dwarf", "weight": 25, "richness_percent": 90, "asteroid_percent": 130, "hazard_percent": 80 },
