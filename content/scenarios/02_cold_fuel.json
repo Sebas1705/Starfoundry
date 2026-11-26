@@ -15,8 +15,8 @@
       { "template": "cold_station", "kind": "station", "offset": [10, 0, -8] }
     ],
     "starting_items": [
-      { "item": "core:iron_plate", "count": 40 },
-      { "item": "core:iron_ingot", "count": 60 }
+      { "item": "core:iron_plate", "count": 30 },
+      { "item": "core:iron_ingot", "count": 40 }
     ],
     "seed": 20261121
   },

@@ -261,6 +261,14 @@ public sealed partial class StructureBot
     private void Maintain()
     {
         if (_flying > 0) return;
+        // ADR 0039: the ship carries no turrets, so when a wave closes in on it the pilot takes it well clear of the station and goes back to mining afterwards.
+        if (_station >= 0 && Net.EnemyCount > 0 && _gatherDepth == 0 && CurrentSystem == 0 && !_inExpedition && Net.StructureExists(_station))
+        {
+            if (!_retreated && EnemyNearShip(50) && Net.CanFly(0)) { _retreated = true; Retreat(); }
+            if (_retreated && EnemyNearShip(90)) return; // still in the way: stay clear
+        }
+        else _retreated = false;
+        if (_retreated && Net.EnemyCount == 0) _retreated = false;
         // A build trip took the ship away from its deposit: go back to it.
         if (Now - _lastBuildTrip >= BuildStaySeconds && _mineTarget >= 0 && !Net.InMineRange(0, _mineTarget) && Net.CanFly(0) && Net.DepositRemaining(_mineTarget) > 0)
         {
@@ -283,6 +291,29 @@ public sealed partial class StructureBot
             Stuck("the station was destroyed");
             _station = -1;
         }
+    }
+
+    private bool _retreated;
+
+    private bool EnemyNearShip(int cells)
+    {
+        var p = Net.GetPlayerInfo(0);
+        long r = (long)cells * Cell;
+        foreach (var e in Net.Enemies())
+            if (e.System == 0) { long dx = e.X - p.X, dy = e.Y - p.Y, dz = e.Z - p.Z; if (dx * dx + dy * dy + dz * dz <= r * r) return true; }
+        return false;
+    }
+
+    /// <summary>Flies the ship about 140 cells from the station, away from it, to wait out the wave.</summary>
+    private void Retreat()
+    {
+        var c = Net.ModuleWorldCentre(_station, 0, 0, 0);
+        var p = Net.GetPlayerInfo(0);
+        double dx = p.X - c.X, dy = p.Y - c.Y, dz = p.Z - c.Z;
+        double len = Math.Max(1, Math.Sqrt(dx * dx + dy * dy + dz * dz));
+        double k = 140.0 * Cell / len;
+        Say("wave: the ship keeps clear of the station");
+        FlyTo(c.X + (long)(dx * k), c.Y + (long)(dy * k), c.Z + (long)(dz * k), 6L * Cell, 120);
     }
 
     /// <summary>Debug listing of every machine (for finding what starves).</summary>

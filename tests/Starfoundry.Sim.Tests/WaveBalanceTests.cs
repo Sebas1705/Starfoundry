@@ -39,7 +39,7 @@ public class WaveBalanceTests
     private static List<WaveResult> Fight(int turrets, bool cannon, int last, int defenceModules = 1, ContentDb? content = null, params string[] research)
     {
         var c = content ?? C;
-        var w = SimWorld.CreateGalaxy(c, GameMode.Sandbox, Seed, threats: true, stationRules: false, structures: true, rules: new WorldRules().WithLegacyHardpoints(true)); // a hand-built compact ship with an implicit gun: the measurement of docs/prototypes/defence.md (hardpoint ships: HardpointTests)
+        var w = SimWorld.CreateGalaxy(c, GameMode.Sandbox, Seed, threats: true, stationRules: false, structures: true, rules: new WorldRules().WithLegacyHardpoints(true).WithLegacyShipAutomation(true)); // a hand-built compact ship with an implicit gun: the measurement of docs/prototypes/defence.md (hardpoint ships: HardpointTests)
         w.Network.EnsurePlayer(0);
         int s = w.Network.CreateStructure(0, StructureKind.Ship, 0, 0, 0);
         // A compact cross: the defence module in the middle, the workshop with the ammo belts on one side, cockpit and engine on the

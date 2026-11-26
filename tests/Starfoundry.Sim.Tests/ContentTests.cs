@@ -21,9 +21,23 @@ internal static class TestContent
     public static readonly ContentDb CoreFloor =
         ContentDb.FromFile(Path.Combine(AppContext.BaseDirectory, "content", "core.json"));
 
-    /// <summary>Every scenario file of <c>content/scenarios</c>, loaded against <see cref="Core"/>.</summary>
+    /// <summary>
+    /// <see cref="Core"/> plus the shipped <c>cold_station</c> template, which the station-first levels use (ADR 0039; the legacy fixture itself must not change: golden checksums hash the content).
+    /// </summary>
+    public static readonly ContentDb CoreScen = ContentDb.FromJson(WithShippedTemplates(File.ReadAllText(LegacyPath)));
+
+    private static string WithShippedTemplates(string legacyJson)
+    {
+        var root = System.Text.Json.Nodes.JsonNode.Parse(legacyJson)!.AsObject();
+        var shipped = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", "core.json")))!.AsObject();
+        var templates = root["structure_templates"]!.AsObject();
+        templates["cold_station"] = shipped["structure_templates"]!["cold_station"]!.DeepClone();
+        return root.ToJsonString();
+    }
+
+    /// <summary>Every scenario file of <c>content/scenarios</c>, loaded against <see cref="CoreScen"/>.</summary>
     public static readonly ScenarioCatalog Scenarios =
-        ScenarioCatalog.FromDirectory(Core, Path.Combine(AppContext.BaseDirectory, "content", "scenarios"));
+        ScenarioCatalog.FromDirectory(CoreScen, Path.Combine(AppContext.BaseDirectory, "content", "scenarios"));
 
     /// <summary>The scenario files loaded against the shipped content (<see cref="CoreFloor"/>).</summary>
     public static readonly ScenarioCatalog ScenariosFloor =

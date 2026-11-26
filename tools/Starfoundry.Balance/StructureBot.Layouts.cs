@@ -434,7 +434,25 @@ public sealed partial class StructureBot
         if (!res.Ok)
         {
             if (res.Reject == Reject.NotEnoughItems) return PlaceBelt(st, x, y, z, dir, len);
-            Stuck($"PlaceSegmentIn at ({x},{y},{z}) {dir} x{len} of structure {st} was rejected: {res.Reject}");
+            string at = "";
+            if (res.Reject == Reject.Overlap)
+            {
+                var (dx, dy, dz) = Dirs.Vector(dir);
+                for (int sid = 0; sid < Net.SegmentIdLimit; sid++)
+                {
+                    if (!Net.IsAlive(sid)) continue;
+                    var si = Net.GetSegmentInfo(sid);
+                    if (si.Structure != st) continue;
+                    for (int k = 0; k < len; k++)
+                        for (int j = 0; j < si.LengthCells; j++)
+                            if (si.OriginX + si.DirX * j == x + dx * k && si.OriginY + si.DirY * j == y + dy * k && si.OriginZ + si.DirZ * j == z + dz * k) at = $" (cell held by belt {sid} from ({si.OriginX},{si.OriginY},{si.OriginZ}) x{si.LengthCells})";
+                }
+                for (int mid = 0; mid < Net.MachineIdLimit; mid++)
+                    if (Net.IsMachineAlive(mid) && Net.GetMachineInfo(mid) is var mi && mi.Structure == st)
+                        for (int k = 0; k < len; k++)
+                            if (mi.X == x + dx * k && mi.Y == y + dy * k && mi.Z == z + dz * k) at = $" (cell held by {_c.Machines[mi.Type].Id} at ({mi.X},{mi.Y},{mi.Z}))";
+            }
+            Stuck($"PlaceSegmentIn at ({x},{y},{z}) {dir} x{len} of structure {st} was rejected: {res.Reject}{at}");
             return -1;
         }
         return res.Created[0];

@@ -9,7 +9,7 @@ public class ScenarioProgressTests
 {
     private const int Tps = Units.TicksPerSecond;
     private const ulong Seed = 20261121UL;
-    private static readonly ContentDb C = TestContent.Core;
+    private static readonly ContentDb C = TestContent.CoreScen;
     private static readonly int Ore = C.ItemIndex("core:iron_ore");
     private static readonly int Hydrogen = C.ItemIndex("core:hydrogen");
     private static readonly int Ammo = C.ItemIndex("core:ammo");

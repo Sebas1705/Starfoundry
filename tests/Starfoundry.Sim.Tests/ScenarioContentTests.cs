@@ -342,7 +342,7 @@ public class ScenarioContentTests
         var r = bot.Run(30 * 60);
         Report("01", bot, r);
         Assert.Equal(OutcomeKind.Won, r.Outcome);
-        Assert.True(r.Seconds <= 12 * Minute, $"won at {StructureBotReport.Clock(r.Seconds)}"); // measured 3:27 with the optional bay (1:51 before it)
+        Assert.True(r.Seconds <= 20 * Minute, $"won at {StructureBotReport.Clock(r.Seconds)}"); // station-first: the workbench makes the core and the bay (ADR 0039)
         Assert.All(bot.GoalStates.Where(g => g.Primary), g => Assert.Equal(GoalStatus.Done, g.Status));
         Assert.Equal(GoalStatus.Done, bot.GoalStates.Single(g => g.Goal.Id == "quick_station").Status);
         Assert.Equal(GoalStatus.Done, bot.GoalStates.Single(g => g.Goal.Id == "fab_bay").Status);

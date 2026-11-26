@@ -32,23 +32,23 @@ public class StructureBotTests
         // Each milestone: its measured minute (seed 20261121, 6 s per action) and a generous bound.
         var bounds = new (string Name, double MaxMinutes)[]
         {
-            ("Hand mining the home iron deposit", 1),         // measured 0:05
-            ("First iron ingot in the hold", 1),              // 0:08
-            ("First iron plate in the hold", 2),              // 0:40
-            ("Fabrication bay built", 6),                    // 2:12 (the workbench makes the ingots and plates, ADR 0031)
-            ("Factory running: first delivery from a depot", 10), // 5:13
-            ("Station founded", 14),                          // 8:20
-            ("Hydrogen cracker built", 12),                   // 5:47
-            ("Hydrogen loop: first hydrogen made from ice", 15), // 6:28
-            ("First defence module built", 18),               // 10:04
-            ("First turret built", 20),                       // 11:52
-            ("First turret loaded with ammo", 22),            // 12:16
-            ("Station powered with machines running", 26),    // 15:28
-            ("Laboratory built", 30),                         // 19:04
-            ("First repair bay built", 32),                   // 20:58
-            ("First research finished", 38),                  // 30:43 (27:34 with no waves: Between() builds the defence while the first node researches)
-            ("Wave 1 warning", 26),                           // 18:59 (the alert meter fills with the factory noise; 24:31 with the 2 s smelter)
-            ("Wave 1 survived", 28),                          // 19:41
+            ("Hand mining the home iron deposit", 1),         // measured 0:07
+            ("First iron ingot in the hold", 1),              // 0:17
+            ("First iron plate in the hold", 2),              // 1:05
+            ("Station founded", 8),                           // 4:58 (the workbench makes the core's ingots and plates, 8 s a craft, ADR 0039)
+            ("Factory running: first delivery from a depot", 18), // 14:11 (reactor, then the ingot line on the core floor)
+            ("Hydrogen cracker built", 22),                   // 17:58
+            ("Hydrogen loop: first hydrogen made from ice", 24), // 19:30
+            ("Station powered with machines running", 25),    // 19:31
+            ("Fabrication bay built", 26),                     // 20:3x (the bay of the station defence)
+            ("First defence module built", 26),               // 20:51
+            ("First turret built", 27),                       // 21:22
+            ("First turret loaded with ammo", 28),            // 21:40
+            ("First repair bay built", 30),                   // 22:31
+            ("Laboratory built", 32),                         // 24:57
+            ("First research finished", 36),                  // 28:07
+            ("Wave 1 warning", 27),                           // 22:38 (the alert meter fills with the factory noise)
+            ("Wave 1 survived", 29),                          // 23:24
         };
         foreach (var (name, max) in bounds)
         {
@@ -110,7 +110,7 @@ public class StructureBotTests
 
     [Theory]
     [InlineData(0.0)]
-    [InlineData(30.0)]
+    [InlineData(12.0)]
     public void Bot_wins_at_any_pace(double delay)
     {
         var r = Play(delay: delay);

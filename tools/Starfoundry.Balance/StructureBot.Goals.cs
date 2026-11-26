@@ -403,13 +403,16 @@ public sealed partial class StructureBot
         _stationDefenceStarted = true;
         Goal("5b station defence: defence module, battery, walls and a repair bay");
         if (PlaceModule(_station, S1.X, S1.Y, S1.Z, ModuleKind.Workshop) < 0) return;
+        Milestone("Fabrication bay built");
         if (PlaceModule(_station, SD.X, SD.Y, SD.Z, ModuleKind.Defence) < 0) return;
         Cmd(new SetWeapons(true));
         var (ox, oy, oz) = Origin(S1.X, S1.Y, S1.Z);
         _stationBatteries += AmmoBattery(_station, ox, oy, oz, 4).Count > 0 ? 1 : 0;
         var (dx, dy, dz) = Origin(SD.X, SD.Y, SD.Z);
         Walls(_station, dx, dy, dz, 2);
-        RepairBay(_station, ox, oy, oz, 3);
+        var (cx, cy, cz) = Origin(F0.X, F0.Y, F0.Z);
+        RepairBay(_station, cx, cy, cz, 7); // the core floor: the bay's rows are all ammo batteries
+        _stationRepair = true;
     }
 
 
@@ -473,7 +476,7 @@ public sealed partial class StructureBot
     }
 
     /// <summary>Ammo batteries on the station: two, and four on the hard presets (a harder wave needs more turrets; every battery costs research plates).</summary>
-    private int MaxBatteries => Net.Rules.EnemyHpPercent >= 120 ? 4 : 2;
+    private int MaxBatteries => Net.Rules.EnemyHpPercent >= 120 ? 4 : 3;
 
     private readonly HashSet<int> _batteryRows = new() { 4 };
 

@@ -66,5 +66,5 @@
       "text_es": "Asedio roto. La estación es suya, capitán.",
       "text_en": "Siege broken. The station is yours, captain." }
   ],
-  "stars": { "two_star_seconds": 1800, "three_star_seconds": 1200, "two_star_secondary": 0, "three_star_secondary": -1 }
+  "stars": { "two_star_seconds": 2100, "three_star_seconds": 1500, "two_star_secondary": 0, "three_star_secondary": -1 }
 }

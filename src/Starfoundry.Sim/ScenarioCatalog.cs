@@ -322,7 +322,7 @@ public sealed class ScenarioCatalog
     private static WorldRules ParseRules(ContentDb content, JsonElement rj, string id, out string preset)
     {
         Only(rj, "rules", "preset", "enemy_damage_percent", "enemy_hp_percent", "wave_size_percent", "wave_interval_percent", "first_wave_grace_seconds",
-            "deposit_richness_percent", "power_output_percent", "threats_enabled", "free_build", "goal_waves", "starting_items");
+            "deposit_richness_percent", "power_output_percent", "threats_enabled", "free_build", "goal_waves", "starting_items", "legacy_ship_automation");
         preset = "normal";
         var baseRules = WorldRules.Default;
         if (rj.TryGetProperty("preset", out _))
@@ -347,6 +347,7 @@ public sealed class ScenarioCatalog
             ResourceDensityPercent = baseRules.ResourceDensityPercent,
             ThreatsEnabled = rj.TryGetProperty("threats_enabled", out var te) ? Bool(te, "threats_enabled", id) : baseRules.ThreatsEnabled,
             FreeBuild = rj.TryGetProperty("free_build", out var fb) ? Bool(fb, "free_build", id) : baseRules.FreeBuild,
+            LegacyShipAutomation = rj.TryGetProperty("legacy_ship_automation", out var lsa) ? Bool(lsa, "legacy_ship_automation", id) : baseRules.LegacyShipAutomation,
             StartingItems = items,
         };
     }

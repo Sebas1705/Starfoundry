@@ -67,8 +67,8 @@ public sealed partial class StructureBot
         FetchCarbon(8, "the station reactor");
         Goal("a reactor module on the station");
         PlaceModule(_station, 0, -1, 0, ModuleKind.Reactor);
+        if (_progress!.Find("dock_stock") is not null) DockAndStore("core:iron_ingot", 20); // the game ends with the last primary goal, so the optional stock goes first
         HydrogenLoop();
-        if (_progress!.Find("dock_stock") is not null) DockAndStore("core:iron_ingot", 20);
         MoreCargo(2);
     }
 

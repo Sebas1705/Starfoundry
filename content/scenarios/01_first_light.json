@@ -6,8 +6,8 @@
   "name_en": "First Light",
   "description_es": "Mina mineral a mano, fabrica placas en el banco de trabajo y funda una estación. Sin amenazas.",
   "description_en": "Mine ore by hand, make plates at the workbench and found a station. No threats.",
-  "briefing_es": "Sistemas en marcha. Soy ORCA, la inteligencia de a bordo. La bodega está casi vacía; el yacimiento de hierro de al lado, no. Mina a mano, pulsa F en el banco de trabajo y pon en cola lingotes y placas (ocho segundos cada uno: es lento a propósito), y funda una estación. La nave no lleva fábrica: la automatización se construye en la estación. Una bahía de fabricación es opcional aquí, pero es donde empieza una fábrica de verdad.",
-  "briefing_en": "Ship systems are up. I am ORCA, your onboard intelligence. The hold is nearly empty; the iron deposit next door is not. Mine by hand, press F at the workbench and queue ingots and plates (eight seconds each: slow on purpose), then found a station. The ship carries no factory: automation is built in the station. A fabrication bay is optional here, but it is where a real factory starts.",
+  "briefing_es": "Sistemas en marcha. Soy ORCA, la inteligencia de a bordo. La bodega está casi vacía; el yacimiento de hierro de al lado, no. Mina a mano, pulsa F en el banco de trabajo y pon en cola lingotes y placas (ocho segundos cada uno: es lento a propósito), y funda una estación. La nave no lleva fábrica: la automatización se construye en la estación. Termina con una bahía de fabricación en la estación: ahí empieza una fábrica de verdad.",
+  "briefing_en": "Ship systems are up. I am ORCA, your onboard intelligence. The hold is nearly empty; the iron deposit next door is not. Mine by hand, press F at the workbench and queue ingots and plates (eight seconds each: slow on purpose), then found a station. The ship carries no factory: automation is built in the station. Finish with a fabrication bay in the station: that is where a real factory starts.",
   "rules": { "preset": "relaxed", "threats_enabled": false },
   "start": { "seed": 20261121 },
   "goals": {
@@ -17,13 +17,13 @@
       { "id": "make_plates", "type": "produce", "item": "core:iron_plate", "count": 10,
         "text_es": "Fabrica 10 placas de hierro", "text_en": "Make 10 iron plates" },
       { "id": "found_station", "type": "found_stations", "count": 1,
-        "text_es": "Funda una estación", "text_en": "Found a station" }
+        "text_es": "Funda una estación", "text_en": "Found a station" },
+      { "id": "fab_bay", "type": "build_module", "kind": "workshop", "count": 1,
+        "text_es": "Construye una bahía de fabricación en tu estación", "text_en": "Build a fabrication bay in your station" }
     ],
     "secondary": [
       { "id": "quick_station", "type": "found_stations", "count": 1, "time_limit_seconds": 480,
-        "text_es": "Funda la estación en menos de 8 minutos", "text_en": "Found the station in under 8 minutes" },
-      { "id": "fab_bay", "type": "build_module", "kind": "workshop", "count": 1,
-        "text_es": "Construye una bahía de fabricación en tu estación", "text_en": "Build a fabrication bay in your station" }
+        "text_es": "Funda la estación en menos de 8 minutos", "text_en": "Found the station in under 8 minutes" }
     ]
   },
   "story": [
@@ -43,5 +43,5 @@
       "text_es": "Estación fundada. No es gran cosa, pero es nuestra. Buen trabajo.",
       "text_en": "Station founded. It is not much, but it is ours. Well done." }
   ],
-  "stars": { "two_star_seconds": 900, "three_star_seconds": 480, "two_star_secondary": 0, "three_star_secondary": -1 }
+  "stars": { "two_star_seconds": 1500, "three_star_seconds": 840, "two_star_secondary": 0, "three_star_secondary": -1 }
 }

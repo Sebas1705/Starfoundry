@@ -127,7 +127,7 @@ public class WorkbenchShippedShipsTests
         {
             var spot = PickFor(c.Templates[name]);
             Assert.NotNull(spot);
-            Assert.Equal(ModuleKind.Cargo, c.Templates[name].Modules.Single(m => (m.Mx, m.My, m.Mz) == spot!.Value.Module).Kind);
+            Assert.Equal(ModuleKind.Hull, c.Templates[name].Modules.Single(m => (m.Mx, m.My, m.Mz) == spot!.Value.Module).Kind); // ADR 0039: no bay on a ship, so the bench goes in the hull module
         }
     }
 }

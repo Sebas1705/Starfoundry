@@ -1306,7 +1306,7 @@ void fragment() {
                     _botIntent = (0, 0, 0);
                     Send(new SetMovement(0, 0, 0));
                     Send(new StartMining(0));
-                    Send(new SetShipRecipe(_content.RecipeIndex("core:ship_smelt")));
+                    if (Net.StationFirst) Send(new QueueBench(_content.RecipeIndex("core:ship_smelt"), PlayerRules.BenchQueueMax)); else Send(new SetShipRecipe(_content.RecipeIndex("core:ship_smelt"))); // ADR 0039: the bench takes a queue
                     _botStartedAt = _world.Tick;
                 });
                 break;

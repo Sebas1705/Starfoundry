@@ -297,12 +297,12 @@ public class ConstructionRulesTests
     {
         Assert.Throws<InvalidDataException>(() => ContentDb.FromJson(WithEdit(r =>
         {
-            var m = r["structure_templates"]!["cold_ship"]!["machines"]!.AsArray()[0]!;
-            m["at"] = new JsonArray(0, 1, 9);
+            var m = r["structure_templates"]!["cold_station"]!["machines"]!.AsArray()[0]!;
+            m["at"] = new JsonArray(8, 1, 1);
         })));
         Assert.Throws<InvalidDataException>(() => ContentDb.FromJson(WithEdit(r =>
         {
-            var t = r["structure_templates"]!["cold_ship"]!.AsObject();
+            var t = r["structure_templates"]!["cold_station"]!.AsObject();
             t["modules"]!.AsArray()[1]!["kind"] = "hull";
         })));
     }

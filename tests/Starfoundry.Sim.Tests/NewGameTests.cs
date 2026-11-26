@@ -7,7 +7,7 @@ namespace Starfoundry.Sim.Tests;
 /// <summary>The engine-free parts of the New Game screen, the goals panel and the end screens: file formats, progress, presets and the goals view.</summary>
 public class NewGameTests
 {
-    private static readonly ContentDb C = TestContent.Core;
+    private static readonly ContentDb C = TestContent.CoreScen;
     private static readonly ScenarioCatalog Catalog = TestContent.Scenarios;
 
     // ---- CfgText -----------------------------------------------------------------------------
@@ -281,9 +281,9 @@ public class NewGameTests
     public void Star_hints_say_what_the_next_star_needs()
     {
         Loc.Lang = Language.En;
-        var siege = Catalog.Get("03_under_siege"); // 2 stars within 30:00, 3 within 20:00 with every secondary goal
-        Assert.Equal("For star 2: finish within 30:00", GoalsView.StarHint(siege, 1));
-        Assert.Equal("For star 3: finish within 20:00 and complete every bonus goal", GoalsView.StarHint(siege, 2));
+        var siege = Catalog.Get("03_under_siege"); // 2 stars within 35:00, 3 within 25:00 with every secondary goal
+        Assert.Equal("For star 2: finish within 35:00", GoalsView.StarHint(siege, 1));
+        Assert.Equal("For star 3: finish within 25:00 and complete every bonus goal", GoalsView.StarHint(siege, 2));
         Assert.Equal("", GoalsView.StarHint(siege, 3));
         Assert.Equal("", GoalsView.StarHint(Catalog.Get("campaign"), 1)); // no star rules
         Assert.Equal("**-", GoalsView.StarsText(2));
