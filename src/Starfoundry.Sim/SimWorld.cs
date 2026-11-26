@@ -1065,7 +1065,7 @@ public sealed partial class SimWorld
         if (!Network.StructureRules) return Reject.NotAllowedHere;
         if (Network.Content?.Structures is not { } kinds) return Reject.NoContent;
         long cu = Units.CellUnits;
-        long limit = PlayerRules.WorldLimitUnits / cu;
+        long limit = Network.WorldLimit / cu;
         if (Math.Abs((long)f.Wx) > limit || Math.Abs((long)f.Wy) > limit || Math.Abs((long)f.Wz) > limit) return Reject.OutOfBounds;
         long ox = f.Wx * cu, oy = f.Wy * cu, oz = f.Wz * cu;
 

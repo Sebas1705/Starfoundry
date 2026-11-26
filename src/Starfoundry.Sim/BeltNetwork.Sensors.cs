@@ -87,7 +87,7 @@ public sealed partial class BeltNetwork
                 long range = SensorRangeCells(kind) * cu;
                 foreach (var d in _deposits)
                 {
-                    if (d.Revealed) continue;
+                    if (d.Revealed || d.Free) continue;
                     long dx = d.X * cu + cu / 2 - c.X, dy = d.Y * cu + cu / 2 - c.Y, dz = d.Z * cu + cu / 2 - c.Z;
                     if (dx * dx + dy * dy + dz * dz > range * range) continue;
                     d.Revealed = true;

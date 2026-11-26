@@ -39,6 +39,7 @@ public sealed partial class BeltNetwork
         _known = new bool[galaxy.Systems.Count];
         _visited = new bool[galaxy.Systems.Count];
         MarkVisited(0);
+        InitField();
         InitObstacles();
         InitThreat();
         StructureVersion++;
@@ -87,7 +88,7 @@ public sealed partial class BeltNetwork
         var revealed = new List<int>();
         foreach (var d in _deposits)
         {
-            if (d.Revealed) continue;
+            if (d.Revealed || d.Free) continue;
             long dx = d.X * (long)Units.CellUnits - p.X, dy = d.Y * (long)Units.CellUnits - p.Y, dz = d.Z * (long)Units.CellUnits - p.Z;
             if (dx * dx + dy * dy + dz * dz > range * range) continue;
             d.Revealed = true;
@@ -170,6 +171,7 @@ public sealed partial class BeltNetwork
         _visited = (bool[])other._visited.Clone();
         JumpsCompleted = other.JumpsCompleted;
         CopyObstaclesFrom(other);
+        CopyFieldFrom(other);
     }
 
     private void MixGalaxy(Action<long> mix)
@@ -179,6 +181,7 @@ public sealed partial class BeltNetwork
         foreach (bool b in _visited) mix(b ? 1 : 0);
         if (JumpsCompleted != 0) mix(JumpsCompleted); // worlds that never jumped hash as before
         MixObstacles(mix);
+        MixField(mix);
     }
 
     private void ValidateGalaxy()
@@ -202,6 +205,7 @@ public sealed partial class BeltNetwork
         }
 
         ValidateObstacles();
+        ValidateField();
         foreach (var p in _players.Values)
         {
             if (p.ScanCooldown < 0 || p.ScanCooldown > ExplorationRules.ScanCooldownTicks) Fail($"player {p.Id} scan cooldown out of range");

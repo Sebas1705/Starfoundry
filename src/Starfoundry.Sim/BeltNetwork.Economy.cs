@@ -216,12 +216,37 @@ internal sealed class Deposit
     /// <summary>Ticks until an emptied deposit regrows a little (0 while it holds ore or has not been noticed empty yet, ADR 0036). Mixed only when non-zero.</summary>
     public int RegrowTicks;
 
+    /// <summary>Radius of the rock in units for a rock of the infinite field (ADR 0040), 0 for every other deposit (the radius then follows <see cref="Initial"/>).</summary>
+    public int Radius;
+
+    /// <summary>True for a rock the infinite field materialized (ADR 0040): it never regrows, and when it is emptied it is gone for good.</summary>
+    public bool Streamed;
+
+    /// <summary>Streamed rocks: the packed sector key and the index of the rock in its sector (the identity that is stable across unloading).</summary>
+    public long CellKey;
+    public int CellIndex;
+
+    /// <summary>Streamed rocks: which materialization this slot holds; the client rebuilds the rock when it changes (a slot is reused after a sector is forgotten).</summary>
+    public int Serial;
+
+    /// <summary>A slot of a forgotten rock waiting to be reused: no ore, hidden, never touched by any loop.</summary>
+    public bool Free;
+
+    /// <summary>The radius of the rock in units: its own for a field rock, else the nominal radius of a deposit of this size.</summary>
+    public int RadiusUnits => Radius > 0 ? Radius : DepositRules.NominalRadiusUnits(Initial);
+
     public Deposit(int id, int item, int amount, int x, int y, int z)
     {
         Id = id; Item = item; Initial = amount; Remaining = amount; X = x; Y = y; Z = z;
     }
 
-    public Deposit Clone() => new(Id, Item, Initial, X, Y, Z) { Remaining = Remaining, Revealed = Revealed, Density = Density, RegrowTicks = RegrowTicks };
+    public static Deposit FreeSlot(int id) => new(id, 0, 0, 0, 0, 0) { Revealed = false, Free = true };
+
+    public Deposit Clone() => new(Id, Item, Initial, X, Y, Z)
+    {
+        Remaining = Remaining, Revealed = Revealed, Density = Density, RegrowTicks = RegrowTicks,
+        Radius = Radius, Streamed = Streamed, CellKey = CellKey, CellIndex = CellIndex, Serial = Serial, Free = Free,
+    };
 }
 
 public sealed partial class BeltNetwork
@@ -725,7 +750,7 @@ public sealed partial class BeltNetwork
             return;
         }
 
-        const int limit = PlayerRules.WorldLimitUnits;
+        int limit = WorldLimit;
         if (p.HasThrust)
         {
             // Truncation toward zero on the accumulated value with a signed remainder: both signs behave alike.
@@ -965,7 +990,7 @@ public sealed partial class BeltNetwork
             ValidateInventory(p);
             held += sum;
 
-            if (Math.Abs(p.X) > PlayerRules.WorldLimitUnits || Math.Abs(p.Y) > PlayerRules.WorldLimitUnits || Math.Abs(p.Z) > PlayerRules.WorldLimitUnits)
+            if (Math.Abs(p.X) > WorldLimit || Math.Abs(p.Y) > WorldLimit || Math.Abs(p.Z) > WorldLimit)
                 Fail($"player {p.Id} is outside the world");
             if (p.MoveX is < -1 or > 1 || p.MoveY is < -1 or > 1 || p.MoveZ is < -1 or > 1) Fail($"player {p.Id} has an invalid movement intent");
             if (!PlayerRules.ThrustInRange(p.ThrustX, p.ThrustY, p.ThrustZ)) Fail($"player {p.Id} has an invalid thrust");
@@ -1009,6 +1034,7 @@ public sealed partial class BeltNetwork
             if (d.Remaining < 0 || d.Remaining > d.Initial) Fail($"deposit {d.Id} remaining {d.Remaining} out of range");
             extracted += d.Initial - d.Remaining;
         }
+        extracted += FieldRememberedExtracted(); // ore taken from rocks of the infinite field that were forgotten since (ADR 0040)
         if (extracted + RegrownTotal != MinedByHand + DrilledTotal + MinedByDrones)
             Fail($"deposit accounting broken: extracted {extracted} + regrown {RegrownTotal} != hand {MinedByHand} + drills {DrilledTotal} + drones {MinedByDrones}");
 

@@ -25,6 +25,22 @@ internal static class IntMath
     /// <summary>Floor division (rounds toward negative infinity) for a positive divisor.</summary>
     public static int FloorDiv(int a, int b) => a / b - (a % b < 0 ? 1 : 0);
 
+    /// <summary>Floor division of a long for a positive divisor.</summary>
+    public static long FloorDiv(long a, long b) => a / b - (a % b < 0 ? 1 : 0);
+
+    /// <summary>Integer cube root (floor) of a non-negative value, by bisection.</summary>
+    public static long ICbrt(long v)
+    {
+        if (v <= 0) return 0;
+        long lo = 0, hi = 2_097_151; // 2^21 cubed is just under 2^63
+        while (lo < hi)
+        {
+            long mid = (lo + hi + 1) / 2;
+            if (mid * mid * mid <= v) lo = mid; else hi = mid - 1;
+        }
+        return lo;
+    }
+
     /// <summary>Ceiling division (rounds toward positive infinity) for a positive divisor.</summary>
     public static int CeilDiv(int a, int b) => a / b + (a % b > 0 ? 1 : 0);
 }
@@ -619,7 +635,7 @@ public sealed partial class BeltNetwork
             if (e.Type < 0 || e.Type >= Content.Enemies.Count) Fail($"enemy {e.Id} has an unknown type");
             else if (e.Hp < 1 || e.Hp > EnemyMaxHp(e.Type)) Fail($"enemy {e.Id} hit points {e.Hp} out of range");
             if (!IsSystem(e.System)) Fail($"enemy {e.Id} is in an unknown system");
-            if (Math.Abs(e.X) > PlayerRules.WorldLimitUnits * 2L || Math.Abs(e.Y) > PlayerRules.WorldLimitUnits * 2L || Math.Abs(e.Z) > PlayerRules.WorldLimitUnits * 2L)
+            if (Math.Abs(e.X) > WorldLimit * 2L || Math.Abs(e.Y) > WorldLimit * 2L || Math.Abs(e.Z) > WorldLimit * 2L)
                 Fail($"enemy {e.Id} is far outside the world");
         }
         if (_enemies.Count > rules.MaxEnemies) Fail("more enemies than the cap");

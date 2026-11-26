@@ -16,7 +16,7 @@ public sealed partial class BeltNetwork
         if (Content is null) return Reject.NoContent;
         if (!_players.TryGetValue(player, out var p) || p.RespawnRemaining > 0 || p.ShipLost) return Reject.InvalidArgument;
         if (from.Kind is not (ContainerKind.Person or ContainerKind.Hold)) return Reject.InvalidArgument;
-        long lim = PlayerRules.WorldLimitUnits * 2L;
+        long lim = WorldLimit * 2L;
         if (Math.Abs((long)x) > lim || Math.Abs((long)y) > lim || Math.Abs((long)z) > lim) return Reject.InvalidArgument;
         if (!SlotAddressOk(from, slot, target: false)) return Reject.InvalidArgument;
         if (!ActorNearShip(p, x, y, z)) return Reject.OutOfRange;

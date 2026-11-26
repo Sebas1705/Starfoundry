@@ -32,10 +32,10 @@ public sealed partial class BeltNetwork
     /// <summary>The structure that carries the player's ship while structure rules are on, or -1 (legacy flight).</summary>
     private int FlightStructure(Player p) => StructureRules && p.ShipStructure >= 0 ? p.ShipStructure : -1;
 
-    private static long ClampToWorld(long v) => Math.Clamp(v, -PlayerRules.WorldLimitUnits, PlayerRules.WorldLimitUnits);
+    private long ClampToWorld(long v) => Math.Clamp(v, -WorldLimit, WorldLimit);
 
     /// <summary>Makes the player position mirror the structure origin (pilot position = origin + the cockpit offset).</summary>
-    private static void SyncPlayerToStructure(Player p, Structure s)
+    private void SyncPlayerToStructure(Player p, Structure s)
     {
         p.X = (int)ClampToWorld(s.OriginX + StructureFlight.CockpitOffsetX);
         p.Y = (int)ClampToWorld(s.OriginY + StructureFlight.CockpitOffsetY);
