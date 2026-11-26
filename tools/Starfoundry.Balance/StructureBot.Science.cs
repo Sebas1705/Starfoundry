@@ -37,7 +37,7 @@ public sealed partial class StructureBot
         FetchCarbon(24, "carbon for the thrust vectoring");
         ResearchNow("core:thrust_vectoring", CarbonRaw);
         // Engineering: circuits (silicon and nickel plates) and iron plates into the bench.
-        BuildWing(1, 2, EngineeringWing, "engineering");
+        BuildWing(2, 2, EngineeringWing, "engineering");
         foreach (var (id, science) in new[] { ("core:structural_plating", 10), ("core:alloy_hulls", 15), ("core:repair_drones", 20), ("core:automated_turrets", 25), ("core:cargo_expansion", 30), ("core:plasma_drive", 35) })
         {
             EnsureMetals(science);
@@ -45,7 +45,7 @@ public sealed partial class StructureBot
             Reinforce();
         }
         // Physics: silicon and nickel plates into the physics lab.
-        BuildWing(2, 2, PhysicsWing, "physics");
+        BuildWing(3, 2, PhysicsWing, "physics");
         foreach (var (id, science) in new[] { ("core:field_theory", 10), ("core:efficient_reactors", 15), ("core:long_range_jump", 20), ("core:targeting_lasers", 25), ("core:quantum_sensors", 30) })
         {
             EnsureMetals(science);
@@ -53,7 +53,7 @@ public sealed partial class StructureBot
             Reinforce();
         }
         // Biology: ice and carbon into biomass, plates and biomass into science.
-        BuildWing(3, 1, BiologyWing, "biology");
+        BuildWing(4, 1, BiologyWing, "biology");
         foreach (var (id, science) in new[] { ("core:algae_fuel", 10), ("core:closed_loop", 15), ("core:medical_bay", 20), ("core:bio_sensors", 25), ("core:symbiotic_drones", 30) })
         {
             EnsureBiomassInputs(science);

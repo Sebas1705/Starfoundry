@@ -129,11 +129,11 @@ public class StructureBotTests
         foreach (var name in new[]
         {
             "Researched logistics", "Researched carbon_drilling", "Researched jump_drive",
-            "Scanned another system", "Researched titanium_smelting", "Researched nickel_smelting",
+            "Scanned another system", "Researched titanium_smelting",
         })
             Assert.True(r.Has(name), $"'{name}' never happened");
         Assert.True(Min(r, "Researched jump_drive") <= 60, $"the jump drive came at minute {Min(r, "Researched jump_drive"):F1}"); // measured 46:13
-        Assert.True(Min(r, "Researched nickel_smelting") <= 90, $"nickel smelting came at minute {Min(r, "Researched nickel_smelting"):F1}"); // 69:42: the expedition waits for the win, and the waves reach the base by about minute 70
+        // ADR 0039: the ship carries no turrets, so the waves that keep coming after the win take it at about minute 61 (titanium smelting is at 59), before nickel smelting.
     }
 
     [Fact]
