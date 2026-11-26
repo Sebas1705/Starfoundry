@@ -42,7 +42,7 @@ public partial class Play
             catch (Exception e) { GD.PrintErr("SEED could not read the save header: " + e.Message); }
         }
         if (args.FirstOrDefault(a => a.StartsWith("--seed="))?["--seed=".Length..] is { } text && ulong.TryParse(text, out ulong fixedSeed) && fixedSeed != 0) return fixedSeed;
-        if (args.Any(a => !a.StartsWith("--menu-shot="))) return ScriptedSeed;
+        if (args.Any(LaunchFlags.IsScripted)) return ScriptedSeed;
         return (ulong)Random.Shared.NextInt64(1, 1_000_000_000);
     }
 
@@ -84,7 +84,7 @@ public partial class Play
             if (args.FirstOrDefault(a => a.StartsWith("--seed="))?["--seed=".Length..] is { } s && ulong.TryParse(s, out ulong fixedSeed)) seed = fixedSeed;
             if (args.FirstOrDefault(a => a.StartsWith("--difficulty="))?["--difficulty=".Length..] is { } d) rules = WorldRules.Preset(d);
         }
-        else if (Launch.ScenarioId is { } chosen && !args.Any(a => !a.StartsWith("--menu-shot=") && !a.StartsWith(ContentLocator.ContentFlag)))
+        else if (Launch.ScenarioId is { } chosen && !args.Any(LaunchFlags.IsScripted))
         {
             id = chosen;
             seed = Launch.Seed;

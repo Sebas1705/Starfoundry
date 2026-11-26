@@ -257,6 +257,18 @@ const phases = {
     try { log('progress.cfg:', readFileSync(join(process.env.APPDATA, 'Godot', 'app_userdata', udir, 'progress.cfg'), 'utf8').slice(0, 300)); } catch (e) { log('progress.cfg not written:', e.code); }
     log('errors:', JSON.stringify(errors()));
   },
+  async story01() {
+    await startGame();
+    const ng = (await ui()).find(e => /^new game$/i.test(e.text ?? '')); await click(ng.name ?? ng.path); await sleep(500);
+    await click('TabStory'); await sleep(400);
+    const nodes = await ui(); log('buttons in story tab:', nodes.filter(e => /button/i.test(e.type ?? '') || e.text).map(e => `${e.name}=${e.text}`).filter(x => /Open|Start|Play|Level/.test(x)).join(' | ').slice(0, 400));
+    await click('Level_01_first_light'); await sleep(400);
+    await click('StartButton'); await sleep(7000);
+    let s = await state();
+    check('1.story-level-from-menu', s.scenario === '01_first_light', `scenario=${s.scenario} tick=${s.tick} seated=${s.seated} goals=${(s.goals ?? []).map(g => g.id).join(',')} paused=${s.paused}`);
+    log('briefing texts:', JSON.stringify(await texts('.')).slice(0, 500));
+    log('errors:', JSON.stringify(errors()));
+  },
   async calib() {
     await startGame(); await newCampaign();
     const dirOf = async () => { const d = (await state()).deposits.sort((a, b) => a.dist - b.dist)[0]; const v = [d.cx, d.cy, d.cz]; const n = Math.hypot(...v); return v.map(x => x / n); };
