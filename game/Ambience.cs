@@ -74,6 +74,20 @@ vec3 stars(vec3 dir, float density, float size) {
     return tint * dot_ * present * (0.4 + 1.6 * r.z * r.z);
 }
 
+// Rare bright stars: a hot core with a soft coloured glow, so the sky has a few near stars among the fine ones (depth).
+vec3 bright_stars(vec3 dir) {
+    vec3 p = dir * 26.0;
+    vec3 cell = floor(p);
+    vec3 r = hash33(cell + 91.0);
+    vec3 centre = cell + 0.25 + 0.5 * hash33(cell + 7.7);
+    float present = step(0.955, r.x);
+    float d = length(p - centre);
+    vec3 tint = mix(vec3(1.0, 0.70, 0.45), vec3(0.62, 0.78, 1.0), r.y);
+    float core = smoothstep(0.16, 0.0, d);
+    float glow = exp(-d * 7.0) * 0.45;
+    return tint * (core * 2.6 + glow) * present * (0.4 + 1.1 * r.z * r.z);
+}
+
 uniform vec3 p1_dir = vec3(-0.6, 0.1, 0.5);
 uniform vec3 p1_a = vec3(0.8, 0.6, 0.4);
 uniform vec3 p1_b = vec3(0.5, 0.3, 0.2);
@@ -158,6 +172,7 @@ void sky() {
     // Stars: two layers, dimmed where the nebula is bright.
     float clear = 1.0 - 0.6 * neb;
     col += (stars(dir, 90.0, 0.32) + stars(dir, 190.0, 0.28) * 0.7 + stars(dir, 340.0, 0.3) * 0.45) * clear;
+    col += bright_stars(dir) * clear;
     // A dense, faint star haze inside the nebula band (the unresolved galactic plane), cut by dark dust lanes.
     float lane = smoothstep(0.35, 0.7, fbm(dir * 4.0 + 21.0));
     col += mix(vec3(0.8, 0.85, 1.0), nebula_color, 0.4) * band * lane * 0.05 * (0.5 + detail);
@@ -190,7 +205,8 @@ void sky() {
     private static WorldEnvironment? _env;
     private static ShaderMaterial? _skyMaterial;
     private static DirectionalLight3D? _sun, _fill;
-    private static GpuParticles3D? _dust;
+    private static GpuParticles3D? _dust, _farDust;
+    private static StandardMaterial3D? _dustMaterial, _farDustMaterial;
     private static Godot.Environment? _environment;
     private static MeshInstance3D? _streaks;
     private static StandardMaterial3D? _streakMaterial;
@@ -245,8 +261,10 @@ void sky() {
         _fill = new DirectionalLight3D { LightEnergy = 0.3f, ShadowEnabled = false, LightSpecular = 0.2f };
         root.AddChild(_fill);
 
-        _dust = BuildDust();
+        _dust = BuildDust(false);
         root.AddChild(_dust);
+        _farDust = BuildDust(true);
+        root.AddChild(_farDust);
 
         // The dust cloud follows the camera so the specks stay around the viewer while they stay put in the world.
         var tree = root.GetTree();
@@ -254,7 +272,9 @@ void sky() {
         {
             if (_dust is null || !GodotObject.IsInstanceValid(_dust)) return;
             var cam = _dust.GetViewport()?.GetCamera3D();
-            if (cam is not null) _dust.GlobalPosition = cam.GlobalPosition;
+            if (cam is null) return;
+            _dust.GlobalPosition = cam.GlobalPosition;
+            if (_farDust is not null && GodotObject.IsInstanceValid(_farDust)) _farDust.GlobalPosition = cam.GlobalPosition;
         }
         _streaks = BuildStreaks();
         root.AddChild(_streaks);
@@ -354,6 +374,9 @@ void sky() {
         _skyMaterial.SetShaderParameter("far_star_dir", Spot(-10f, 50f, sunDir, 0.2f));
         _skyMaterial.SetShaderParameter("far_star_color", new Vector3(fsc.R, fsc.G, fsc.B));
         if (_environment is not null) _environment.FogLightColor = baseColor.Lerp(nebula, 0.3f).Lightened(0.1f);
+        // The dust catches the colour of the system: cool near the star, tinted by the nebula far away.
+        if (_dustMaterial is not null) _dustMaterial.AlbedoColor = new Color(0.75f, 0.82f, 1f, 0.55f).Lerp(sunColor, 0.25f) with { A = 0.55f };
+        if (_farDustMaterial is not null) _farDustMaterial.AlbedoColor = nebula.Lerp(Colors.White, 0.35f) with { A = 0.22f };
 
         // The light travels from the sun towards the scene: its forward (-Z) axis points opposite the sun direction.
         var up = Mathf.Abs(sunDir.Y) > 0.95f ? Vector3.Right : Vector3.Up;
@@ -466,19 +489,20 @@ void sky() {
 
     private static float Wrap(float v, float size) => v - size * Mathf.Floor(v / size);
 
-    private static GpuParticles3D BuildDust()
+    /// <summary>The near dust (small, fast specks that give the feel of speed) or the far dust (bigger, dimmer, slower motes spread wide, for depth).</summary>
+    private static GpuParticles3D BuildDust(bool far)
     {
         var process = new ParticleProcessMaterial
         {
             EmissionShape = ParticleProcessMaterial.EmissionShapeEnum.Box,
-            EmissionBoxExtents = new Vector3(45f, 30f, 45f),
+            EmissionBoxExtents = far ? new Vector3(140f, 90f, 140f) : new Vector3(45f, 30f, 45f),
             Direction = new Vector3(0.3f, -0.1f, 0.2f),
             Spread = 180f,
-            InitialVelocityMin = 0.1f,
-            InitialVelocityMax = 0.5f,
+            InitialVelocityMin = far ? 0.02f : 0.1f,
+            InitialVelocityMax = far ? 0.15f : 0.5f,
             Gravity = Vector3.Zero,
-            ScaleMin = 0.5f,
-            ScaleMax = 1.4f,
+            ScaleMin = far ? 2.0f : 0.5f,
+            ScaleMax = far ? 5.0f : 1.4f,
         };
         // A soft round dot: a plain quad showed up as a small light square when a speck drifted close to the camera.
         var dot = new Gradient();
@@ -486,26 +510,28 @@ void sky() {
         dot.SetColor(1, new Color(1f, 1f, 1f, 0f));
         var dotTex = new GradientTexture2D { Gradient = dot, Fill = GradientTexture2D.FillEnum.Radial, FillFrom = new Vector2(0.5f, 0.5f), FillTo = new Vector2(1f, 0.5f), Width = 32, Height = 32 };
         var mesh = new QuadMesh { Size = new Vector2(0.09f, 0.09f) };
-        mesh.Material = new StandardMaterial3D
+        var material = new StandardMaterial3D
         {
             AlbedoTexture = dotTex,
             ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
             BillboardMode = BaseMaterial3D.BillboardModeEnum.Enabled,
             Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-            AlbedoColor = new Color(0.75f, 0.82f, 1f, 0.55f),
+            AlbedoColor = far ? new Color(0.6f, 0.65f, 0.9f, 0.22f) : new Color(0.75f, 0.82f, 1f, 0.55f),
             VertexColorUseAsAlbedo = false,
             NoDepthTest = false,
         };
+        mesh.Material = material;
+        if (far) _farDustMaterial = material; else _dustMaterial = material;
         return new GpuParticles3D
         {
-            Amount = 350,
+            Amount = far ? 140 : 350,
             Lifetime = 14.0,
             Preprocess = 14.0,
             LocalCoords = false,
             ProcessMaterial = process,
             DrawPass1 = mesh,
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-            VisibilityAabb = new Aabb(new Vector3(-50f, -35f, -50f), new Vector3(100f, 70f, 100f)),
+            VisibilityAabb = far ? new Aabb(new Vector3(-150f, -100f, -150f), new Vector3(300f, 200f, 300f)) : new Aabb(new Vector3(-50f, -35f, -50f), new Vector3(100f, 70f, 100f)),
         };
     }
 
