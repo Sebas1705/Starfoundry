@@ -152,6 +152,11 @@ public partial class InventorySlot : Control
                     _panel.SlotActivated(this, k.ShiftPressed, k.CtrlPressed);
                     AcceptEvent();
                 }
+                else if (k.Keycode == Key.Menu || (k.Keycode == Key.F10 && k.ShiftPressed))
+                {
+                    _panel.OpenMenu(this, GetGlobalRect().GetCenter());
+                    AcceptEvent();
+                }
                 else if (k.Keycode == Key.Delete)
                 {
                     _panel.SlotBinRequested(this);
