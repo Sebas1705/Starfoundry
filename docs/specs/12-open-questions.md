@@ -41,3 +41,9 @@ See [the spec](../superpowers/specs/2026-11-24-pilot-feedback-round-design.md).
 - What "antenna" meant in the ship-editing request: sensor antenna types, or ship designs and hull types in general (the spec covers both).
 - Hold overflow while mining: surplus drifts as collectable pickups (proposed) versus jettisoned or voided.
 - Mining pace: raise yield and retune enemy pressure so Normal stays near 49 minutes, versus a faster game.
+
+## Infinite rock field (2026-11-26, ADR 0040)
+- Systems on the sector grid (an infinite galaxy of named systems with lanes, depth and jump goals) versus the finite campaign galaxy plus an infinite rock field.
+- Obstacle kinds, hazards and wrecks in the field (the scheme supports them; only resource asteroids are generated now).
+- A floating origin for the renderer: float positions lose precision hundreds of thousands of cells from home.
+- Whether a scanned rock should stay revealed after its sector is forgotten (today it must be scanned again).

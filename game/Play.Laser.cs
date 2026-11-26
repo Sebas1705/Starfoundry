@@ -54,7 +54,7 @@ public partial class Play
         var right = camBasis.X;
 
         var from = Overview ? ship + Vector3.Up * 0.3f : AimOrigin() + aim * 0.9f - camBasis.Y * 0.42f + right * 0.38f;
-        float surface = 1.2f * DepositView.RockScale(Net.DepositInitial(dep));
+        float surface = 1.2f * Net.DepositRockScalePermille(dep) / 1000f;
         var toShip = (ship - centre).Normalized();
         var to = centre + toShip * surface;
         float length = (to - from).Length();

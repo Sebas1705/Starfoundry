@@ -139,6 +139,8 @@ public class FieldTests
         var all = new List<FieldRock>();
         for (int cx = 12; cx < 52; cx++) for (int cz = 12; cz < 52; cz++) all.AddRange(Sector(Seed, cx, 0, cz, 100, g: Galaxy.Generate(C, Seed)));
         Assert.True(all.Count > 3000);
+        double orePerSector = all.Sum(r => (double)r.Amount) / 1600.0;
+        Assert.InRange(orePerSector, 200, 450); // about a system of veins (4 to 6 thousand ore) per scanner sphere: the balance target (ADR 0040)
         double meanCount = all.Count / 1600.0;
         Assert.InRange(meanCount, 2.0, 3.0); // 0..5 per sector, mean 2.5, a few dropped for lack of room
         var masses = all.Select(r => r.Mass).OrderBy(m => m).ToList();

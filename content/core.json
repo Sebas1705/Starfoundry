@@ -2180,7 +2180,7 @@
     "salvage": { "range_cells": 12, "ticks": 60 },
     "field": {
       "sector_cells": 200, "load_cells": 360, "keep_cells": 480, "exclusion_cells": 470, "margin_cells": 8,
-      "rocks": [0, 5], "mass": [100, 8000], "mass_bias": 4, "density": [40, 180], "unit_amount": 200,
+      "rocks": [0, 5], "mass": [300, 8000], "mass_bias": 4, "density": [40, 180], "unit_amount": 60,
       "step_ticks": 15, "max_loaded": 1500, "world_limit_cells": 4000000,
       "items": [
         { "item": "core:iron_ore", "weight": 40 },

@@ -85,7 +85,7 @@ public partial class Play
     {
         var views = new System.Collections.Generic.List<Node3D>();
         if (_obsScene == "rockmargin") { if (_obstacleLayer?.GetNodeOrNull<Node3D>("Obstacle" + FindObstacle("core:asteroid_big", 0)) is { } v) views.Add(v); }
-        else { int d = DefaultDeposit(); if (d >= 0 && d < _depositNodes.Count) views.Add(_depositNodes[d]); }
+        else { int d = DefaultDeposit(); if (d >= 0 && d < _depositNodes.Count && _depositNodes[d] is { } dn) views.Add(dn); }
         var s = Net.GetStructure(ShipStruct);
         float best = float.MaxValue;
         foreach (var view in views)
