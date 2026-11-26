@@ -243,6 +243,7 @@ public partial class ShipDesigner : Control
         var net = _world().Network;
         int ship = net.ShipStructure(_player);
         if (ship >= 0) _editor.Load(net.GetStructure(ship).Modules);
+        _editor.RequireDock = !net.Rules.LegacyDock; // ADR 0041
         _sel = null; _moving = false; _kind = null;
         _layer = 0;
         _signature = "";
@@ -300,6 +301,7 @@ public partial class ShipDesigner : Control
             DesignEditResult.TooManyModules => "designer.edit.tooMany",
             DesignEditResult.Empty => "designer.edit.empty",
             DesignEditResult.SameCell => "designer.edit.sameCell",
+            DesignEditResult.LastDock => "designer.edit.lastDock",
             _ => null,
         };
         if (key is not null) Say?.Invoke(Loc.T(key));

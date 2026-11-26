@@ -69,6 +69,7 @@ public static partial class Loc
         ["designer.edit.kindNotAllowed"] = ("Una nave no admite ese módulo", "A ship does not take that module"),
         ["designer.edit.noUpgrade"] = ("Ese módulo no tiene mejora", "That module has no upgrade"),
         ["designer.edit.tooMany"] = ("La nave ya tiene demasiados módulos", "The ship already has too many modules"),
+        ["designer.edit.lastDock"] = ("Es el último módulo de enganche: la nave necesita uno para atracar", "That is the last dock module: the ship needs one to dock"),
         ["designer.edit.empty"] = ("No hay ningún módulo ahí", "There is no module there"),
         ["designer.edit.sameCell"] = ("Elige otra celda", "Pick another cell"),
         ["learn.shipyard"] = ("Construye un astillero en la estación, atraca la nave y abre el ordenador (Tab, Diseñador): el diseñador añade o mejora láseres y cañones.", "Build a shipyard at the station, dock the ship and open the computer (Tab, Designer): the designer adds or upgrades lasers and guns."),

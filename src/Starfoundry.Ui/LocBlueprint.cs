@@ -95,6 +95,7 @@ public static partial class Loc
         ["bp.val.noCockpit"] = ("Falta una cabina", "A cockpit is missing"),
         ["bp.val.noEngine"] = ("Falta un motor", "An engine is missing"),
         ["bp.val.noReactor"] = ("Falta un reactor", "A reactor is missing"),
+        ["bp.val.noDock"] = ("Falta un módulo de enganche: sin él la nave no puede atracar", "A dock module is missing: without one the ship cannot dock"),
         ["bp.val.noCargo"] = ("Falta un módulo de carga", "A cargo module is missing"),
         ["bp.val.disconnected"] = ("{0} módulos quedan separados del resto: la nave debe ser una sola pieza", "{0} modules are cut off from the rest: the ship must be one piece"),
         ["bp.val.port"] = ("El puerto de atraque debe seguir ahí, del mismo tipo", "The docking port must stay, of the same kind"),

@@ -502,7 +502,7 @@ public static partial class ModuleModels
 
     /// <summary>
     /// The outer shell. Ship: an octagonal hull with optional tapered nose and tail, a spine and side stripe in the trim colour; every face has an
-    /// inner liner, so the hull is solid seen from inside. Station: a slab box with docking collars on the four sides, and raised panels when
+    /// inner liner, so the hull is solid seen from inside. Station: a slab box (with docking collars on the open sides of a dock module only), and raised panels when
     /// <paramref name="detail"/>. <paramref name="glassRoof"/> leaves the roof to a glass part (the caller adds it); <paramref name="windows"/> cuts
     /// the viewports of <see cref="Viewports"/> into the exposed side walls; <paramref name="openRear"/> leaves the rear face open (a hangar door).
     /// </summary>
@@ -759,7 +759,8 @@ public static partial class ModuleModels
                 }
             }
         }
-        if (!collars) return;
+        // ADR 0041: only a dock module is a docking port, so only it wears the collars (a core or a bay with collars would read as a port it is not).
+        if (!collars || c.Kind != ModuleKind.Dock) return;
         // Docking collars on the exposed lateral faces: an octagonal flange with a dark hatch (builder +Y turned to point outwards).
         (int bit, Vector3 pos, Vector3 rot)[] spots =
         {

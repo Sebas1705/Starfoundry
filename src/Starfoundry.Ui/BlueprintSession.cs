@@ -101,7 +101,7 @@ public sealed class BlueprintSession
         Stats = ShipStats.Compute(Draft.Modules.Values, _content, _handling, bonuses);
         StatsBefore = ShipStats.Compute(Draft.Original.Values, _content, _handling, bonuses);
         var port = DockPort();
-        Validation = BlueprintValidation.Check(Draft, _content, Report, Stats, StatsBefore, port?.Port, port?.Face);
+        Validation = BlueprintValidation.Check(Draft, _content, Report, Stats, StatsBefore, port?.Port, port?.Face, requireDock: !w.Network.Rules.LegacyDock);
         Diff = BlueprintDiff.Compute(Draft.Original, Draft.Modules, Validation.InvalidCells);
         Cost = BlueprintCost.Compute(Diff, _content, Pays, Available);
         Changed?.Invoke();
@@ -188,6 +188,7 @@ public sealed class BlueprintSession
         DesignEditResult.TooManyModules => "designer.edit.tooMany",
         DesignEditResult.Empty => "designer.edit.empty",
         DesignEditResult.SameCell => "designer.edit.sameCell",
+        DesignEditResult.LastDock => "designer.edit.lastDock",
         _ => null,
     };
 

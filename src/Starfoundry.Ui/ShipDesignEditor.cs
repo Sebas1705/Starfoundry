@@ -14,6 +14,8 @@ public enum DesignEditResult
     NoUpgrade,
     SameCell,
     TooManyModules,
+    /// <summary>The module is the ship's last dock module, which a ship cannot do without (ADR 0041).</summary>
+    LastDock,
 }
 
 /// <summary>
@@ -108,8 +110,12 @@ public sealed class ShipDesignEditor
         return DesignEditResult.Ok;
     }
 
+    /// <summary>True (the default) when the layout must keep a dock module (ADR 0041): the last one cannot be removed. False for worlds with <see cref="WorldRules.LegacyDock"/>.</summary>
+    public bool RequireDock { get; set; } = true;
+
     public DesignEditResult Remove((int Mx, int My, int Mz) key)
     {
+        if (RequireDock && _staged.TryGetValue(key, out var kind) && kind == ModuleKind.Dock && _staged.Values.Count(k => k == ModuleKind.Dock) <= 1) return DesignEditResult.LastDock;
         if (!_staged.Remove(key)) return DesignEditResult.Empty;
         return DesignEditResult.Ok;
     }
