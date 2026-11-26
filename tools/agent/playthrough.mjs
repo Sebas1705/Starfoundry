@@ -269,6 +269,23 @@ const phases = {
     log('briefing texts:', JSON.stringify(await texts('.')).slice(0, 500));
     log('errors:', JSON.stringify(errors()));
   },
+  async buildprobe() {
+    await startGame(); await sleep(500);
+    await click((await ui()).find(e => /^new game$/i.test(e.text ?? '')).name); await sleep(400); await click('TabSandbox'); await sleep(500);
+    log('sandbox tab texts:', JSON.stringify(await texts('.')).slice(0, 500));
+    await click('StartButton'); await sleep(7000);
+    let s = await state(); log('scenario', s.scenario, 'tick', s.tick, 'hold', JSON.stringify(s.hold), 'paused', s.paused);
+    await key('B'); await sleep(800);
+    const el = (await ui()).filter(e => e.text || (e.name && !e.name.startsWith('@')));
+    log('build menu elements:', el.map(e => `${e.name}${e.text ? '=' + e.text : ''}`).join(' | ').slice(0, 1800));
+    const tabBtn = (await ui()).find(e => e.text === 'Structure'); await click(tabBtn.name); await sleep(500);
+    log('structure tab:', JSON.stringify(await texts('.')).slice(0, 900));
+    await key('Enter'); await sleep(800); s = await state(); log('after Enter: computerOpen', s.computerOpen, 'texts', JSON.stringify(await texts('Station|station|found|Found|place|Place')).slice(0, 400));
+    if (s.computerOpen) { await key('Tab'); await sleep(500); }
+    await mouseButton(true); await sleep(150); await mouseButton(false); await sleep(1500); s = await state();
+    log('after click: station', JSON.stringify(s.station), 'hold', JSON.stringify(s.hold), 'toasts', JSON.stringify(await texts('station|Station|material|Missing|cannot|Not enough')).slice(0, 400));
+    log('errors:', JSON.stringify(errors()));
+  },
   async calib() {
     await startGame(); await newCampaign();
     const dirOf = async () => { const d = (await state()).deposits.sort((a, b) => a.dist - b.dist)[0]; const v = [d.cx, d.cy, d.cz]; const n = Math.hypot(...v); return v.map(x => x / n); };
