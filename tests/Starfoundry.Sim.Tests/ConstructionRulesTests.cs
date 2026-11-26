@@ -16,7 +16,7 @@ public class ConstructionRulesTests
 
     private static SimWorld World(WorldRules? rules = null, bool station = false)
     {
-        var w = SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, threats: false, stationRules: false, structures: true, rules: (rules ?? new WorldRules { FreeBuild = true }).WithLegacyDock(true).WithLegacyShipAutomation(true)); // these tests build bays at the flank of the starter ship, where the ADR 0041 dock would stand
+        var w = SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, threats: false, stationRules: false, structures: true, rules: (rules ?? new WorldRules { FreeBuild = true }).WithLegacyDock(true).WithLegacyShipAutomation(true).WithLegacyBlueprint(true).WithLegacyInterior(true)); // these tests build bays at the flank of the starter ship, where the ADR 0041 dock would stand
         w.Network.EnsurePlayer(0);
         return w;
     }
@@ -172,7 +172,7 @@ public class ConstructionRulesTests
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, log, C.Hash, GameMode.Campaign, Seed, threats: false, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(24, bytes[4]);
+        Assert.Equal(25, bytes[4]);
         CommandCodec.ReadLog(new MemoryStream(bytes), out _, out _, out _, out _, out _, out _, out var now);
         Assert.False(now.LegacyBuilding);
         for (byte version = 6; version <= 12; version++)

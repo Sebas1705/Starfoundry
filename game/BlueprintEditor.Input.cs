@@ -24,7 +24,11 @@ public partial class BlueprintEditor
                 else if (mb.ButtonIndex == MouseButton.Middle) _panning = mb.Pressed;
                 else if (mb.Pressed && mb.ButtonIndex == MouseButton.WheelUp) { _s.Camera.Zoom(1f); _sceneDirty = true; }
                 else if (mb.Pressed && mb.ButtonIndex == MouseButton.WheelDown) { _s.Camera.Zoom(-1f); _sceneDirty = true; }
-                else if (mb.Pressed && mb.ButtonIndex == MouseButton.Left) ClickAt(mb.Position, mb.ShiftPressed || mb.CtrlPressed);
+                else if (mb.Pressed && mb.ButtonIndex == MouseButton.Left)
+                {
+                    ClickAt(mb.Position, mb.ShiftPressed || mb.CtrlPressed);
+                    if (mb.DoubleClick && _s.StructureKind == StructureKind.Station && _s.Selection.Count == 1) OpenFloorOfSelection(); // a double click on a module opens its floor plan
+                }
                 break;
             case InputEventMouseMotion mm:
                 if (_orbiting) { _s.Camera.Orbit(-mm.Relative.X * OrbitPerPixel, mm.Relative.Y * OrbitPerPixel); SyncViewButtons(); _refresh = true; }
@@ -110,6 +114,11 @@ public partial class BlueprintEditor
     /// <summary>Esc: closes the innermost thing (a move in hand, the selection, the tool), then the editor (twice when the draft has changes).</summary>
     public void Cancel()
     {
+        if (_s.FloorModule is not null)
+        {
+            if (_s.PlanSelection is not null) _s.SetPlanTool(_s.PlanTool); else CloseFloor();
+            return;
+        }
         if (_s.Carrying is not null || _s.Selection.Count > 0) { _s.ClearSelection(); return; }
         if (_s.Tool != BlueprintTool.Select) { _s.SetTool(BlueprintTool.Select); return; }
         RequestClose();

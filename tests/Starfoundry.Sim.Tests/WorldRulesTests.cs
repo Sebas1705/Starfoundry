@@ -530,7 +530,7 @@ public class WorldRulesTests
         byte[] plain = LogBytes(log, null);
         byte[] normal = LogBytes(log, WorldRules.Normal);
         Assert.Equal(plain, normal); // default rules write no block
-        Assert.Equal(24, plain[4]); // version 19 added drop and pick-up commands (ADR 0038); 18 added the personal inventory (a legacy flag, ADR 0035); the rules block is unchanged for every other rule set
+        Assert.Equal(25, plain[4]); // version 19 added drop and pick-up commands (ADR 0038); 18 added the personal inventory (a legacy flag, ADR 0035); the rules block is unchanged for every other rule set
         Assert.Equal(0, plain[4 + 1 + 8 + 1 + 8] & 8);
 
         byte[] hard = LogBytes(log, WorldRules.Hard);

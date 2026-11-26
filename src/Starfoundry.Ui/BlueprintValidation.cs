@@ -51,6 +51,8 @@ public sealed class BlueprintValidation
         "noCargo" => "module:cargo",
         "noCore" => "module:core",
         "noDock" => "module:dock",
+        "orphans" or "offFloor" => "status:cross",
+        "beltEnd" or "beltStart" => "belt:mk1",
         "power" => "status:power",
         "port" or "portBlocked" => "status:port",
         "view" => "tool:look",
@@ -67,7 +69,7 @@ public sealed class BlueprintValidation
     /// </summary>
     /// <param name="port">The cell of the ship's docked port, when the ship is docked (its module must stay and its face must stay free).</param>
     /// <param name="portFace">The cell in front of the port's face.</param>
-    public static BlueprintValidation Check(BlueprintDraft draft, ContentDb content, DesignReport? report, ShipStats after, ShipStats before, (int Mx, int My, int Mz)? port = null, (int Mx, int My, int Mz)? portFace = null, bool requireDock = true, StructureKind kind = StructureKind.Ship)
+    public static BlueprintValidation Check(BlueprintDraft draft, ContentDb content, DesignReport? report, ShipStats after, ShipStats before, (int Mx, int My, int Mz)? port = null, (int Mx, int My, int Mz)? portFace = null, bool requireDock = true, StructureKind kind = StructureKind.Ship, InteriorDraft? interior = null)
     {
         var list = new List<ValidationEntry>();
         void Add(ValidationSeverity sev, string code, string key, IReadOnlyList<(int, int, int)>? cells = null, params object[] args) =>
@@ -115,6 +117,8 @@ public sealed class BlueprintValidation
                 Reject.NotAdjacent => list.Any(e => e.Code == "disconnected"),
                 Reject.InvalidArgument => list.Any(e => e.Code is "empty" or "tooMany"),
                 Reject.ModuleOccupied => list.Any(e => e.Code is "port" or "portBlocked" or "noCore"),
+                Reject.OutsideStation => list.Any(e => e.Code == "orphans"),
+                Reject.NotOnFloor => list.Any(e => e.Code == "offFloor"),
                 _ => false,
             };
             if (!covered)
@@ -125,6 +129,19 @@ public sealed class BlueprintValidation
             }
         }
 
+        if (interior is not null && station)
+        {
+            // Parts must stand in a module that is still there, on its floor; belts should lead somewhere (ADR 0044).
+            var orphanModules = new List<(int, int, int)>();
+            foreach (var m in interior.Machines) { var k = StationGrid.ModuleOfCell(m.X, m.Y, m.Z); if (!mods.ContainsKey(k) && !orphanModules.Contains(k)) orphanModules.Add(k); }
+            foreach (var b in interior.Belts) foreach (var c in InteriorDraft.BeltCells(b)) { var k = StationGrid.ModuleOfCell(c.X, c.Y, c.Z); if (!mods.ContainsKey(k) && !orphanModules.Contains(k)) orphanModules.Add(k); }
+            if (orphanModules.Count > 0) Add(ValidationSeverity.Error, "orphans", "bp.val.orphans", orphanModules, orphanModules.Count);
+            var offFloor = interior.Machines.Where(m => !StationGrid.IsFloorLayer(m.Y)).Select(m => StationGrid.ModuleOfCell(m.X, m.Y, m.Z)).Concat(interior.Belts.Where(b => !StationGrid.IsFloorLayer(b.Y)).Select(b => StationGrid.ModuleOfCell(b.X, b.Y, b.Z))).Distinct().ToList();
+            if (offFloor.Count > 0 && !interior.FreeBuilding) Add(ValidationSeverity.Error, "offFloor", "bp.val.offFloor", offFloor, offFloor.Count);
+            var (dead, unfed) = interior.BeltGaps();
+            if (dead.Count > 0) Add(ValidationSeverity.Warning, "beltEnd", "bp.val.beltEnd", dead.Select(c => StationGrid.ModuleOfCell(c.X, c.Y, c.Z)).Distinct().ToList(), dead.Count);
+            if (unfed.Count > 0) Add(ValidationSeverity.Warning, "beltStart", "bp.val.beltStart", unfed.Select(c => StationGrid.ModuleOfCell(c.X, c.Y, c.Z)).Distinct().ToList(), unfed.Count);
+        }
         if (after.PowerBalance < 0)
             Add(ValidationSeverity.Warning, "power", "bp.val.power", mods.Where(kv => ModuleKindIds.IsReactor(kv.Value)).Select(kv => (kv.Key.Mx, kv.Key.My, kv.Key.Mz)).ToList(), -after.PowerBalance);
         if (!station)
@@ -140,7 +157,7 @@ public sealed class BlueprintValidation
             Add(ValidationSeverity.Warning, "turn", "bp.val.turn", null, (int)Math.Round(100f * (1f - after.Turn.RateDegPerSecond / before.Turn.RateDegPerSecond)));
         }
 
-        if (!draft.Dirty) Add(ValidationSeverity.Info, "unchanged", "bp.val.unchanged");
+        if (!draft.Dirty && !(interior?.Dirty ?? false)) Add(ValidationSeverity.Info, "unchanged", "bp.val.unchanged");
         else if (!list.Any(e => e.Blocks)) Add(ValidationSeverity.Info, "valid", "bp.val.valid");
 
         // Errors first, then warnings, then information; the order inside a group is the order the checks ran.

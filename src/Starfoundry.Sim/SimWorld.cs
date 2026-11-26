@@ -936,6 +936,7 @@ public sealed partial class SimWorld
         var found = BuildableStructure(player, p.Structure, out var s);
         if (found != Reject.None) return found;
         if (Network.StationFirst && s!.Kind == StructureKind.Ship) return Reject.UseStation; // ADR 0039
+        if (Network.InteriorBlueprintRules && s!.Kind == StructureKind.Station) return Reject.UseBlueprint; // ADR 0044: machines, turrets and walls are drawn on the floor plan
         if (!content.IsMachine(p.Type)) return Reject.UnknownMachineType;
         var def = content.Machines[p.Type];
         if (def.Role == MachineRole.Ship) return Reject.NotPlaceable;
@@ -973,6 +974,7 @@ public sealed partial class SimWorld
         var found = BuildableStructure(player, p.Structure, out var s);
         if (found != Reject.None) return found;
         if (Network.StationFirst && s!.Kind == StructureKind.Ship) return Reject.UseStation; // ADR 0039
+        if (Network.InteriorBlueprintRules && s!.Kind == StructureKind.Station) return Reject.UseBlueprint; // ADR 0044
         if (!Dirs.IsValid(p.Dir)) return Reject.InvalidArgument;
         if (p.Length < 1 || p.Length > MaxSegmentCells) return Reject.InvalidArgument;
         if (!Enum.IsDefined(p.Tier)) return Reject.InvalidArgument;

@@ -411,7 +411,9 @@ public sealed partial class StructureBot
         int r = recipe is null ? -1 : Recipe(recipe);
         if (!Need(_c.Machines[type].Cost, machine)) return -1;
         EnsureRange(st, x, y, z);
-        var res = Act(new PlaceMachineIn(st, x, y, z, type, r));
+        // ADR 0044: in a new world a station's machines, belts, turrets and walls reach it through its blueprint (its interior plus the new part).
+        bool blueprint = Net.InteriorBlueprintRules && Net.GetStructure(st).Kind == StructureKind.Station;
+        var res = Act(blueprint ? WithInterior(st, i => new BlueprintInterior(i.Machines.Append(new BlueprintMachine(x, y, z, type, r)).ToArray(), i.Belts, i.Links)) : new PlaceMachineIn(st, x, y, z, type, r));
         if (!res.Ok)
         {
             if (res.Reject == Reject.NotEnoughItems) return PlaceMachine(st, x, y, z, machine, recipe);
@@ -422,7 +424,26 @@ public sealed partial class StructureBot
             Stuck($"PlaceMachineIn {machine} at ({x},{y},{z}) of structure {st} was rejected: {res.Reject}{at}");
             return -1;
         }
-        return res.CreatedMachines[0];
+        return blueprint ? MachineAt(st, x, y, z) : res.CreatedMachines[0];
+    }
+
+    /// <summary>An ApplyBlueprint that keeps the station's modules and replaces its interior by what <paramref name="edit"/> makes of the current one.</summary>
+    private ApplyBlueprint WithInterior(int st, Func<BlueprintInterior, BlueprintInterior> edit) =>
+        new(st, Net.GetStructure(st).Modules.Select(kv => new DesignModule(kv.Key.Mx, kv.Key.My, kv.Key.Mz, kv.Value)).ToArray(), edit(Net.ReadInterior(st)));
+
+    private int MachineAt(int st, int x, int y, int z)
+    {
+        for (int id = 0; id < Net.MachineIdLimit; id++)
+            if (Net.IsMachineAlive(id) && Net.GetMachineInfo(id) is var mi && mi.Structure == st && mi.X == x && mi.Y == y && mi.Z == z) return id;
+        return -1;
+    }
+
+    private int BeltAt(int st, int x, int y, int z, Dir dir)
+    {
+        var (dx, dy, dz) = Dirs.Vector(dir);
+        for (int id = 0; id < Net.SegmentIdLimit; id++)
+            if (Net.IsAlive(id) && Net.GetSegmentInfo(id) is var si && si.Structure == st && si.OriginX == x && si.OriginY == y && si.OriginZ == z && si.DirX == dx && si.DirY == dy && si.DirZ == dz) return id;
+        return -1;
     }
 
     private int PlaceBelt(int st, int x, int y, int z, Dir dir, int len)
@@ -430,7 +451,8 @@ public sealed partial class StructureBot
         var cost = _c.Belts.First(b => b is not null && b.Tier == BeltTier.Mk1)!.CostPerCell;
         if (!Need(cost.Select(c => new ItemStack(c.Item, c.Count * len)).ToArray(), "a belt")) return -1;
         EnsureRange(st, x, y, z);
-        var res = Act(new PlaceSegmentIn(st, x, y, z, dir, len, BeltTier.Mk1));
+        bool blueprint = Net.InteriorBlueprintRules && Net.GetStructure(st).Kind == StructureKind.Station;
+        var res = Act(blueprint ? WithInterior(st, i => new BlueprintInterior(i.Machines, i.Belts.Append(new BlueprintBelt(x, y, z, dir, len, BeltTier.Mk1)).ToArray(), i.Links)) : new PlaceSegmentIn(st, x, y, z, dir, len, BeltTier.Mk1));
         if (!res.Ok)
         {
             if (res.Reject == Reject.NotEnoughItems) return PlaceBelt(st, x, y, z, dir, len);
@@ -455,7 +477,7 @@ public sealed partial class StructureBot
             Stuck($"PlaceSegmentIn at ({x},{y},{z}) {dir} x{len} of structure {st} was rejected: {res.Reject}{at}");
             return -1;
         }
-        return res.Created[0];
+        return blueprint ? BeltAt(st, x, y, z, dir) : res.Created[0];
     }
 
     /// <summary>A belt from a producer machine into a consumer machine. Returns the belt id or -1.</summary>

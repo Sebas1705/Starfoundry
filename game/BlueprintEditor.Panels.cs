@@ -80,11 +80,11 @@ public partial class BlueprintEditor
         foreach (var (t, b) in _toolButtons) b.SetPressedNoSignal(s.Tool == t);
         foreach (var (k, b) in _palette) b.SetPressedNoSignal(s.Tool == BlueprintTool.Place && s.Kind == k);
         SyncViewButtons();
-        _undo.Disabled = !s.Draft.CanUndo;
-        _redo.Disabled = !s.Draft.CanRedo;
+        _undo.Disabled = !(s.FloorModule is not null ? s.Interior.CanUndo : s.Draft.CanUndo);
+        _redo.Disabled = !(s.FloorModule is not null ? s.Interior.CanRedo : s.Draft.CanRedo);
         _paste.Disabled = s.Draft.ClipboardCount == 0;
         _upgrade.Disabled = s.Selection.Count != 1 || ModuleKindIds.UpgradeOf(s.Draft.Modules.GetValueOrDefault(s.Selection.FirstOrDefault())) is not { } up || _content.Structures is not { } sc || !sc.IsDefined(up);
-        _revert.Disabled = !s.Draft.Dirty;
+        _revert.Disabled = !s.Dirty;
         _apply.Disabled = !s.CanApply;
         _load.Disabled = false;
         _selectionLabel.SetFit(s.Carrying is not null ? Loc.T("bp.carrying") : s.Selection.Count > 0 ? Loc.T("bp.selected", s.Selection.Count) : Loc.T("bp.nothingSelected"));
@@ -101,7 +101,7 @@ public partial class BlueprintEditor
 
         // the status line
         var errors = s.Validation.Errors.ToList();
-        if (!s.Draft.Dirty)
+        if (!s.Dirty)
         {
             _status.SetFit(Loc.T("bp.status.unchanged"));
             _status.AddThemeColorOverride("font_color", Muted);
@@ -116,7 +116,7 @@ public partial class BlueprintEditor
         }
         else
         {
-            _status.SetFit(Loc.T("bp.status.changes", s.Diff.Added.Count + s.Diff.Moved.Count, s.Diff.Removed.Count + s.Diff.Moved.Count, s.Diff.Moved.Count));
+            _status.SetFit(Loc.T("bp.status.changes", s.Diff.Added.Count + s.Diff.Moved.Count + s.InteriorChange.Added, s.Diff.Removed.Count + s.Diff.Moved.Count + s.InteriorChange.Removed, s.Diff.Moved.Count));
             _status.AddThemeColorOverride("font_color", Good);
             _statusIcon.Set("status:check", Good);
         }
@@ -124,6 +124,7 @@ public partial class BlueprintEditor
         RefreshCost();
         RefreshStats();
         RefreshValidation();
+        SyncFloor();
     }
 
     private void FitButtons()
@@ -236,7 +237,7 @@ public partial class BlueprintEditor
         var s = _s;
         var ent = s.Validation.Entries.Select(e => $"{e.Severity}:{e.Code}").ToArray();
         var cost = s.Cost.Lines.Select(l => $"{l.ItemId}={l.Net}{(l.Missing > 0 ? $"!{l.Missing}" : "")}");
-        return $"open={Visible} tool={s.Tool} kind={s.Kind} sel={s.Selection.Count} modules={s.Draft.Count} dirty={s.Draft.Dirty} canApply={s.CanApply} " +
+        return $"open={Visible} tool={s.Tool} kind={s.Kind} sel={s.Selection.Count} modules={s.Draft.Count} dirty={s.Dirty} floor={(s.FloorModule is { } fm ? $"{fm.Mx},{fm.My},{fm.Mz}" : "none")} parts={s.Interior.PartCount} partsAdded={s.InteriorChange.Added} partsRemoved={s.InteriorChange.Removed} canApply={s.CanApply} " +
                $"added={s.Diff.Added.Count} removed={s.Diff.Removed.Count} moved={s.Diff.Moved.Count} invalid={s.Diff.Invalid.Count} " +
                $"cost=[{string.Join(",", cost)}] pays={s.Cost.Pays} power={s.Stats.PowerBalance} mass={s.Stats.Mass:F1} turn={s.Stats.Turn.RateDegPerSecond:F0} " +
                $"validation=[{string.Join(",", ent)}] view={s.Camera.View} dist={s.Camera.Distance:F0} undo={s.Draft.UndoDepth} redo={s.Draft.RedoDepth} " +

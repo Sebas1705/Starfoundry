@@ -4,8 +4,10 @@ namespace Starfoundry.Sim;
 /// <param name="Cost">Items paid in total (the hold first, then the station stock), after the refund of the modules that go is set against them.</param>
 /// <param name="Refund">Items given back to the hold: what the modules that go refund beyond the cost of the new ones.</param>
 /// <param name="Added">Modules that are new or change kind (an upgrade removes the old mark and adds the new one).</param>
+/// <param name="PartsAdded">Machines and belt segments a station blueprint builds (ADR 0044).</param>
+/// <param name="PartsRemoved">Machines and belt segments a station blueprint removes.</param>
 /// <param name="Moved">Modules that change place but keep their kind: they cost nothing and refund nothing. Counted inside <see cref="Added"/> and <see cref="Removed"/>.</param>
-public sealed record DesignReport(Reject Reject, ItemStack[] Cost, ItemStack[] Refund, int Added, int Removed, int Moved)
+public sealed record DesignReport(Reject Reject, ItemStack[] Cost, ItemStack[] Refund, int Added, int Removed, int Moved, int PartsAdded = 0, int PartsRemoved = 0)
 {
     public bool Ok => Reject == Reject.None;
 }
@@ -92,7 +94,7 @@ public sealed partial class SimWorld
         if (Network.HoldCapacityOfKinds(next.Values) < Network.HoldLoadOf(player)) return Fail(Reject.NoRoom);
         if (Network.DesignOverlaps(ship, next.Keys)) return Fail(Reject.Overlap);
 
-        var (addedByKind, cost, refund, moved, affordable) = PriceDesign(player, station, kinds, old, removed, added);
+        var (addedByKind, cost, refund, moved, affordable) = PriceDesign(player, station, kinds, old, removed, added, new SortedDictionary<int, int>());
         if (!affordable) return new DesignReport(Reject.NotEnoughItems, cost, refund, added.Count, removed.Count, moved);
         var report = new DesignReport(Reject.None, cost, refund, added.Count, removed.Count, moved);
         if (!apply) return report;
@@ -111,7 +113,7 @@ public sealed partial class SimWorld
     /// </summary>
     private (Dictionary<ModuleKind, int> AddedByKind, ItemStack[] Cost, ItemStack[] Refund, int Moved, bool Affordable) PriceDesign(
         int player, int station, StructureContent kinds, IReadOnlyDictionary<(int Mx, int My, int Mz), ModuleKind> old,
-        List<(int Mx, int My, int Mz)> removed, List<DesignModule> added)
+        List<(int Mx, int My, int Mz)> removed, List<DesignModule> added, SortedDictionary<int, int> extra)
     {
         var addedByKind = added.GroupBy(m => m.Kind).ToDictionary(g => g.Key, g => g.Count());
         var removedByKind = removed.GroupBy(k => old[k]).ToDictionary(g => g.Key, g => g.Count());
@@ -129,6 +131,8 @@ public sealed partial class SimWorld
             foreach (var s in kinds.ModuleCost(kind)) net[s.Item] = net.GetValueOrDefault(s.Item) + s.Count * n;
         foreach (var (kind, n) in removedByKind)
             foreach (var s in kinds.ModuleCost(kind)) net[s.Item] = net.GetValueOrDefault(s.Item) - s.Count / 2 * n;
+        if (extra.Count > 0)
+            foreach (var (item, n) in extra) net[item] = net.GetValueOrDefault(item) + n;
         bool pays = Campaign && !Network.Rules.FreeBuild;
         var cost = pays ? net.Where(kv => kv.Value > 0).Select(kv => new ItemStack(kv.Key, kv.Value)).ToArray() : NoStacks;
         var refund = pays ? net.Where(kv => kv.Value < 0).Select(kv => new ItemStack(kv.Key, -kv.Value)).ToArray() : NoStacks;

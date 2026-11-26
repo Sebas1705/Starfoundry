@@ -37,7 +37,7 @@ public sealed class BlueprintCost
 
     /// <param name="pays">Whether building costs items in this world (<c>Mode == Campaign</c> and not free build).</param>
     /// <param name="available">The items that can be spent per item index: the hold plus the station stock.</param>
-    public static BlueprintCost Compute(BlueprintDiff diff, ContentDb content, bool pays, Func<int, int> available)
+    public static BlueprintCost Compute(BlueprintDiff diff, ContentDb content, bool pays, Func<int, int> available, InteriorDiff? interior = null)
     {
         var price = new SortedDictionary<int, int>();
         var refund = new SortedDictionary<int, int>();
@@ -47,6 +47,12 @@ public sealed class BlueprintCost
                 foreach (var s in kinds.ModuleCost(kind)) price[s.Item] = price.GetValueOrDefault(s.Item) + s.Count;
             foreach (var (_, kind) in diff.Removed)
                 foreach (var s in kinds.ModuleCost(kind)) refund[s.Item] = refund.GetValueOrDefault(s.Item) + s.Count / 2;
+            if (interior is not null)
+            {
+                var (ip, ir) = interior.Amounts(content);
+                foreach (var (item, n) in ip) price[item] = price.GetValueOrDefault(item) + n;
+                foreach (var (item, n) in ir) refund[item] = refund.GetValueOrDefault(item) + n;
+            }
         }
         var lines = new List<CostLine>();
         foreach (int item in price.Keys.Union(refund.Keys).OrderBy(i => i))

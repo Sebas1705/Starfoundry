@@ -19,6 +19,24 @@ public sealed class BlueprintSession
 
     public BlueprintDraft Draft { get; } = new();
 
+    /// <summary>The station's interior as the floor plan draws it (ADR 0044): machines, belts and links. Empty for a ship.</summary>
+    public InteriorDraft Interior { get; }
+
+    /// <summary>The module whose floor plan is open (the editor shows its top-down plan instead of the 3D view), or null.</summary>
+    public (int Mx, int My, int Mz)? FloorModule { get; private set; }
+
+    public PlanTool PlanTool { get; private set; } = PlanTool.Machine;
+
+    /// <summary>The machine type the Machine tool places (a content machine index), or -1 for none yet.</summary>
+    public int PlanMachine { get; private set; } = -1;
+
+    public BeltTier PlanTier { get; private set; } = BeltTier.Mk1;
+
+    /// <summary>The cell the Select tool picked in the floor plan, or null.</summary>
+    public (int X, int Y, int Z)? PlanSelection { get; private set; }
+
+    public InteriorDiff InteriorChange { get; private set; } = InteriorDiff.Empty;
+
     /// <summary>The structure being edited: -1 for the player's own ship, else a station's id (ADR 0043).</summary>
     public int StructureId { get; private set; } = -1;
 
@@ -47,13 +65,15 @@ public sealed class BlueprintSession
     public BlueprintSession(ContentDb content, ShipHandling handling, Func<SimWorld> world, int player)
     {
         _content = content; _handling = handling; _world = world; _player = player;
+        Interior = new InteriorDraft(content);
         Draft.Changed += () => { _selection.RemoveWhere(c => !Draft.Modules.ContainsKey(c)); Recompute(); };
+        Interior.Changed += () => Recompute();
     }
 
-    public bool Dirty => Draft.Dirty;
+    public bool Dirty => Draft.Dirty || Interior.Dirty;
 
     /// <summary>True when Apply can be pressed: the draft differs from the ship and nothing in it blocks.</summary>
-    public bool CanApply => Draft.Dirty && !Validation.HasErrors && Report.Ok;
+    public bool CanApply => Dirty && !Validation.HasErrors && Report.Ok;
 
     /// <summary>Opens the session on the ship's current layout, or on a station's when <paramref name="structure"/> names one (also after an apply).</summary>
     public void Open(int structure = -1)
@@ -62,9 +82,12 @@ public sealed class BlueprintSession
         StructureId = structure;
         int ship = structure >= 0 ? structure : net.ShipStructure(_player);
         _selection.Clear(); Carrying = null; Kind = null; Tool = BlueprintTool.Select;
+        FloorModule = null; PlanSelection = null;
+        Interior.SetModules(k => Draft.Modules.TryGetValue(k, out var kind) ? kind : null, net.FreeBuilding);
         if (ship >= 0)
         {
             var st = net.GetStructure(ship);
+            Interior.Load(structure >= 0 ? net.ReadInterior(structure) : BlueprintInterior.Empty);
             Draft.Load(st.Modules, st.Kind, structure >= 0 ? structure : -1);
         }
         var (min, max) = Draft.Bounds(1);
@@ -113,14 +136,21 @@ public sealed class BlueprintSession
     private void Recompute()
     {
         var w = _world();
-        Report = Draft.Check(w, _player);
+        bool station = StructureKind == StructureKind.Station;
+        InteriorChange = station ? InteriorDiff.Compute(Interior.Original, Interior.ToInterior()) : InteriorDiff.Empty;
+        Report = station ? w.CheckBlueprint(_player, StructureId, Draft.ToModules(), InteriorCarried()) : Draft.Check(w, _player);
         var bonuses = Bonuses();
         Stats = ShipStats.Compute(Draft.Modules.Values, _content, _handling, bonuses);
         StatsBefore = ShipStats.Compute(Draft.Original.Values, _content, _handling, bonuses);
+        if (station)
+        {
+            Stats = Stats with { PowerUse = Stats.PowerUse + Interior.PowerUse() };
+            StatsBefore = StatsBefore with { PowerUse = StatsBefore.PowerUse + Interior.Original.Machines.Sum(m => _content.Machines[m.Type].PowerUse) };
+        }
         var port = DockPort();
-        Validation = BlueprintValidation.Check(Draft, _content, Report, Stats, StatsBefore, port?.Port, port?.Face, requireDock: !w.Network.Rules.LegacyDock, kind: StructureKind);
+        Validation = BlueprintValidation.Check(Draft, _content, Report, Stats, StatsBefore, port?.Port, port?.Face, requireDock: !w.Network.Rules.LegacyDock, kind: StructureKind, interior: station ? Interior : null);
         Diff = BlueprintDiff.Compute(Draft.Original, Draft.Modules, Validation.InvalidCells);
-        Cost = BlueprintCost.Compute(Diff, _content, Pays, Available);
+        Cost = BlueprintCost.Compute(Diff, _content, Pays, Available, InteriorChange);
         Changed?.Invoke();
     }
 
@@ -251,14 +281,76 @@ public sealed class BlueprintSession
         return Draft.Upgrade(_selection.First(), _content);
     }
 
-    public bool Undo() => Draft.Undo();
+    public bool Undo() => FloorModule is not null ? Interior.Undo() : Draft.Undo();
 
-    public bool Redo() => Draft.Redo();
+    public bool Redo() => FloorModule is not null ? Interior.Redo() : Draft.Redo();
 
-    public void Revert() { Draft.Revert(); _selection.Clear(); Carrying = null; }
+    public void Revert() { Draft.Revert(); Interior.Revert(); _selection.Clear(); Carrying = null; PlanSelection = null; }
+
+    // ---- the floor plan (ADR 0044) --------------------------------------------------------------------------------
+
+    /// <summary>The floor of every module a plan can open on: the modules that allow machines or belts.</summary>
+    public bool CanOpenFloor((int Mx, int My, int Mz) module) =>
+        StructureKind == StructureKind.Station && Draft.Modules.TryGetValue(module, out var kind) && _content.Structures is { } k && (k.AllowsBelts(kind) || Enum.GetValues<MachineRole>().Any(r => r != MachineRole.Ship && k.AllowsRole(kind, r)));
+
+    public bool OpenFloor((int Mx, int My, int Mz) module)
+    {
+        if (!CanOpenFloor(module)) return false;
+        FloorModule = module; PlanSelection = null;
+        if (PlanMachine < 0) PlanMachine = PlanMachines().FirstOrDefault(-1);
+        Changed?.Invoke();
+        return true;
+    }
+
+    public void CloseFloor() { FloorModule = null; PlanSelection = null; Changed?.Invoke(); }
+
+    /// <summary>The machine types the floor plan offers, in the build menu's order (no ship machines or drills).</summary>
+    public IReadOnlyList<int> PlanMachines() => BuildCatalog.Entries(_content, true, false).Where(e => e.Kind == BuildEntryKind.Machine).Select(e => e.Machine).ToList();
+
+    public void SetPlanTool(PlanTool tool) { PlanTool = tool; PlanSelection = null; Changed?.Invoke(); }
+
+    public void PickPlanMachine(int type) { PlanMachine = type; PlanTool = PlanTool.Machine; Changed?.Invoke(); }
+
+    public void SetPlanTier(BeltTier tier) { PlanTier = tier; PlanTool = PlanTool.Belt; Changed?.Invoke(); }
+
+    /// <summary>A click on a cell of the floor plan with the active tool. Returns the Loc key of the refusal, or null when it worked.</summary>
+    public string? PlanClick((int X, int Y, int Z) cell)
+    {
+        string? why = null;
+        switch (PlanTool)
+        {
+            case PlanTool.Select: PlanSelection = Interior.IsFree(cell) ? null : cell; Changed?.Invoke(); break;
+            case PlanTool.Machine:
+                if (PlanMachine < 0) why = "designer.hint";
+                else if (Interior.MachineAt(cell) is not null) { PlanSelection = cell; Changed?.Invoke(); }
+                else why = Interior.PlaceMachine(cell, PlanMachine, DefaultRecipe(PlanMachine));
+                break;
+            case PlanTool.Belt: why = Interior.PlaceBelt(new[] { cell }, PlanTier); break;
+            case PlanTool.Erase: if (!Interior.Erase(cell)) why = "bp.plan.nothing"; break;
+        }
+        LastMessageKey = why;
+        return why;
+    }
+
+    /// <summary>A drag of the Belt tool from one cell to another: a belt along the grid-snapped path.</summary>
+    public string? PlanDrag((int X, int Y, int Z) from, (int X, int Y, int Z) to, bool zFirst = false)
+    {
+        var why = Interior.PlaceBelt(InteriorDraft.DragPath(from, to, zFirst), PlanTier);
+        LastMessageKey = why;
+        return why;
+    }
+
+    /// <summary>The recipe a new machine starts with: its only one, else none (the machine panel sets it).</summary>
+    private int DefaultRecipe(int type) => _content.Recipes.Where(r => r.Machine == type).Select(r => r.Index).Take(2).ToList() is { Count: 1 } one ? one[0] : -1;
+
+    /// <summary>The recipes a machine of this type offers (for the machine panel of the plan).</summary>
+    public IReadOnlyList<int> RecipesOf(int type) => _content.Recipes.Where(r => r.Machine == type).Select(r => r.Index).ToList();
+
+    /// <summary>The interior the command carries: null while the floor plan is untouched (a module-only blueprint, which leaves the interior alone).</summary>
+    public BlueprintInterior? InteriorCarried() => StructureKind == StructureKind.Station && Interior.Dirty ? Interior.ToInterior() : null;
 
     /// <summary>The one command that applies the draft.</summary>
-    public Command ToCommand() => Draft.ToCommand();
+    public Command ToCommand() => StructureKind == StructureKind.Station ? new ApplyBlueprint(StructureId, Draft.ToModules(), InteriorCarried()) : Draft.ToCommand();
 
     /// <summary>The rows of the stats panel for what is being edited.</summary>
     public IReadOnlyList<StatRow> StatRows() => Starfoundry.Ui.StatRows.Build(Stats, StatsBefore, StructureKind);

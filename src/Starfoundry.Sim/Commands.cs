@@ -195,8 +195,9 @@ public sealed record DesignerApply(DesignModule[] Modules) : Command;
 /// A station keeps its core and at least one dock module, takes no cockpit, engine or hardpoint, stays one connected piece and loses no module that holds a machine or belt
 /// or the port a ship is docked with; modules that only move are free, a removed module refunds half its cost and the hold pays first and the station stock the rest.
 /// Refused with <see cref="Reject.NotAllowedHere"/> in a world with <see cref="WorldRules.LegacyBlueprint"/>.
+/// With a <see cref="BlueprintInterior"/> (ADR 0044, tag 66) the same step also makes the machines, belts, turrets and walls of the station exactly that interior; without one the interior is left alone.
 /// </summary>
-public sealed record ApplyBlueprint(int Structure, DesignModule[] Modules) : Command;
+public sealed record ApplyBlueprint(int Structure, DesignModule[] Modules, BlueprintInterior? Interior = null) : Command;
 
 /// <summary>Several commands applied atomically: either all succeed or the world is left untouched.</summary>
 public sealed record Batch(Command[] Commands) : Command;

@@ -47,6 +47,9 @@ public sealed partial class BeltNetwork
     /// <summary>True when stations are edited in the blueprint editor (ADR 0043): structure rules on and no <see cref="WorldRules.LegacyBlueprint"/>.</summary>
     public bool BlueprintRules => StructureRules && !Rules.LegacyBlueprint;
 
+    /// <summary>True when machines, belts, turrets and walls reach a station only through ApplyBlueprint (ADR 0044): blueprint rules and no <see cref="WorldRules.LegacyInterior"/>.</summary>
+    public bool InteriorBlueprintRules => BlueprintRules && !Rules.LegacyInterior;
+
     /// <summary>True when machines and belts may stand at any layer of a module that allows them: <see cref="WorldRules.LegacyBuilding"/> or content that predates ADR 0031.</summary>
     public bool FreeBuilding => Rules.LegacyBuilding || !(Content?.FloorBuilding ?? true);
 

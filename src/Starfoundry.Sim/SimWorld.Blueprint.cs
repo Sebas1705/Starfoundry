@@ -6,22 +6,26 @@ public sealed partial class SimWorld
     /// Checks a blueprint of one of the player's structures without changing anything (ADR 0043): the verdict and the price <see cref="ApplyBlueprint"/> would give, from the same
     /// code, so what the editor previews is what applying does. The blueprint is the structure's whole module list.
     /// </summary>
-    public DesignReport CheckBlueprint(int player, int structure, IReadOnlyList<DesignModule> modules) => BlueprintCore(player, structure, modules, apply: false);
+    public DesignReport CheckBlueprint(int player, int structure, IReadOnlyList<DesignModule> modules, BlueprintInterior? interior = null) => BlueprintCore(player, structure, modules, apply: false, interior);
 
     private Reject ApplyBlueprintCore(int player, ApplyBlueprint a)
     {
         if (a.Modules is null) return Reject.InvalidArgument;
-        return BlueprintCore(player, a.Structure, a.Modules, apply: true).Reject;
+        return BlueprintCore(player, a.Structure, a.Modules, apply: true, a.Interior).Reject;
     }
 
-    private DesignReport BlueprintCore(int player, int structure, IReadOnlyList<DesignModule> modules, bool apply)
+    private DesignReport BlueprintCore(int player, int structure, IReadOnlyList<DesignModule> modules, bool apply, BlueprintInterior? interior = null)
     {
         if (!Network.BlueprintRules) return Fail(Reject.NotAllowedHere);
         if (Network.Content?.Structures is not { } kinds) return Fail(Reject.NoContent);
         var found = BuildableStructure(player, structure, out var s);
         if (found != Reject.None) return Fail(found);
         if (s!.Kind == StructureKind.Ship)
+        {
+            if (interior is { Machines.Length: > 0 } or { Belts.Length: > 0 }) return Fail(Reject.UseStation); // a ship holds no machines, belts, turrets or walls (ADR 0039)
             return Network.ShipStructure(player) == structure ? DesignCore(player, modules, apply) : Fail(Reject.NotAllowedHere);
+        }
+        if (interior is not null && !Network.InteriorBlueprintRules) return Fail(Reject.NotAllowedHere);
 
         // The set itself: bounded, defined kinds a station may hold, valid distinct coordinates.
         if (modules.Count < 1 || modules.Count > DesignerRules.MaxStationModules) return Fail(Reject.InvalidArgument);
@@ -55,8 +59,8 @@ public sealed partial class SimWorld
             foreach (var m in added)
                 if (ModuleKindIds.RequiredAbility(m.Kind) is { } needed && !Network.HasAbility(needed)) return Fail(Reject.Locked);
 
-        // What goes (or changes kind) must not be a port a ship is docked with, and must be empty: no machine or belt inside.
-        var cells = CellsFor(structure, create: false);
+        // What goes (or changes kind) must not be a port a ship is docked with, and must be empty: no machine or belt inside (a blueprint with an interior says what happens to them).
+        var cells = interior is null ? CellsFor(structure, create: false) : null;
         foreach (var key in removed)
         {
             if (Network.IsDockPortInUse(structure, key.Mx, key.My, key.Mz)) return Fail(Reject.ModuleOccupied);
@@ -84,13 +88,40 @@ public sealed partial class SimWorld
                 if (!StructurePointInRange(player, s, centre.X, centre.Y, centre.Z)) return Fail(Reject.OutOfRange);
             }
 
-        var (addedByKind, cost, refund, moved, affordable) = PriceDesign(player, structure, kinds, old, removed, added);
-        if (!affordable) return new DesignReport(Reject.NotEnoughItems, cost, refund, added.Count, removed.Count, moved);
-        var report = new DesignReport(Reject.None, cost, refund, added.Count, removed.Count, moved);
+        InteriorPlan? plan = null;
+        if (interior is not null)
+        {
+            var problem = PlanInterior(player, structure, s, next, interior, dockedHere, out plan);
+            if (problem != Reject.None) return Fail(problem);
+        }
+        int partsAdded = plan is null ? 0 : plan.NewMachines.Count + plan.NewBelts.Count, partsRemoved = plan is null ? 0 : plan.RemoveMachines.Count + plan.RemoveBelts.Count;
+
+        var (addedByKind, cost, refund, moved, affordable) = PriceDesign(player, structure, kinds, old, removed, added, plan?.Net ?? new SortedDictionary<int, int>());
+        if (!affordable) return new DesignReport(Reject.NotEnoughItems, cost, refund, added.Count, removed.Count, moved, partsAdded, partsRemoved);
+        var report = new DesignReport(Reject.None, cost, refund, added.Count, removed.Count, moved, partsAdded, partsRemoved);
         if (!apply) return report;
 
         if (cost.Length > 0) Network.PayDesign(player, structure, cost);
-        Network.ApplyDesign(structure, removed, added);
+        if (plan is not null)
+        {
+            // Everything was checked above; the snapshot only guards against a rule the checks missed, so a refusal can never leave half a blueprint.
+            var snapshot = Network.Clone();
+            var existingCells = CellsFor(structure, create: false);
+            var cellsBackup = existingCells is null ? null : new Dictionary<long, int>(existingCells);
+            try
+            {
+                ApplyInterior(player, structure, interior!, plan);
+                Network.ApplyDesign(structure, removed, added);
+            }
+            catch (Exception e) when (e is InvalidOperationException or ArgumentOutOfRangeException)
+            {
+                Network.CopyFrom(snapshot);
+                _structCells.Remove(structure);
+                if (cellsBackup is not null) _structCells[structure] = cellsBackup;
+                return Fail(Reject.InvalidArgument);
+            }
+        }
+        else Network.ApplyDesign(structure, removed, added);
         if (refund.Length > 0) Network.Refund(player, refund);
         foreach (var (kind, n) in addedByKind)
             for (int i = 0; i < n; i++) Network.CountModuleBuilt(kind);
