@@ -3,7 +3,7 @@ using Starfoundry.Sim;
 
 namespace Starfoundry.Ui;
 
-public enum PlanView { Orbit, Top, Section }
+public enum PlanView { Orbit, Top, Section, Walk }
 
 /// <summary>A ray in the ship's own space (module units: <see cref="StationGrid"/> sizes), for picking.</summary>
 public readonly record struct PlanRay(Vector3 Origin, Vector3 Direction);
@@ -31,12 +31,18 @@ public sealed class BlueprintCamera
     /// <summary>The deck shown in the section view (a module layer, My).</summary>
     public int SectionLayer { get; private set; }
 
-    private float _savedYaw, _savedPitch;
+    private float _savedYaw, _savedPitch, _savedFov;
+
+    /// <summary>The eye in the walkthrough preview (ship space), and the deck (module row) it stands on.</summary>
+    public Vector3 WalkEye { get; private set; }
+    public int WalkLayer { get; private set; }
+
+    public const float WalkFov = 72f;
 
     /// <summary>Drag to orbit: yaw follows the horizontal motion, pitch the vertical one (clamped short of the poles). Ignored in the top and section views.</summary>
     public void Orbit(float dx, float dy)
     {
-        if (View != PlanView.Orbit) { View = PlanView.Orbit; Yaw = _savedYaw; Pitch = _savedPitch; }
+        if (View is PlanView.Top or PlanView.Section) SetOrbit();
         Yaw = Wrap(Yaw + dx);
         Pitch = Math.Clamp(Pitch + dy, MinPitch, MaxPitch);
     }
@@ -49,14 +55,14 @@ public sealed class BlueprintCamera
     }
 
     /// <summary>The direction from the target towards the camera.</summary>
-    public Vector3 Back => View == PlanView.Orbit
+    public Vector3 Back => View is PlanView.Orbit or PlanView.Walk
         ? new Vector3(MathF.Sin(Yaw) * MathF.Cos(Pitch), MathF.Sin(Pitch), MathF.Cos(Yaw) * MathF.Cos(Pitch))
         : Vector3.UnitY;
 
-    public Vector3 Position => Target + Back * Distance;
+    public Vector3 Position => View == PlanView.Walk ? WalkEye : Target + Back * Distance;
 
     /// <summary>The screen's up in space: world up, or the bow direction in the top and section views (the bow is at the top of the screen).</summary>
-    public Vector3 Up => View == PlanView.Orbit ? Vector3.UnitY : -Vector3.UnitZ;
+    public Vector3 Up => View is PlanView.Orbit or PlanView.Walk ? Vector3.UnitY : -Vector3.UnitZ;
 
     public Vector3 Right => Vector3.Normalize(Vector3.Cross(-Back, Up));
 
@@ -66,16 +72,18 @@ public sealed class BlueprintCamera
     /// <summary>Pans the target in the screen plane; the speed is proportional to the distance so the scene follows the pointer.</summary>
     public void Pan(float dx, float dy)
     {
+        if (View == PlanView.Walk) return;
         float k = Distance * MathF.Tan(FovDegrees * MathF.PI / 360f) * 2f;
         Target += (-Right * dx + ScreenUp * dy) * k;
     }
 
     /// <summary>Zooms by wheel steps (positive closes in): each step changes the distance by about 12 percent.</summary>
-    public void Zoom(float steps) => Distance = Math.Clamp(Distance * MathF.Pow(0.88f, steps), MinDistance, MaxDistance);
+    public void Zoom(float steps) { if (View != PlanView.Walk) Distance = Math.Clamp(Distance * MathF.Pow(0.88f, steps), MinDistance, MaxDistance); }
 
     /// <summary>The top-down plan: looks straight down, bow at the top. A second call keeps it.</summary>
     public void SetTop()
     {
+        if (View == PlanView.Walk) SetOrbit();
         if (View == PlanView.Orbit) { _savedYaw = Yaw; _savedPitch = Pitch; }
         View = PlanView.Top;
     }
@@ -83,6 +91,7 @@ public sealed class BlueprintCamera
     /// <summary>The deck-by-deck section: the plan view of one layer (modules above it are cut away).</summary>
     public void SetSection(int layer)
     {
+        if (View == PlanView.Walk) SetOrbit();
         if (View == PlanView.Orbit) { _savedYaw = Yaw; _savedPitch = Pitch; }
         View = PlanView.Section;
         SectionLayer = layer;
@@ -92,8 +101,39 @@ public sealed class BlueprintCamera
     public void SetOrbit()
     {
         if (View == PlanView.Orbit) return;
+        if (View == PlanView.Walk) FovDegrees = _savedFov;
         View = PlanView.Orbit;
         Yaw = _savedYaw; Pitch = _savedPitch;
+    }
+
+    /// <summary>
+    /// The walkthrough preview: the eye drops inside a module at eye height above its floor (<see cref="BodyMotion.EyeHeight"/>), looking along the bow direction, with a wide
+    /// field of view. Look with <see cref="Orbit"/>, move with <see cref="WalkBy"/>; any other view button leaves it. Preview only: nothing is picked or edited from inside.
+    /// </summary>
+    public void SetWalk((int Mx, int My, int Mz) cell)
+    {
+        if (View == PlanView.Orbit) { _savedYaw = Yaw; _savedPitch = Pitch; }
+        if (View != PlanView.Walk) _savedFov = FovDegrees;
+        View = PlanView.Walk;
+        WalkLayer = cell.My;
+        WalkEye = new Vector3((cell.Mx + 0.5f) * StationGrid.ModuleX, cell.My * StationGrid.ModuleY + BodyMotion.EyeHeight, (cell.Mz + 0.5f) * StationGrid.ModuleZ);
+        Yaw = 0f; // looking towards the bow (negative z): Back points to the stern
+        Pitch = 0f;
+        FovDegrees = WalkFov;
+    }
+
+    /// <summary>Walks along the ground plane (forward along the look direction, right across it) by distances in cells; a step that would leave the modules of the deck is cut short (slides along the wall).</summary>
+    public void WalkBy(float forward, float right, IReadOnlyDictionary<(int Mx, int My, int Mz), ModuleKind> modules)
+    {
+        if (View != PlanView.Walk) return;
+        var f = new Vector3(-MathF.Sin(Yaw), 0f, -MathF.Cos(Yaw));
+        var r = new Vector3(MathF.Cos(Yaw), 0f, -MathF.Sin(Yaw));
+        var d = f * forward + r * right;
+        bool Inside(Vector3 p) => modules.ContainsKey(((int)MathF.Floor(p.X / StationGrid.ModuleX), WalkLayer, (int)MathF.Floor(p.Z / StationGrid.ModuleZ)));
+        var next = WalkEye + d;
+        if (Inside(next)) WalkEye = next;
+        else if (Inside(new Vector3(next.X, WalkEye.Y, WalkEye.Z))) WalkEye = new Vector3(next.X, WalkEye.Y, WalkEye.Z);
+        else if (Inside(new Vector3(WalkEye.X, WalkEye.Y, next.Z))) WalkEye = new Vector3(WalkEye.X, WalkEye.Y, next.Z);
     }
 
     /// <summary>Cycles orbit, top and section (the view-toggle key), the section on the layer given.</summary>
@@ -108,7 +148,7 @@ public sealed class BlueprintCamera
     }
 
     /// <summary>Whether a module layer is drawn: everything in the orbit and top views, the layers up to the section deck in the section view.</summary>
-    public bool LayerVisible(int my) => View != PlanView.Section || my <= SectionLayer;
+    public bool LayerVisible(int my) => View switch { PlanView.Section => my <= SectionLayer, PlanView.Walk => my <= WalkLayer, _ => true };
 
     /// <summary>Centres the view on a box of cells and backs off so it fits (the distance never leaves its limits).</summary>
     public void Frame((int X, int Y, int Z) min, (int X, int Y, int Z) max)

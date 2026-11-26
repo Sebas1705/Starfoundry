@@ -116,6 +116,14 @@ public sealed class InteriorDraft
         return true;
     }
 
+    /// <summary>Replaces the whole interior by a saved design's (one undoable step); the original it is compared with stays.</summary>
+    public void ReplaceWith(BlueprintInterior interior)
+    {
+        Push();
+        Restore(FromInterior(interior));
+        Done();
+    }
+
     /// <summary>Goes back to the station's interior (one undoable step).</summary>
     public void Revert()
     {

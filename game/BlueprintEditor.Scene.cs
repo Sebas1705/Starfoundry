@@ -148,6 +148,7 @@ void fragment() {
             _ghosts.AddChild(box);
         }
 
+        if (_s.Camera.View == PlanView.Walk) return; // the walkthrough shows the structure as it would stand: no grid, trails, selection or cursor
         _marks.AddChild(LineMesh("Trails", diff.Moved.Select(m => (BlueprintCamera.CellCentre(m.From), BlueprintCamera.CellCentre(m.To), MovedColour)).ToList()));
         _marks.AddChild(LineMesh("Grid", GridLines()));
         var sel = new List<(System.Numerics.Vector3, System.Numerics.Vector3, Color)>();
@@ -222,7 +223,7 @@ void fragment() {
         _camera3D.Fov = cam.FovDegrees;
         _camera3D.Position = V(cam.Position);
         var up = V(cam.Up);
-        var look = V(cam.Target);
+        var look = cam.View == PlanView.Walk ? V(cam.Position - cam.Back) : V(cam.Target); // a walkthrough looks along its own direction
         if ((look - _camera3D.Position).LengthSquared() < 1e-6f) return;
         _camera3D.LookAt(look, up);
     }

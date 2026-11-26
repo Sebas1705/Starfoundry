@@ -46,14 +46,28 @@ The editor reads its keys before the focus system, so Enter and the arrows work 
 - Headless self-check, prints one PASS or FAIL line per check (63 at the time of writing) and exits non-zero on a failure: `Godot --headless --path game -- --blueprint-check`. It docks the starter ship at a shipyard, opens the editor, asserts the named nodes and the panel layout at 960x540, 1152x648, 1280x720 and 1920x1080 in both languages (no overlap, inside the window, no truncated text), adds a module, compares diff, cost and verdict with the simulation, makes a cut-off module and a missing cockpit and checks the errors, undo and redo, mirror and the three views, applies the draft and checks the ship. Run agent builds through `tools/agent/quiet.ps1` and a play copy (`tools/agent/new-play-copy.ps1`).
 - Screenshots (implemented, **not run yet**): `Godot --path game -- --blueprint-shot=path [--blueprint-size=WxH] [--ui-lang=es|en]` saves `path.orbit.png` (a new laser, the gun removed, a module cut off: green, red and hatch ghosts, the panels), `path.top.png`, `path.section.png` and `path.done.png`.
 
-## Save as blueprint (a stub)
-`Save` writes the draft to `user://blueprints/ship_slot1.txt` (`BlueprintFormat`, one line per module) and `Load` puts it back into the draft as one undoable step. Slots, names, presets and variants are for later; the format has a header version so it can grow.
+## Save as blueprint: saved designs (phase 5, [ADR 0045](../adr/0045-saved-blueprints-live-in-user-data-and-the-walkthrough-is-client-only.md))
+The phase 2 stub (one slot) became a list. **Save** (and `Ctrl+S`) replaces the design that was last saved or loaded, or opens the list when there is none; **Load** (and `Ctrl+O`) opens the list. The list (`DesignsPanel`) is modal and has a name field and a variant field:
+- **Save** stores the draft under that name and variant (a station design carries its machines, belts and links; a ship design its modules with rotation). An existing name asks for a second press.
+- Click a row to select it, then **Load** (the design becomes the draft, one undoable step per half; the cost, validation and the simulation's verdict still decide whether it can be applied), **Rename**, **Duplicate as variant** (same name, the label in the variant field), **Preset** (pins it to the top) or **Delete** (second press).
+- Ship and station lists are separate; at most 64 designs per kind. Files are `user://blueprints/<structure>_<name>[__<variant>].bp`; a phase 2 `ship_slot1.txt` is imported once as "Slot 1 (imported)". Nothing is written to the save game or the command log.
+- Format: `starfoundry-blueprint 2` (version 1 still reads). Engine-free code: `BlueprintLibrary`, `BlueprintDesignFormat`, `IBlueprintStore` in `src/Starfoundry.Ui/BlueprintLibrary.cs`; `UserBlueprintStore` and the panel in `game/BlueprintEditor.Designs.cs`.
+- **Shipped presets (miner, hauler, gunship, scout of spec E1) are not done**: the editor's presets are the player's own pinned designs. They need balance and review; proposed as content data later. Hull skins, cockpit styles and other module variants of E1 are a separate content task.
+
+## Walkthrough preview (phase 5)
+Press `B` (or the walk button next to the views): the camera drops inside the selected module (else the cockpit of a ship, else the core of a station) at `BodyMotion.EyeHeight` above its floor, with a 72 degree field of view, level, looking to the bow. Right drag or `Q`/`E` look around, the arrow keys walk (1.2 cells a press, kept inside the modules of that deck; the decks above the eye are hidden), `B`, `T`, `Esc` or any other view leaves it. It is preview only: clicks do nothing, the grid, selection and cursor are hidden, the ghost tints stay. Engine-free camera maths in `BlueprintCamera` (`SetWalk`, `WalkBy`), tested.
+
+## On foot (phase 5)
+Only the repair and undo shortcuts remain on foot, with the commands that already exist (no new command): right click demolishes what the crosshair is on (belt, machine) and repair works as before. In a world with the floor plan the build menu closes machines and belts with the hint "Machines and belts are drawn on the station's floor plan (F at the core)" (`FootTools`); the module tool and the station founder stay.
+
+## Performance of large stations (measured, 2026-11-26)
+`BlueprintPolishTests.A_station_of_60_modules_and_400_parts_*` on a dev laptop (Debug build, loose budgets asserted): a station of 60 modules with 400 machines and belts: opening the session 1.4 ms, drawing the 400 parts click by click 398 ms (about 1 ms a part), one edit (diff, cost, stats, validation and the simulation's verdict recomputed) 1.2 ms, `CheckBlueprint` 0.6 ms, apply 14 ms, save plus load of the design 13 ms, one simulation tick with the whole factory standing 0.09 ms (machines idle, belts empty: this measures the loops, not a running factory). Budgets asserted: edit under 250 ms, check under 1 s, apply under 2 s, tick under 20 ms. The cost that is not measured is drawing the 3D scene: `RebuildScene` rebuilds every ghost and real node after each change (module models are cached), which needs a window to time; with 60 modules that is about 120 nodes.
 
 ## Known limits
 - **Rotation is view only.** `DesignerApply` carries modules by kind and cell, so a part's rotation is not sent and does not make the draft dirty. The ghost turns about its centre so the future can use it.
 - Mirror is across the ship's centre plane `x = 0` (a copy is skipped when its cell is taken or invalid); the plane is not yet draggable.
 - A draft may be temporarily invalid (a part far from the rest); the designer's "must touch a module" rule became a validation error, which is what the red hatch shows.
-- No walkthrough preview, no belts or machines (phases 3 to 5). The hold must still carry its load after the redesign (the simulation says so).
+- The hold must still carry its load after the redesign (the simulation says so).
 - The tool icons for move, mirror, copy, paste, undo and redo reuse existing glyphs (arm, tabs, depot, upload, rotate, cycle); they are placeholders until the icon set gets real ones.
 
 ## Needs visual QA (nobody has seen it)
@@ -84,5 +98,14 @@ Run `--blueprint-shot` with a window (and `--ui-audit` for the new panels) and l
 - Headless: the third part of `--blueprint-check` opens the core's plan, checks the nodes and the layouts in both languages, draws a smelter, a belt and a depot, checks cost and verdict against the simulation, the gap warnings, the machine panel, applies and reloads.
 - Not done: a storage crate machine, carrying ground stacks with a ship (both optional in the request), splitters as their own piece (a belt that feeds two belts is one), moving a machine for free, **and nobody has seen the plan on screen** (pointer feel, drawing, icon sizes, the arrow glyphs, double click, the 8 by 8 plan at 960x540 and 1920x1080).
 
-## What remains for phases 3 to 5
-Then demolish and repair shortcuts, blueprint slots and variants, the walkthrough preview, performance of large stations, determinism and old-log replay tests and hand testing (phase 5). Phase 2 needs no ADR (no sim rule changed); `ApplyBlueprint` is ADR 0043.
+## What remains
+Phase 5 is built and checked headless (`--blueprint-check` is 176 checks, all PASS; unit tests for the library, the walkthrough camera, the large station and determinism). Left for the owner: **visual QA of everything above**, hand testing, shipped presets and the module variants of spec E1, and `--blueprint-shot` (it needs a window: the headless renderer draws nothing, so it was reviewed and compiled but **not run**). Its frames: `path.orbit.png`, `.top.png`, `.section.png`, `.done.png` (ship), then `.station.orbit.png`, `.station.top.png`, `.floor.png`, `.walk.png` and `.designs.png` (station, floor plan, walkthrough, design list). Phase 2 needs no ADR (no sim rule changed); `ApplyBlueprint` is ADR 0043; phase 5 is ADR 0045 (no sim change).
+
+## Needs visual QA (phase 5 additions)
+1. The design list: layout at 960x540 and 1920x1080 in es and en (the panel fit is checked headless, not how it looks), the row text, the toggle highlight of the selected row, focus and typing in the two fields while the editor's keys are silent.
+2. The walkthrough: the eye height and field of view inside a module, whether the module models read from the inside (back faces, ceilings), the ghost tints over the interior, the direction of the right drag and the arrow walking, the hidden upper decks.
+3. The walk button icon and the `B` and `Ctrl+O` caps in the F1 help and the key page.
+4. In a floor-plan world, the build menu entries for machines and belts shown closed with the new hint.
+
+## Far from the origin (not done)
+The infinite rock field ([ADR 0040](../adr/0040-infinite-rock-field-generated-on-demand.md)) has no world limit and the client draws with `float` world coordinates (cells, converted from the simulation's integers at about 60 call sites in `Play*.cs`). Far from home, float precision shows as jitter (about 0.06 cells at a million cells). A floating origin means re-basing every one of those sites (or parenting the world under a root and re-centring it as the ship moves while keeping positions local), which cannot be done safely without looking at it on screen, so it is **documented, not changed**. Proposal: one `WorldOrigin` offset subtracted when converting simulation integers to render positions, moved in whole sectors when the ship passes a threshold, and a headless test of the conversion.

@@ -20,6 +20,11 @@ public partial class Play
     /// <summary>The world is station-first: ships take no automation (new games and logs from version 20).</summary>
     private bool StationFirstWorld => _structuresOn && Net.StationFirst;
 
+    /// <summary>Machines and belts are drawn on the station floor plan (ADR 0044): the build tool no longer places them (<see cref="FootTools"/>).</summary>
+    private bool InteriorBlueprintWorld => _structuresOn && Net.InteriorBlueprintRules;
+
+    private string BlockedHint() => FootTools.Hint(AutomationBlocked, InteriorBlueprintWorld);
+
     /// <summary>Floor building is closed now: station-first world, aboard a ship that is not docked at a station.</summary>
     private bool AutomationBlocked => StationFirstUi.AutomationBlocked(StationFirstWorld, ShipStruct >= 0 && !IsDockedNow);
 
@@ -29,9 +34,10 @@ public partial class Play
 
     /// <summary>Whether a build palette item needs a station while the ship is blocked (belts, machines, and the Fabrication bay of the module tool).</summary>
     private bool ItemBlockedNow(BuildItem item) =>
-        AutomationBlocked && (item.IsBelt || (!item.IsModule && !item.IsStation) || (item.IsModule && StationFirstUi.KindBlocked(_moduleKind, true)));
+        (AutomationBlocked && (item.IsBelt || (!item.IsModule && !item.IsStation) || (item.IsModule && StationFirstUi.KindBlocked(_moduleKind, true))))
+        || FootTools.ItemBlocked(item.IsBelt, item.IsModule, item.IsStation, InteriorBlueprintWorld);
 
-    private bool EntryBlockedNow(BuildEntry e) => StationFirstUi.EntryBlocked(e, AutomationBlocked);
+    private bool EntryBlockedNow(BuildEntry e) => StationFirstUi.EntryBlocked(e, AutomationBlocked) || FootTools.EntryBlocked(e, InteriorBlueprintWorld);
 
     /// <summary>The crafting machines of a station-first world open the new panel; every other machine keeps the small inspector.</summary>
     private bool MachineUsesPanel(int machine) =>
@@ -76,7 +82,7 @@ public partial class Play
     /// <summary>Pressing the build key aboard a ship says where automation is built; the module tab stays usable.</summary>
     private void NoteBuildAboard()
     {
-        if (AutomationBlocked) ToastLogistics(StationFirstUi.Hint(true), 4.0);
+        if (AutomationBlocked) ToastLogistics(BlockedHint(), 4.0);
     }
 
     /// <summary>Per frame: puts the station panels where the key panel leaves room, keeps them in step with the world, and puts away a tool the ship cannot use.</summary>
@@ -88,7 +94,7 @@ public partial class Play
             _tool = ToolMode.Pointer; // e.g. the ship left a station's dock with a machine in hand
             _beltAnchor = null;
             _dragStart = null;
-            ToastLogistics(StationFirstUi.Hint(true), 4.0);
+            ToastLogistics(BlockedHint(), 4.0);
         }
         if (_selMachine >= 0 && !_demo && MachineUsesPanel(_selMachine))
         {
