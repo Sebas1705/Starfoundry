@@ -25,7 +25,7 @@ public class ShipDesignerTests
     /// <summary>The starter ship docked at its station core, with a shipyard module beside the core when asked.</summary>
     private static SimWorld Yard(GameMode mode, bool shipyard, out int ship, out int station)
     {
-        var w = SimWorld.CreateGalaxy(C, mode, Seed, threats: false, stationRules: false, structures: true);
+        var w = SimWorld.CreateGalaxy(C, mode, Seed, threats: false, stationRules: false, structures: true, rules: TestContent.LegacyShip);
         ship = w.Network.ShipStructure(0);
         // ADR 0041: the ship's dock module (on the -X flank of its cockpit) joins the dock module beside the station core.
         station = w.Network.CreateStructure(0, StructureKind.Station, -26L * Cell, 0, StationGrid.ModuleZ * (long)Cell);
@@ -67,7 +67,7 @@ public class ShipDesignerTests
     [Fact]
     public void The_designer_needs_a_docked_ship_and_a_shipyard()
     {
-        var undocked = SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true);
+        var undocked = SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: TestContent.LegacyShip);
         int ship0 = undocked.Network.ShipStructure(0);
         Assert.Equal(Reject.NotDocked, Run(undocked, With(undocked, ship0, l => l.RemoveAll(m => m.Kind == ModuleKind.Gun))));
         var noYard = Yard(GameMode.Sandbox, false, out int ship, out _);
@@ -181,9 +181,9 @@ public class ShipDesignerTests
         var clone = w.Network.Clone();
         Assert.Equal(w.Network.Checksum(), clone.Checksum());
         var ms = new MemoryStream();
-        CommandCodec.WriteLog(ms, w.Log, C.Hash, GameMode.Sandbox, Seed, structures: true);
+        CommandCodec.WriteLog(ms, w.Log, C.Hash, GameMode.Sandbox, Seed, structures: true, rules: TestContent.LegacyShip);
         var log = CommandCodec.ReadLog(new MemoryStream(ms.ToArray()));
-        var replay = SimWorld.Replay(log, w.Tick, SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true));
+        var replay = SimWorld.Replay(log, w.Tick, SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: TestContent.LegacyShip));
         _ = replay; // the station was built by hand in this test, so the replay of the whole log is covered by the clone
         Assert.Equal(ModuleKind.GunMk2, clone.GetStructure(ship).Modules[(1, 1, 0)]);
         w.ValidateInvariants();

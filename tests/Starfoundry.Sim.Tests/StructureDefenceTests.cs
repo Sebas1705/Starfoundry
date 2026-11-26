@@ -36,7 +36,7 @@ public class StructureDefenceTests
     private static int Hp(ModuleKind kind) => C.Structures!.ModuleHp(kind);
 
     private static SimWorld World(ContentDb? content = null) =>
-        SimWorld.CreateGalaxy(content ?? C, GameMode.Sandbox, Seed, threats: true, stationRules: false, structures: true);
+        SimWorld.CreateGalaxy(content ?? C, GameMode.Sandbox, Seed, threats: true, stationRules: false, structures: true, rules: TestContent.LegacyShip);
 
     private static CommandResult Run(SimWorld w, Command c)
     {
@@ -619,7 +619,7 @@ public class StructureDefenceTests
     public void Defence_tip_fires_once_at_the_first_warning_when_there_is_no_turret()
     {
         var core = TestContent.Core;
-        var w = SimWorld.CreateGalaxy(core, GameMode.Sandbox, Seed, threats: true, stationRules: false, structures: true);
+        var w = SimWorld.CreateGalaxy(core, GameMode.Sandbox, Seed, threats: true, stationRules: false, structures: true, rules: TestContent.LegacyShip);
         var tips = new Starfoundry.Ui.Tips(core);
         Assert.Null(tips.Next(w.Network, 0));
         w.Network.ScheduleWave(0);
@@ -750,7 +750,7 @@ public class StructureDefenceTests
         Assert.True(legacy.Network.WavesSpawned > 0 && legacy.Network.MachinesLost > 0);
         Assert.Equal(LegacyGolden, legacy.Checksum());
 
-        var structure = SimWorld.CreateGalaxy(c, GameMode.Sandbox, Seed, threats: true, stationRules: false, structures: true);
+        var structure = SimWorld.CreateGalaxy(c, GameMode.Sandbox, Seed, threats: true, stationRules: false, structures: true, rules: TestContent.LegacyShip);
         structure.Step(3000);
         Assert.Equal(StructureGolden, structure.Checksum());
     }
@@ -781,13 +781,13 @@ public class StructureDefenceTests
         Assert.Equal(w.Checksum(), net.Clone().Checksum());
 
         // Replaying the command log reproduces the damaged state.
-        var replay = SimWorld.Replay(w.Log, w.Tick, SimWorld.CreateGalaxy(TestContent.Core, GameMode.Sandbox, Seed, threats: true, stationRules: false, structures: true));
+        var replay = SimWorld.Replay(w.Log, w.Tick, SimWorld.CreateGalaxy(TestContent.Core, GameMode.Sandbox, Seed, threats: true, stationRules: false, structures: true, rules: TestContent.LegacyShip));
         Assert.Equal(w.Checksum(), replay.Checksum());
         replay.ValidateInvariants();
 
         // And so does a save file.
         var bytes = new MemoryStream();
-        SaveGame.Write(bytes, w, TestContent.Core, GameMode.Sandbox, Seed, threats: true, player: 0, structures: true);
+        SaveGame.Write(bytes, w, TestContent.Core, GameMode.Sandbox, Seed, threats: true, player: 0, structures: true, rules: TestContent.LegacyShip);
         var loaded = SaveGame.Read(new MemoryStream(bytes.ToArray()), TestContent.Core, out _);
         Assert.Equal(w.Checksum(), loaded.Checksum());
         Assert.Equal(net.StructureHpFraction(ship), loaded.Network.StructureHpFraction(ship));

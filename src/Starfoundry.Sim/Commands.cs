@@ -89,6 +89,16 @@ public sealed record SetBoost(bool On) : Command;
 /// <summary>Sets what the commanding player's ship micro-refinery works on (-1 for nothing).</summary>
 public sealed record SetShipRecipe(int Recipe) : Command;
 
+/// <summary>
+/// Adds <paramref name="Count"/> crafts of a workbench recipe to the ship's queue (ADR 0039; at most <see cref="PlayerRules.BenchQueueMax"/> waiting in all). The bench works
+/// one craft at a time, taking the inputs from the hold when a craft starts. Refused with <see cref="Reject.NotAllowedHere"/> in a world with
+/// <see cref="WorldRules.LegacyShipAutomation"/> (those use <see cref="SetShipRecipe"/>), <see cref="Reject.NoRoom"/> when the queue is full.
+/// </summary>
+public sealed record QueueBench(int Recipe, int Count = 1) : Command;
+
+/// <summary>Cancels the craft in progress (its inputs return to the hold) and empties the workbench queue (ADR 0039).</summary>
+public sealed record ClearBench : Command;
+
 /// <summary>Chooses the research the labs work on (-1 for none).</summary>
 public sealed record SetResearch(int Node) : Command;
 
@@ -321,6 +331,9 @@ public enum Reject
 
     /// <summary>The module is the last dock module of its ship or station (ADR 0041), which cannot do without one.</summary>
     LastDockModule,
+
+    /// <summary>Automation is built in a station (ADR 0039): a ship holds no machines, belts, turrets, walls or Fabrication bays.</summary>
+    UseStation,
 }
 
 /// <summary>Outcome of one submitted command.</summary>

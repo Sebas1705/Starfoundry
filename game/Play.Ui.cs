@@ -1386,6 +1386,7 @@ public partial class Play
         if (_buildMenu is not null) _buildMenu.Dock = dock;
         UpdateComputer(size);
         UpdateInventory(size);
+        UpdateStationPanels(size);
 
         // The bottom strip (hold and tool in hand) is one line at the bottom left; it shrinks to fit narrow windows.
         _toolbar.ResetSize();
@@ -1503,6 +1504,7 @@ public partial class Play
     private void SelectBuild(int index)
     {
         if (index < 0 || index >= _palette.Count) return;
+        if (ItemBlockedNow(_palette[index])) { ToastLogistics(StationFirstUi.Hint(true), 4.0); return; } // ADR 0039: automation is built in a station
         // Pressing the same number again keeps it selected (Esc puts it away): a double press while building must not undo the choice.
         _selected = index;
         _beltAnchor = null;
@@ -1647,7 +1649,7 @@ public partial class Play
     // ---- cursor capture ------------------------------------------------------------------------------------
 
     /// <summary>Panels that need the pointer: the help overlay, the research panel, the build menu and the star map.</summary>
-    private bool PanelOpen() => PauseOpen || EndOpen || StoryOpen || _helpOpen || ComputerOpen || ResearchOpen || BuildOpen || InventoryOpen || DesignerOpen || BlueprintOpen || (_mapOpen && Net.Galaxy is not null);
+    private bool PanelOpen() => PauseOpen || EndOpen || StoryOpen || _helpOpen || ComputerOpen || ResearchOpen || BuildOpen || InventoryOpen || DesignerOpen || BlueprintOpen || BenchPanelOpen || MachinePanelOpen || (_mapOpen && Net.Galaxy is not null);
 
     /// <summary>Releases or captures the mouse so it matches what the player wants and what is on screen.</summary>
     private void UpdateCapture()
@@ -1963,7 +1965,7 @@ public partial class Play
     private void UpdateInspector()
     {
         if (_selMachine >= 0 && !Net.IsMachineAlive(_selMachine)) _selMachine = -1;
-        _inspector.Visible = _selMachine >= 0 && !_demo;
+        _inspector.Visible = _selMachine >= 0 && !_demo && !MachineUsesPanel(_selMachine);
         if (_selMachine < 0) return;
 
         var m = Net.GetMachineInfo(_selMachine);

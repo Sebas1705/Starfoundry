@@ -707,7 +707,7 @@ public class InventoryTests
         Assert.False(legacy.WithLegacyInventory(false).LegacyInventory);
         Assert.All(WorldRules.Presets, p => Assert.False(p.Rules.LegacyInventory));
         byte[] bytes = legacy.Serialize();
-        bytes[1 + 8 * 4 + 1] = 8; // a flag nobody defined
+        bytes[1 + 8 * 4 + 1] = 128; // a flag nobody defined (bit 3 is the ship automation flag of ADR 0039)
         Assert.Throws<InvalidDataException>(() => WorldRules.Deserialize(bytes));
         Assert.Throws<InvalidDataException>(() => WorldRules.Deserialize(legacy.Serialize().AsSpan(0, legacy.Serialize().Length - 1)));
     }

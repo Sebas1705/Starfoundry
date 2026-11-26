@@ -1109,6 +1109,7 @@ void fragment() {
     /// <summary>F: switches the workbench to the next recipe (ingots, plates, ammo) and off after the last one.</summary>
     private void ToggleRefinery()
     {
+        if (BenchView.UsesPanel(StationFirstWorld)) { BenchKey(); return; } // ADR 0039: the workbench has a panel and a queue; F no longer cycles recipes
         int current = Net.HasPlayer(Player) ? Net.GetPlayerInfo(Player).ShipRecipe : -1;
         int at = Array.FindIndex(BenchRecipes, id => _content.RecipeIndex(id) == current);
         int next = current < 0 ? 0 : at + 1; // an unknown recipe restarts at the first
@@ -1320,7 +1321,7 @@ void fragment() {
                     _botIntent = (0, 0, 0);
                     Send(new SetMovement(0, 0, 0));
                     Send(new StartMining(0));
-                    Send(new SetShipRecipe(_content.RecipeIndex("core:ship_smelt")));
+                    if (Net.StationFirst) Send(new QueueBench(_content.RecipeIndex("core:ship_smelt"), PlayerRules.BenchQueueMax)); else Send(new SetShipRecipe(_content.RecipeIndex("core:ship_smelt"))); // ADR 0039: the bench takes a queue
                     _botStartedAt = _world.Tick;
                 });
                 break;

@@ -16,7 +16,7 @@ public class BlueprintEditorTests
     /// <summary>The starter ship docked at a station with a shipyard (the same set-up as the designer tests).</summary>
     private static SimWorld Yard(GameMode mode, out int ship, out int station)
     {
-        var w = SimWorld.CreateGalaxy(C, mode, Seed, threats: false, stationRules: false, structures: true);
+        var w = SimWorld.CreateGalaxy(C, mode, Seed, threats: false, stationRules: false, structures: true, rules: TestContent.LegacyShip);
         ship = w.Network.ShipStructure(0);
         // ADR 0041: the ship's dock module (on the -X flank of its cockpit) joins the dock module beside the station core.
         station = w.Network.CreateStructure(0, StructureKind.Station, -26L * Cell, 0, StationGrid.ModuleZ * (long)Cell);

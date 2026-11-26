@@ -35,13 +35,14 @@ public sealed partial class StructureBot
         {
             case "01_first_light":
                 MineIron();
-                FabricationBayOnly();
                 FoundStation();
+                FabricationBayOnly();
                 break;
             case "02_cold_fuel":
                 PlayColdFuel();
                 break;
             case "03_under_siege":
+                _factoryUp = true; // the pre-built station factory feeds the hold
                 PlaySiege();
                 break;
             case "06_salvage_run":
@@ -59,23 +60,25 @@ public sealed partial class StructureBot
 
     private void PlayColdFuel()
     {
-        HydrogenLoop();
+        // The level starts with a station that has a bay and a factory but no reactor (ADR 0039: the ship carries no factory).
+        _station = Net.Structures().First(s => s.Kind == StructureKind.Station && s.Owner == 0).Id;
+        _factoryUp = true; // the workbench is not part of this plan
         MineIron();
-        FoundStation();
-        if (_station >= 0 && _progress!.Find("dock_stock") is not null) DockAndStore("core:iron_ingot", 20);
-        MoreCargo(2);
-        FetchCarbon(8, "the reactor module");
+        FetchCarbon(8, "the station reactor");
         Goal("a reactor module on the station");
-        if (_station >= 0) PlaceModule(_station, 0, -1, 0, ModuleKind.Reactor);
+        PlaceModule(_station, 0, -1, 0, ModuleKind.Reactor);
+        if (_progress!.Find("dock_stock") is not null) DockAndStore("core:iron_ingot", 20); // the game ends with the last primary goal, so the optional stock goes first
+        HydrogenLoop();
+        MoreCargo(2);
     }
 
     // ---- 01 first light: the optional fabrication bay ----------------------------------------------------
 
-    /// <summary>The optional goal of level 01: a fabrication bay beside the hull, paid from the workbench's ingots and plates (no factory in it).</summary>
+    /// <summary>The optional goal of level 01: a fabrication bay in the station, paid from the workbench's ingots and plates (no factory in it).</summary>
     private void FabricationBayOnly()
     {
-        Goal("1b a fabrication bay beside the hull (optional goal)");
-        PlaceModule(_ship, F1.X, F1.Y, F1.Z, ModuleKind.Workshop);
+        Goal("1b a fabrication bay in the station (optional goal)");
+        if (_station >= 0) PlaceModule(_station, S1.X, S1.Y, S1.Z, ModuleKind.Workshop);
     }
 
     // ---- docking helpers (levels 02 and 06) ---------------------------------------------------------------
@@ -143,7 +146,7 @@ public sealed partial class StructureBot
         Cmd(new SetWeapons(true));
         var (dx, dy, dz) = Origin(1, 0, 1);
         Goal("siege: walls to draw the fire");
-        Walls(_station, dx, dy, dz, 2);
+        Walls(_station, dx, dy, dz, 2, nearBelts: true);
         Goal("siege: a second ammo battery with two turrets");
         _stationBatteries += AmmoBattery(_station, 0, 0, 8, 5).Count > 0 ? 1 : 0;
         Goal("siege: a repair bay");

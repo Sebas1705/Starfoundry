@@ -79,7 +79,7 @@ public class HydrogenTests
             Assert.True(kinds.AllowsRole(kind, MachineRole.Crafter));
             Assert.True(kinds.AllowsRole(kind, MachineRole.Unloader));
         }
-        var campaign = SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, structures: true);
+        var campaign = SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, structures: true, rules: TestContent.LegacyShip);
         Assert.False(campaign.Network.IsMachineLocked(Cracker));
         Assert.False(campaign.Network.IsMachineLocked(IcePort));
         Assert.False(campaign.Network.IsRecipeLocked(CrackIce));
@@ -88,7 +88,7 @@ public class HydrogenTests
     [Fact]
     public void Cracker_turns_ice_into_hydrogen()
     {
-        var w = SimWorld.CreateGalaxy(TestContent.CoreWithoutStarterShip, GameMode.Sandbox, Seed, structures: true);
+        var w = SimWorld.CreateGalaxy(TestContent.CoreWithoutStarterShip, GameMode.Sandbox, Seed, structures: true, rules: TestContent.LegacyShip);
         var n = w.Network;
         int s = PowerTests.Ship(w, hydrogen: 5);
         int input = n.AddSegment(0, 3, 0, 0, 0, 1, 3, BeltTier.Mk1, s);
@@ -113,7 +113,7 @@ public class HydrogenTests
     [Fact]
     public void Hand_mined_ice_can_refuel_the_ship()
     {
-        var w = SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, structures: true);
+        var w = SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, structures: true, rules: TestContent.LegacyShip);
         var n = w.Network;
         int ship = n.ShipStructure(0);
 
@@ -169,7 +169,7 @@ public class HydrogenTests
     [Fact]
     public void A_ship_with_no_hydrogen_recovers_without_any_hydrogen_cheat()
     {
-        var w = SimWorld.CreateGalaxy(TestContent.CoreWithoutStarterShip, GameMode.Sandbox, Seed, structures: true);
+        var w = SimWorld.CreateGalaxy(TestContent.CoreWithoutStarterShip, GameMode.Sandbox, Seed, structures: true, rules: TestContent.LegacyShip);
         var n = w.Network;
         int s = PowerTests.Ship(w); // reactor, no hydrogen: only the emergency output
         n.GiveItems(0, Ice, 20); // the ice the player mined by hand: the only item placed in the hold
@@ -194,7 +194,7 @@ public class HydrogenTests
 
     // ---- Ui: tips and objective ------------------------------------------------------------------
 
-    private static SimWorld StarterWorld() => SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, structures: true);
+    private static SimWorld StarterWorld() => SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, structures: true, rules: TestContent.LegacyShip);
 
     [Fact]
     public void No_fuel_tip_fires_once_when_the_hydrogen_is_nearly_gone()
@@ -211,7 +211,7 @@ public class HydrogenTests
         var legacy = SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, structures: false);
         legacy.Network.EnsurePlayer(0);
         Assert.Null(new Tips(C).Next(legacy.Network, 0));
-        var noReactor = SimWorld.CreateGalaxy(TestContent.CoreWithoutStarterShip, GameMode.Sandbox, Seed, structures: true);
+        var noReactor = SimWorld.CreateGalaxy(TestContent.CoreWithoutStarterShip, GameMode.Sandbox, Seed, structures: true, rules: TestContent.LegacyShip);
         noReactor.Network.EnsurePlayer(0);
         int ship = noReactor.Network.CreateStructure(0, StructureKind.Ship, 0, 0, 0);
         noReactor.Network.AddStructureModuleUnchecked(ship, 0, 0, 0, ModuleKind.Cockpit);

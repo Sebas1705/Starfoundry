@@ -21,7 +21,7 @@ public class StructureFlightTests
     private const int Cell = Units.CellUnits;
 
     private static SimWorld World(bool threats = false, bool structures = true, WorldRules? rules = null) =>
-        SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats, stationRules: false, structures: structures, rules: rules);
+        SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats, stationRules: false, structures: structures, rules: (rules ?? WorldRules.Default).WithLegacyShipAutomation(true));
 
     private static CommandResult Run(SimWorld w, Command c)
     {

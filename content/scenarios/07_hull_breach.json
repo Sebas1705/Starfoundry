@@ -13,7 +13,8 @@
     "first_wave_grace_seconds": 60,
     "wave_interval_percent": 25,
     "wave_size_percent": 100,
-    "goal_waves": 3
+    "goal_waves": 3,
+    "legacy_ship_automation": true
   },
   "start": {
     "structures": [ { "template": "breach_ship" } ],

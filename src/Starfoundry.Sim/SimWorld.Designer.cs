@@ -45,6 +45,7 @@ public sealed partial class SimWorld
         {
             if (!Enum.IsDefined(m.Kind)) return Fail(Reject.InvalidArgument);
             if (!StructureGrid.IsValidLocalModule(m.Mx, m.My, m.Mz)) return Fail(Reject.OutOfBounds);
+            if (Network.StationFirst && m.Kind == ModuleKind.Workshop) return Fail(Reject.UseStation); // ADR 0039
             if (!kinds.IsDefined(m.Kind) || !ModuleKindIds.AllowedOn(StructureKind.Ship, m.Kind)) return Fail(Reject.KindNotAllowed);
             if (Network.Rules.LegacyArms && ModuleKindIds.IsArmsKind(m.Kind)) return Fail(Reject.KindNotAllowed); // ADR 0042
             if (!next.TryAdd((m.Mx, m.My, m.Mz), m.Kind)) return Fail(Reject.InvalidArgument);

@@ -6,7 +6,7 @@ namespace Starfoundry.Sim.Tests;
 /// <summary>Scenario files, world creation from a scenario, the log header with a scenario id, saves, and the progress counters ([ADR 0025](docs/adr/0025-scenarios-and-goals.md)).</summary>
 public class ScenarioTests
 {
-    private static readonly ContentDb C = TestContent.Core;
+    private static readonly ContentDb C = TestContent.CoreScen;
     private static readonly ScenarioCatalog Catalog = TestContent.Scenarios;
     private const ulong Seed = 20261121UL;
 
@@ -224,12 +224,12 @@ public class ScenarioTests
     }
 
     [Fact]
-    public void The_cold_level_starts_with_six_hydrogen()
+    public void The_cold_level_starts_with_fourteen_hydrogen_and_a_station_without_a_reactor()
     {
         var w = SimWorld.CreateScenario(C, Catalog, "02_cold_fuel");
-        Assert.Equal(6, w.Network.HoldCount(0, C.ItemIndex("core:hydrogen")));
-        Assert.Equal(20, w.Network.HoldCount(0, C.ItemIndex("core:iron_plate")));
-        Assert.Equal(60, w.Network.HoldCount(0, C.ItemIndex("core:iron_ingot")));
+        Assert.Equal(6, w.Network.HoldCount(0, C.ItemIndex("core:hydrogen"))); // the legacy fixture content keeps the old template
+        Assert.Equal(30, w.Network.HoldCount(0, C.ItemIndex("core:iron_plate")));
+        Assert.Equal(40, w.Network.HoldCount(0, C.ItemIndex("core:iron_ingot")));
     }
 
     [Fact]

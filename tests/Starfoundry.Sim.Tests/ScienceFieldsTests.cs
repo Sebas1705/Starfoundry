@@ -59,7 +59,7 @@ public class ScienceFieldsTests
 
     private static SimWorld World()
     {
-        var w = SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true);
+        var w = SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: TestContent.LegacyShip);
         w.Network.EnsurePlayer(0);
         return w;
     }
@@ -339,7 +339,7 @@ public class ScienceFieldsTests
     [Fact]
     public void Closed_loop_unlocks_hydrogen_from_biomass_and_nothing_else_does()
     {
-        var w = SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, threats: false, stationRules: false, structures: true);
+        var w = SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, threats: false, stationRules: false, structures: true, rules: TestContent.LegacyShip);
         w.Network.EnsurePlayer(0);
         int rec = C.RecipeIndex("core:biomass_to_hydrogen");
         Assert.True(w.Network.IsRecipeLocked(rec));

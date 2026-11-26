@@ -9,7 +9,7 @@ public class ScenarioProgressTests
 {
     private const int Tps = Units.TicksPerSecond;
     private const ulong Seed = 20261121UL;
-    private static readonly ContentDb C = TestContent.Core;
+    private static readonly ContentDb C = TestContent.CoreScen;
     private static readonly int Ore = C.ItemIndex("core:iron_ore");
     private static readonly int Hydrogen = C.ItemIndex("core:hydrogen");
     private static readonly int Ammo = C.ItemIndex("core:ammo");
@@ -28,7 +28,7 @@ public class ScenarioProgressTests
     private static string Beat(string trigger, string text = "x") => $"{{\"trigger\":\"{trigger}\",\"text_es\":\"es {text}\",\"text_en\":\"en {text}\"}}";
 
     private static SimWorld World(bool threats = false) =>
-        SimWorld.CreateGalaxy(TestContent.CoreWithoutStarterShip, GameMode.Sandbox, Seed, threats: threats, stationRules: false, structures: true);
+        SimWorld.CreateGalaxy(TestContent.CoreWithoutStarterShip, GameMode.Sandbox, Seed, threats: threats, stationRules: false, structures: true, rules: TestContent.LegacyShip);
 
     private static void Ok(SimWorld w, Command c)
     {

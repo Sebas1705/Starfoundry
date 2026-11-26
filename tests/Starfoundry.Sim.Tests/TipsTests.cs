@@ -151,7 +151,7 @@ public class TipsTests
     private static (SimWorld W, int Station) StationWithSmelter()
     {
         var content = TestContent.CoreWithoutStarterShip;
-        var w = SimWorld.CreateGalaxy(content, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true);
+        var w = SimWorld.CreateGalaxy(content, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: TestContent.LegacyShip);
         w.Network.EnsurePlayer(0);
         int st = w.Network.CreateStructure(0, StructureKind.Station, 0, 0, 0);
         Ok(w, new PlaceModuleIn(st, 0, 0, 0, ModuleKind.Core));
@@ -199,7 +199,7 @@ public class TipsTests
     [Fact]
     public void ThePortTipFiresInStructureWorldsForAnOreWithoutAPort()
     {
-        var w = SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true);
+        var w = SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: TestContent.LegacyShip);
         w.Network.EnsurePlayer(0);
         var tips = new Tips(C);
         int iron = C.ItemIndex("core:iron_ore"), titanium = C.ItemIndex("core:titanium_ore");
@@ -219,7 +219,7 @@ public class TipsTests
     [Fact]
     public void ThePortTipStaysQuietWhenAPortStandsOrTheCarbonIsForJumps()
     {
-        var w = SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true);
+        var w = SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: TestContent.LegacyShip);
         w.Network.EnsurePlayer(0);
         int ship = w.Network.ShipStructure(0);
         int titanium = C.ItemIndex("core:titanium_ore"), carbon = C.ItemIndex("core:carbon");
@@ -242,7 +242,7 @@ public class TipsTests
     public void OpeningTheMapWithoutJumpCarbonTeachesTheCostOnce()
     {
         var content = TestContent.CoreWithoutStarterShip;
-        var w = SimWorld.CreateGalaxy(content, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true);
+        var w = SimWorld.CreateGalaxy(content, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: TestContent.LegacyShip);
         w.Network.EnsurePlayer(0);
         var tips = new Tips(content);
         Assert.NotEqual("learn.jumpCarbon", tips.Next(w.Network, 0, mapOpen: false)?.Key);
@@ -257,7 +257,7 @@ public class TipsTests
     public void NoJumpCarbonTipWhenTheHoldPaysForTheJump()
     {
         var content = TestContent.CoreWithoutStarterShip;
-        var w = SimWorld.CreateGalaxy(content, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true);
+        var w = SimWorld.CreateGalaxy(content, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: TestContent.LegacyShip);
         w.Network.EnsurePlayer(0);
         foreach (var stack in content.JumpCost) w.Network.GiveItems(0, stack.Item, stack.Count);
         var tips = new Tips(content);

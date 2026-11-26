@@ -268,7 +268,7 @@ public sealed partial class StructureBot
         }
         // A sensible player does not let raw ore pile up in the hold: hand mining of the home iron pauses at a stock the lines use soon.
         int ore = Have("core:iron_ore");
-        if (_mineTarget == _homeDeposit && _homeDeposit >= 0 && !_orePaused && ore >= OreStock) { Cmd(new StopMining()); _orePaused = true; }
+        if (_mineTarget == _homeDeposit && _homeDeposit >= 0 && ore >= OreStock) { if (Net.MiningDeposit(0) >= 0) Cmd(new StopMining()); _orePaused = true; }
         else if (_orePaused && ore <= OreStock / 3) _orePaused = false;
         bool paused = _orePaused && _mineTarget == _homeDeposit;
         if (_mineTarget >= 0 && !paused && Net.InMineRange(0, _mineTarget) && Net.MiningDeposit(0) != _mineTarget && Net.DepositRemaining(_mineTarget) > 0)

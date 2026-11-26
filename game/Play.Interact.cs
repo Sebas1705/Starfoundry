@@ -18,7 +18,7 @@ public partial class Play
         if (_demo || !Net.HasPlayer(Player)) return HintInteract.None;
         if (_focus is not null) return HintInteract.Console;
         if (StackInReach() is not null) return HintInteract.PickUp;
-        if (_tool != ToolMode.Build && AimActive && AimingAtBench()) return HintInteract.Bench; // the aimed workbench wins over the seat, standing or seated
+        if (_tool != ToolMode.Build && AimActive && AimingAtBench()) return StationFirstWorld ? HintInteract.BenchPanel : HintInteract.Bench; // the aimed workbench wins over the seat, standing or seated
         if (Standing)
         {
             if (LadderWay() is not null) return HintInteract.Climb;
@@ -46,6 +46,7 @@ public partial class Play
 
     private void InteractKey()
     {
+        if (CloseStationPanel()) return; // F closes the workbench or machine panel that is open
         switch (InteractNow())
         {
             case HintInteract.Console:
@@ -54,13 +55,14 @@ public partial class Play
                 break;
             case HintInteract.Machine:
                 _selMachine = _hover.Id; // its panel (recipe, repair, remove) opens; the mouse is free to use the buttons
-                _wantCapture = false;
+                if (!MachineUsesPanel(_hover.Id)) _wantCapture = false; // the new panel frees the mouse itself and gives it back on close
                 break;
             case HintInteract.Reactor:
                 if (AimedModule() is { } reactor) OpenInventoryOn(ContainerRef.Reactor(reactor.S, reactor.Key.Mx, reactor.Key.My, reactor.Key.Mz));
                 break;
             case HintInteract.Shipyard: OpenComputer(ComputerTab.Designer); break;
             case HintInteract.Bench: ToggleRefinery(); break;
+            case HintInteract.BenchPanel: BenchKey(); break;
             case HintInteract.Drones: AssignDronesKey(); break;
             case HintInteract.PickUp: PickUpAimed(); break;
             case HintInteract.Dock: case HintInteract.DockAssist: case HintInteract.DockCancel: case HintInteract.Undock: DockKey(); break;
@@ -132,6 +134,7 @@ public partial class Play
     private void CancelKey()
     {
         if (_helpOpen) _helpOpen = false;
+        else if (CloseStationPanel()) { }
         else if (ComputerOpen)
         {
             if (_computerTab == ComputerTab.Inventory && _inventory!.HandleEscape()) return;

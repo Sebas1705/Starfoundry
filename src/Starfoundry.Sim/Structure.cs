@@ -42,6 +42,13 @@ public static class ModuleKindIds
         ? kind is not (ModuleKind.Cockpit or ModuleKind.Engine) && !IsHardpoint(kind)
         : kind is not (ModuleKind.Core or ModuleKind.Shipyard);
 
+    /// <summary>
+    /// <see cref="AllowedOn(StructureKind, ModuleKind)"/> for a world that may be station-first (ADR 0039): with <paramref name="stationFirst"/> a ship takes no Fabrication bay,
+    /// since automation is built in a station.
+    /// </summary>
+    public static bool AllowedOn(StructureKind structure, ModuleKind kind, bool stationFirst) =>
+        AllowedOn(structure, kind) && !(stationFirst && structure == StructureKind.Ship && kind == ModuleKind.Workshop);
+
     /// <summary>The ability research must unlock before this kind can be placed in a campaign world, or null when it is free.</summary>
     public static Ability? RequiredAbility(ModuleKind kind) => kind switch
     {

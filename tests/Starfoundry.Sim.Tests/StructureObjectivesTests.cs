@@ -11,7 +11,7 @@ public class StructureObjectivesTests
 
     private static readonly Objective[] StructuresOrder =
     {
-        Objective.Fly, Objective.Mine, Objective.Refine, Objective.FabBay, Objective.WatchFactory, Objective.FoundStation, Objective.Dock, Objective.MakeFuel, Objective.AddModule,
+        Objective.Fly, Objective.Mine, Objective.Refine, Objective.FoundStation, Objective.FabBay, Objective.WatchFactory, Objective.Dock, Objective.MakeFuel, Objective.AddModule,
         Objective.Research, Objective.Scan, Objective.Defend, Objective.Salvage, Objective.Automate, Objective.Upgrade, Objective.Expand,
     };
 
@@ -67,14 +67,16 @@ public class StructureObjectivesTests
     }
 
     [Fact]
-    public void Fab_bay_step_completes_with_a_buildable_bay_and_the_shipped_starter_ship_has_none()
+    public void Fab_bay_step_completes_with_a_bay_in_an_own_station_and_the_shipped_starter_ship_has_none()
     {
         var floor = SimWorld.CreateGalaxy(TestContent.CoreFloor, GameMode.Campaign, 20261121UL, threats: false, stationRules: false, structures: true);
         floor.Network.EnsurePlayer(0);
         var t = new ObjectiveTracker(TestContent.CoreFloor, structures: true);
         t.Update(floor.Network, 0);
         Assert.False(t.IsDone(Objective.FabBay));
-        floor.Network.AddStructureModuleUnchecked(floor.Network.ShipStructure(0), 1, 0, 1, ModuleKind.Workshop);
+        int st = floor.Network.CreateStructure(0, StructureKind.Station, 100, 0, 0);
+        floor.Network.AddStructureModuleUnchecked(st, 0, 0, 0, ModuleKind.Core);
+        floor.Network.AddStructureModuleUnchecked(st, 1, 0, 0, ModuleKind.Workshop); // ADR 0039: a ship takes no bay, the station does
         t.Update(floor.Network, 0);
         Assert.True(t.IsDone(Objective.FabBay));
     }

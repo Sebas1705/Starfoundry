@@ -124,7 +124,7 @@ public partial class Play
         var title = Loc.Name("machine", "core:micro_refinery");
         _benchTitle.Text = char.ToUpperInvariant(title[0]) + title[1..];
         var kind = WorkbenchSpot.KindOf(recipeId);
-        _benchHint.Text = L("bench.card.hint");
+        _benchHint.Text = L(StationFirstWorld ? "bench.card.hintPanel" : "bench.card.hint");
         if (pi.ShipRecipe < 0 || kind == BenchKind.Off)
         {
             _benchRecipe.Text = L("bench.card.off");
@@ -136,7 +136,7 @@ public partial class Play
         else
         {
             var r = _content.Recipes[pi.ShipRecipe];
-            int total = r.TimeTicks * PlayerRules.ShipCraftMultiplier;
+            int total = BenchView.CraftTicks(r, StationFirstWorld);
             float progress = WorkbenchSpot.Progress(pi.ShipCrafting, pi.ShipRemaining, total);
             bool hasInputs = r.Inputs.All(i => Net.HoldCount(Player, i.Item) >= i.Count);
             _benchRecipe.Text = L("bench.card.recipe", L("bench." + r.Id));

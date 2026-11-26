@@ -15,7 +15,7 @@ public static class CommandCodec
         TagStartMining = 16, TagStopMining = 17, TagSetShipRecipe = 18, TagSetResearch = 19,
         TagLinkDeposit = 20, TagUnlinkDeposit = 21, TagSetMovement = 22, TagScan = 23, TagJump = 24, TagSetWeapons = 25, TagRepair = 26, TagSetThrust = 27, TagPlaceModule = 28, TagRemoveModule = 29,
         TagPlaceMachineIn = 30, TagPlaceSegmentIn = 31, TagPlaceModuleIn = 32, TagRemoveModuleIn = 33, TagFoundStation = 34, TagAssignDrones = 35, TagDumpItems = 36, TagFireLaser = 37, TagSetBoost = 38, TagDockAt = 39, TagUndock = 40, TagTransferItems = 41, TagSetAttitude = 42, TagDesignerApply = 46, TagSetAim = 59,
-        TagMoveItems = 56, TagSetFeedSource = 57, TagSortInventory = 58, TagDropItems = 60, TagPickUp = 61;
+        TagMoveItems = 56, TagSetFeedSource = 57, TagSortInventory = 58, TagDropItems = 60, TagPickUp = 61, TagQueueBench = 63, TagClearBench = 64;
 
     private static readonly byte[] Magic = Encoding.ASCII.GetBytes("SFCL");
 
@@ -34,6 +34,7 @@ public static class CommandCodec
     /// Version 23 added the antenna variants (short and long range sensors, the comms antenna) and the heavy cannon (ADR 0042): scanner and navigation reach from fitted antennas, stacking with diminishing returns, and a slow heavy gun volley. It adds no command. Logs of versions 5 to 22 read with <see cref="WorldRules.LegacyArms"/> on, so they replay as recorded. (Version 22 belongs to the dock module.)
     /// Version 22 added dock modules as the only docking ports (ADR 0041): ships and stations carry a dedicated dock module, and core and cockpit ports are gone. It adds no command. Logs of versions 5 to 21 read with <see cref="WorldRules.LegacyDock"/> on, so they replay as recorded.
     /// Version 21 added the infinite rock field (ADR 0040): resource asteroids generated on demand around the ships, a wider world limit and rocks that vanish when emptied. It adds no command. Logs of versions 5 to 20 read with <see cref="WorldRules.LegacyField"/> on, so they replay as recorded. (Version 20 is reserved for the blueprint editor, ADR 0039.)
+    /// Version 20 added the workbench queue (ADR 0039): the QueueBench and ClearBench commands (tags 63 and 64), and with it the station-first rules: a ship holds no machines, belts, turrets, walls or Fabrication bays, and the workbench crafts one item at a time in 8 s. Logs of versions 5 to 19 read with <see cref="WorldRules.LegacyShipAutomation"/> on, so they replay as recorded; the reader refuses the commands in them.
     /// Version 18 added the personal inventory (ADR 0035): the MoveItems, SetFeedSource and SortInventory commands (tags 56 to 58). Logs of versions 5 to 17 read with <see cref="WorldRules.LegacyInventory"/> on, so they replay as recorded; the reader refuses the commands in them.
     /// Version 12 added the SetAttitude command (tag 42, ADR 0030). Logs of older versions never carry it, so they replay with every ship level, exactly as recorded; the reader refuses it in them.
     /// Version 13 added no command: it changes where machines and belts may be built (the floor of a fabrication bay, ADR 0031). Logs of versions 5 to 12 read with <see cref="WorldRules.LegacyBuilding"/> on, so they replay with free building as recorded.
@@ -75,6 +76,10 @@ public static class CommandCodec
             case SetFeedSource fs:
                 return Enum.IsDefined(fs.Source);
             case SortInventory:
+                return true;
+            case QueueBench qb:
+                return qb.Count is >= 1 and <= PlayerRules.BenchQueueMax;
+            case ClearBench:
                 return true;
             case DropItems di:
                 return Encodable(di.From);
@@ -252,6 +257,12 @@ public static class CommandCodec
             case SetFeedSource fs:
                 w.Write(TagSetFeedSource); w.Write(fs.Structure); w.Write(fs.Mx); w.Write(fs.My); w.Write(fs.Mz); w.Write((byte)fs.Source);
                 break;
+            case QueueBench qb:
+                w.Write(TagQueueBench); w.Write(qb.Recipe); w.Write(qb.Count);
+                break;
+            case ClearBench:
+                w.Write(TagClearBench);
+                break;
             case SortInventory:
                 w.Write(TagSortInventory);
                 break;
@@ -378,6 +389,8 @@ public static class CommandCodec
                 return new SetFeedSource(structure, mx, my, mz, (FeedSource)source);
             }
             case TagSortInventory: return new SortInventory();
+            case TagQueueBench: return new QueueBench(r.ReadInt32(), r.ReadInt32());
+            case TagClearBench: return new ClearBench();
             case TagScan: return new Scan();
             case TagJump: return new Jump(r.ReadInt32());
             case TagSetWeapons: return new SetWeapons(r.ReadBoolean());
@@ -522,6 +535,7 @@ public static class CommandCodec
         if (version < 15) rules = rules.WithLegacyCollisions(true).WithLegacyFlight(true); // and before solid deposits, padded hit volumes and inertia (ADR 0033)
         if (version < 17) rules = rules.WithLegacyFeel(true).WithLegacyResources(true); // and before free fire, recoil, hold overflow and the resource density (ADR 0036)
         if (version < 18) rules = rules.WithLegacyInventory(true); // and before the personal inventory (ADR 0035)
+        if (version < 20) rules = rules.WithLegacyShipAutomation(true); // and before the station-first rules and the slow workbench (ADR 0039)
         if (version < 21) rules = rules.WithLegacyField(true); // and before the infinite rock field (ADR 0040)
         if (version < 22) rules = rules.WithLegacyDock(true); // and before dock modules were the only docking ports (ADR 0041)
         if (version < 23) rules = rules.WithLegacyArms(true); // and before the antenna variants and the heavy cannon (ADR 0042)
@@ -553,12 +567,14 @@ public static class CommandCodec
             if (version < 14 && HasDesigner(command)) throw new InvalidDataException("A log older than version 14 cannot hold a DesignerApply command.");
             if (version < 17 && HasAim(command)) throw new InvalidDataException("A log older than version 17 cannot hold a SetAim command.");
             if (version < 18 && HasInventoryCommand(command)) throw new InvalidDataException("A log older than version 18 cannot hold an inventory command.");
+            if (version < 20 && HasBenchCommand(command)) throw new InvalidDataException("A log older than version 20 cannot hold a workbench queue command.");
             if (version < 19 && HasDropCommand(command)) throw new InvalidDataException("A log older than version 19 cannot hold a drop or pick-up command.");
             log.Add(new LoggedCommand(tick, player, command));
         }
         return log;
     }
 
+    private static bool HasBenchCommand(Command c) => c is QueueBench or ClearBench || (c is Batch b && b.Commands.Any(HasBenchCommand));
     private static bool HasDropCommand(Command c) => c is DropItems or PickUp || (c is Batch b && b.Commands.Any(HasDropCommand));
     private static bool HasAim(Command c) => c is SetAim || (c is Batch b && b.Commands.Any(HasAim));
     private static bool HasInventoryCommand(Command c) => c is MoveItems or SetFeedSource or SortInventory || (c is Batch b && b.Commands.Any(HasInventoryCommand));

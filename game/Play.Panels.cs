@@ -115,9 +115,11 @@ public partial class Play
 
         _buildMenu = new BuildMenu(() => _catalog, EntryView);
         _buildMenu.Chosen += ChooseFromMenu;
+        _buildMenu.Banner = () => StationFirstUi.Hint(AutomationBlocked);
         _buildMenu.CloseRequested += CloseBuildMenu;
         _uiRoot.AddChild(_buildMenu);
         BuildInventoryPanel();
+        BuildStationPanels();
         BuildComputer();
     }
 
@@ -196,16 +198,18 @@ public partial class Play
         int index = PaletteIndexOf(e);
         string key = index >= 0 && (index < DirectKeys || _palette[index].IsStation || (_palette[index].IsModule && e.Kind != BuildEntryKind.Module)) ? KeyLabel(index) : "";
         string role = e.Kind == BuildEntryKind.Machine ? L("tip.role." + _content.Machines[e.Machine].Role.ToString().ToLowerInvariant()) : L(e.RoleKey);
-        string status = st.Locked
+        bool blocked = EntryBlockedNow(e); // ADR 0039
+        string status = blocked ? L("build.stationFirst") : st.Locked
             ? (st.UnlockedBy >= 0 ? L("build.locked", Loc.Name("research", _content.Research[st.UnlockedBy].Id)) : L("build.lockedNoNode"))
             : !st.Affordable && st.Cost.Length > 0 ? Missing(st.Cost) : "";
         return new BuildEntryView(BuildCatalog.Name(_content, e), key, role, BuildCatalog.CostText(_content, e, st.Cost), BuildCatalog.PowerText(e),
-            L(e.DescriptionKey), status, st.Locked, st.Affordable, IsSelectedEntry(e), EntryIcon(e),
+            L(e.DescriptionKey), status, st.Locked || blocked, st.Affordable, IsSelectedEntry(e), EntryIcon(e),
             st.Cost.Select(c => (Icons.ItemId(_content.Items[c.Item].Id), c.Count, Net.HoldCount(Player, c.Item))).ToList());
     }
 
     private void ChooseFromMenu(BuildEntry e)
     {
+        if (EntryBlockedNow(e)) { ToastLogistics(Why(StationFirstUi.Problem(e, true)!.Value), 5.0); return; }
         var st = BuildCatalog.Status(_content, Net, Player, e);
         if (st.Locked)
         {

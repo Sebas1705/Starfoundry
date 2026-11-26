@@ -13,7 +13,7 @@ public class GameOutcomeTests
     private static readonly int Ammo = C.ItemIndex("core:ammo");
     private static readonly int Hydrogen = C.ItemIndex("core:hydrogen");
 
-    private static SimWorld World() => SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: true, stationRules: false, structures: true);
+    private static SimWorld World() => SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: true, stationRules: false, structures: true, rules: TestContent.LegacyShip);
 
     private static int Ok(SimWorld w, Command c)
     {

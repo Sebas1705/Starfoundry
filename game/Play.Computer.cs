@@ -188,7 +188,11 @@ public partial class Play
     private void ToggleComputerTab(ComputerTab tab)
     {
         if (_computerTab == tab) CloseComputer();
-        else OpenComputer(tab);
+        else
+        {
+            OpenComputer(tab);
+            if (tab == ComputerTab.Build) NoteBuildAboard();
+        }
     }
 
     private static void HideNow(Control? c)

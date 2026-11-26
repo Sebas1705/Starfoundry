@@ -244,6 +244,7 @@ public partial class Play
     private string? StructurePlacementProblem(Cell cell)
     {
         var item = _palette[_selected];
+        if (Net.StationFirst && Net.GetStructure(cell.S).Kind == StructureKind.Ship) return Why(Reject.UseStation); // ADR 0039
         if (ItemLocked(item)) return L("why.locked");
         if (!_world.InBuildRange(Player, cell.S, cell.X, cell.Y, cell.Z)) return L("why.outOfRange");
         if (!Net.TryGetModuleKindAt(cell.S, cell.X, cell.Y, cell.Z, out var kind)) return Why(Reject.OutsideStation);
@@ -345,6 +346,7 @@ public partial class Play
     private string? StructModuleProblem(int s, int mx, int my, int mz)
     {
         var st = Net.GetStructure(s);
+        if (Net.StationFirst && st.Kind == StructureKind.Ship && _moduleKind == ModuleKind.Workshop) return Why(Reject.UseStation); // ADR 0039: bays are a station thing
         if (DroneBayLocked(_moduleKind)) return Why(Reject.Locked);
         if (!StructureGrid.IsValidLocalModule(mx, my, mz)) return Why(Reject.OutOfBounds);
         if (st.Modules.ContainsKey((mx, my, mz))) return L("why.moduleExists");

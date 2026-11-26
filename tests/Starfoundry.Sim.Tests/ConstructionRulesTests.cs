@@ -16,7 +16,7 @@ public class ConstructionRulesTests
 
     private static SimWorld World(WorldRules? rules = null, bool station = false)
     {
-        var w = SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, threats: false, stationRules: false, structures: true, rules: (rules ?? new WorldRules { FreeBuild = true }).WithLegacyDock(true)); // these tests build bays at the flank of the starter ship, where the ADR 0041 dock would stand
+        var w = SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, threats: false, stationRules: false, structures: true, rules: (rules ?? new WorldRules { FreeBuild = true }).WithLegacyDock(true).WithLegacyShipAutomation(true)); // these tests build bays at the flank of the starter ship, where the ADR 0041 dock would stand
         w.Network.EnsurePlayer(0);
         return w;
     }
@@ -193,13 +193,13 @@ public class ConstructionRulesTests
     [Fact]
     public void Replaying_an_old_log_with_the_legacy_flag_reproduces_a_free_build_world()
     {
-        var rules = new WorldRules { FreeBuild = true }.WithLegacyBuilding(true);
+        var rules = new WorldRules { FreeBuild = true }.WithLegacyBuilding(true).WithLegacyShipAutomation(true);
         var (w, s) = Ship3(rules);
         Run(w, new PlaceMachineIn(s, 9, 2, 9, Type("core:smelter"), -1));
         w.Step(100);
         var replay = SimWorld.Replay(w.Log, w.Tick, initial: SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, false, false, true, rules.WithLegacyDock(true)));
         Assert.Equal(w.Checksum(), replay.Checksum());
-        var strict = SimWorld.Replay(w.Log, w.Tick, initial: SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, false, false, true, new WorldRules { FreeBuild = true }.WithLegacyDock(true)));
+        var strict = SimWorld.Replay(w.Log, w.Tick, initial: SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, false, false, true, new WorldRules { FreeBuild = true }.WithLegacyDock(true).WithLegacyShipAutomation(true)));
         Assert.NotEqual(w.Checksum(), strict.Checksum()); // the same log under the new rule loses that machine
     }
 
@@ -297,12 +297,12 @@ public class ConstructionRulesTests
     {
         Assert.Throws<InvalidDataException>(() => ContentDb.FromJson(WithEdit(r =>
         {
-            var m = r["structure_templates"]!["cold_ship"]!["machines"]!.AsArray()[0]!;
-            m["at"] = new JsonArray(0, 1, 9);
+            var m = r["structure_templates"]!["cold_station"]!["machines"]!.AsArray()[0]!;
+            m["at"] = new JsonArray(8, 1, 1);
         })));
         Assert.Throws<InvalidDataException>(() => ContentDb.FromJson(WithEdit(r =>
         {
-            var t = r["structure_templates"]!["cold_ship"]!.AsObject();
+            var t = r["structure_templates"]!["cold_station"]!.AsObject();
             t["modules"]!.AsArray()[1]!["kind"] = "hull";
         })));
     }

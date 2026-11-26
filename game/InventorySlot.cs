@@ -36,11 +36,22 @@ public partial class InventorySlot : Control
     /// <summary>The slot is the one selected for the detail line.</summary>
     public bool Selected;
 
-    private readonly InventoryPanel _panel;
+    private readonly InventoryPanel? _panel;
     private bool _hover;
     private readonly int _pixels;
 
     public bool Empty => Count <= 0 || Item < 0;
+
+    /// <summary>A display-only slot (the workbench and machine panels, ADR 0039): it draws like any slot and carries a tooltip, but reports nothing to a panel and takes no focus.</summary>
+    public InventorySlot(int pixels)
+    {
+        Container = default;
+        _pixels = pixels;
+        CustomMinimumSize = new Vector2(pixels, pixels);
+        FocusMode = FocusModeEnum.None;
+        MouseFilter = MouseFilterEnum.Pass;
+        ClipContents = true;
+    }
 
     public InventorySlot(InventoryPanel panel, ContainerRef container, int slot, int pixels)
     {
@@ -124,6 +135,7 @@ public partial class InventorySlot : Control
 
     public override void _GuiInput(InputEvent ev)
     {
+        if (_panel is null) return; // display-only
         switch (ev)
         {
             case InputEventMouseButton { ButtonIndex: MouseButton.Left or MouseButton.Right } mb:

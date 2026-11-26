@@ -89,7 +89,7 @@ public sealed class ObjectiveTracker
 
     private static readonly Objective[] StructuresOrder =
     {
-        Objective.Fly, Objective.Mine, Objective.Refine, Objective.FabBay, Objective.WatchFactory, Objective.FoundStation, Objective.Dock, Objective.MakeFuel, Objective.AddModule,
+        Objective.Fly, Objective.Mine, Objective.Refine, Objective.FoundStation, Objective.FabBay, Objective.WatchFactory, Objective.Dock, Objective.MakeFuel, Objective.AddModule,
         Objective.Research, Objective.Scan, Objective.Defend, Objective.Salvage, Objective.Automate, Objective.Upgrade, Objective.Expand,
     };
 
@@ -146,7 +146,8 @@ public sealed class ObjectiveTracker
         if (Structures)
         {
             Mark(Objective.WatchFactory, () => AnyMachine(net, m => _content.Machines[m.Type].Id == "core:assembler" && (m.OutputItems > 0 || m.Crafting)) || net.DepotDelivered > 0); // a machine made it, not the workbench
-            Mark(Objective.FabBay, () => net.Structures().Any(st => st.Owner == player && st.Modules.Values.Any(k => _content.Structures is { } kinds && kinds.IsBuildable(k) && kinds.AllowsBelts(k) && kinds.AllowsRole(k, MachineRole.Crafter))));
+            Mark(Objective.FabBay, () => net.Structures().Any(st => st.Owner == player && st.Kind == StructureKind.Station && st.Modules.Values.Any(k => k == ModuleKind.Workshop)) // ADR 0039: automation is built in the station, a bay or its core floor
+                || AnyMachine(net, m => m.Structure != 0 && net.StructureExists(m.Structure) && net.GetStructure(m.Structure).Kind == StructureKind.Station && net.GetStructure(m.Structure).Owner == player));
             Mark(Objective.FoundStation, () => net.Structures().Any(st => st.Owner == player && st.Kind == StructureKind.Station));
             Mark(Objective.MakeFuel, () =>
                 Has(net, player, "core:hydrogen", StarterHydrogen + 1)

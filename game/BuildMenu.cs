@@ -27,7 +27,7 @@ public partial class BuildMenu : Control
     private HBoxContainer _tabs = null!;
     private GridContainer _grid = null!;
     private ScrollWithHint _scroll = null!;
-    private Label _title = null!, _empty = null!;
+    private Label _title = null!, _empty = null!, _banner = null!;
     private readonly Dictionary<BuildCategory, Button> _tabButtons = new();
     private readonly List<Tile> _cells = new();
     private BuildCategory _tab = BuildCategory.Logistics;
@@ -60,6 +60,9 @@ public partial class BuildMenu : Control
     public event Action<BuildEntry>? Chosen;
 
     public event Action? CloseRequested;
+
+    /// <summary>A one-line notice under the header (ADR 0039: "Automation is built in a station" while the ship cannot be built on); empty hides it.</summary>
+    public Func<string>? Banner { get; set; }
 
     public BuildCategory Tab => _tab;
 
@@ -111,6 +114,12 @@ public partial class BuildMenu : Control
         head.AddChild(close);
         root.AddChild(head);
         root.AddChild(UiTheme.Rule());
+
+        _banner = UiKit.Text(UiTheme.Body, UiTheme.Warn);
+        _banner.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _banner.CustomMinimumSize = new Vector2(10, 0);
+        _banner.Visible = false;
+        root.AddChild(_banner);
 
         _tabs = new HBoxContainer();
         _tabs.AddThemeConstantOverride("separation", 4);
@@ -245,6 +254,9 @@ public partial class BuildMenu : Control
         int cols = Columns();
         _grid.Columns = cols;
         _title.Text = Loc.T("build.title");
+        string banner = Banner?.Invoke() ?? "";
+        _banner.Text = banner;
+        _banner.Visible = banner.Length > 0;
 
         string signature = cols + "|" + string.Join(",", categories) + "|" + _tab + "|" + string.Join(",", all.Where(e => e.Category == _tab).Select(e => e.Id)) + Loc.Lang;
         if (signature != _signature)

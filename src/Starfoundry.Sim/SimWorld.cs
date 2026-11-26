@@ -523,10 +523,30 @@ public sealed partial class SimWorld
                 Network.FireLaser(player, fl.Firing);
                 return Reject.None;
 
+            case QueueBench qb:
+            {
+                var content = Network.Content;
+                if (content is null) return Reject.NoContent;
+                if (!Network.StationFirst) return Reject.NotAllowedHere;
+                if (qb.Count < 1 || qb.Count > PlayerRules.BenchQueueMax) return Reject.InvalidArgument;
+                if (!content.IsRecipe(qb.Recipe)) return Reject.UnknownRecipe;
+                if (content.Machines[content.Recipes[qb.Recipe].Machine].Role != MachineRole.Ship) return Reject.NotAShipRecipe;
+                if (Network.IsRecipeLocked(qb.Recipe)) return Reject.Locked;
+                if (Network.BenchQueueCount(player) + qb.Count > PlayerRules.BenchQueueMax) return Reject.NoRoom;
+                Network.QueueBenchCore(player, qb.Recipe, qb.Count);
+                return Reject.None;
+            }
+
+            case ClearBench:
+                if (!Network.StationFirst) return Reject.NotAllowedHere;
+                Network.ClearBenchCore(player);
+                return Reject.None;
+
             case SetShipRecipe ssr:
             {
                 var content = Network.Content;
                 if (content is null) return Reject.NoContent;
+                if (Network.StationFirst) return Reject.NotAllowedHere; // ADR 0039: the workbench takes a queue (QueueBench)
                 if (ssr.Recipe != -1)
                 {
                     if (!content.IsRecipe(ssr.Recipe)) return Reject.UnknownRecipe;
@@ -912,6 +932,7 @@ public sealed partial class SimWorld
         if (content?.Structures is not { } kinds) return Reject.NoContent;
         var found = BuildableStructure(player, p.Structure, out var s);
         if (found != Reject.None) return found;
+        if (Network.StationFirst && s!.Kind == StructureKind.Ship) return Reject.UseStation; // ADR 0039
         if (!content.IsMachine(p.Type)) return Reject.UnknownMachineType;
         var def = content.Machines[p.Type];
         if (def.Role == MachineRole.Ship) return Reject.NotPlaceable;
@@ -948,6 +969,7 @@ public sealed partial class SimWorld
         if (content?.Structures is not { } kinds) return Reject.NoContent;
         var found = BuildableStructure(player, p.Structure, out var s);
         if (found != Reject.None) return found;
+        if (Network.StationFirst && s!.Kind == StructureKind.Ship) return Reject.UseStation; // ADR 0039
         if (!Dirs.IsValid(p.Dir)) return Reject.InvalidArgument;
         if (p.Length < 1 || p.Length > MaxSegmentCells) return Reject.InvalidArgument;
         if (!Enum.IsDefined(p.Tier)) return Reject.InvalidArgument;
@@ -1009,6 +1031,7 @@ public sealed partial class SimWorld
         // A station is fixed (ADR 0029): it has no cockpit and no engine, and a ship has no core.
         if (s.Kind == StructureKind.Station && p.Kind is ModuleKind.Cockpit or ModuleKind.Engine) return Reject.KindNotAllowed;
         if (s.Kind == StructureKind.Ship && p.Kind == ModuleKind.Core) return Reject.KindNotAllowed;
+        if (Network.StationFirst && s.Kind == StructureKind.Ship && p.Kind == ModuleKind.Workshop) return Reject.UseStation; // ADR 0039: bays are a station thing
         if (!ModuleKindIds.AllowedOn(s.Kind, p.Kind)) return Reject.KindNotAllowed; // ADR 0032: hardpoints are ship-only, the shipyard is station-only
         // ADR 0032: hardpoints are fitted in the ship designer; the single placement works only while the ship is docked at a shipyard of its owner.
         if (ModuleKindIds.IsHardpoint(p.Kind) && !(Network.ShipStructure(player) == p.Structure && Network.TryGetShipyard(player, out _))) return Reject.NoShipyard;
