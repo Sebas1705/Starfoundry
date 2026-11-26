@@ -65,7 +65,7 @@ public sealed class BlueprintValidation
     /// </summary>
     /// <param name="port">The cell of the ship's docked port, when the ship is docked (its module must stay and its face must stay free).</param>
     /// <param name="portFace">The cell in front of the port's face.</param>
-    public static BlueprintValidation Check(BlueprintDraft draft, ContentDb content, DesignReport? report, ShipStats after, ShipStats before, (int Mx, int My, int Mz)? port = null, (int Mx, int My, int Mz)? portFace = null)
+    public static BlueprintValidation Check(BlueprintDraft draft, ContentDb content, DesignReport? report, ShipStats after, ShipStats before, (int Mx, int My, int Mz)? port = null, (int Mx, int My, int Mz)? portFace = null, bool requireDock = true)
     {
         var list = new List<ValidationEntry>();
         void Add(ValidationSeverity sev, string code, string key, IReadOnlyList<(int, int, int)>? cells = null, params object[] args) =>
@@ -80,6 +80,7 @@ public sealed class BlueprintValidation
             if (!mods.Values.Contains(ModuleKind.Engine)) Add(ValidationSeverity.Error, "noEngine", "bp.val.noEngine");
             if (!mods.Values.Any(ModuleKindIds.IsReactor)) Add(ValidationSeverity.Error, "noReactor", "bp.val.noReactor");
             if (!mods.Values.Contains(ModuleKind.Cargo)) Add(ValidationSeverity.Error, "noCargo", "bp.val.noCargo");
+            if (requireDock && !mods.Values.Contains(ModuleKind.Dock)) Add(ValidationSeverity.Error, "noDock", "bp.val.noDock"); // ADR 0041: the ship docks only through a dock module
             var stray = Disconnected(mods, port);
             if (stray.Count > 0) Add(ValidationSeverity.Error, "disconnected", "bp.val.disconnected", stray.Select(c => (c.Mx, c.My, c.Mz)).ToList(), stray.Count);
         }
@@ -98,6 +99,7 @@ public sealed class BlueprintValidation
             {
                 Reject.NoCockpitOrEngine => list.Any(e => e.Code is "noCockpit" or "noEngine"),
                 Reject.LastEssentialModule => list.Any(e => e.Code is "noReactor" or "noCargo"),
+                Reject.NoDockModule => list.Any(e => e.Code == "noDock"),
                 Reject.NotAdjacent => list.Any(e => e.Code == "disconnected"),
                 Reject.InvalidArgument => list.Any(e => e.Code is "empty" or "tooMany"),
                 Reject.ModuleOccupied => list.Any(e => e.Code is "port" or "portBlocked"),

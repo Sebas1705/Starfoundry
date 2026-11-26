@@ -27,10 +27,12 @@ public class ShipDesignerTests
     {
         var w = SimWorld.CreateGalaxy(C, mode, Seed, threats: false, stationRules: false, structures: true);
         ship = w.Network.ShipStructure(0);
-        station = w.Network.CreateStructure(0, StructureKind.Station, -18L * Cell, 0, 0);
+        // ADR 0041: the ship's dock module (on the -X flank of its cockpit) joins the dock module beside the station core.
+        station = w.Network.CreateStructure(0, StructureKind.Station, -26L * Cell, 0, StationGrid.ModuleZ * (long)Cell);
         w.Network.AddStructureModuleUnchecked(station, 0, 0, 0, ModuleKind.Core);
+        w.Network.AddStructureModuleUnchecked(station, 0, 0, -1, ModuleKind.Dock);
         if (shipyard) w.Network.AddStructureModuleUnchecked(station, 0, 0, 1, ModuleKind.Shipyard);
-        Assert.Equal(Reject.None, Run(w, new DockAt(station, 0, 0, 0, Dir.PosX)));
+        Assert.Equal(Reject.None, Run(w, new DockAt(station, 0, 0, -1, Dir.PosX)));
         return w;
     }
 
@@ -86,10 +88,12 @@ public class ShipDesignerTests
         Assert.Equal(Reject.NotAdjacent, Run(w, With(w, ship, l => l.Add(new DesignModule(5, 3, 5, ModuleKind.Hull))))); // floats away
         Assert.Equal(Reject.InvalidArgument, Run(w, With(w, ship, l => l.Add(l[0]))));
         Assert.Equal(Reject.InvalidArgument, Run(w, new DesignerApply(Array.Empty<DesignModule>())));
-        Assert.Equal(Reject.ModuleOccupied, Run(w, With(w, ship, l => { l.RemoveAll(m => m.Kind == ModuleKind.Cockpit); l.Add(new DesignModule(0, 0, 0, ModuleKind.Hull)); l.Add(new DesignModule(0, 1, 1, ModuleKind.Cockpit)); }))); // the docked port module stays a cockpit
-        Assert.Equal(Reject.ModuleOccupied, Run(w, With(w, ship, l => l.Add(new DesignModule(-1, 0, 0, ModuleKind.Hull))))); // blocks the docked port's face
-        Assert.Equal(Reject.Overlap, Run(w, With(w, ship, l => l.Add(new DesignModule(-1, 0, 1, ModuleKind.Hull))))); // inside the shipyard of the station
-        Assert.Equal(7, w.Network.GetStructure(ship).Modules.Count); // every refusal left the ship as it was
+        // ADR 0041: a ship keeps a dock module, and the one it is docked with stays where it is.
+        Assert.Equal(Reject.NoDockModule, Run(w, With(w, ship, l => { l.RemoveAll(m => m.Kind == ModuleKind.Dock); l.Add(new DesignModule(-1, 0, 0, ModuleKind.Hull)); })));
+        Assert.Equal(Reject.ModuleOccupied, Run(w, With(w, ship, l => { l.RemoveAll(m => m.Kind == ModuleKind.Dock); l.Add(new DesignModule(-1, 0, 1, ModuleKind.Dock)); l.Add(new DesignModule(-1, 0, 0, ModuleKind.Hull)); }))); // the docked port module stays a dock
+        Assert.Equal(Reject.ModuleOccupied, Run(w, With(w, ship, l => l.Add(new DesignModule(-2, 0, 0, ModuleKind.Hull))))); // blocks the docked port's face
+        Assert.Equal(Reject.Overlap, Run(w, With(w, ship, l => { l.Add(new DesignModule(-1, 0, 1, ModuleKind.Hull)); l.Add(new DesignModule(-1, 0, 2, ModuleKind.Hull)); l.Add(new DesignModule(-2, 0, 2, ModuleKind.Hull)); }))); // reaches the shipyard of the station
+        Assert.Equal(8, w.Network.GetStructure(ship).Modules.Count); // every refusal left the ship as it was
         w.ValidateInvariants();
     }
 
@@ -163,8 +167,8 @@ public class ShipDesignerTests
         Assert.Equal(Reject.None, Run(w, With(w, ship, l => l.Add(new DesignModule(0, 1, 2, ModuleKind.Cargo))))); // a second cargo module: 200
         w.Network.GiveItems(0, Ingot, 150);
         Assert.Equal(Reject.NoRoom, Run(w, With(w, ship, l => { l.RemoveAll(m => m.Kind == ModuleKind.Cargo && m.My == 1); l.Add(new DesignModule(0, 1, 2, ModuleKind.Hull)); })));
-        // The station's shipyard sits at module (0,0,1) of the station = (-1,0,1) of the ship's lattice: building there overlaps it.
-        Assert.Equal(Reject.Overlap, Run(w, With(w, ship, l => l.Add(new DesignModule(-1, 0, 1, ModuleKind.Hull)))));
+        // The station's shipyard sits at module (0,0,1) of the station = (-2,0,2) of the ship's lattice: a row of hulls that reaches it overlaps it.
+        Assert.Equal(Reject.Overlap, Run(w, With(w, ship, l => { l.Add(new DesignModule(-1, 0, 1, ModuleKind.Hull)); l.Add(new DesignModule(-1, 0, 2, ModuleKind.Hull)); l.Add(new DesignModule(-2, 0, 2, ModuleKind.Hull)); })));
         Assert.True(station > 0);
     }
 
@@ -222,7 +226,7 @@ public class ShipDesignerTests
         e.Revert();
         Assert.False(e.Dirty);
         var (min, max) = e.Bounds();
-        Assert.Equal((-1, -1, -2), min);
+        Assert.Equal((-2, -1, -2), min); // the dock module on the -X flank widens the box by one
         Assert.Equal((1, 2, 5), max);
         var cmd = e.ToCommand();
         Assert.Equal(Reject.None, Run(w, cmd)); // unchanged layout: a valid no-op

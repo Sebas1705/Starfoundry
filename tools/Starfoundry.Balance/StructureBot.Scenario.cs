@@ -80,14 +80,25 @@ public sealed partial class StructureBot
 
     // ---- docking helpers (levels 02 and 06) ---------------------------------------------------------------
 
-    /// <summary>Flies the ship so that its west cockpit port lies a few cells from the station core's east port, then docks (what the assisted approach does for a player).</summary>
+    /// <summary>
+    /// Flies the ship so that one of its free dock-module ports lies a few cells from the matching free port of a station dock module, then docks (what the assisted
+    /// approach does for a player). ADR 0041: only dock modules are ports; the first pair that works is used.
+    /// </summary>
     private bool DockAtStation()
     {
         int st = Net.Structures().First(s => s.Kind == StructureKind.Station && s.Owner == 0).Id;
-        var sp = Net.PortWorldPoint(st, 0, 0, 0, Dir.PosX);
-        var shp = Net.PortWorldPoint(_ship, 0, 0, 0, Dir.NegX);
         var p = Net.GetPlayerInfo(0);
-        if (!FlyTo(p.X + (sp.X - shp.X) + 3L * Cell, p.Y + (sp.Y - shp.Y), p.Z + (sp.Z - shp.Z), Cell / 2)) return false;
+        foreach (var sport in Net.DockPorts(st).Where(x => x.Free))
+            foreach (var shp in Net.DockPorts(_ship).Where(x => x.Free && x.Face == DockRules.Opposite(sport.Face)))
+            {
+                var sp = Net.PortWorldPoint(st, sport.Mx, sport.My, sport.Mz, sport.Face);
+                var sh = Net.PortWorldPoint(_ship, shp.Mx, shp.My, shp.Mz, shp.Face);
+                if (!FlyTo(p.X + (sp.X - sh.X) + 3L * Cell, p.Y + (sp.Y - sh.Y), p.Z + (sp.Z - sh.Z), Cell / 2)) return false;
+                var r = Cmd(new DockAt(st, sport.Mx, sport.My, sport.Mz, sport.Face));
+                if (r.Ok) return true;
+                if (r.Reject is not (Reject.Overlap or Reject.NoFreePort or Reject.TooFast)) return !Failed(r, "DockAt");
+                p = Net.GetPlayerInfo(0);
+            }
         return !Failed(Cmd(new DockAt(st, 0, 0, 0, Dir.PosX)), "DockAt");
     }
 

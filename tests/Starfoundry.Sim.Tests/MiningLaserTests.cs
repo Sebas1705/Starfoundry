@@ -192,7 +192,7 @@ public class MiningLaserTests
     public void A_version_8_log_replays_as_recorded_without_the_power_draw()
     {
         // Recorded the way the previous version did it: no laser draw, hashed as default rules.
-        var legacy = new WorldRules().WithLegacyLaser(true).WithLegacyGalaxy(true).WithLegacyHardpoints(true); // a version 8 log reads with all the legacy flags
+        var legacy = new WorldRules().WithLegacyLaser(true).WithLegacyGalaxy(true).WithLegacyHardpoints(true).WithLegacyDock(true); // a version 8 log reads with all the legacy flags
         var old = SimWorld.CreateGalaxy(TestContent.Core, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: legacy);
         int dep = HomeIron(old);
         var (x, y, z) = old.Network.DepositPosition(dep);

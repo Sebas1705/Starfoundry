@@ -21,7 +21,7 @@ public class GoalTypesTests
     private static ScenarioDef Def(params string[] primary) =>
         ScenarioCatalog.Parse(C, Head + ",\"goals\":{\"primary\":[" + string.Join(",", primary) + "]}}");
 
-    private static SimWorld World() => SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true);
+    private static SimWorld World() => SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: TestContent.OldDock);
 
     private static GoalState State(SimWorld w, ScenarioDef def, string id, ScenarioProgress? progress = null)
     {

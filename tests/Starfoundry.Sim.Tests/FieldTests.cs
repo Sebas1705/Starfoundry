@@ -395,7 +395,7 @@ public class FieldTests
     [Fact]
     public void A_log_older_than_version_21_reads_with_the_legacy_flag_and_replays_without_the_field()
     {
-        var recorded = World(new WorldRules().WithLegacyField(true));
+        var recorded = World(new WorldRules().WithLegacyField(true).WithLegacyDock(true));
         recorded.Submit(0, new SetMovement(1, 0, 1));
         recorded.Step(900);
         using var ms = new MemoryStream();

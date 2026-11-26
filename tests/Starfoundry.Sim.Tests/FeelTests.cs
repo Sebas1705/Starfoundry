@@ -402,7 +402,7 @@ public class FeelTests
     [Fact]
     public void A_legacy_world_plays_a_version_16_log_exactly_as_recorded()
     {
-        var legacy = new WorldRules().WithLegacyFeel(true).WithLegacyResources(true).WithLegacyField(true); // a version 16 world had no rock field (ADR 0040)
+        var legacy = new WorldRules().WithLegacyFeel(true).WithLegacyResources(true).WithLegacyField(true).WithLegacyDock(true); // a version 16 world had no rock field (ADR 0040) and no dock modules (ADR 0041)
         var recorded = World(legacy, threats: true);
         recorded.Network.ScheduleWave(0);
         var n = recorded.Network;

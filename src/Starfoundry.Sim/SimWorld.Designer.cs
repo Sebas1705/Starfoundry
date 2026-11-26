@@ -61,6 +61,7 @@ public sealed partial class SimWorld
         // The ship cannot do without a cockpit, an engine, a reactor and a cargo module (ADR 0022); it has no core.
         if (!next.Values.Contains(ModuleKind.Cockpit) || !next.Values.Contains(ModuleKind.Engine)) return Fail(Reject.NoCockpitOrEngine);
         if (!next.Values.Any(ModuleKindIds.IsReactor) || !next.Values.Contains(ModuleKind.Cargo)) return Fail(Reject.LastEssentialModule);
+        if (!Network.Rules.LegacyDock && !next.Values.Contains(ModuleKind.Dock)) return Fail(Reject.NoDockModule); // ADR 0041: the ship docks only through a dock module
         if (!BeltNetwork.ModulesConnected(new HashSet<(int, int, int)>(next.Keys))) return Fail(Reject.NotAdjacent); // the walkable path stays whole
 
         // New kinds need their research in a campaign world, as placing them one by one does.

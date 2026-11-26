@@ -21,7 +21,7 @@ public class InventoryTests
     private static readonly int Carbon = C.ItemIndex("core:carbon");
 
     private static SimWorld NewWorld(ContentDb? content = null, WorldRules? rules = null, GameMode mode = GameMode.Sandbox) =>
-        SimWorld.CreateGalaxy(content ?? C, mode, Seed, threats: false, stationRules: false, structures: true, rules: rules);
+        SimWorld.CreateGalaxy(content ?? C, mode, Seed, threats: false, stationRules: false, structures: true, rules: rules ?? TestContent.OldDock);
 
     private static Reject Run(SimWorld w, Command c)
     {
@@ -677,7 +677,7 @@ public class InventoryTests
     [Fact]
     public void A_legacy_world_refuses_the_commands_and_hashes_and_replays_as_before()
     {
-        var legacy = NewWorld(rules: new WorldRules().WithLegacyInventory(true));
+        var legacy = NewWorld(rules: TestContent.OldDock.WithLegacyInventory(true));
         var current = NewWorld();
         Assert.Equal(current.Checksum(), legacy.Checksum()); // the flag alone is invisible to the hash
         Assert.Equal(Reject.NotAllowedHere, Run(legacy, Move(ContainerRef.Hold, Hydrogen, ContainerRef.Person, InventoryRules.AnySlot, 1)));
@@ -685,7 +685,7 @@ public class InventoryTests
         var k = ReactorOf(legacy);
         Assert.Equal(Reject.NotAllowedHere, Run(legacy, new SetFeedSource(legacy.Network.ShipStructure(0), k.Mx, k.My, k.Mz, FeedSource.None)));
         // A world whose reactors burn from the hold behaves the same with and without the new code paths (default feed): ships keep their fuel use.
-        var a = NewWorld(rules: new WorldRules().WithLegacyInventory(true)); var b = NewWorld();
+        var a = NewWorld(rules: TestContent.OldDock.WithLegacyInventory(true)); var b = NewWorld();
         a.Step(Units.TicksPerSecond * 120); b.Step(Units.TicksPerSecond * 120);
         Assert.Equal(a.Checksum(), b.Checksum());
         Assert.Equal(a.Network.HoldCount(0, Hydrogen), b.Network.HoldCount(0, Hydrogen));

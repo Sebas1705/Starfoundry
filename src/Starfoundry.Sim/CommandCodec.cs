@@ -32,6 +32,7 @@ public static class CommandCodec
     /// Version 17 added the SetAim command (tag 59) and ADR 0036: free fire with projectiles and recoil, hold overflow, regrowing deposits and the resource density rule. Logs of versions 5 to 16 read with <see cref="WorldRules.LegacyFeel"/> and <see cref="WorldRules.LegacyResources"/> on, so they replay as recorded; the reader refuses SetAim in them.
     /// Version 19 added dropping items and picking them up by hand (ADR 0038): the DropItems and PickUp commands (tags 60 and 61). The reader refuses them in logs of versions 5 to 18; the world rules do not change.
     /// Version 23 added the antenna variants (short and long range sensors, the comms antenna) and the heavy cannon (ADR 0042): scanner and navigation reach from fitted antennas, stacking with diminishing returns, and a slow heavy gun volley. It adds no command. Logs of versions 5 to 22 read with <see cref="WorldRules.LegacyArms"/> on, so they replay as recorded. (Version 22 belongs to the dock module.)
+    /// Version 22 added dock modules as the only docking ports (ADR 0041): ships and stations carry a dedicated dock module, and core and cockpit ports are gone. It adds no command. Logs of versions 5 to 21 read with <see cref="WorldRules.LegacyDock"/> on, so they replay as recorded.
     /// Version 21 added the infinite rock field (ADR 0040): resource asteroids generated on demand around the ships, a wider world limit and rocks that vanish when emptied. It adds no command. Logs of versions 5 to 20 read with <see cref="WorldRules.LegacyField"/> on, so they replay as recorded. (Version 20 is reserved for the blueprint editor, ADR 0039.)
     /// Version 18 added the personal inventory (ADR 0035): the MoveItems, SetFeedSource and SortInventory commands (tags 56 to 58). Logs of versions 5 to 17 read with <see cref="WorldRules.LegacyInventory"/> on, so they replay as recorded; the reader refuses the commands in them.
     /// Version 12 added the SetAttitude command (tag 42, ADR 0030). Logs of older versions never carry it, so they replay with every ship level, exactly as recorded; the reader refuses it in them.
@@ -522,6 +523,7 @@ public static class CommandCodec
         if (version < 17) rules = rules.WithLegacyFeel(true).WithLegacyResources(true); // and before free fire, recoil, hold overflow and the resource density (ADR 0036)
         if (version < 18) rules = rules.WithLegacyInventory(true); // and before the personal inventory (ADR 0035)
         if (version < 21) rules = rules.WithLegacyField(true); // and before the infinite rock field (ADR 0040)
+        if (version < 22) rules = rules.WithLegacyDock(true); // and before dock modules were the only docking ports (ADR 0041)
         if (version < 23) rules = rules.WithLegacyArms(true); // and before the antenna variants and the heavy cannon (ADR 0042)
         scenarioId = null;
         if ((flags & 16) != 0)

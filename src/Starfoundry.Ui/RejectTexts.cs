@@ -69,6 +69,8 @@ public static class RejectTexts
         Reject.NoShipyard => "toast.reject.noShipyard",
         Reject.OverlapsDeposit => "toast.reject.overlapsDeposit",
         Reject.WrongItem => "toast.reject.wrongItem",
+        Reject.NoDockModule => "toast.reject.noDockModule",
+        Reject.LastDockModule => "toast.reject.lastDockModule",
         _ => null,
     };
 }

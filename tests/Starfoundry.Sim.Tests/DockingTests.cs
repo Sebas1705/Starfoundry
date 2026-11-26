@@ -19,7 +19,7 @@ public class DockingTests
     private static readonly int Ore = C.ItemIndex("core:iron_ore");
 
     private static SimWorld NewWorld(ContentDb? content = null, bool threats = false, WorldRules? rules = null) =>
-        SimWorld.CreateGalaxy(content ?? C, GameMode.Sandbox, Seed, threats: threats, stationRules: false, structures: true, rules: rules);
+        SimWorld.CreateGalaxy(content ?? C, GameMode.Sandbox, Seed, threats: threats, stationRules: false, structures: true, rules: rules ?? TestContent.OldDock); // these tests pin the ADR 0029 geometry (core and cockpit ports); ADR 0041 is in DockModuleTests
 
     /// <summary>The starter ship at the origin and a core-only station whose +X port is <paramref name="gapCells"/> cells from the ship's -X port.</summary>
     private static SimWorld Dockable(out int ship, out int station, int gapCells = 10, ContentDb? content = null)
@@ -575,7 +575,7 @@ public class DockingTests
     public void An_older_log_still_replays_unchanged()
     {
         // A version 10 log has no docking command; it replays to the state the same commands give now.
-        var w = NewWorld(rules: new WorldRules().WithLegacyFeel(true).WithLegacyResources(true)); // what a build of that time recorded (ADR 0036 did not exist)
+        var w = NewWorld(rules: new WorldRules().WithLegacyFeel(true).WithLegacyResources(true).WithLegacyDock(true)); // what a build of that time recorded (ADR 0036 did not exist)
         Ok(w, new SetThrust(0, 0, 512));
         w.Step(Tps * 2);
         var ms = new MemoryStream();

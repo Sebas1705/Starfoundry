@@ -28,6 +28,8 @@ public static partial class Loc
         // rejects
         ["toast.reject.noLaser"] = ("La nave no tiene láser de minería: instala uno en un astillero", "The ship has no mining laser: fit one at a shipyard"),
         ["toast.reject.noGun"] = ("La nave no tiene cañón: instala uno en un astillero", "The ship has no gun: fit one at a shipyard"),
+        ["toast.reject.noDockModule"] = ("El diseño necesita un módulo de enganche: sin él la nave no puede atracar", "The design needs a dock module: without one the ship cannot dock"),
+        ["toast.reject.lastDockModule"] = ("Es el último módulo de enganche: una nave o estación no puede quedarse sin ninguno", "That is the last dock module: a ship or station cannot do without one"),
         ["toast.reject.noShipyard"] = ("Hace falta la nave atracada en una estación tuya con un astillero", "The ship must be docked at one of your stations that has a shipyard"),
 
         // key panel
@@ -75,6 +77,7 @@ public static partial class Loc
         ["designer.edit.kindNotAllowed"] = ("Una nave no admite ese módulo", "A ship does not take that module"),
         ["designer.edit.noUpgrade"] = ("Ese módulo no tiene mejora", "That module has no upgrade"),
         ["designer.edit.tooMany"] = ("La nave ya tiene demasiados módulos", "The ship already has too many modules"),
+        ["designer.edit.lastDock"] = ("Es el último módulo de enganche: la nave necesita uno para atracar", "That is the last dock module: the ship needs one to dock"),
         ["designer.edit.empty"] = ("No hay ningún módulo ahí", "There is no module there"),
         ["designer.edit.sameCell"] = ("Elige otra celda", "Pick another cell"),
         ["learn.shipyard"] = ("Construye un astillero en la estación, atraca la nave y abre el ordenador (Tab, Diseñador): el diseñador añade o mejora láseres y cañones.", "Build a shipyard at the station, dock the ship and open the computer (Tab, Designer): the designer adds or upgrades lasers and guns."),
