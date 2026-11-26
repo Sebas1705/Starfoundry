@@ -91,7 +91,7 @@ public static partial class ModuleModels
 
     private static void GunModel(Cx c, bool mk2, bool heavy = false)
     {
-        const float roof = HullProfile.GunRoof;
+        float roof = HullProfile.RoofOf(c.Kind, c.Ship);
         Skin(c, roof, nose: false, tail: false, detail: true, collars: false);
         Frame(c, roof);
         var spots = mk2 ? new[] { new Vector3(2.5f, roof, 4f), new Vector3(5.5f, roof, 4f) } : new[] { new Vector3(4f, roof, 4f) };

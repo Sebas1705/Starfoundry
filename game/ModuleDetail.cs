@@ -86,7 +86,7 @@ public static partial class ModuleModels
         var strip = c.Kind switch { ModuleKind.Defence => new Color(1f, 0.25f, 0.22f), ModuleKind.Workshop => new Color(1f, 0.85f, 0.6f), _ => col };
         float wx = c.Ship ? 0.11f : 0.37f, wy = c.Ship ? 2.55f : 3.2f;
         if (c.Ship && !lowShell) wy = MathF.Min(wy, roof - Starfoundry.Ui.HullProfile.ChamfersOf(Starfoundry.Ui.HullProfile.SectionOfMask(c.M), 1f).Up - 0.2f); // on the vertical wall of this skin, not out in the air beside a sloping one
-        if (lowShell) wy = c.Kind == ModuleKind.Shield ? 0.9f : ModuleKindIds.IsHardpoint(c.Kind) ? 0.7f : roof - 0.5f;
+        if (lowShell) wy = c.Kind == ModuleKind.Shield ? 0.9f : ModuleKindIds.IsHardpoint(c.Kind) ? 0.7f : c.Kind == ModuleKind.Sensor ? 1.7f : roof - MathF.Min(Starfoundry.Ui.HullProfile.MaxChamfer, (roof - Starfoundry.Ui.HullProfile.FloorY) * Starfoundry.Ui.HullProfile.ChamferShare) - 0.2f;
         Models.Add(c.R, "GlowStrip", $"{c.K}.strips", Models.Glow(strip, 1.7f), mb =>
         {
             mb.At(default);

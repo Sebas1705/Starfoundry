@@ -590,7 +590,7 @@ public static partial class ModuleModels
                     int skin = HullProfile.SkinOfMask(c.M);
                     foreach (bool left in new[] { true, false })
                     {
-                        if (skin is not (HullProfile.SkinRibbed or HullProfile.SkinStepped or HullProfile.SkinNiched) || (left ? c.Has(Left) : c.Has(Right))) continue;
+                        if (skin is not (HullProfile.SkinRibbed or HullProfile.SkinStepped or HullProfile.SkinNiched or HullProfile.SkinFlared) || (left ? c.Has(Left) : c.Has(Right))) continue;
                         float sgn = left ? 1f : -1f, wx = left ? 0.12f : W - 0.12f; // the face of the wall, a hair inside it so no piece shows a back face
                         int pieces = 0; // every piece sits a hair (two millimetres, over seven rotating steps) apart from the last, so no two faces of different parts share a plane
                         Vector3 At(float depth, float y, float z) { pieces++; return new(wx + sgn * (0.002f * (pieces % 7) + depth / 2), y + 0.002f * (pieces % 5), z + 0.0017f * (pieces % 3)); }
@@ -609,6 +609,18 @@ public static partial class ModuleModels
                             mb.C(Panel).Block(At(HullProfile.PlinthTopDepth + 0.04f, 0.08f + HullProfile.PlinthHigh / 2, 4f), new(HullProfile.PlinthTopDepth + 0.04f, HullProfile.PlinthHigh, plen - 0.2f));
                             mb.C(c.Role).Block(At(HullProfile.PlinthTopDepth + 0.02f, 0.08f + HullProfile.PlinthHigh + 0.012f, 4f), new(HullProfile.PlinthTopDepth + 0.02f, 0.024f, plen - 0.4f));
                             mb.C(c.Acc).Block(At(HullProfile.PlinthDepth + 0.06f, 0.08f + HullProfile.PlinthLow + 0.01f, 4f), new(HullProfile.PlinthDepth + 0.06f, 0.02f, plen - 0.1f));
+                        }
+                        else if (skin == HullProfile.SkinFlared)
+                        {
+                            // a flared pier: steps that stand wide at the floor and narrow upward, each one inside the one below (the collision is the foot)
+                            foreach (float z in HullProfile.FlareStations)
+                                for (int i = 0; i < HullProfile.FlareSteps; i++)
+                                {
+                                    float depth = HullProfile.FlareDepth * (1f - i / (float)HullProfile.FlareSteps), h = HullProfile.FlareStepHeight, width = HullProfile.FlareWidth * (1f - 0.12f * i);
+                                    mb.C(i % 2 == 0 ? Panel : Slab).Block(At(depth + 0.04f, 0.08f + h / 2 + i * h - 0.02f * i, z), new(depth + 0.04f, h + 0.04f, width));
+                                }
+                            foreach (float z in HullProfile.FlareStations)
+                                mb.C(c.Role).Block(At(0.1f, 0.08f + HullProfile.FlareSteps * HullProfile.FlareStepHeight - 0.02f, z), new(0.1f, 0.03f, HullProfile.FlareWidth * 0.6f)); // a lit cap on the top step
                         }
                         else
                         {
