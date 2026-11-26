@@ -281,6 +281,26 @@ public sealed class BlueprintSession
         return Draft.Upgrade(_selection.First(), _content);
     }
 
+    /// <summary>
+    /// The walkthrough preview: drops the camera inside a module at eye height. The module is the one given, the selected one, the cockpit of a ship or the core of a station, or the first one.
+    /// False when the draft has no module to stand in.
+    /// </summary>
+    public bool StartWalk((int Mx, int My, int Mz)? cell = null)
+    {
+        if (Draft.Modules.Count == 0) return false;
+        (int Mx, int My, int Mz) at;
+        if (cell is { } c && Draft.Modules.ContainsKey(c)) at = c;
+        else if (_selection.Count > 0) at = _selection.Order().First();
+        else
+        {
+            var want = StructureKind == StructureKind.Station ? ModuleKind.Core : ModuleKind.Cockpit;
+            at = Draft.Modules.Where(kv => kv.Value == want).Select(kv => kv.Key).Order().Cast<(int, int, int)?>().FirstOrDefault() is { } w ? w : Draft.Modules.Keys.Order().First();
+        }
+        Camera.SetWalk(at);
+        Changed?.Invoke();
+        return true;
+    }
+
     /// <summary>The draft as a saved design (modules with rotation, and the interior of a station).</summary>
     public DesignData ToDesign(string name, string variant = "", bool preset = false) =>
         new(StructureKind == StructureKind.Station ? "station" : "ship", name, variant, preset,
