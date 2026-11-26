@@ -32,9 +32,9 @@ public partial class Play
         _hazardLabel.AddThemeColorOverride("font_color", new Color(1f, 0.55f, 0.25f));
         _hazardLabel.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.9f));
         _hazardLabel.AddThemeConstantOverride("outline_size", 6);
-        _hazardLabel.AddThemeFontSizeOverride("font_size", 22);
+        _hazardLabel.AddThemeFontSizeOverride("font_size", 20);
         _hazardLabel.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.CenterTop, Control.LayoutPresetMode.KeepSize);
-        _hazardLabel.AnchorLeft = 0.2f; _hazardLabel.AnchorRight = 0.8f; _hazardLabel.OffsetLeft = 0; _hazardLabel.OffsetRight = 0; _hazardLabel.OffsetTop = 150;
+        _hazardLabel.AnchorLeft = 0.3f; _hazardLabel.AnchorRight = 0.7f; _hazardLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart; _hazardLabel.OffsetLeft = 0; _hazardLabel.OffsetRight = 0; _hazardLabel.OffsetTop = 150; // the middle 40 percent, wrapping: at 800x600 a wider line ran under the info cards
         _uiRoot.AddChild(_hazardLabel);
         _boostLabel = new Label { Visible = false, HorizontalAlignment = HorizontalAlignment.Center, MouseFilter = Control.MouseFilterEnum.Ignore };
         _boostLabel.AddThemeColorOverride("font_color", new Color(0.55f, 0.85f, 1f));
@@ -59,7 +59,7 @@ public partial class Play
         string text = "";
         if (_structuresOn && ShipStruct >= 0 && Net.ObstacleCount > 0 && system >= 0 && !_paused) text = HazardText(system);
         if (text != _hazardText) { _hazardText = text; _hazardLabel!.Text = text; }
-        _hazardLabel!.Visible = text.Length > 0;
+        _hazardLabel!.Visible = text.Length > 0 && !((_detailsOpen || ComputerOpen)); // the open info cards and the computer fill the top of the view and would be run over
         _boostLabel!.Visible = Net.IsBoosting(Player);
         if (_boostLabel.Visible) _boostLabel.Text = L("hud.boost");
         _shake = MathF.Max(0f, _shake - dt * 2.5f);

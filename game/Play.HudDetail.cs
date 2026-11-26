@@ -47,7 +47,7 @@ public partial class Play
     /// <summary>True when the HUD mode and the level both allow the world markers.</summary>
     private bool MarkersWanted => HudLayersNow.Markers && GroupOn(HudGroup.Markers);
 
-    private const float RowWidth = 290f;
+    private const float RowWidth = 250f;
 
     /// <summary>The extra rows of the ship card and the card under it. Called once from <c>BuildUi</c>.</summary>
     private void BuildHudDetailUi(VBoxContainer statusBox)
