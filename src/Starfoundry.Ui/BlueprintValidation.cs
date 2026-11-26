@@ -113,7 +113,9 @@ public sealed class BlueprintValidation
 
         if (after.PowerBalance < 0)
             Add(ValidationSeverity.Warning, "power", "bp.val.power", mods.Where(kv => ModuleKindIds.IsReactor(kv.Value)).Select(kv => (kv.Key.Mx, kv.Key.My, kv.Key.Mz)).ToList(), -after.PowerBalance);
-        var blockers = DesignWarnings.ViewBlockers(mods);
+        // Only what the draft adds: the starter ship's own gun deck over the cockpit is a known, glazed case that would warn forever.
+        var already = DesignWarnings.ViewBlockers(draft.Original).Select(b => (b.Cockpit, b.Attachment, b.Why)).ToHashSet();
+        var blockers = DesignWarnings.ViewBlockers(mods).Where(b => !already.Contains((b.Cockpit, b.Attachment, b.Why))).ToList();
         if (blockers.Count > 0)
             Add(ValidationSeverity.Warning, "view", "bp.val.view", blockers.Select(b => (b.Attachment.Item1, b.Attachment.Item2, b.Attachment.Item3)).Distinct().ToList(), blockers.Count);
         if (mods.Count > 0 && after.Lasers == 0 && before.Lasers > 0)

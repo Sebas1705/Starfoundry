@@ -10,17 +10,19 @@ namespace Starfoundry.Game;
 /// <summary>The panels of the blueprint editor: layout, status, cost, stats and the validation list. Rebuilt from the session whenever it changes.</summary>
 public partial class BlueprintEditor
 {
+    private const float TopBarHeight = 58f;
+
     /// <summary>The rectangles of the panels for a window of the given size (top bar, palette, side panel, foot bar). Also what a headless check measures.</summary>
     public static IReadOnlyDictionary<string, Rect2> Layout(Vector2 size, float topInset = 0f)
     {
-        float top = 46f + topInset, foot = 62f;
+        float top = TopBarHeight + topInset, foot = 62f;
         bool narrow = size.X < 1000f;
         float left = Math.Clamp(size.X * 0.24f, narrow ? 210f : 250f, 330f);
         float right = Math.Clamp(size.X * 0.26f, narrow ? 240f : 290f, 400f);
         float body = Math.Max(120f, size.Y - top - foot);
         return new Dictionary<string, Rect2>
         {
-            ["TopBar"] = new Rect2(0, topInset, size.X, 46f),
+            ["TopBar"] = new Rect2(0, topInset, size.X, TopBarHeight),
             ["PalettePanel"] = new Rect2(0, top, left, body),
             ["SidePanel"] = new Rect2(size.X - right, top, right, body),
             ["FootBar"] = new Rect2(0, size.Y - foot, size.X, foot),

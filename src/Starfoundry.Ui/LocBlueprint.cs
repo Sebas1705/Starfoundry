@@ -38,10 +38,10 @@ public static partial class Loc
         // actions of the footer
         ["bp.apply"] = ("Aplicar", "Apply"),
         ["bp.revert"] = ("Descartar", "Revert"),
-        ["bp.save"] = ("Guardar plano", "Save blueprint"),
+        ["bp.save"] = ("Guardar", "Save blueprint"),
         ["bp.saved"] = ("Plano guardado en la ranura {0}", "Blueprint saved to slot {0}"),
         ["bp.saveFailed"] = ("No se pudo guardar el plano", "Could not save the blueprint"),
-        ["bp.load"] = ("Cargar plano", "Load blueprint"),
+        ["bp.load"] = ("Cargar", "Load blueprint"),
         ["bp.loaded"] = ("Plano cargado: {0} módulos", "Blueprint loaded: {0} modules"),
         ["bp.loadNone"] = ("No hay ningún plano guardado en la ranura {0}", "There is no blueprint saved in slot {0}"),
         ["bp.applied"] = ("Diseño aplicado: la nave tiene {0} módulos", "Design applied: the ship has {0} modules"),

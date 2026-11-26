@@ -305,7 +305,7 @@ public partial class BlueprintEditor : Control
         _legend = Label("Legend", 2, UiTheme.Caption, UiTheme.Caption - 1, Muted); _legend.SetFit(Loc.T("bp.legend")); texts.AddChild(_legend);
         row.AddChild(texts);
         _save = UiKit.Button(Loc.T("bp.save"), () => SaveSlot(1), 13, 120); _save.Name = "SaveButton"; _save.TooltipText = Loc.T("bp.save") + " (" + Cap("bpSave") + ")";
-        _load = UiKit.Button(Loc.T("bp.load"), () => LoadSlot(1), 13, 120); _load.Name = "LoadButton";
+        _load = UiKit.Button(Loc.T("bp.load"), () => LoadSlot(1), 13, 120); _load.Name = "LoadButton"; _load.TooltipText = Loc.T("bp.load") + " (1)";
         _revert = UiKit.Button(Loc.T("bp.revert"), () => Revert(), 14, 120); _revert.Name = "RevertButton"; _revert.TooltipText = Loc.T("bp.revert") + " (" + Cap("bpRevert") + ")";
         _apply = UiKit.Button(Loc.T("bp.apply"), () => Apply(), 16, 150); _apply.Name = "ApplyButton"; _apply.TooltipText = Loc.T("bp.apply") + " (" + Cap("bpApply") + ")";
         foreach (var b in new[] { _save, _load, _revert, _apply }) { b.ClipText = true; row.AddChild(b); }
