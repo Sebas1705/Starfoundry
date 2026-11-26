@@ -1294,7 +1294,7 @@ public partial class Play
             if (i >= visible.Count) continue;
             var t = visible[i];
             label.Text = t.Display;
-            float textWidth = ThemeDB.FallbackFont.GetStringSize(t.Display, HorizontalAlignment.Left, -1, 16).X + 14f;
+            float textWidth = (label.GetThemeFont("font") ?? ThemeDB.FallbackFont).GetStringSize(t.Display, HorizontalAlignment.Left, -1, 16).X + 14f;
             label.CustomMinimumSize = new Vector2(Math.Min(_toastMax, textWidth), 0f);
             label.HorizontalAlignment = textWidth > _toastMax ? HorizontalAlignment.Left : HorizontalAlignment.Center; // a wrapped toast reads from its icon
             _toastIcons[i].SizeFlagsVertical = Control.SizeFlags.ShrinkBegin;

@@ -101,7 +101,7 @@ public partial class InventorySlot : Control
             DrawTextureRect(Icons.Get(icon, ip), new Rect2((Size.X - ip) / 2f, (Size.Y - ip) / 2f - 2f, ip, ip), false, tint with { A = alpha });
             if (Count > 1 || StackSize > 1)
             {
-                var font = UiFit.DefaultFont;
+                var font = UiFonts.NumFont;
                 int fs = Size.X < 44f ? UiTheme.Caption : UiTheme.Small;
                 string text = Count.ToString(Loc.Culture);
                 var white = new Color(1f, 1f, 1f, alpha);
@@ -199,8 +199,8 @@ public partial class DragGhost : Control
         if (_count > 1)
         {
             string text = _count.ToString(Loc.Culture);
-            DrawStringOutline(UiFit.DefaultFont, new Vector2(2f, _pixels - 4f), text, HorizontalAlignment.Right, _pixels - 5f, UiTheme.Small, 4, new Color(0f, 0f, 0f, 0.85f));
-            DrawString(UiFit.DefaultFont, new Vector2(2f, _pixels - 4f), text, HorizontalAlignment.Right, _pixels - 5f, UiTheme.Small, Colors.White);
+            DrawStringOutline(UiFonts.NumFont, new Vector2(2f, _pixels - 4f), text, HorizontalAlignment.Right, _pixels - 5f, UiTheme.Small, 4, new Color(0f, 0f, 0f, 0.85f));
+            DrawString(UiFonts.NumFont, new Vector2(2f, _pixels - 4f), text, HorizontalAlignment.Right, _pixels - 5f, UiTheme.Small, Colors.White);
         }
     }
 }

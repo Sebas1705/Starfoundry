@@ -130,7 +130,7 @@ public partial class ArsenalBar : Control
         var cap = new Rect2(r.End.X - 22f, r.Position.Y + 6f, 16f, 16f);
         DrawStyleBox(Cached(new Color(0f, 0f, 0f, 0.4f), new Color(1f, 1f, 1f, selected ? 0.6f : 0.3f), 3, 0f), cap);
         DrawString(font, new Vector2(cap.Position.X, cap.Position.Y + 12.5f), ArsenalModel.KeyHint(i), HorizontalAlignment.Center, 16f, 12, selected ? UiTheme.Text : UiTheme.Muted);
-        if (slot.Count > 1) DrawString(font, new Vector2(r.End.X - 40f, r.Position.Y + 38f), "x" + slot.Count, HorizontalAlignment.Right, 34f, 13, UiTheme.Text);
+        if (slot.Count > 1) DrawString(UiFonts.NumFont, new Vector2(r.End.X - 40f, r.Position.Y + 38f), "x" + slot.Count, HorizontalAlignment.Right, 34f, 13, UiTheme.Text);
         if (compact) return;
 
         // the readout: the mining numbers or the volley state for the slot in hand, the state word for the others

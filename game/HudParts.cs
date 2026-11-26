@@ -63,6 +63,7 @@ public partial class HoldStrip : HBoxContainer
         MouseFilter = MouseFilterEnum.Pass;
         AddThemeConstantOverride("separation", 8);
         _total.AddThemeFontSizeOverride("font_size", UiTheme.Body);
+        UiFonts.Num(_total);
         _note.AddThemeFontSizeOverride("font_size", UiTheme.Small);
         _note.AddThemeColorOverride("font_color", UiTheme.Muted);
         _items.AddThemeConstantOverride("separation", 12);

@@ -209,7 +209,7 @@ public partial class CostStrip : Control
 
     public override void _Draw()
     {
-        var font = UiFit.DefaultFont;
+        var font = UiFonts.NumFont;
         float y = Size.Y / 2f + font.GetAscent(Font) / 2f - font.GetDescent(Font) / 2f;
         if (_items.Length == 0)
         {
