@@ -175,7 +175,9 @@ public partial class Play
         // navigation
         snap.HasGalaxy = Net.Galaxy is not null;
         snap.SystemName = Net.Galaxy is { } gal && system >= 0 ? gal.Systems[system].Name : L("hud.deepSpace");
-        var allTargets = BuildNavAll(shipCam, system);
+        long navReach = Net.NavRangeCells(Player);
+        var allTargets = NavList.Within(BuildNavAll(shipCam, system), navReach).ToList();
+        snap.NavReachCells = navReach;
         snap.MapTargets = allTargets;
         snap.Targets = NavList.Build(allTargets, 6);
         snap.PickKind = _navPickKind;

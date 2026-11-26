@@ -291,7 +291,7 @@ public class FlightFeelTests
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, recorded.Log, C.Hash, GameMode.Sandbox, Seed, threats: false, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(21, bytes[4]);
+        Assert.Equal(23, bytes[4]);
         var empty = new MemoryStream();
         CommandCodec.WriteLog(empty, new List<LoggedCommand>(), C.Hash, GameMode.Sandbox, Seed, threats: false, structures: true);
         CommandCodec.ReadLog(new MemoryStream(bytes), out _, out _, out _, out _, out _, out _, out var current);

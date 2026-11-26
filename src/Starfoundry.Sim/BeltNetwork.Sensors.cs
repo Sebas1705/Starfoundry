@@ -8,6 +8,20 @@ public static class ShieldSensorRules
 
     /// <summary>Sensors look for hidden deposits every this many ticks (once a second), not every tick.</summary>
     public const int SensorIntervalTicks = 30;
+
+    /// <summary>How far the navigation display sees with no antenna at all, in cells (ADR 0042). It is above the scanner range, so a scan never reveals what the display hides.</summary>
+    public const int NavBaseRangeCells = 400;
+
+    /// <summary>
+    /// The effect of several antennas together: the best counts in full and each further one halves again (the second gives 50 percent, the third 25 percent),
+    /// so the order of fitting does not matter and ten antennas are not ten times as good (ADR 0042).
+    /// </summary>
+    public static long Stack(IEnumerable<long> values)
+    {
+        long total = 0; int rank = 0;
+        foreach (long v in values.Where(v => v > 0).OrderByDescending(v => v)) total += v >> Math.Min(rank++, 62);
+        return total;
+    }
 }
 
 /// <summary>Enemies of one type in a forecast wave.</summary>
@@ -66,7 +80,7 @@ public sealed partial class BeltNetwork
     /// <summary>True when the structure has a sensor module and enough power for it to work.</summary>
     public bool SensorActive(int structure) =>
         StructureRules && _structures.TryGetValue(structure, out var s) && s.Satisfaction >= ShieldSensorRules.MinSatisfaction
-        && s.ModuleMap.Values.Contains(ModuleKind.Sensor);
+        && s.ModuleMap.Values.Any(ModuleKindIds.IsAntenna);
 
     /// <summary>
     /// Once a second every powered structure's sensors reveal the hidden deposits within <c>sensor_range_cells</c> of the sensor module
@@ -82,7 +96,7 @@ public sealed partial class BeltNetwork
             if (s.Satisfaction < ShieldSensorRules.MinSatisfaction) continue;
             foreach (var (key, kind) in s.ModuleMap)
             {
-                if (kind != ModuleKind.Sensor) continue;
+                if (!ModuleKindIds.IsAntenna(kind)) continue;
                 var c = ModuleWorldCentre(s.Id, key.Mx, key.My, key.Mz);
                 long range = SensorRangeCells(kind) * cu;
                 foreach (var d in _deposits)

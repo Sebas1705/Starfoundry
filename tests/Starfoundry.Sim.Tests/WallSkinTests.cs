@@ -8,7 +8,7 @@ namespace Starfoundry.Sim.Tests;
 [Trait("Tier", "Slow")]
 public class WallSkinTests
 {
-    private static readonly int[] DeepSkins = { HullProfile.SkinRibbed, HullProfile.SkinStepped, HullProfile.SkinNiched };
+    private static readonly int[] DeepSkins = { HullProfile.SkinRibbed, HullProfile.SkinStepped, HullProfile.SkinNiched, HullProfile.SkinFlared };
 
     /// <summary>A place where a hull module has the given skin.</summary>
     private static (int X, int Z) Find(int skin, ModuleKind kind = ModuleKind.Hull)
@@ -37,7 +37,7 @@ public class WallSkinTests
     [Fact]
     public void TheSkinSurvivesTheMaskRoundTripAndTheStairBitIsSeparate()
     {
-        for (int skin = 0; skin < 7; skin++)
+        for (int skin = 0; skin < 8; skin++)
         {
             int m = HullProfile.SkinBits(skin) | HullProfile.StairDown | HullProfile.Left | HullProfile.PodFront;
             Assert.Equal(skin, HullProfile.SkinOfMask(m));
@@ -119,8 +119,8 @@ public class WallSkinTests
     public void JointsBetweenEverySkinPairHaveMatchingSectionsOrAreSealedByAPlate()
     {
         // A neighbour's skin is seen through its section family only: the new skins reuse boxy and arched, so the existing joint plates cover every pair.
-        for (int a = 0; a < 7; a++)
-            for (int b = 0; b < 7; b++)
+        for (int a = 0; a < 8; a++)
+            for (int b = 0; b < 8; b++)
             {
                 int ma = HullProfile.SkinBits(a) | HullProfile.Rear | (HullProfile.SectionClassOf(b) << HullProfile.RearSkinShift);
                 var nb = HullProfile.NeighbourMask(ma, front: false);
@@ -139,5 +139,28 @@ public class WallSkinTests
         foreach (int skin in DeepSkins)
             Assert.Empty(HullProfile.SolidsOf(Fixture.Lockers, HullProfile.SkinBits(skin)));
         Assert.NotEmpty(HullProfile.SolidsOf(Fixture.Lockers, HullProfile.SkinBits(HullProfile.SkinPlain)));
+    }
+
+    [Fact]
+    public void FlaredPiersStandClearOfTheViewportBandAndTheModelFootIsTheCollisionFoot()
+    {
+        const float bandLo = 2.6f, bandHi = 5.4f; // the viewport band of a corridor module
+        foreach (float z in HullProfile.FlareStations)
+            Assert.True(z + HullProfile.FlareWidth / 2 <= bandLo || z - HullProfile.FlareWidth / 2 >= bandHi, $"pier at {z} reaches into the viewport band");
+        var solids = HullProfile.SkinSolids(HullProfile.SkinBits(HullProfile.SkinFlared)).ToList();
+        Assert.Equal(2 * HullProfile.FlareStations.Length, solids.Count); // a pier per station on each closed wall
+        // the model's lowest step stands (0.12 wall face + depth + 0.04) from the left wall: the same reach as the solid
+        float modelFoot = 0.12f + HullProfile.FlareDepth + 0.04f;
+        Assert.All(solids.Where(s => s.X0 == 0f), s => Assert.Equal(modelFoot, s.X1, 3));
+        // the flare narrows every step and never ends above the sill of the windows
+        float last = float.MaxValue;
+        for (int i = 0; i < HullProfile.FlareSteps; i++)
+        {
+            float depth = HullProfile.FlareDepth * (1f - i / (float)HullProfile.FlareSteps);
+            Assert.True(depth < last && depth > 0f);
+            last = depth;
+        }
+        Assert.True(HullProfile.FlareSteps * HullProfile.FlareStepHeight < 1.6f);
+        Assert.Equal(HullProfile.SkinPlain, HullProfile.SectionClassOf(HullProfile.SkinFlared)); // a plain section: the joints need no new plate
     }
 }

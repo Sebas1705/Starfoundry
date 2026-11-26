@@ -380,7 +380,7 @@ public sealed partial class BeltNetwork
             Vx = (int)(wx * FeelRules.ProjectileSpeedUnits / len), Vy = (int)(wy * FeelRules.ProjectileSpeedUnits / len), Vz = (int)(wz * FeelRules.ProjectileSpeedUnits / len),
         };
         _projectiles.Add(shot);
-        p.WeaponCooldown = interval;
+        p.WeaponCooldown = VolleyInterval(guns, interval);
         _shots.Add(new ShotEvent(ShotKind.Ship, shot.X, shot.Y, shot.Z, shot.X + shot.Vx * 2, shot.Y + shot.Vy * 2, shot.Z + shot.Vz * 2));
 
         // Recoil: opposite to the firing direction, in the world, scaled by the strength of the guns that fired and the mass of the ship.
@@ -390,6 +390,18 @@ public sealed partial class BeltNetwork
             foreach (var g in guns) recoil += (long)kinds.Recoil(g.Kind) * g.Percent / 100;
             if (recoil > 0) ApplyRecoil(p, ship, wx, wy, wz, len, recoil);
         }
+    }
+
+    /// <summary>
+    /// Ticks until the next volley: the weapon interval stretched by the <c>cooldown_percent</c> of the guns, averaged by their strength, so a heavy cannon
+    /// (ADR 0042) fires slowly and drags the rest of the battery with it; the ordinary guns leave the interval as it was.
+    /// </summary>
+    private int VolleyInterval(IReadOnlyList<HardpointMount> guns, int interval)
+    {
+        if (Content?.Structures is not { } kinds) return interval;
+        long weight = 0, weighted = 0;
+        foreach (var g in guns) { weight += g.Percent; weighted += (long)g.Percent * kinds.CooldownPercent(g.Kind); }
+        return weight <= 0 ? interval : (int)Math.Max(1, (long)interval * weighted / (weight * 100));
     }
 
     private bool ShipAmmoLacking(Player p, ThreatRules rules, int interval)

@@ -242,6 +242,9 @@ void fragment() {
                         break;
                     case ModuleKind.Shield:
                     case ModuleKind.Sensor:
+                    case ModuleKind.SensorShort:
+                    case ModuleKind.SensorLong:
+                    case ModuleKind.CommsAntenna:
                         Models.SetPower(node, sat / 1000f); // the field and the sweep dim with the power and stop below half power
                         Models.Animate(node, _time, sat >= ShieldSensorRules.MinSatisfaction);
                         break;

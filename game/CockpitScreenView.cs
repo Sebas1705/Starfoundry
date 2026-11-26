@@ -27,6 +27,8 @@ public sealed class CockpitSnapshot
     /// <summary>Everything the navigation page can show on its map (positions in the ship's frame), and the target the pilot picked, if any.</summary>
     public IReadOnlyList<NavTarget> MapTargets = Array.Empty<NavTarget>();
     public NavKind? PickKind;
+    /// <summary>How far the navigation display sees, in cells (ADR 0042); <see cref="long.MaxValue"/> when the display lists everything.</summary>
+    public long NavReachCells = long.MaxValue;
     public int PickId = -1;
     /// <summary>Angular velocity about the ship's axes in degrees per second (pitch up, yaw right, roll right) and the most it can reach.</summary>
     public System.Numerics.Vector3 TurnRates;
@@ -668,7 +670,7 @@ public partial class CockpitScreenView : Control
                 Txt(Fit(routeLabel, lf, lr.Size.X - 8f), lr.Position.X + 5f, lr.Position.Y + 2f, lf, UiTheme.Gold);
             }
         }
-        else if (s.MapTargets.Count == 0) Txt(Fit(Loc.T("cp.nav.none"), 13, r.Size.X - 16f), r.Position.X + 8f, r.End.Y - 24f, 13, UiTheme.Dim);
+        else if (s.MapTargets.Count == 0) Txt(Fit(s.NavReachCells == long.MaxValue ? Loc.T("cp.nav.none") : string.Format(Loc.T("cp.nav.noneReach"), s.NavReachCells), 13, r.Size.X - 16f), r.Position.X + 8f, r.End.Y - 24f, 13, UiTheme.Dim);
         if (detailed)
         {
             // zoom buttons and the hint
