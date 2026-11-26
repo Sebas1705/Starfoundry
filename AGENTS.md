@@ -9,6 +9,7 @@ Contract for agents working in this repository.
 - Branches: `feature/`, `fix/`, `chore/`, `docs/`.
 - Specs are design proposals. Mark anything taken from an external game as *reference*, anything we invented as *proposal*, and anything unknown as *TBD*. Never present a guess as fact.
 - Do not copy names, lore, art, text or exact numbers from other games.
+- Bundled third-party assets (fonts, sounds, textures) must follow [ADR 0037](docs/adr/0037-external-assets-policy.md): permissive licences only, every file listed in `ASSETS.md`.
 - A decision that closes off alternatives gets an ADR in `docs/adr/` (format in its README). Accepted ADRs are never rewritten; supersede them.
 - Update the specs in the same change as the decision that alters them, and keep `docs/specs/12-open-questions.md` current.
 
