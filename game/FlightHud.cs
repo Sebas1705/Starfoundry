@@ -43,6 +43,7 @@ public partial class ThrottleGauge : Control
         // The speed asked for: a tick with a small arrow head above and below, so it reads on the fill and on the empty track.
         float x = Math.Clamp(r.Size.X * _target, 1f, r.Size.X - 1f);
         var tick = new Color(1f, 1f, 1f, _target < 0.01f ? 0.35f : 0.95f);
+        if (_target < 0.01f) { DrawLine(new Vector2(x, 1f), new Vector2(x, r.Size.Y - 1f), tick, 2f); return; } // at rest: a small tick inside the track (the arrow heads read as an I-beam cursor at zero)
         DrawLine(new Vector2(x, -2f), new Vector2(x, r.Size.Y + 2f), tick, 2f);
         DrawColoredPolygon(new[] { new Vector2(x - 3.5f, -4f), new Vector2(x + 3.5f, -4f), new Vector2(x, 0f) }, tick);
         DrawColoredPolygon(new[] { new Vector2(x - 3.5f, r.Size.Y + 4f), new Vector2(x + 3.5f, r.Size.Y + 4f), new Vector2(x, r.Size.Y) }, tick);

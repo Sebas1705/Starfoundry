@@ -20,11 +20,12 @@ public partial class BlueprintEditor
         float left = Math.Clamp(size.X * 0.24f, narrow ? 210f : 250f, 330f);
         float right = Math.Clamp(size.X * 0.26f, narrow ? 240f : 290f, 400f);
         float body = Math.Max(120f, size.Y - top - foot);
+        const float m = 6f; // the side panels float: a gap to the window edge and to the bars, so they read as cards and not as cut-off slabs
         return new Dictionary<string, Rect2>
         {
             ["TopBar"] = new Rect2(0, topInset, size.X, TopBarHeight),
-            ["PalettePanel"] = new Rect2(0, top, left, body),
-            ["SidePanel"] = new Rect2(size.X - right, top, right, body),
+            ["PalettePanel"] = new Rect2(m, top + m, left - m, body - 2 * m),
+            ["SidePanel"] = new Rect2(size.X - right, top + m, right - m, body - 2 * m),
             ["FootBar"] = new Rect2(0, size.Y - foot, size.X, foot),
         };
     }
@@ -59,7 +60,7 @@ public partial class BlueprintEditor
         foreach (var c in n.GetChildren()) { n.RemoveChild(c); c.QueueFree(); }
     }
 
-    private static Label Cell(string text, Color colour, int size = UiTheme.Small, HorizontalAlignment align = HorizontalAlignment.Left, string name = "")
+    private static Label Cell(string text, Color colour, int size = UiTheme.Small, HorizontalAlignment align = HorizontalAlignment.Left, string name = "", float minWidth = 0f)
     {
         var l = UiKit.Text(size, colour);
         l.Text = text;
@@ -67,6 +68,7 @@ public partial class BlueprintEditor
         if (name.Length > 0) l.Name = name;
         l.ClipText = true;
         l.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+        if (minWidth > 0f) l.CustomMinimumSize = new Vector2(minWidth, 0); // a clipped label is 0 wide, so a grid column made of them vanishes
         return l;
     }
 
@@ -146,9 +148,9 @@ public partial class BlueprintEditor
         if (cost.Lines.Count > 0)
         {
             _costGrid.AddChild(Cell("", Muted));
-            _costGrid.AddChild(Cell(Loc.T("bp.cost.price"), Muted, UiTheme.Caption, HorizontalAlignment.Right));
-            _costGrid.AddChild(Cell(Loc.T("bp.cost.refund"), Muted, UiTheme.Caption, HorizontalAlignment.Right));
-            _costGrid.AddChild(Cell(Loc.T("bp.cost.net"), Muted, UiTheme.Caption, HorizontalAlignment.Right));
+            _costGrid.AddChild(Cell(Loc.T("bp.cost.price"), Muted, UiTheme.Caption, HorizontalAlignment.Right, "", 40f));
+            _costGrid.AddChild(Cell(Loc.T("bp.cost.refund"), Muted, UiTheme.Caption, HorizontalAlignment.Right, "", 58f));
+            _costGrid.AddChild(Cell(Loc.T("bp.cost.net"), Muted, UiTheme.Caption, HorizontalAlignment.Right, "", 40f));
         }
         foreach (var l in cost.Lines)
         {
@@ -161,9 +163,9 @@ public partial class BlueprintEditor
             nl.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             name.AddChild(nl);
             _costGrid.AddChild(name);
-            _costGrid.AddChild(Cell(l.Price > 0 ? l.Price.ToString() : "-", Colors.White, UiTheme.Small, HorizontalAlignment.Right, "Price_" + l.ItemId));
-            _costGrid.AddChild(Cell(l.Refund > 0 ? "+" + l.Refund : "-", l.Refund > 0 ? Good : Muted, UiTheme.Small, HorizontalAlignment.Right, "Refund_" + l.ItemId));
-            _costGrid.AddChild(Cell(l.Net > 0 ? l.Net.ToString() : l.Net < 0 ? "+" + (-l.Net) : "0", short_ ? Bad : l.Net < 0 ? Good : Colors.White, UiTheme.Body, HorizontalAlignment.Right, "Net_" + l.ItemId));
+            _costGrid.AddChild(Cell(l.Price > 0 ? l.Price.ToString() : "-", Colors.White, UiTheme.Small, HorizontalAlignment.Right, "Price_" + l.ItemId, 40f));
+            _costGrid.AddChild(Cell(l.Refund > 0 ? "+" + l.Refund : "-", l.Refund > 0 ? Good : Muted, UiTheme.Small, HorizontalAlignment.Right, "Refund_" + l.ItemId, 58f));
+            _costGrid.AddChild(Cell(l.Net > 0 ? l.Net.ToString() : l.Net < 0 ? "+" + (-l.Net) : "0", short_ ? Bad : l.Net < 0 ? Good : Colors.White, UiTheme.Body, HorizontalAlignment.Right, "Net_" + l.ItemId, 40f));
         }
         var missing = cost.Missing.Select(m => new ItemStack(m.Item, m.Missing)).ToArray();
         _costMissing.SetFit(missing.Length > 0 ? Loc.T("bp.cost.missing", _stacks(missing)) : "");

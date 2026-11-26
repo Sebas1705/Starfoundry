@@ -223,23 +223,26 @@ public partial class BlueprintEditor : Control
         foreach (var kind in ShipDesignEditor.Catalogue(_content, _s.StructureKind))
         {
             var k = kind;
+            // one full-width tile per kind: the icon, the name on top and the cost icons under it (a long name no longer fights the costs for the row)
             var row = new HBoxContainer { Name = "PaletteRow_" + k, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            row.AddThemeConstantOverride("separation", 4);
-            var b = new Button { Name = "Palette_" + k, Text = KindName(k), Alignment = HorizontalAlignment.Left, ToggleMode = true, ExpandIcon = false, FocusMode = FocusModeEnum.All, SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 30), ClipText = true };
+            var b = new Button { Name = "Palette_" + k, ToggleMode = true, ExpandIcon = false, FocusMode = FocusModeEnum.All, SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 44) };
             UiTheme.StyleButton(b);
-            b.AddThemeFontSizeOverride("font_size", 13);
-            b.Icon = Icons.Get(IconCatalog.ForModule(k), 22);
-            b.AddThemeConstantOverride("icon_max_width", 22);
-            b.AddThemeConstantOverride("h_separation", 6);
-            b.AddThemeColorOverride("icon_normal_color", ModuleModels.RoleColour(k).Lightened(0.3f));
-            b.AddThemeColorOverride("icon_hover_color", Colors.White);
-            b.AddThemeColorOverride("icon_pressed_color", Colors.White);
-            b.AddThemeColorOverride("icon_hover_pressed_color", Colors.White);
             b.Pressed += () => PickKind(k);
             b.TooltipText = Loc.T("module." + k.ToString().ToLowerInvariant() + ".purpose") + (_content.Structures is { } sc && sc.ModuleCost(k).Length > 0 ? "\n" + _stacks(sc.ModuleCost(k)) : "");
             row.AddChild(b);
+            var inner = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
+            inner.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+            inner.OffsetLeft = 8; inner.OffsetRight = -6;
+            inner.AddThemeConstantOverride("separation", 8);
+            b.AddChild(inner);
+            inner.AddChild(new IconRect(IconCatalog.ForModule(k), 26, ModuleModels.RoleColour(k).Lightened(0.3f), tooltip: false) { MouseFilter = MouseFilterEnum.Ignore });
+            var text = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ShrinkCenter, MouseFilter = MouseFilterEnum.Ignore };
+            text.AddThemeConstantOverride("separation", 1);
+            inner.AddChild(text);
+            text.AddChild(Cell(KindName(k), Colors.White, 13, HorizontalAlignment.Left, "PaletteName_" + k));
             var costs = new HBoxContainer { Name = "Cost_" + k, MouseFilter = MouseFilterEnum.Ignore };
-            costs.AddThemeConstantOverride("separation", 4);
+            costs.AddThemeConstantOverride("separation", 8);
+            text.AddChild(costs);
             if (_content.Structures is { } kinds)
                 foreach (var st in kinds.ModuleCost(k))
                 {
@@ -247,7 +250,6 @@ public partial class BlueprintEditor : Control
                     ic.SetText(IconCatalog.ForItem(_content.Items[st.Item].Id), st.Count.ToString(), Muted);
                     costs.AddChild(ic);
                 }
-            row.AddChild(costs);
             _paletteList.AddChild(row);
             _palette.Add((k, b));
         }
@@ -278,7 +280,7 @@ public partial class BlueprintEditor : Control
         col.AddThemeConstantOverride("separation", 6);
         _sidePanel.AddChild(col);
 
-        _costPanel = SideSection("CostPanel", "bp.cost.title", "status:cargo", out var cost, 4f);
+        _costPanel = SideSection("CostPanel", "bp.cost.title", "status:cargo", out var cost, 3.2f);
         _costSummary = Label("CostSummary", 2, UiTheme.Body, UiTheme.Small); cost.AddChild(_costSummary);
         _costGrid = new GridContainer { Name = "CostGrid", Columns = 4, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _costGrid.AddThemeConstantOverride("h_separation", 8);
@@ -287,13 +289,13 @@ public partial class BlueprintEditor : Control
         _costMissing = Label("CostMissing", 3, UiTheme.Body, UiTheme.Small, Bad); cost.AddChild(_costMissing);
         col.AddChild(_costPanel);
 
-        _statsPanel = SideSection("StatsPanel", "bp.stats.title", "status:speed", out var stats, 3.5f);
+        _statsPanel = SideSection("StatsPanel", "bp.stats.title", "status:speed", out var stats, 4.8f);
         _statsList = new VBoxContainer { Name = "StatsList", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _statsList.AddThemeConstantOverride("separation", 2);
         stats.AddChild(new ScrollWithHint(_statsList) { Name = "StatsScroll" });
         col.AddChild(_statsPanel);
 
-        _validationPanel = SideSection("ValidationPanel", "bp.val.title", "status:warning", out var val, 4.5f);
+        _validationPanel = SideSection("ValidationPanel", "bp.val.title", "status:warning", out var val, 3.4f);
         _valSummary = Label("ValidationSummary", 1, UiTheme.Small, UiTheme.Caption, Muted); val.AddChild(_valSummary);
         _valList = new VBoxContainer { Name = "ValidationList", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _valList.AddThemeConstantOverride("separation", 3);

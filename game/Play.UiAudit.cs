@@ -38,6 +38,7 @@ public partial class Play
         CloseResearchPanel();
         CloseInventory();
         _designer?.Close();
+        _blueprint?.Close();
         if (_pauseMenu is not null) _pauseMenu.Visible = false;
         _endScreen?.Dismiss();
         _storyDialog?.Hide();
