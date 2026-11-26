@@ -14,6 +14,9 @@ public partial class BlueprintEditor
 
     private const float OrbitPerPixel = 0.006f;
 
+    /// <summary>Cells per arrow key press in the walkthrough.</summary>
+    private const float WalkStep = 1.2f;
+
     private void OnPlanInput(InputEvent e)
     {
         switch (e)
@@ -26,6 +29,7 @@ public partial class BlueprintEditor
                 else if (mb.Pressed && mb.ButtonIndex == MouseButton.WheelDown) { _s.Camera.Zoom(-1f); _sceneDirty = true; }
                 else if (mb.Pressed && mb.ButtonIndex == MouseButton.Left)
                 {
+                    if (_s.Camera.View == PlanView.Walk) break; // a walkthrough only looks
                     ClickAt(mb.Position, mb.ShiftPressed || mb.CtrlPressed);
                     if (mb.DoubleClick && _s.StructureKind == StructureKind.Station && _s.Selection.Count == 1) OpenFloorOfSelection(); // a double click on a module opens its floor plan
                 }
@@ -33,7 +37,7 @@ public partial class BlueprintEditor
             case InputEventMouseMotion mm:
                 if (_orbiting) { _s.Camera.Orbit(-mm.Relative.X * OrbitPerPixel, mm.Relative.Y * OrbitPerPixel); SyncViewButtons(); _refresh = true; }
                 else if (_panning) _s.Camera.Pan(-mm.Relative.X / Math.Max(1f, _container.Size.Y), mm.Relative.Y / Math.Max(1f, _container.Size.Y));
-                else HoverAt(mm.Position);
+                else if (_s.Camera.View != PlanView.Walk) HoverAt(mm.Position);
                 _lastMouse = mm.Position;
                 break;
         }
@@ -93,6 +97,7 @@ public partial class BlueprintEditor
     public override void _Input(InputEvent e)
     {
         if (!Visible || e is not InputEventKey { Pressed: true, Echo: false } k || KeyBindingsPage.Capturing) return;
+        if (DesignsOpen) { if (k.Keycode == Key.Escape) { CloseDesigns(); GetViewport().SetInputAsHandled(); } return; } // the design list owns the keyboard (its fields take text)
         string key = KeyName(k);
         if (key.Length == 0 || InputActions.Find(key, InputContext.Blueprint) is not { } action) return;
         if (action.Id is "help" or "fullscreen" || (action.Id == "cancel" && HelpOpen?.Invoke() == true)) return; // the game's own keys
@@ -114,6 +119,8 @@ public partial class BlueprintEditor
     /// <summary>Esc: closes the innermost thing (a move in hand, the selection, the tool), then the editor (twice when the draft has changes).</summary>
     public void Cancel()
     {
+        if (DesignsOpen) { CloseDesigns(); return; }
+        if (_s.Camera.View == PlanView.Walk) { SetView(PlanView.Orbit); return; }
         if (_s.FloorModule is not null)
         {
             if (_s.PlanSelection is not null) _s.SetPlanTool(_s.PlanTool); else CloseFloor();
@@ -146,7 +153,9 @@ public partial class BlueprintEditor
             case "bpSelectAll": _s.SelectAll(); break;
             case "bpUndo": Undo(); break;
             case "bpRedo": Redo(); break;
-            case "bpSave": SaveSlot(1); break;
+            case "bpSave": QuickSave(); break;
+            case "bpDesigns": OpenDesigns(); break;
+            case "bpWalk": if (_s.Camera.View == PlanView.Walk) SetView(PlanView.Orbit); else StartWalk(); break;
             case "bpApply": Apply(); break;
             case "bpRevert": Revert(); break;
             case "bpView": _s.Camera.CycleView(_s.DefaultSectionLayer()); SyncViewButtons(); _sceneDirty = true; _refresh = true; break;
@@ -164,7 +173,8 @@ public partial class BlueprintEditor
             case "bpNudge":
             {
                 var (dx, dz) = slot switch { 0 => (0, -1), 1 => (0, 1), 2 => (-1, 0), _ => (1, 0) };
-                if (_s.Selection.Count > 0) { if (!_s.Nudge(dx, 0, dz).Any) Say?.Invoke(Loc.T("bp.toast.noMove")); }
+                if (_s.Camera.View == PlanView.Walk) { _s.Camera.WalkBy(-dz * WalkStep, dx * WalkStep, _s.Draft.Modules); }
+                else if (_s.Selection.Count > 0) { if (!_s.Nudge(dx, 0, dz).Any) Say?.Invoke(Loc.T("bp.toast.noMove")); }
                 else { _s.Camera.Pan(dx * 0.05f, -dz * 0.05f); }
                 break;
             }

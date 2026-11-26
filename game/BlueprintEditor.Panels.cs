@@ -40,6 +40,7 @@ public partial class BlueprintEditor
             c.Size = rect.Size;
         }
         _title.FitWidth = Math.Clamp(size.X * 0.14f, 120f, 190f);
+        LayoutDesigns(size);
         _sceneDirty = true;
     }
 

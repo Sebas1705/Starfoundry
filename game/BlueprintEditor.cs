@@ -94,6 +94,7 @@ public partial class BlueprintEditor : Control
         BuildFootBar();
         foreach (var p in new Control[] { _topBar, _palettePanel, _sidePanel, _footBar }) AddChild(p);
         BuildFloor();
+        BuildDesigns();
     }
 
     // ---- building the panels ----------------------------------------------------------------------------------------
@@ -140,10 +141,10 @@ public partial class BlueprintEditor : Control
         _title.AutowrapMode = TextServer.AutowrapMode.Off;
         row.AddChild(_title);
 
-        foreach (var (view, icon, key) in new[] { (PlanView.Orbit, "tool:look", "bp.view.orbit"), (PlanView.Top, "tool:map", "bp.view.top"), (PlanView.Section, "tool:layer", "bp.view.section") })
+        foreach (var (view, icon, key) in new[] { (PlanView.Orbit, "tool:look", "bp.view.orbit"), (PlanView.Top, "tool:map", "bp.view.top"), (PlanView.Section, "tool:layer", "bp.view.section"), (PlanView.Walk, "tool:walk", "bp.view.walk") })
         {
             var v = view;
-            var b = IconButton(icon, Loc.T(key) + " (" + Cap("bpView") + ")", () => SetView(v), "View" + view, toggle: true);
+            var b = IconButton(icon, Loc.T(key) + " (" + Cap(view == PlanView.Walk ? "bpWalk" : "bpView") + ")", () => SetView(v), "View" + view, toggle: true);
             _viewButtons[view] = b;
             row.AddChild(b);
         }
@@ -313,8 +314,8 @@ public partial class BlueprintEditor : Control
         _status = Label("Status", 1, UiTheme.Body, UiTheme.Small); texts.AddChild(_status);
         _legend = Label("Legend", 2, UiTheme.Caption, UiTheme.Caption - 1, Muted); _legend.SetFit(Loc.T("bp.legend")); texts.AddChild(_legend);
         row.AddChild(texts);
-        _save = UiKit.Button(Loc.T("bp.save"), () => SaveSlot(1), 13, 120); _save.Name = "SaveButton"; _save.TooltipText = Loc.T("bp.save") + " (" + Cap("bpSave") + ")";
-        _load = UiKit.Button(Loc.T("bp.load"), () => LoadSlot(1), 13, 120); _load.Name = "LoadButton"; _load.TooltipText = Loc.T("bp.load") + " (1)";
+        _save = UiKit.Button(Loc.T("bp.save"), () => QuickSave(), 13, 120); _save.Name = "SaveButton"; _save.TooltipText = Loc.T("bp.save") + " (" + Cap("bpSave") + ")";
+        _load = UiKit.Button(Loc.T("bp.load"), () => OpenDesigns(), 13, 120); _load.Name = "LoadButton"; _load.TooltipText = Loc.T("bp.load") + " (" + Cap("bpDesigns") + ")";
         _revert = UiKit.Button(Loc.T("bp.revert"), () => Revert(), 14, 120); _revert.Name = "RevertButton"; _revert.TooltipText = Loc.T("bp.revert") + " (" + Cap("bpRevert") + ")";
         _apply = UiKit.Button(Loc.T("bp.apply"), () => Apply(), 16, 150); _apply.Name = "ApplyButton"; _apply.TooltipText = Loc.T("bp.apply") + " (" + Cap("bpApply") + ")";
         foreach (var b in new[] { _save, _load, _revert, _apply }) { b.ClipText = true; row.AddChild(b); }
@@ -328,6 +329,7 @@ public partial class BlueprintEditor : Control
     public void Open(int structure = -1)
     {
         _discardArmed = false;
+        _designSelected = _designActive = null;
         _structure = structure;
         _s.Open(structure);
         FillPalette();
@@ -365,8 +367,20 @@ public partial class BlueprintEditor : Control
         {
             case PlanView.Orbit: _s.Camera.SetOrbit(); break;
             case PlanView.Top: _s.Camera.SetTop(); break;
+            case PlanView.Walk: StartWalk(); return;
             default: _s.Camera.SetSection(_s.DefaultSectionLayer()); break;
         }
+        SyncViewButtons();
+        _sceneDirty = true; _refresh = true;
+    }
+
+    /// <summary>The walkthrough preview: drops the camera inside the selected module (or the cockpit or core) at eye height.</summary>
+    public void StartWalk()
+    {
+        if (_s.FloorModule is not null) CloseFloor();
+        if (!_s.StartWalk()) { Say?.Invoke(Loc.T("bp.walk.nothing")); return; }
+        _hoverCell = null;
+        Say?.Invoke(Loc.T("bp.walk.hint"));
         SyncViewButtons();
         _sceneDirty = true; _refresh = true;
     }
@@ -422,34 +436,5 @@ public partial class BlueprintEditor : Control
     {
         if (_s.Dirty && !_discardArmed) { _discardArmed = true; Say?.Invoke(Loc.T("bp.discard")); return; }
         CloseRequested?.Invoke();
-    }
-
-    // ---- the save-as-blueprint slot hook (a stub: one file per slot under user://; slots, presets and variants come later) ----------
-
-    private string SlotPath(int slot) => $"user://blueprints/{(_structure >= 0 ? "station" : "ship")}_slot{slot}.txt";
-
-    public bool SaveSlot(int slot)
-    {
-        try
-        {
-            DirAccess.MakeDirRecursiveAbsolute("user://blueprints");
-            using var f = FileAccess.Open(SlotPath(slot), FileAccess.ModeFlags.Write);
-            if (f is null) { Say?.Invoke(Loc.T("bp.saveFailed")); return false; }
-            f.StoreString(BlueprintFormat.Serialize(_s.Draft, _structure >= 0 ? "station" : "ship"));
-            Say?.Invoke(Loc.T("bp.saved", slot));
-            return true;
-        }
-        catch (Exception) { Say?.Invoke(Loc.T("bp.saveFailed")); return false; }
-    }
-
-    public bool LoadSlot(int slot)
-    {
-        if (!FileAccess.FileExists(SlotPath(slot))) { Say?.Invoke(Loc.T("bp.loadNone", slot)); return false; }
-        using var f = FileAccess.Open(SlotPath(slot), FileAccess.ModeFlags.Read);
-        var parsed = f is null ? null : BlueprintFormat.Parse(f.GetAsText());
-        if (parsed is null) { Say?.Invoke(Loc.T("bp.loadNone", slot)); return false; }
-        var r = _s.Draft.ReplaceWith(parsed.Value.Parts);
-        Say?.Invoke(Loc.T("bp.loaded", r.Done));
-        return true;
     }
 }
