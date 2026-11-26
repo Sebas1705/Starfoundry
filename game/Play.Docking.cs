@@ -132,7 +132,7 @@ public partial class Play
         }
         if (Standing) { ToastLogistics(L("toast.sitToFly")); return; }
         if (!_dockNear) { ToastLogistics(L("toast.noPortNear", DockGuideCells)); return; }
-        if (_dockAssist) { _dockAssist = false; SendThrust((0, 0, 0), force: true); ToastLogistics(L("toast.approachCancelled")); return; }
+        if (_dockAssist) { ToastLogistics(L("toast.dockInProgress")); return; } // a second F does not cancel it: Esc or flying by hand does
         if (_dockCand.InRange && _dockCand.SlowEnough && _dockCand.Aligned)
         {
             Send(new DockAt(_dockCand.Station, _dockCand.Mx, _dockCand.My, _dockCand.Mz, _dockCand.Face));
