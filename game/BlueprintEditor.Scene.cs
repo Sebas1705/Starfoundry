@@ -79,7 +79,7 @@ void fragment() {
         foreach (var c in n.GetChildren()) Overlay(c, m);
     }
 
-    private int ShipVariant => Math.Max(0, _world().Network.ShipStructure(_player));
+    private int ShipVariant => _s.StructureId >= 0 ? _s.StructureId : Math.Max(0, _world().Network.ShipStructure(_player));
 
     /// <summary>One module drawn as it would stand: a holder at the cell's centre (so a quarter turn pivots about it) around the real module model.</summary>
     private Node3D Part(ModuleKind kind, (int Mx, int My, int Mz) cell, Func<int, int, int, ModuleKind?> kindAt, int rotation, Material? overlay, float scale = 1f)

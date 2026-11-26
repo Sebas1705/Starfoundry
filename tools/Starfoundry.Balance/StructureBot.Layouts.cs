@@ -477,11 +477,15 @@ public sealed partial class StructureBot
         if (s.Modules.ContainsKey((mx, my, mz))) return 0;
         var (ox, oy, oz) = Origin(mx, my, mz);
         EnsureRange(st, ox + 4, oy + 2, oz + 4);
-        var res = Act(new PlaceModuleIn(st, mx, my, mz, kind));
+        // ADR 0043: a station of a new world is edited as a blueprint (its whole module list plus the new one); ships and legacy worlds place one module.
+        Command place = s.Kind == StructureKind.Station && Net.BlueprintRules
+            ? new ApplyBlueprint(st, s.Modules.Select(kv => new DesignModule(kv.Key.Mx, kv.Key.My, kv.Key.Mz, kv.Value)).Append(new DesignModule(mx, my, mz, kind)).ToArray())
+            : new PlaceModuleIn(st, mx, my, mz, kind);
+        var res = Act(place);
         if (!res.Ok)
         {
             if (res.Reject == Reject.NotEnoughItems) return PlaceModule(st, mx, my, mz, kind);
-            Stuck($"PlaceModuleIn {kind} at ({mx},{my},{mz}) of structure {st} was rejected: {res.Reject}");
+            Stuck($"{place.GetType().Name} {kind} at ({mx},{my},{mz}) of structure {st} was rejected: {res.Reject}");
             return -1;
         }
         return 1;

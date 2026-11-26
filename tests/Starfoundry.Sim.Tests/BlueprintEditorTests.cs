@@ -560,7 +560,7 @@ public class BlueprintEditorTests
         Assert.Equal(1, s.Selection.Count);
         Assert.True(s.CanApply, string.Join(", ", s.Validation.Entries.Select(e => e.Code)));
         var cmd = s.ToCommand();
-        Assert.Equal(s.Draft.ToModules(), cmd.Modules);
+        Assert.Equal(s.Draft.ToModules(), Assert.IsType<DesignerApply>(cmd).Modules);
         w.Submit(0, cmd);
         w.Step();
         Assert.Equal(Reject.None, w.LastResults.Single().Reject);

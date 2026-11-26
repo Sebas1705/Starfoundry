@@ -26,7 +26,7 @@ public partial class Play
 
     private bool ComputerOpen => _computerTab is not null;
 
-    private ComputerAvailability ComputerAvail => new(Net.Galaxy is not null, ShipyardDocked || _uiAudit);
+    private ComputerAvailability ComputerAvail => new(Net.Galaxy is not null, ShipyardDocked || DockedOwnStation >= 0 || _uiAudit);
 
     // ---- building -----------------------------------------------------------------------------------------------
 

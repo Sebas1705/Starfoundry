@@ -18,6 +18,11 @@ public sealed class BlueprintSession
     private readonly HashSet<(int Mx, int My, int Mz)> _selection = new();
 
     public BlueprintDraft Draft { get; } = new();
+
+    /// <summary>The structure being edited: -1 for the player's own ship, else a station's id (ADR 0043).</summary>
+    public int StructureId { get; private set; } = -1;
+
+    public StructureKind StructureKind => Draft.Kind;
     public BlueprintCamera Camera { get; } = new();
     public BlueprintTool Tool { get; private set; } = BlueprintTool.Select;
     public ModuleKind? Kind { get; private set; }
@@ -50,13 +55,18 @@ public sealed class BlueprintSession
     /// <summary>True when Apply can be pressed: the draft differs from the ship and nothing in it blocks.</summary>
     public bool CanApply => Draft.Dirty && !Validation.HasErrors && Report.Ok;
 
-    /// <summary>Opens the session on the ship's current layout (also after an apply).</summary>
-    public void Open()
+    /// <summary>Opens the session on the ship's current layout, or on a station's when <paramref name="structure"/> names one (also after an apply).</summary>
+    public void Open(int structure = -1)
     {
         var net = _world().Network;
-        int ship = net.ShipStructure(_player);
+        StructureId = structure;
+        int ship = structure >= 0 ? structure : net.ShipStructure(_player);
         _selection.Clear(); Carrying = null; Kind = null; Tool = BlueprintTool.Select;
-        if (ship >= 0) Draft.Load(net.GetStructure(ship).Modules);
+        if (ship >= 0)
+        {
+            var st = net.GetStructure(ship);
+            Draft.Load(st.Modules, st.Kind, structure >= 0 ? structure : -1);
+        }
         var (min, max) = Draft.Bounds(1);
         Camera.Frame(min, max);
         Recompute();
@@ -75,6 +85,12 @@ public sealed class BlueprintSession
     {
         var n = _world().Network;
         if (!n.TryGetDock(_player, out var dock)) return null;
+        if (StructureKind == StructureKind.Station)
+        {
+            if (dock.Station != StructureId) return null;
+            var sf = Dirs.Vector(dock.StationFace);
+            return ((dock.StationMx, dock.StationMy, dock.StationMz), (dock.StationMx + sf.X, dock.StationMy, dock.StationMz + sf.Z));
+        }
         var f = Dirs.Vector(dock.ShipFace);
         return ((dock.ShipMx, dock.ShipMy, dock.ShipMz), (dock.ShipMx + f.X, dock.ShipMy, dock.ShipMz + f.Z));
     }
@@ -89,7 +105,8 @@ public sealed class BlueprintSession
     {
         var n = _world().Network;
         int have = n.HoldCount(_player, item);
-        if (n.TryGetShipyard(_player, out int station)) have += n.StockCount(station, item);
+        if (StructureKind == StructureKind.Station) have += n.StockCount(StructureId, item); // a station blueprint pays from the hold, then this station's stock
+        else if (n.TryGetShipyard(_player, out int station)) have += n.StockCount(station, item);
         return have;
     }
 
@@ -101,7 +118,7 @@ public sealed class BlueprintSession
         Stats = ShipStats.Compute(Draft.Modules.Values, _content, _handling, bonuses);
         StatsBefore = ShipStats.Compute(Draft.Original.Values, _content, _handling, bonuses);
         var port = DockPort();
-        Validation = BlueprintValidation.Check(Draft, _content, Report, Stats, StatsBefore, port?.Port, port?.Face, requireDock: !w.Network.Rules.LegacyDock);
+        Validation = BlueprintValidation.Check(Draft, _content, Report, Stats, StatsBefore, port?.Port, port?.Face, requireDock: !w.Network.Rules.LegacyDock, kind: StructureKind);
         Diff = BlueprintDiff.Compute(Draft.Original, Draft.Modules, Validation.InvalidCells);
         Cost = BlueprintCost.Compute(Diff, _content, Pays, Available);
         Changed?.Invoke();
@@ -241,7 +258,10 @@ public sealed class BlueprintSession
     public void Revert() { Draft.Revert(); _selection.Clear(); Carrying = null; }
 
     /// <summary>The one command that applies the draft.</summary>
-    public DesignerApply ToCommand() => Draft.ToCommand();
+    public Command ToCommand() => Draft.ToCommand();
+
+    /// <summary>The rows of the stats panel for what is being edited.</summary>
+    public IReadOnlyList<StatRow> StatRows() => Starfoundry.Ui.StatRows.Build(Stats, StatsBefore, StructureKind);
 
     /// <summary>Frames the part a validation entry is about (the whole ship when it has no cells).</summary>
     public void Frame(ValidationEntry entry)

@@ -667,6 +667,9 @@ public sealed partial class SimWorld
             case DesignerApply da:
                 return DesignerApplyCore(player, da);
 
+            case ApplyBlueprint ab:
+                return ApplyBlueprintCore(player, ab);
+
             case DockAt da:
             {
                 var r = Network.CheckDock(player, da, out var candidate, out var pose);
@@ -1014,6 +1017,7 @@ public sealed partial class SimWorld
         if (Network.Content?.Structures is not { } kinds) return Reject.NoContent;
         var found = BuildableStructure(player, p.Structure, out var s);
         if (found != Reject.None) return found;
+        if (Network.BlueprintRules && s!.Kind == StructureKind.Station) return Reject.UseBlueprint; // ADR 0043: stations are edited in the blueprint editor
         if (!Enum.IsDefined(p.Kind)) return Reject.InvalidArgument;
         if (!kinds.IsDefined(p.Kind)) return Reject.KindNotAllowed;
         if (Network.Rules.LegacyArms && ModuleKindIds.IsArmsKind(p.Kind)) return Reject.KindNotAllowed; // ADR 0042: a world from before the antenna variants and the heavy cannon has no such kinds
@@ -1054,6 +1058,7 @@ public sealed partial class SimWorld
         if (Network.Content?.Structures is not { } kinds) return Reject.NoContent;
         var found = BuildableStructure(player, r.Structure, out var s);
         if (found != Reject.None) return found;
+        if (Network.BlueprintRules && s!.Kind == StructureKind.Station) return Reject.UseBlueprint; // ADR 0043
         if (!StructureGrid.IsValidLocalModule(r.Mx, r.My, r.Mz)) return Reject.OutOfBounds;
         if (!s!.Modules.TryGetValue((r.Mx, r.My, r.Mz), out var kind)) return Reject.OutsideStation;
         var centre = ModuleCentre(s, r.Mx, r.My, r.Mz);

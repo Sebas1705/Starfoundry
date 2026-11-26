@@ -64,7 +64,14 @@ public readonly record struct StatRow(string LabelKey, string Icon, double After
 public static class StatRows
 {
     /// <summary>The rows of the panel in display order, the draft against the structure.</summary>
-    public static IReadOnlyList<StatRow> Build(ShipStats after, ShipStats before) => new[]
+    public static IReadOnlyList<StatRow> Build(ShipStats after, ShipStats before, StructureKind kind = StructureKind.Ship) => kind == StructureKind.Station ? new[]
+    {
+        new StatRow("bp.stat.power", "status:power", after.PowerBalance, before.PowerBalance, "0", true),
+        new StatRow("bp.stat.cargo", "status:cargo", after.HoldCapacity, before.HoldCapacity, "0", true),
+        new StatRow("bp.stat.defence", "status:shield", after.DefencePercent, before.DefencePercent, "0", true),
+        new StatRow("bp.stat.shields", "status:shieldOk", after.Shields, before.Shields, "0", true),
+        new StatRow("bp.stat.hull", "status:hull", after.HullHp, before.HullHp, "0", true),
+    } : new[]
     {
         new StatRow("bp.stat.power", "status:power", after.PowerBalance, before.PowerBalance, "0", true),
         new StatRow("bp.stat.mass", "tool:hold", after.Mass, before.Mass, "0.0", false),

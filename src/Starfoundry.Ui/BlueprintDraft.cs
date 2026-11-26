@@ -38,6 +38,15 @@ public sealed class BlueprintDraft
 
     public int Count => _kinds.Count;
 
+    /// <summary>What the draft is a blueprint of: a ship (applied with <see cref="DesignerApply"/>) or a station (applied with <see cref="ApplyBlueprint"/>, ADR 0043).</summary>
+    public StructureKind Kind { get; private set; } = StructureKind.Ship;
+
+    /// <summary>The structure the draft belongs to (a station's id); -1 for the player's own ship.</summary>
+    public int StructureId { get; private set; } = -1;
+
+    /// <summary>Most modules the draft may hold.</summary>
+    public int Max => Kind == StructureKind.Station ? DesignerRules.MaxStationModules : DesignerRules.MaxModules;
+
     public bool CanUndo => _undo.Count > 0;
 
     public bool CanRedo => _redo.Count > 0;
@@ -55,8 +64,9 @@ public sealed class BlueprintDraft
     // ---- loading and the plain state --------------------------------------------------------------------------
 
     /// <summary>Loads the structure's modules as the draft and as the layout Revert goes back to; the history and the clipboard are cleared.</summary>
-    public void Load(IEnumerable<KeyValuePair<(int Mx, int My, int Mz), ModuleKind>> modules)
+    public void Load(IEnumerable<KeyValuePair<(int Mx, int My, int Mz), ModuleKind>> modules, StructureKind kind = StructureKind.Ship, int structureId = -1)
     {
+        Kind = kind; StructureId = structureId;
         _kinds.Clear(); _rotation.Clear(); _original.Clear(); _undo.Clear(); _redo.Clear(); _clipboard = new();
         foreach (var (k, v) in modules) { _kinds[k] = v; _original[k] = v; }
         Changed?.Invoke();
@@ -79,11 +89,12 @@ public sealed class BlueprintDraft
     /// <summary>The module list the command carries.</summary>
     public DesignModule[] ToModules() => _kinds.Select(kv => new DesignModule(kv.Key.Mx, kv.Key.My, kv.Key.Mz, kv.Value)).ToArray();
 
-    /// <summary>The one command that applies the draft.</summary>
-    public DesignerApply ToCommand() => new(ToModules());
+    /// <summary>The one command that applies the draft: <see cref="ApplyBlueprint"/> for a station, <see cref="DesignerApply"/> for the ship.</summary>
+    public Command ToCommand() => Kind == StructureKind.Station ? new ApplyBlueprint(StructureId, ToModules()) : new DesignerApply(ToModules());
 
-    /// <summary>The simulation's verdict and price for the draft, for a player docked at a shipyard.</summary>
-    public DesignReport Check(SimWorld world, int player) => world.CheckDesign(player, ToModules());
+    /// <summary>The simulation's verdict and price for the draft (the same code the apply runs): for a ship docked at a shipyard, or for the station being edited.</summary>
+    public DesignReport Check(SimWorld world, int player) =>
+        Kind == StructureKind.Station ? world.CheckBlueprint(player, StructureId, ToModules()) : world.CheckDesign(player, ToModules());
 
     /// <summary>The bounds of the draft (inclusive), widened by <paramref name="margin"/> modules on every side; a small box around the origin when it is empty.</summary>
     public ((int X, int Y, int Z) Min, (int X, int Y, int Z) Max) Bounds(int margin = 1)
@@ -152,7 +163,7 @@ public sealed class BlueprintDraft
     /// <summary>Replaces the whole draft by a saved blueprint's parts (one undoable step); cells that are not valid or exceed the limit are skipped.</summary>
     public BulkResult ReplaceWith(IEnumerable<((int Mx, int My, int Mz) Cell, ModuleKind Kind, int Rotation)> parts)
     {
-        var plan = parts.Where(p => StructureGrid.IsValidLocalModule(p.Cell.Mx, p.Cell.My, p.Cell.Mz)).Take(DesignerRules.MaxModules).ToList();
+        var plan = parts.Where(p => StructureGrid.IsValidLocalModule(p.Cell.Mx, p.Cell.My, p.Cell.Mz)).Take(Max).ToList();
         int skipped = parts.Count() - plan.Count;
         Push();
         _kinds.Clear(); _rotation.Clear();
@@ -167,10 +178,10 @@ public sealed class BlueprintDraft
 
     public DesignEditResult Add((int Mx, int My, int Mz) key, ModuleKind kind, ContentDb content, int rotation = 0)
     {
-        if (!ShipDesignEditor.Catalogue(content).Contains(kind)) return DesignEditResult.KindNotAllowed;
+        if (!ShipDesignEditor.Catalogue(content, Kind).Contains(kind)) return DesignEditResult.KindNotAllowed;
         if (!StructureGrid.IsValidLocalModule(key.Mx, key.My, key.Mz)) return DesignEditResult.OutOfBounds;
         if (_kinds.ContainsKey(key)) return DesignEditResult.Occupied;
-        if (_kinds.Count >= DesignerRules.MaxModules) return DesignEditResult.TooManyModules;
+        if (_kinds.Count >= Max) return DesignEditResult.TooManyModules;
         Push();
         _kinds[key] = kind;
         if (rotation != 0) _rotation[key] = rotation & 3;
@@ -279,7 +290,7 @@ public sealed class BlueprintDraft
         {
             var t = Reflect(key, axis, plane2);
             bool free = CellFree(t) && taken.Add((t.Mx, t.My, t.Mz));
-            if (free && _kinds.Count + plan.Count < DesignerRules.MaxModules) plan.Add((t, kind, axis == GridAxis.Y ? rot : (4 - rot) & 3)); else skipped++;
+            if (free && _kinds.Count + plan.Count < Max) plan.Add((t, kind, axis == GridAxis.Y ? rot : (4 - rot) & 3)); else skipped++;
         }
         if (plan.Count == 0) return new(0, skipped);
         Push();
@@ -308,13 +319,13 @@ public sealed class BlueprintDraft
     public BulkResult Paste((int Mx, int My, int Mz) anchor, ContentDb content)
     {
         if (_clipboard.Count == 0) return new(0, 0);
-        var allowed = ShipDesignEditor.Catalogue(content);
+        var allowed = ShipDesignEditor.Catalogue(content, Kind);
         var plan = new List<((int Mx, int My, int Mz) At, ModuleKind Kind, int Rot)>();
         int skipped = 0;
         foreach (var (off, kind, rot) in _clipboard)
         {
             var at = (anchor.Mx + off.Mx, anchor.My + off.My, anchor.Mz + off.Mz);
-            if (CellFree(at) && allowed.Contains(kind) && _kinds.Count + plan.Count < DesignerRules.MaxModules) plan.Add((at, kind, rot)); else skipped++;
+            if (CellFree(at) && allowed.Contains(kind) && _kinds.Count + plan.Count < Max) plan.Add((at, kind, rot)); else skipped++;
         }
         if (plan.Count == 0) return new(0, skipped);
         Push();

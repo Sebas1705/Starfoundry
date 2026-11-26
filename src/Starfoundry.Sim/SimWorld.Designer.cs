@@ -92,7 +92,27 @@ public sealed partial class SimWorld
         if (Network.HoldCapacityOfKinds(next.Values) < Network.HoldLoadOf(player)) return Fail(Reject.NoRoom);
         if (Network.DesignOverlaps(ship, next.Keys)) return Fail(Reject.Overlap);
 
-        // The price: a module that only moves (a removal and an addition of one kind cancel) costs nothing; the rest pays full price and refunds half.
+        var (addedByKind, cost, refund, moved, affordable) = PriceDesign(player, station, kinds, old, removed, added);
+        if (!affordable) return new DesignReport(Reject.NotEnoughItems, cost, refund, added.Count, removed.Count, moved);
+        var report = new DesignReport(Reject.None, cost, refund, added.Count, removed.Count, moved);
+        if (!apply) return report;
+
+        if (cost.Length > 0) Network.PayDesign(player, station, cost);
+        Network.ApplyDesign(shipId, removed, added);
+        if (refund.Length > 0) Network.Refund(player, refund);
+        foreach (var (kind, n) in addedByKind)
+            for (int i = 0; i < n; i++) Network.CountModuleBuilt(kind); // a module that only moved was not built again
+        return report;
+    }
+
+    /// <summary>
+    /// The price of a module change, shared by the ship designer and the blueprint editor so both give one answer: a module that only moves (a removal and an addition of one
+    /// kind cancel) costs nothing, the rest pays in full and a removed module refunds half; the hold pays first and the stock of <paramref name="station"/> the rest.
+    /// </summary>
+    private (Dictionary<ModuleKind, int> AddedByKind, ItemStack[] Cost, ItemStack[] Refund, int Moved, bool Affordable) PriceDesign(
+        int player, int station, StructureContent kinds, IReadOnlyDictionary<(int Mx, int My, int Mz), ModuleKind> old,
+        List<(int Mx, int My, int Mz)> removed, List<DesignModule> added)
+    {
         var addedByKind = added.GroupBy(m => m.Kind).ToDictionary(g => g.Key, g => g.Count());
         var removedByKind = removed.GroupBy(k => old[k]).ToDictionary(g => g.Key, g => g.Count());
         int moved = 0;
@@ -112,15 +132,6 @@ public sealed partial class SimWorld
         bool pays = Campaign && !Network.Rules.FreeBuild;
         var cost = pays ? net.Where(kv => kv.Value > 0).Select(kv => new ItemStack(kv.Key, kv.Value)).ToArray() : NoStacks;
         var refund = pays ? net.Where(kv => kv.Value < 0).Select(kv => new ItemStack(kv.Key, -kv.Value)).ToArray() : NoStacks;
-        if (pays && !Network.CanPayDesign(player, station, cost)) return new DesignReport(Reject.NotEnoughItems, cost, refund, added.Count, removed.Count, moved);
-        var report = new DesignReport(Reject.None, cost, refund, added.Count, removed.Count, moved);
-        if (!apply) return report;
-
-        if (cost.Length > 0) Network.PayDesign(player, station, cost);
-        Network.ApplyDesign(shipId, removed, added);
-        if (refund.Length > 0) Network.Refund(player, refund);
-        foreach (var (kind, n) in addedByKind)
-            for (int i = 0; i < n; i++) Network.CountModuleBuilt(kind); // a module that only moved was not built again
-        return report;
+        return (addedByKind, cost, refund, moved, !pays || Network.CanPayDesign(player, station, cost));
     }
 }

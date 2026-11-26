@@ -40,6 +40,7 @@ public static class RejectTexts
         Reject.Depleted => "why.depleted",
         Reject.NotAShipRecipe => "toast.reject.notAShipRecipe",
         Reject.UseStation => "toast.reject.useStation",
+        Reject.UseBlueprint => "toast.reject.useBlueprint",
         Reject.OutOfRange => "why.outOfRange",
         Reject.NoGalaxy => "toast.reject.noGalaxy",
         Reject.UnknownSystem => "toast.reject.unknownSystem",

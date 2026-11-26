@@ -562,6 +562,7 @@ public static partial class Loc
         ["toast.reject.wrongRole"] = ("Esa máquina no sirve para eso", "That machine cannot be used for that"),
         ["toast.reject.notAShipRecipe"] = ("Esa receta no es de la microrrefinería de la nave", "That recipe is not for the ship's micro-refinery"),
         ["toast.reject.useStation"] = ("La automatización se construye en una estación, no en la nave", "Automation is built in a station, not on the ship"),
+        ["toast.reject.useBlueprint"] = ("Las estaciones se editan en el plano de blueprint: abre la consola del núcleo (F)", "Stations are edited in the blueprint plan: open the core console (F)"),
         ["toast.reject.noGalaxy"] = ("Este mundo no tiene galaxia", "This world has no galaxy"),
         ["toast.reject.unknownSystem"] = ("Ese sistema no existe", "That system does not exist"),
         ["toast.reject.noDroneBay"] = ("Esa estructura no tiene un hangar de drones", "That structure has no drone bay"),

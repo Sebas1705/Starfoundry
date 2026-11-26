@@ -32,6 +32,7 @@ public partial class Play
             {
                 if (ModuleKindIds.IsReactor(module.Kind)) return HintInteract.Reactor;
                 if (module.Kind == ModuleKind.Shipyard && ShipyardDocked) return HintInteract.Shipyard;
+                if (module.Kind == ModuleKind.Core && StationBlueprintAt(module.S)) return HintInteract.CoreConsole; // ADR 0043
             }
             if (_hover.Kind == HoverKind.Deposit && _structuresOn && DroneStructure() >= 0) return HintInteract.Drones;
         }
@@ -43,6 +44,12 @@ public partial class Play
         }
         return CanWalk ? HintInteract.Stand : HintInteract.None;
     }
+
+    /// <summary>True for a station of the player's in a world where stations are edited in the blueprint editor.</summary>
+    private bool StationBlueprintAt(int structure) =>
+        Net.BlueprintRules && Net.StructureExists(structure) && Net.GetStructure(structure).Kind == StructureKind.Station && Net.GetStructure(structure).Owner == Player;
+
+    private void OpenStationBlueprintDeferred(int station) => OpenStationBlueprint(station);
 
     private void InteractKey()
     {
@@ -61,6 +68,9 @@ public partial class Play
                 if (AimedModule() is { } reactor) OpenInventoryOn(ContainerRef.Reactor(reactor.S, reactor.Key.Mx, reactor.Key.My, reactor.Key.Mz));
                 break;
             case HintInteract.Shipyard: OpenComputer(ComputerTab.Designer); break;
+            case HintInteract.CoreConsole:
+                if (AimedModule() is { } core) CallDeferred(nameof(OpenStationBlueprintDeferred), core.S);
+                break;
             case HintInteract.Bench: ToggleRefinery(); break;
             case HintInteract.BenchPanel: BenchKey(); break;
             case HintInteract.Drones: AssignDronesKey(); break;

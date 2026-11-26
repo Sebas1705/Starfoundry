@@ -6,6 +6,7 @@ public static partial class Loc
     private static readonly Dictionary<string, (string Es, string En)> BlueprintTable = new()
     {
         ["bp.title"] = ("Plano 3D de la nave", "3D ship plan"),
+        ["bp.title.station"] = ("Plano 3D de la estación", "3D station plan"),
         ["bp.subtitle"] = ("Edita la estructura, mira cómo quedará y cuánto cuesta antes de aplicar.", "Edit the structure and see how it will look and what it costs before applying."),
         ["bp.close"] = ("Cerrar", "Close"),
         ["bp.open"] = ("Abrir el plano 3D", "Open the 3D plan"),
@@ -96,7 +97,10 @@ public static partial class Loc
         ["bp.val.noEngine"] = ("Falta un motor", "An engine is missing"),
         ["bp.val.noReactor"] = ("Falta un reactor", "A reactor is missing"),
         ["bp.val.noDock"] = ("Falta un módulo de enganche: sin él la nave no puede atracar", "A dock module is missing: without one the ship cannot dock"),
+        ["bp.val.noDockStation"] = ("Falta un módulo de enganche: sin él ninguna nave puede atracar", "A dock module is missing: without one no ship can dock"),
+        ["bp.val.noCore"] = ("El núcleo debe seguir donde está", "The core must stay where it is"),
         ["bp.val.noCargo"] = ("Falta un módulo de carga", "A cargo module is missing"),
+        ["bp.val.disconnectedStation"] = ("{0} módulos quedan separados del núcleo: la estación debe ser una sola pieza", "{0} modules are cut off from the core: the station must be one piece"),
         ["bp.val.disconnected"] = ("{0} módulos quedan separados del resto: la nave debe ser una sola pieza", "{0} modules are cut off from the rest: the ship must be one piece"),
         ["bp.val.port"] = ("El puerto de atraque debe seguir ahí, del mismo tipo", "The docking port must stay, of the same kind"),
         ["bp.val.portBlocked"] = ("Hay un módulo delante del puerto de atraque", "A module stands in front of the docking port"),

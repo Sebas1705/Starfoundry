@@ -69,5 +69,12 @@ Run `--blueprint-shot` with a window (and `--ui-audit` for the new panels) and l
 9. The settings page check "Classic designer" and the classic panel's "3D plan" button.
 10. Performance of a 128-module ship: the scene is rebuilt on every change (module models are cached by the model builder); look for a hitch while editing.
 
+## Phase 3: stations in the same editor ([ADR 0043](../adr/0043-stations-are-edited-as-blueprints-with-applyblueprint.md))
+- Opens on a station with `F` while aiming at its **core** (the core console) and from the ship computer's Designer tab when the ship is docked at one of your stations and no shipyard is at hand. The title reads "3D station plan".
+- The palette is the station catalogue (reactors, cargo, bays, defence, hull, shipyard, drone bay, shield, antennas, dock); no cockpit, engine, hardpoint or core. The stats panel shows power, hold, defence, shields and hull points.
+- Validation adds "the core must stay" and "a dock module is missing" (station wording) and drops the ship-only checks; the simulation's own refusals (a module that holds a machine, the docked port, range, research, items) still come from its verdict, so the list never reads valid for a draft `ApplyBlueprint` refuses. Items are paid from the hold, then the station's stock.
+- Apply sends one `ApplyBlueprint`. In new worlds the in-world module tool is refused on stations (`Reject.UseBlueprint`); legacy worlds and logs keep it.
+- Headless: the second half of `--blueprint-check` opens the editor on a station, checks the palette, the layouts, the diff, cost and verdict against the simulation, the core and dock errors, and applies a module.
+
 ## What remains for phases 3 to 5
-Station modules through `ApplyBlueprint` (phase 3), station interior floor plans with machines, belts and turrets and the machine panel (phase 4), then demolish and repair shortcuts, blueprint slots and variants, the walkthrough preview, performance of large stations, determinism and old-log replay tests and hand testing (phase 5). Phase 2 needs no ADR (no sim rule changed); the `ApplyBlueprint` generalisation will carry ADR 0039 or its successor.
+Station interior floor plans with machines, belts and turrets and the machine panel (phase 4), then demolish and repair shortcuts, blueprint slots and variants, the walkthrough preview, performance of large stations, determinism and old-log replay tests and hand testing (phase 5). Phase 2 needs no ADR (no sim rule changed); `ApplyBlueprint` is ADR 0043.
