@@ -287,7 +287,7 @@ public class DockModuleTests
         var bad = legacy.Serialize();
         int flags2 = Array.IndexOf(bad, (byte)32);
         Assert.True(flags2 > 0);
-        bad[flags2] = 64;
+        bad[flags2] = 128;
         Assert.Throws<InvalidDataException>(() => WorldRules.Deserialize(bad));
         Assert.Equal(legacy.Clamped(), legacy);
     }
