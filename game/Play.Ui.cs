@@ -218,13 +218,16 @@ public partial class Play
         _toolbar.MouseFilter = Control.MouseFilterEnum.Ignore;
         BuildKeyPanel();
 
-        _modeHint = MakeText(14, new Color(0.85f, 0.92f, 1f));
+        _modeHint = new HintLabel { MouseFilter = Control.MouseFilterEnum.Ignore };
+        _modeHint.AddThemeColorOverride("font_color", new Color(0.85f, 0.92f, 1f));
+        _modeHint.AddThemeFontSizeOverride("font_size", 14);
         _modeHint.AddThemeColorOverride("font_outline_color", Colors.Black);
         _modeHint.AddThemeConstantOverride("outline_size", 5);
         _uiRoot.AddChild(_modeHint);
 
         // At most three notifications, each coloured by its category.
         _toastBox = new VBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        _toastBox.AddThemeConstantOverride("separation", 6);
         for (int i = 0; i < _toastLabels.Length; i++)
         {
             var l = MakeText(16);
@@ -235,7 +238,7 @@ public partial class Play
             l.Visible = false;
             _toastLabels[i] = l;
             // A small icon of the category before the text (the colour alone does not say it to everyone).
-            var row = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore, Alignment = BoxContainer.AlignmentMode.Center, Visible = false };
+            var row = new ToastRow { Alignment = BoxContainer.AlignmentMode.Center, Visible = false };
             row.AddThemeConstantOverride("separation", 6);
             var icon = new IconRect("status:objective", 20, null, tooltip: false);
             _toastIcons[i] = icon;
@@ -274,7 +277,7 @@ public partial class Play
         _map = new MapPanel { Visible = false };
         _map.SystemPicked += id => _selectedSystem = id; // click a dot on the 3D map to choose it
         _uiRoot.AddChild(_map);
-        _mapList = MakeText(13);
+        _mapList = UiFonts.Num(MakeText(10)); // a monospaced face: the padded columns of the system list line up
         _mapList.AddThemeColorOverride("font_outline_color", Colors.Black);
         _mapList.AddThemeConstantOverride("outline_size", 4);
         _mapList.AddThemeStyleboxOverride("normal", new StyleBoxFlat { BgColor = new Color(0.02f, 0.03f, 0.06f, 0.7f), ContentMarginLeft = 6, ContentMarginRight = 6, ContentMarginTop = 3, ContentMarginBottom = 3 });
@@ -1286,6 +1289,16 @@ public partial class Play
         if (_helpOpen) _helpText.Text = InputActions.HelpText();
     }
 
+    /// <summary>Sizes the toast column to the rows that are visible now. A container only refreshes its minimum size at the end of the frame, so a row that appeared or went this frame would leave the column one row too short or too tall for a frame.</summary>
+    private void ResizeToastBox(float width)
+    {
+        float h = 0f;
+        int shown = 0;
+        foreach (var r in _toastRows) if (r.Visible) { h += r.GetCombinedMinimumSize().Y; shown++; }
+        if (shown > 1) h += 6f * (shown - 1);
+        _toastBox.Size = new Vector2(width, h);
+    }
+
     private void UpdateToasts()
     {
         double now = Time.GetTicksMsec() / 1000.0;
@@ -1414,7 +1427,7 @@ public partial class Play
         if (_mapOpen && Net.Galaxy is not null) toastWidth = Math.Min(toastWidth, Math.Max(300f, size.X - 784f));
         _toastMax = toastWidth - 30f; // minus the category icon; each label shrinks to its own text up to this width
         _toastBox.CustomMinimumSize = new Vector2(toastWidth, 0);
-        _toastBox.ResetSize();
+        ResizeToastBox(toastWidth);
         _toastBox.Position = new Vector2(toastCentre - toastWidth / 2f, _modeHint.Position.Y - 8 - _toastBox.Size.Y);
         // The stack never reaches the centre 30 percent of the view: the oldest lines go first, and a single long line is cut to what fits.
         float floorY = size.Y * 0.65f;
@@ -1424,9 +1437,13 @@ public partial class Play
             int shown = _toastRows.Count(r => r.Visible);
             if (shown <= 1) break;
             _toastRows[i].Visible = _toastLabels[i].Visible = false;
-            _toastBox.ResetSize();
+            ResizeToastBox(toastWidth);
             _toastBox.Position = new Vector2(toastCentre - toastWidth / 2f, _modeHint.Position.Y - 8 - _toastBox.Size.Y);
         }
+        foreach (var r in _toastRows) if (r.Visible) r.Notification((int)Container.NotificationSortChildren);
+        _toastBox.Notification((int)Container.NotificationSortChildren);
+        foreach (var r in _toastRows) if (r.Visible) r.Notification((int)Container.NotificationSortChildren); // the rows get their size from the column, their labels from the rows
+        // lay the rows out now: the column was just resized and rows hidden, and the end-of-frame sort would leave them where they were for one frame
         var objSize = _objectivesPanel.GetCombinedMinimumSize();
         var column = DockRect(size);
         float re = ComputerOpen ? column.End.X + 2f : size.X; // the right edge of the column the info cards and the map use: the ship computer's, when it is open
@@ -1442,7 +1459,7 @@ public partial class Play
             _map.CustomMinimumSize = new Vector2(side, side);
             _map.Size = _map.CustomMinimumSize;
             _map.Position = new Vector2(re - side - 12, y);
-            _mapList.Position = new Vector2(re - 380, y + side + 6);
+            _mapList.Position = new Vector2(re - Math.Max(380f, listSize.X + 12f), y + side + 6);
             _btnJump.Position = new Vector2(re - 162, _mapList.Position.Y + listSize.Y + 6);
             // When the column does not fit above the key panel (a tall steps card), the Jump button moves to the left of the map.
             if (_btnJump.Position.Y + jumpSize.Y > keyTop - 4f) _btnJump.Position = new Vector2(_map.Position.X - jumpSize.X - 8f, _map.Position.Y + side - jumpSize.Y);

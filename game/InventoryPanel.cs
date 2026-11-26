@@ -354,7 +354,7 @@ public partial class InventoryPanel : Control
             b.AddThemeConstantOverride("icon_max_width", 16);
             b.CustomMinimumSize = new Vector2(chipWidth, 0);
             b.TooltipText = Loc.T(InventoryView.CategoryKey(c));
-            UiFit.ShrinkButton(b, Loc.T(InventoryView.CategoryKey(c)), chipWidth, 12, 9, iconWidth: 20f);
+            if (UiFit.ShrinkButton(b, Loc.T(InventoryView.CategoryKey(c)), chipWidth, 12, 10, iconWidth: 20f)) { b.Text = ""; b.Alignment = HorizontalAlignment.Center; } // a name that does not fit leaves the icon alone (the tooltip has the name)
             chips.AddChild(b);
             _chips[c] = b;
         }
@@ -370,7 +370,7 @@ public partial class InventoryPanel : Control
         sort.Icon = Icons.Get("tool:sort", 18);
         sort.ExpandIcon = false;
         sort.TooltipText = Loc.T("inv.sort.tip");
-        UiFit.ShrinkButton(sort, Loc.T("inv.sort"), columns * _tile / 2f, 13, 10, iconWidth: 22f);
+        if (UiFit.ShrinkButton(sort, Loc.T("inv.sort"), columns * _tile / 2f, 13, 10, iconWidth: 22f)) sort.Text = "";
         foot.AddChild(sort);
         foot.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore });
         var binLabel = UiKit.Text(UiTheme.Small, UiTheme.Muted);

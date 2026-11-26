@@ -242,3 +242,24 @@ public partial class CostStrip : Control
         if (shown < _items.Length) DrawString(font, new Vector2(x, y), "+" + (_items.Length - shown), HorizontalAlignment.Left, -1, Font, UiTheme.Muted);
     }
 }
+
+/// <summary>A row of a toast: its content on a soft dark pill, so a notification stays readable over a bright wall or a white floor (the outline alone was not enough).</summary>
+public partial class ToastRow : HBoxContainer
+{
+    private static readonly StyleBoxFlat Pill = MakePill();
+
+    private static StyleBoxFlat MakePill()
+    {
+        var s = UiTheme.Box(new Color(0.03f, 0.05f, 0.09f, 0.72f), new Color(0.45f, 0.58f, 0.82f, 0.22f), 9, 0f);
+        return s;
+    }
+
+    public ToastRow()
+    {
+        MouseFilter = MouseFilterEnum.Ignore;
+        SizeFlagsHorizontal = SizeFlags.ShrinkCenter;
+        Resized += QueueRedraw;
+    }
+
+    public override void _Draw() => DrawStyleBox(Pill, new Rect2(new Vector2(-9f, -2f), Size + new Vector2(18f, 4f)));
+}

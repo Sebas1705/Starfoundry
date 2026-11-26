@@ -142,6 +142,7 @@ public partial class BlueprintFloorCanvas : Control
         if (!Visible || _s.FloorModule is null) return;
         var r = PlanRect(Free);
         float cs = Cell;
+        DrawRect(new Rect2(Vector2.Zero, Size), new Color(0.025f, 0.035f, 0.06f)); // opaque: the game behind the editor must not show through the plan
         DrawRect(r.Grow(8f), new Color(0.04f, 0.06f, 0.10f, 0.92f));
         DrawRect(r.Grow(8f), UiTheme.EdgeStrong, false, 2f);
         var d = _s.Interior;
@@ -306,7 +307,7 @@ public partial class BlueprintEditor
             var def = _content.Machines[t];
             var row2 = new HBoxContainer { Name = "FloorMachineRow_" + def.Id.Replace(':', '_'), SizeFlagsHorizontal = SizeFlags.ExpandFill };
             row2.AddThemeConstantOverride("separation", 4);
-            var b = new Button { Name = "FloorMachine_" + def.Id.Replace(':', '_'), Text = Loc.T("machine." + def.Id), Alignment = HorizontalAlignment.Left, ToggleMode = true, ExpandIcon = false, FocusMode = FocusModeEnum.All, SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 30), ClipText = true };
+            var b = new Button { Name = "FloorMachine_" + def.Id.Replace(':', '_'), Text = Loc.T("machine." + def.Id), Alignment = HorizontalAlignment.Left, ToggleMode = true, ExpandIcon = false, FocusMode = FocusModeEnum.All, SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 30), ClipText = true, TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis };
             UiTheme.StyleButton(b);
             b.AddThemeFontSizeOverride("font_size", 13);
             b.Icon = Icons.Get(IconCatalog.ForMachine(def.Id), 22);
@@ -317,6 +318,7 @@ public partial class BlueprintEditor
             row2.AddChild(b);
             var costs = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
             costs.AddThemeConstantOverride("separation", 4);
+            costs.CustomMinimumSize = new Vector2(44f, 0); costs.Alignment = BoxContainer.AlignmentMode.End; // one column width, so every button ends at the same edge
             foreach (var st in def.Cost)
             {
                 var ic = new IconCount(IconCatalog.ForItem(_content.Items[st.Item].Id), 16, UiTheme.Caption);

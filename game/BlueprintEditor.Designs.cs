@@ -109,7 +109,7 @@ public partial class BlueprintEditor
         Button Act(string name, string key, Action a)
         {
             var b = UiKit.Button(Loc.T(key), a, 13, 90);
-            b.Name = name; b.ClipText = true; b.TooltipText = Loc.T(key);
+            b.Name = name; b.TooltipText = Loc.T(key); // not clipped: the row wraps, so a long label stays whole
             actions.AddChild(b);
             return b;
         }
