@@ -76,7 +76,7 @@ public partial class Play
         if (k.CtrlPressed || k.MetaPressed) return; // no binding uses them
         if (CockpitKey(k)) return; // the keys of a focused display
         string key = k.Keycode == Key.KpEnter ? "Enter" : k.Keycode.ToString();
-        var active = InputActions.Active(ComputerOpen, _tool == ToolMode.Build, Standing, IsDockedNow);
+        var active = InputActions.Active(ComputerOpen, _tool == ToolMode.Build, Standing, IsDockedNow, blueprint: BlueprintOpen);
         if (InputActions.Find(key, active) is { } action) RunAction(action.Id, k.Keycode, InputActions.SlotOf(action.Id, key));
     }
 
@@ -150,7 +150,7 @@ public partial class Play
     {
         if (KeyBindingsPage.Capturing) return; // the rebinding page is waiting for a key
         if (e is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Tab } k || k.CtrlPressed || k.AltPressed || k.ShiftPressed) return;
-        if (_demo || PauseOpen || EndOpen || StoryOpen) return;
+        if (_demo || PauseOpen || EndOpen || StoryOpen || BlueprintOpen) return;
         GetViewport().SetInputAsHandled();
         ToggleComputer();
     }

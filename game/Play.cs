@@ -165,9 +165,10 @@ public partial class Play : Node3D
         _dockShot = _dockShotPath is not null;
         _designerShotPath = args.FirstOrDefault(a => a.StartsWith("--designer-shot="))?["--designer-shot=".Length..];
         _laserShotPath = args.FirstOrDefault(a => a.StartsWith("--laser-shot="))?["--laser-shot=".Length..];
+        BlueprintSetup(args);
         FeelShotSetup(args);
         ArsenalShotSetup(args);
-        bool threats = !(args.Contains("--demo") || _exploreDemo) && _stressMachines == 0 && !((_structuresShot || _walkShot || _dockShot || _flightShot || _designerShotPath is not null || _laserShotPath is not null || args.Any(a => a.StartsWith("--gun-shot=") || a.StartsWith("--arsenal-shot=") || a.StartsWith("--overflow-shot=") || a.StartsWith("--drop-shot="))) && !args.Contains("--threats") && _defenceShotPath is null && _endShotPath is null);
+        bool threats = !(args.Contains("--demo") || _exploreDemo) && _stressMachines == 0 && !((_structuresShot || _walkShot || _dockShot || _flightShot || _designerShotPath is not null || _laserShotPath is not null || BlueprintScripted || args.Any(a => a.StartsWith("--gun-shot=") || a.StartsWith("--arsenal-shot=") || a.StartsWith("--overflow-shot=") || a.StartsWith("--drop-shot="))) && !args.Contains("--threats") && _defenceShotPath is null && _endShotPath is null);
         _stationDemo = args.Contains("--station-demo");
         // --station-demo: a sandbox world with the station rules on and a scripted station, for screenshots of the build rules.
         _gameMode = _exploreDemo || _threatDemo || _stressMachines > 0 || (_stationDemo && !args.Contains("--station-campaign")) || args.Contains("--structure-demo")
@@ -1215,6 +1216,8 @@ void fragment() {
         if (_designerShotPath is not null || _laserShotPath is not null) DesignerShotFrame();
         if (FeelShotOn) FeelShotFrame();
         if (_arsenalShotPath is not null) ArsenalShotFrame();
+        if (BlueprintScripted) BlueprintShotFrame();
+        UpdateBlueprint();
         UpdateDesigner();
         if (!_structuresOn) _stationView.Sync(Net, Player, _cursorY);
         if (_structureDemo) StructureDemoTick();

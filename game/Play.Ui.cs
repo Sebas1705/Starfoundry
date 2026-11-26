@@ -364,7 +364,7 @@ public partial class Play
         // Directional markers go last so they are never hidden under a panel.
         _markers = new MarkerLayer { Visible = false };
         _uiRoot.AddChild(_markers);
-        if (!_demo) { BuildPanels(); BuildDesigner(); }
+        if (!_demo) { BuildPanels(); BuildDesigner(); BuildBlueprint(); }
         if (!_demo) BuildPauseMenu();
         if (!_demo) BuildEndScreen();
     }
@@ -1525,6 +1525,7 @@ public partial class Play
     public override void _UnhandledInput(InputEvent e)
     {
         if (_demo || PauseOpen || EndOpen || StoryOpen) return;
+        if (BlueprintOpen && e is not InputEventKey) return; // the editor reads its own mouse
 
         switch (e)
         {
@@ -1643,7 +1644,7 @@ public partial class Play
     // ---- cursor capture ------------------------------------------------------------------------------------
 
     /// <summary>Panels that need the pointer: the help overlay, the research panel, the build menu and the star map.</summary>
-    private bool PanelOpen() => PauseOpen || EndOpen || StoryOpen || _helpOpen || ComputerOpen || ResearchOpen || BuildOpen || InventoryOpen || DesignerOpen || (_mapOpen && Net.Galaxy is not null);
+    private bool PanelOpen() => PauseOpen || EndOpen || StoryOpen || _helpOpen || ComputerOpen || ResearchOpen || BuildOpen || InventoryOpen || DesignerOpen || BlueprintOpen || (_mapOpen && Net.Galaxy is not null);
 
     /// <summary>Releases or captures the mouse so it matches what the player wants and what is on screen.</summary>
     private void UpdateCapture()

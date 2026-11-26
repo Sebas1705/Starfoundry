@@ -83,7 +83,8 @@ public sealed class ShipDesignEditor
         ModuleKind.Defence, ModuleKind.DroneBay, ModuleKind.Shield, ModuleKind.Sensor, ModuleKind.Dock,
     };
 
-    private static bool Touches(IReadOnlyDictionary<(int Mx, int My, int Mz), ModuleKind> map, (int Mx, int My, int Mz) key)
+    /// <summary>True when a module of the map stands against one of the six faces of the cell.</summary>
+    public static bool Touches(IReadOnlyDictionary<(int Mx, int My, int Mz), ModuleKind> map, (int Mx, int My, int Mz) key)
     {
         foreach (var (dx, dy, dz) in Steps)
             if (map.ContainsKey((key.Mx + dx, key.My + dy, key.Mz + dz))) return true;
@@ -160,12 +161,16 @@ public sealed class ShipDesignEditor
     /// percent is capped like the simulation's, then raised by the research bonuses; the time is the content's acceleration time shortened by the acceleration bonus.
     /// Null without engines or when the world has no flight inertia (the time is then 0).
     /// </summary>
-    public (int Engines, double TopCellsPerSecond, double SecondsToTop)? Flight(ContentDb content, int speedBonusPercent, int accelBonusPercent)
+    public (int Engines, double TopCellsPerSecond, double SecondsToTop)? Flight(ContentDb content, int speedBonusPercent, int accelBonusPercent) =>
+        FlightOf(_staged.Values, content, speedBonusPercent, accelBonusPercent);
+
+    /// <summary>The same as <see cref="Flight"/> for any list of module kinds (the blueprint editor's stats use it).</summary>
+    public static (int Engines, double TopCellsPerSecond, double SecondsToTop)? FlightOf(IEnumerable<ModuleKind> modules, ContentDb content, int speedBonusPercent, int accelBonusPercent)
     {
         if (content.Structures is not { } kinds) return null;
         int engines = 0;
         long percent = 0;
-        foreach (var k in _staged.Values)
+        foreach (var k in modules)
             if (k == ModuleKind.Engine) { engines++; percent += kinds.EngineSpeedPercent(k); }
         if (engines == 0) return null;
         bool inertia = content.World is { HasInertia: true };

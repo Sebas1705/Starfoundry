@@ -326,6 +326,7 @@ public partial class MenuScreen : Control
         AddCheck("AimAssistCheck", Loc.T("settings.aimAssist"), s.AimAssist, on => SettingsStore.Current with { AimAssist = on }, "settings.tip.aimAssist");
         AddCheck("SmoothLookCheck", Loc.T("settings.smoothLook"), s.SmoothLook, on => SettingsStore.Current with { SmoothLook = on }, "settings.tip.smoothLook");
         AddCheck("FullscreenCheck", Loc.T("settings.fullscreen"), s.Fullscreen, on => SettingsStore.Current with { Fullscreen = on }, "settings.tip.fullscreen");
+        AddCheck("ClassicDesignerCheck", Loc.T("settings.classicDesigner"), s.ClassicDesigner, on => SettingsStore.Current with { ClassicDesigner = on }, "settings.tip.classicDesigner");
         AddCheck("LowTexturesCheck", Loc.T("settings.lowTextures"), s.LowTextures, on => SettingsStore.Current with { LowTextures = on }, "settings.tip.lowTextures");
 
         _body.AddChild(_tip);

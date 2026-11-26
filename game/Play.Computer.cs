@@ -230,6 +230,7 @@ public partial class Play
             case ComputerTab.Build: _buildMenu?.Open(_tool == ToolMode.Build ? CategoryOfSelection() : null); break;
             case ComputerTab.Info: _detailsOpen = true; break;
             case ComputerTab.Designer:
+                if (_blueprint is not null && UseBlueprintEditor) { CallDeferred(nameof(OpenBlueprintFromComputer)); break; } // the 3D plan takes over
                 if (_designer is not null)
                 {
                     SetLaser(false);

@@ -141,17 +141,18 @@ public partial class KeyBindingsPage : VBoxContainer
             HelpGroup.Ship or HelpGroup.Weapons => "ship",
             HelpGroup.Build => "build",
             HelpGroup.Computer => "computer",
+            HelpGroup.Blueprint => "blueprint",
             _ => "system",
         };
 
-    private static readonly string[] GroupOrder = { "ship", "build", "computer", "docked", "system" };
+    private static readonly string[] GroupOrder = { "ship", "build", "computer", "blueprint", "docked", "system" };
 
     private static string CapText(string key) => key == KeyRules.Unbound ? "–" : InputActions.Cap(key) is { } c && c.StartsWith('@') ? Loc.T("key.cap." + c[1..]) : InputActions.Cap(key);
 
     private static string ContextText(InputAction a)
     {
         var parts = new List<string>();
-        foreach (var (flag, id) in new[] { (InputContext.Flying, "flying"), (InputContext.Walking, "walking"), (InputContext.Build, "build"), (InputContext.Computer, "computer"), (InputContext.Docked, "docked"), (InputContext.Global, "global"), (InputContext.Menu, "menu") })
+        foreach (var (flag, id) in new[] { (InputContext.Flying, "flying"), (InputContext.Walking, "walking"), (InputContext.Build, "build"), (InputContext.Computer, "computer"), (InputContext.Docked, "docked"), (InputContext.Global, "global"), (InputContext.Menu, "menu"), (InputContext.Blueprint, "blueprint") })
             if ((a.Contexts & flag) != 0) parts.Add(Loc.T("controls.ctx." + id));
         return string.Join(" · ", parts);
     }
