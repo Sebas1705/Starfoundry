@@ -167,12 +167,12 @@ Before (main, same bot and seed 20261121): Relaxed 48:34, Normal 49:31, Hard 52:
 The bot's build trips now choose a pose that keeps every module box clear of the deposit rocks (with the hull padding), so seed 777 no longer pins a wing against the home iron rock (Normal 52:44 became 47:19, Hard 57:16 became 51:54). The table above is the new measurement; the seed spread is under 1 minute for Relaxed and Normal and 3 minutes for Hard. Normal now sits 0:16 to 0:41 under its 48 to 53 target on all three seeds: the economy was balanced against the slow seed, so this is the honest number and the economy was not retuned. The test bands (Relaxed 40 to 52, Normal 45 to 55) still hold.
 
 ## Station-first opening (ADR 0039, 2026-11-26)
-The bot now opens with the workbench (a queue, 8 s a craft), founds the station at about minute 5 (core 12 ingots and 8 plates), powers it (reactor 8 plates and 8 carbon), puts the first ingot line on the core floor (factory running at about minute 14), then the hydrogen loop, the first ammo battery and the lab. Content tuned for it: core and reactor cost, `alert_max` 160000 and `alert_after_wave` 37000 (the later factory fills the alert meter later). Bands and measured wins (seeds 20261121, 20261120, 777, 6 s per action):
+The bot now opens with the workbench (a queue, 8 s a craft), founds the station at about minute 5 (core 12 ingots and 8 plates), powers it (reactor 8 plates and 8 carbon), puts the first ingot line on the core floor (factory running at about minute 14), then the hydrogen loop, the first ammo battery and the lab. Content tuned for it: core and reactor cost, `alert_max` 154000 and `alert_after_wave` 37000 (the later factory fills the alert meter later). Bands and measured wins (seeds 20261121, 20261120, 777, 6 s per action):
 
 | Preset | Band | 20261121 | 20261120 | 777 |
 | --- | --- | --- | --- | --- |
-| Relaxed (8) | 44 to 50 | Win 46:49 | Win 47:09 | Win 46:22 |
-| Normal (10) | 48 to 53 | Win 49:03 | Win 49:32 | Win 49:18 |
-| Hard (13) | 51 to 56 | Win 52:20 | Win 53:46 | Win 52:34 |
+| Relaxed (8) | 44 to 50 | Win 46:15 | Win 46:33 | Win 45:46 |
+| Normal (10) | 48 to 53 | Win 48:23 | Win 49:05 | Win 48:41 |
+| Hard (13) | 51 to 56 | Win 51:51 | Win 55:31 | Win 51:47 |
 
 Hard needs four ammo batteries on the station (the ship carries no turrets) and the first one before the first warning; with fewer it lost the ship on two seeds.

@@ -2097,7 +2097,7 @@
     }
   },
   "threat": {
-    "alert_max": 160000,
+    "alert_max": 154000,
     "signature_threshold": 8,
     "decay_per_tick": 1,
     "alert_after_wave": 37000,
