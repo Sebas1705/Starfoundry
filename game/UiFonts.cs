@@ -39,6 +39,9 @@ public static class UiFonts
         return f;
     }
 
+    /// <summary>The face for numbers drawn by hand (<c>DrawString</c>): the mono font, or the fallback font when it is missing.</summary>
+    public static Font NumFont => Mono ?? ThemeDB.FallbackFont;
+
     /// <summary>Gives a label the display face (titles) when the font is present.</summary>
     public static T Title<T>(T c) where T : Control { if (Display is { } f) c.AddThemeFontOverride("font", f); return c; }
 

@@ -68,6 +68,7 @@ public partial class IconCount : HBoxContainer
         _icon = new IconRect(id, size, null, tooltip: false);
         _label = new Label { MouseFilter = MouseFilterEnum.Ignore, VerticalAlignment = VerticalAlignment.Center };
         _label.AddThemeFontSizeOverride("font_size", fontSize);
+        UiFonts.Num(_label);
         AddChild(_icon);
         AddChild(_label);
         SetProcess(false);

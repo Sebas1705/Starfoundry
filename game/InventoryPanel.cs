@@ -661,7 +661,51 @@ public partial class InventoryPanel : Control
             return;
         }
         if (slot.Empty || slot.IsBin) return;
+        if (right) { OpenMenu(slot, globalMouse); return; } // a right click without a drag: the menu (a right drag still moves half)
         if (shift || doubleClick) QuickMove(slot);
+    }
+
+    private PopupMenu? _menu;
+    private InventorySlot? _menuSlot;
+    private const int MenuOne = 0, MenuHalf = 1, MenuAll = 2, MenuMove = 3;
+
+    /// <summary>The slot menu (right click, or the Menu key / Shift + F10 on a focused slot): drop one, half or all onto the ground, or move to the other container.</summary>
+    internal void OpenMenu(InventorySlot slot, Vector2 globalPos)
+    {
+        if (slot.Empty || slot.IsBin) return;
+        if (_menu is null)
+        {
+            _menu = new PopupMenu();
+            AddChild(_menu);
+            _menu.IdPressed += OnMenuChosen;
+        }
+        _menuSlot = slot;
+        _menu.Clear();
+        bool canDrop = slot.Container.Kind is ContainerKind.Person or ContainerKind.Hold;
+        if (canDrop)
+        {
+            _menu.AddItem(Loc.T("inv.menu.one"), MenuOne);
+            _menu.AddItem(Loc.T("inv.menu.half"), MenuHalf);
+            _menu.SetItemDisabled(_menu.GetItemIndex(MenuHalf), slot.Count < 2);
+            _menu.AddItem(Loc.T("inv.menu.all"), MenuAll);
+        }
+        string move = slot.Container.Kind != ContainerKind.Person ? Loc.T("inv.menu.toBag")
+            : _other is { Kind: not ContainerKind.Person and not ContainerKind.Hold and not ContainerKind.Void and not ContainerKind.MachineOut } ? Loc.T("inv.menu.toOther")
+            : Loc.T("inv.menu.toHold");
+        _menu.AddItem(move, MenuMove);
+        _menu.Popup(new Rect2I((Vector2I)globalPos, Vector2I.Zero));
+    }
+
+    private void OnMenuChosen(long id)
+    {
+        if (_menuSlot is not { } s || s.Empty) return;
+        switch ((int)id)
+        {
+            case MenuOne: DropToWorldRequested?.Invoke(s.Container, s.Slot, 1); break;
+            case MenuHalf: DropToWorldRequested?.Invoke(s.Container, s.Slot, InventoryView.HalfOf(s.Count)); break;
+            case MenuAll: DropToWorldRequested?.Invoke(s.Container, s.Slot, s.Count); break;
+            case MenuMove: QuickMove(s); break;
+        }
     }
 
     private InventorySlot? SlotAt(Vector2 global) => _slots.FirstOrDefault(s => s.IsVisibleInTree() && s.GetGlobalRect().HasPoint(global));

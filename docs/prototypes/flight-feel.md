@@ -79,7 +79,7 @@ The ship turns like it accelerates: the mouse and the roll keys ask for a turn, 
 | Mass | Every module kind has a mass in the same file (`mass`, 1 for a kind that is not listed). The acceleration factor of a ship is the starter's mass over its own, kept between 30 and 150 percent; the rate factor is its square root. The starter is exactly 1. |
 | Research | The engine research that raises top speed (`engine_speed`) and acceleration (`engine_accel`, ion thrusters, thrust vectoring, plasma drive) also raises the turn rate and the turn acceleration, by half of its percent (`research` in the file). No simulation change: the client reads the bonus. |
 | Setting | Ship inertia: off (the old 40 ms mouse easing, or none when the old smooth-piloting switch was off), light (rate 135 percent, acceleration 220 percent) or full. The old `smooth_look` flag now only smooths walking and sitting; a settings file that only knows `smooth_look=false` migrates to inertia off. |
-| Key and display | `F8` toggles the flight assist (also a setting and the ASSIST button on the flight display). The flight display has a three-axis rate indicator (pitch, yaw, roll bars against the turn rate). |
+| Key and display | `Z` toggles the flight assist (also a setting and the ASSIST button on the flight display). The flight display has a three-axis rate indicator (pitch, yaw, roll bars against the turn rate). |
 
 Tuning is in two places only: the numbers of `content/ship_handling.json` and the constants at the top of `TurnController` (`BrakeShare`, `MaxPendingSeconds`, `FreeImpulseGain`).
 

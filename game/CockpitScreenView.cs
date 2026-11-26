@@ -97,12 +97,13 @@ public partial class CockpitScreenView : Control
     private Font F => ThemeDB.FallbackFont;
 
     /// <summary>Draws text with its top at <paramref name="y"/>.</summary>
-    private void Txt(string s, float x, float y, int size, Color c, HorizontalAlignment align = HorizontalAlignment.Left, float width = -1f)
+    private void Txt(string s, float x, float y, int size, Color c, HorizontalAlignment align = HorizontalAlignment.Left, float width = -1f, bool num = false)
     {
-        DrawString(F, new Vector2(x, y + F.GetAscent(size)), s, align, width, size, c);
+        var f = num ? UiFonts.NumFont : F;
+        DrawString(f, new Vector2(x, y + f.GetAscent(size)), s, align, width, size, c);
     }
 
-    private float Measure(string s, int size) => F.GetStringSize(s, HorizontalAlignment.Left, -1, size).X;
+    private float Measure(string s, int size, bool num = false) => (num ? UiFonts.NumFont : F).GetStringSize(s, HorizontalAlignment.Left, -1, size).X;
 
     /// <summary>The text cut with an ellipsis to fit <paramref name="maxWidth"/>.</summary>
     private string Fit(string s, int size, float maxWidth)
@@ -448,13 +449,13 @@ public partial class CockpitScreenView : Control
         string speed = CockpitMath.Speed(s.Flight.Speed, Loc.Culture);
         float colW = sideBySide ? w / 2f : w;
         Txt(Loc.T("cp.nav.dist"), x, yy, 12, UiTheme.Muted);
-        Txt(dist, x, yy + 12f, numFont, c);
-        float dW = Measure(dist, numFont);
+        Txt(dist, x, yy + 12f, numFont, c, num: true);
+        float dW = Measure(dist, numFont, true);
         Txt(Loc.T("cp.unit.cells"), x + Math.Min(dW + 6f, colW - 40f), yy + 12f + numFont * 0.62f, 13, UiTheme.Muted);
         float sx = sideBySide ? x + colW : x;
         float sy = sideBySide ? yy : yy + 12f + numFont * 1.2f + 4f;
         Txt(Loc.T("cp.speed"), sx, sy, 12, UiTheme.Muted);
-        Txt(speed, sx, sy + 12f, numFont, s.Flight.Boosting ? Cyan : UiTheme.Text);
+        Txt(speed, sx, sy + 12f, numFont, s.Flight.Boosting ? Cyan : UiTheme.Text, num: true);
         if (s.Flight.Boosting) Txt(Loc.T("cp.boost"), sx + Measure(Loc.T("cp.speed"), 12) + 8f, sy, 12, Cyan);
     }
 
