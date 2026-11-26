@@ -41,8 +41,14 @@ public sealed partial class DepositView : Node3D
     private static readonly Dictionary<string, StandardMaterial3D> ChunkMats = new();
     private static readonly Dictionary<string, ArrayMesh> Meshes = new();
 
+    /// <summary>Size class of a rock from its scale in thousandths: 0 small, 1 medium, 2 large, 3 huge (each has its own silhouette).</summary>
+    public static int SizeClass(int scalePermille) => scalePermille < 700 ? 0 : scalePermille < 1100 ? 1 : scalePermille < 1800 ? 2 : 3;
+
+    /// <summary>Width of the veins painted on the rock: thin when poor, a web when rich.</summary>
+    private static float VeinWidth(int bucket) => bucket == 0 ? 0.014f : bucket == 1 ? 0.03f : 0.055f;
+
     private readonly string _item;
-    private readonly int _density, _seed;
+    private readonly int _density, _seed, _cls;
     private readonly float _initial;
     private readonly MeshInstance3D _rock, _chunks;
     private int _step = -1; // remaining in 5% steps (20 = full, 0 = empty)
@@ -56,7 +62,9 @@ public sealed partial class DepositView : Node3D
         _chunks = new MeshInstance3D { Name = "GlowCrystals" };
         AddChild(_rock);
         AddChild(_chunks);
-        Scale = Vector3.One * (scalePermille > 0 ? scalePermille / 1000f : RockScale(initial));
+        float scale = scalePermille > 0 ? scalePermille / 1000f : RockScale(initial);
+        _cls = SizeClass((int)(scale * 1000f));
+        Scale = Vector3.One * scale;
         Refresh(initial);
     }
 
@@ -69,21 +77,23 @@ public sealed partial class DepositView : Node3D
         _step = step;
         var look = LookOf(_item);
         bool dry = step == 0;
-        string rockKey = $"dep.rock.{_seed}.{_item}.{(dry ? "dry" : "full")}";
+        int bucket = Bucket(_density);
+        string rockKey = $"dep.rock.{_seed}.{_item}.{_cls}.{(dry ? "dry" : "full." + bucket)}";
         if (!Meshes.TryGetValue(rockKey, out var rock))
         {
             var mb = new Models.Mb();
-            Models.BuildRock(mb, look.Rock, _seed, dry ? 0.45f : 1f, dry ? 0.05f : 0.28f);
+            if (dry) Models.BuildRock(mb, look.Rock, _seed, 0.45f, 0.05f, _cls);
+            else Models.BuildRock(mb, look.Rock, _seed, 1f, 0.28f, _cls, look.ChunkDark.Lerp(look.Chunk, 0.35f), VeinWidth(bucket));
             Meshes[rockKey] = rock = mb.ToMesh(Materials.Rock(1f, 2.4f));
         }
         _rock.Mesh = rock;
         if (dry) { _chunks.Mesh = null; return; }
 
-        string key = $"dep.chunks.{_seed}.{_item}.{_density}.{step}";
+        string key = $"dep.chunks.{_seed}.{_item}.{_cls}.{_density}.{step}";
         if (!Meshes.TryGetValue(key, out var mesh))
         {
             var mb = new Models.Mb();
-            BuildChunks(mb, look, _density, _seed, step / 20f);
+            BuildChunks(mb, look, _density, _seed, step / 20f, _cls);
             Meshes[key] = mesh = mb.ToMesh(ChunkMaterial(_item, look, Bucket(_density)));
         }
         _chunks.Mesh = mesh;
@@ -115,13 +125,15 @@ public sealed partial class DepositView : Node3D
         return m;
     }
 
-    private static void BuildChunks(Models.Mb mb, Look look, int density, int seed, float fraction)
+    private static void BuildChunks(Models.Mb mb, Look look, int density, int seed, float fraction, int cls)
     {
         var rng = new Models.Rng(seed + 977);
-        int total = ChunkCount(density);
+        // Big rocks carry more, smaller chunks (the chunk size is in rock units, which the node scale then multiplies).
+        int total = Math.Min(40, (int)MathF.Round(ChunkCount(density) * (cls switch { 0 => 0.8f, 1 => 1f, 2 => 1.4f, _ => 2.2f })));
+        float sizeMul = cls switch { 0 => 1f, 1 => 1f, 2 => 0.8f, _ => 0.55f };
         int shown = Math.Max(1, (int)MathF.Ceiling(total * fraction));
         // Chunk size grows with density (tiny crumbs when poor, big slabs when rich) and shrinks as the vein is mined out.
-        float size = 2.3f * (0.42f + 0.9f * Mathf.Clamp((density - 25) / 175f, 0f, 1f)) * (0.55f + 0.45f * fraction);
+        float size = 2.3f * sizeMul * (0.42f + 0.9f * Mathf.Clamp((density - 25) / 175f, 0f, 1f)) * (0.55f + 0.45f * fraction);
         for (int k = 0; k < total; k++)
         {
             // Always advance the generator so a chunk keeps its place while others vanish.
@@ -130,7 +142,7 @@ public sealed partial class DepositView : Node3D
             if (k >= shown) continue;
             float rr = MathF.Sqrt(MathF.Max(0f, 1f - Mathf.Clamp(y, -1f, 1f) * Mathf.Clamp(y, -1f, 1f)));
             var dir = new Vector3(MathF.Cos(ang) * rr, y, MathF.Sin(ang) * rr).Normalized();
-            var p = Models.RockPoint(dir, seed) - dir * 0.12f;
+            var p = Models.RockPoint(dir, seed, cls) - dir * 0.12f;
             var axis = (dir + new Vector3(j1 - 0.5f, j2 - 0.5f, j3 - 0.5f) * 0.6f).Normalized();
             mb.At(p, new Quaternion(Vector3.Up, axis).GetEuler());
             float s = size * (0.75f + 0.5f * sz);
@@ -160,6 +172,27 @@ public sealed partial class DepositView : Node3D
                     mb.Prism(Vector3.Zero, 0.07f * s, 0.06f * s, 0.30f * s, 6, spin * 60f);
                     mb.Prism(new(0, 0.30f * s, 0), 0.06f * s, 0f, 0.11f * s, 6, spin * 60f);
                     break;
+            }
+        }
+        // Vein studs: small glowing slabs set into the painted veins; a poor vein has none, a rich one is studded.
+        int studs = density < 60 ? 0 : density <= 120 ? 4 : 11;
+        studs = (int)MathF.Ceiling(studs * (1 + cls) / 2f * fraction);
+        float width = VeinWidth(Bucket(density)) * 0.4f;
+        var srng = new Models.Rng(seed + 4021);
+        for (int k = 0; k < studs; k++)
+        {
+            for (int tries = 0; tries < 60; tries++)
+            {
+                float y = srng.F() * 2f - 1f, ang = srng.F() * Mathf.Tau;
+                float rr = MathF.Sqrt(MathF.Max(0f, 1f - y * y));
+                var dir = new Vector3(MathF.Cos(ang) * rr, y, MathF.Sin(ang) * rr);
+                if (Models.VeinDistance(dir, seed) > width) continue;
+                var p = Models.RockPoint(dir, seed, cls) - dir * 0.03f;
+                mb.At(p, new Quaternion(Vector3.Up, dir).GetEuler());
+                mb.C(look.Chunk.Lerp(look.ChunkDark, srng.F() * 0.5f) with { A = look.Alpha });
+                float w = 0.16f + 0.14f * srng.F();
+                mb.Block(new(0, 0.03f, 0), new(w, 0.06f, w * (0.5f + 0.5f * srng.F())), 0.6f, 0.6f);
+                break;
             }
         }
     }

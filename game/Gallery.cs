@@ -93,6 +93,7 @@ public partial class Gallery : Node3D
             case "workbench": _focusPoint = new Vector3(1.7f, 0.7f, 1.6f); defDist = 6.5f; break;
             case "materials": _focusPoint = new Vector3(15f, 1f, 2f); defDist = 40f; break;
             case "deposits": _focusPoint = new Vector3(14.4f, 0.6f, 19f); defDist = 66f; break;
+            case "rocks": _focusPoint = new Vector3(20f, 0.6f, 32f); defDist = 90f; break;
             case "units": _focusPoint = new Vector3(2.6f, 0.3f, -6.3f); defDist = 11f; break;
             case "framing": _focusPoint = new Vector3(14f, 1f, 8f); defDist = 40f; break;
             default: _focusPoint = new Vector3(1.2f, 0.2f, -3f); defDist = 18f; break;
@@ -103,6 +104,7 @@ public partial class Gallery : Node3D
         BuildScene();
         if (focus is "modules" or "ship-demo" or "station-demo" or "ship-starter" or "ship-row" or "ship-big" or "ship-nose" or "ship-tower" or "ship-skins") BuildModuleGallery(focus, (int)F("--variant", 0));
         else if (focus == "deposits") BuildDepositGallery();
+        else if (focus == "rocks") BuildRockSizeGallery();
         else if (focus == "materials") BuildMaterialGallery();
         else if (focus == "belts") BuildBeltGallery();
         else if (focus == "framing") BuildFramingGallery();
@@ -238,6 +240,35 @@ public partial class Gallery : Node3D
             }
             Label(items[r]["core:".Length..], new Vector3(-4.6f, 0.6f, r * 7.2f));
         }
+    }
+
+    /// <summary>
+    /// --focus=rocks: the size classes of the rock field (small, medium, large, huge; columns) at three richnesses (poor, normal, rich; rows of
+    /// iron, then ice), at the scales the field gives them, so the silhouettes, the veins and the crystals can be compared.
+    /// </summary>
+    private void BuildRockSizeGallery()
+    {
+        (string Name, int Scale)[] sizes = { ("small", 550), ("medium", 900), ("large", 1400), ("huge", 2400) };
+        int[] densities = { 25, 100, 200 };
+        string[] items = { "core:iron_ore", "core:ice" };
+        float z = 0f;
+        for (int it = 0; it < items.Length; it++)
+            for (int d = 0; d < densities.Length; d++)
+            {
+                float x = 0f;
+                for (int c = 0; c < sizes.Length; c++)
+                {
+                    float s = sizes[c].Scale / 1000f;
+                    x += 2.6f * s + 2.2f;
+                    var v = new DepositView(items[it], densities[d], 800, 5 + c * 3 + d, sizes[c].Scale);
+                    v.Position = new Vector3(x, 0.6f, z);
+                    AddChild(v);
+                    if (it == 0 && d == 0) Label(sizes[c].Name, v.Position + new Vector3(0, -1.6f, -4.6f));
+                    x += 2.6f * s + 2.2f;
+                }
+                Label($"{items[it]["core:".Length..]} density {densities[d]}", new Vector3(-6f, 0.6f, z));
+                z += 13f;
+            }
     }
 
     /// <summary>--focus=modules: every module kind as a ship (front row) and as a station (back row); ship-demo and station-demo: small assembled structures.</summary>

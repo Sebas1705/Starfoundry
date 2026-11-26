@@ -1177,17 +1177,75 @@ public static partial class Models
         return L(L(c00, c10, fy), L(c01, c11, fy), fz);
     }
 
-    /// <summary>Surface point of the asteroid in direction <paramref name="d"/> (unit vector).</summary>
-    internal static Vector3 RockPoint(Vector3 d, int seed)
+    /// <summary>Largest distance from the centre a rock reaches, in model units (the collision is a sphere that this must stay within).</summary>
+    internal const float RockMaxRadius = 1.9f;
+
+    /// <summary>
+    /// Surface point of the asteroid in direction <paramref name="d"/> (unit vector). <paramref name="cls"/> is the size class
+    /// (0 small, 1 medium, 2 large, 3 huge): small rocks are elongated shards with flat cuts, medium ones lumpy potatoes, large ones
+    /// faceted with a crater or two, huge ones flat-sided slabs pitted with craters. The result never leaves <see cref="RockMaxRadius"/>.
+    /// </summary>
+    internal static Vector3 RockPoint(Vector3 d, int seed, int cls = 1)
     {
         var off = new Vector3(seed * 1.7f, seed * 0.9f, seed * 2.3f);
         float n = Noise3(d * 1.5f + off, seed) * 0.6f + Noise3(d * 3.3f + off * 2f, seed + 1) * 0.3f + Noise3(d * 7f + off, seed + 2) * 0.1f;
         n = Mathf.Clamp((n - 0.5f) * 2.0f + 0.5f, 0f, 1f);
         float rad = 1.5f * (0.68f + 0.6f * n);
-        return new Vector3(d.X * rad, d.Y * rad * 0.86f, d.Z * rad);
+        // ridged detail: sharp creases that break the smooth blob
+        float ridge = 1f - MathF.Abs(2f * Noise3(d * 4.2f + off * 1.3f, seed + 5) - 1f);
+        rad += (0.04f + 0.03f * cls) * (ridge - 0.5f);
+        // craters: a bowl with a raised lip, bigger and more numerous on the big rocks
+        int craters = cls switch { 0 => 0, 1 => 1, 2 => 2, _ => 4 };
+        for (int k = 0; k < craters; k++)
+        {
+            float a = Hash3(k, 11, 3, seed) * Mathf.Tau, y = Hash3(k, 12, 3, seed) * 1.6f - 0.8f;
+            float rr = MathF.Sqrt(1f - y * y);
+            var c = new Vector3(MathF.Cos(a) * rr, y, MathF.Sin(a) * rr);
+            float reach = 0.30f + 0.12f * Hash3(k, 13, 3, seed);
+            float ang = MathF.Acos(Mathf.Clamp(d.Dot(c), -1f, 1f));
+            if (ang < reach)
+            {
+                float t = 1f - ang / reach;
+                rad -= 0.34f * t * t * (3f - 2f * t) * (cls >= 2 ? 1f : 0.5f);
+            }
+            else if (ang < reach * 1.25f) rad += 0.05f * (1f - (ang - reach) / (reach * 0.25f));
+        }
+        var p = d * rad;
+        // flat cuts: planes shave the rock into facets (a rock that is a sphere with bumps looks like a ball)
+        int planes = cls switch { 0 => 4, 1 => 2, 2 => 3, _ => 4 };
+        for (int k = 0; k < planes; k++)
+        {
+            float a = Hash3(k, 21, 5, seed) * Mathf.Tau, y = Hash3(k, 22, 5, seed) * 2f - 1f;
+            float rr = MathF.Sqrt(1f - y * y);
+            var nrm = new Vector3(MathF.Cos(a) * rr, y, MathF.Sin(a) * rr);
+            float o = 1.5f * (0.66f + 0.14f * Hash3(k, 23, 5, seed));
+            float over = p.Dot(nrm) - o;
+            if (over > 0f) p -= nrm * over;
+        }
+        // elongation per rock: small shards are long and thin, huge ones broad and flat
+        float e = cls switch { 0 => 0.42f, 1 => 0.22f, 2 => 0.16f, _ => 0.14f };
+        float flat = cls == 3 ? 0.72f : 0.86f;
+        var s = new Vector3(1f + e * (Hash3(1, 31, 7, seed) * 2f - 1f), flat * (1f + 0.5f * e * (Hash3(2, 31, 7, seed) * 2f - 1f)), 1f + e * (Hash3(3, 31, 7, seed) * 2f - 1f));
+        p *= s;
+        float len = p.Length();
+        return len > RockMaxRadius ? p * (RockMaxRadius / len) : p;
     }
 
-    internal static void BuildRock(Mb mb, Color tint, int seed, float tone = 1f, float tintShare = 0.13f)
+    /// <summary>How far a direction is from the nearest vein of a rock (0 on a vein); the veins are the iso-lines of two noises.</summary>
+    internal static float VeinDistance(Vector3 dir, int seed)
+    {
+        var veinOff = new Vector3(seed * 0.7f + 3.1f, seed * 1.3f, seed * 0.4f + 8.2f);
+        float v1 = MathF.Abs(Noise3(dir * 2.4f + veinOff, seed + 9) - 0.5f);
+        float v2 = MathF.Abs(Noise3(dir * 3.1f + veinOff * 1.7f, seed + 10) - 0.5f);
+        return MathF.Min(v1, v2 * 1.15f);
+    }
+
+    /// <summary>
+    /// The asteroid mesh. <paramref name="cls"/> is the size class (see <see cref="RockPoint"/>); the huge class is built finer.
+    /// <paramref name="vein"/> paints veins of that colour on the surface; <paramref name="veinWidth"/> (0 none, about 0.02 poor to 0.06 rich) is
+    /// how wide they are, so the richness of a deposit reads on the rock itself.
+    /// </summary>
+    internal static void BuildRock(Mb mb, Color tint, int seed, float tone = 1f, float tintShare = 0.13f, int cls = 1, Color? vein = null, float veinWidth = 0f)
     {
         // icosphere, one subdivision level above the base: 320 faces
         float t = (1f + MathF.Sqrt(5f)) / 2f;
@@ -1202,7 +1260,7 @@ public static partial class Models
             (0, 11, 5), (0, 5, 1), (0, 1, 7), (0, 7, 10), (0, 10, 11), (1, 5, 9), (5, 11, 4), (11, 10, 2), (10, 7, 6), (7, 1, 8),
             (3, 9, 4), (3, 4, 2), (3, 2, 6), (3, 6, 8), (3, 8, 9), (4, 9, 5), (2, 4, 11), (6, 2, 10), (8, 6, 7), (9, 8, 1),
         };
-        for (int level = 0; level < 2; level++)
+        for (int level = 0; level < (cls >= 3 ? 3 : 2); level++)
         {
             var cache = new Dictionary<(int, int), int>();
             int Mid(int a, int b)
@@ -1221,7 +1279,7 @@ public static partial class Models
             faces = next;
         }
         var pos = new Vector3[verts.Count];
-        for (int i = 0; i < pos.Length; i++) pos[i] = RockPoint(verts[i], seed);
+        for (int i = 0; i < pos.Length; i++) pos[i] = RockPoint(verts[i], seed, cls);
         var rock = new Color(0.09f, 0.085f, 0.10f).Lerp(tint, tintShare);
         rock = new Color(rock.R * tone, rock.G * tone, rock.B * tone);
         int fi = 0;
@@ -1231,6 +1289,13 @@ public static partial class Models
             float up = (verts[a].Y + verts[b].Y + verts[c].Y) / 3f;
             float shade = 0.78f + 0.3f * h + 0.12f * up;
             var col = new Color(rock.R * shade, rock.G * shade, rock.B * shade);
+            if (vein is { } vc && veinWidth > 0f)
+            {
+                var dir = (verts[a] + verts[b] + verts[c]).Normalized();
+                // two crossing noise iso-lines make a network of veins; the width is the richness
+                float k = Mathf.Clamp(1f - VeinDistance(dir, seed) / veinWidth, 0f, 1f);
+                if (k > 0f) col = col.Lerp(new Color(vc.R * (0.55f + 0.45f * shade), vc.G * (0.55f + 0.45f * shade), vc.B * (0.55f + 0.45f * shade)), MathF.Min(1f, k * 2.2f));
+            }
             mb.C(col).Tri(pos[a], pos[b], pos[c], Vector3.Zero);
         }
     }
