@@ -10,6 +10,8 @@ public enum HintContext
     Inventory,
     StarMap,
     Computer,
+    BenchPanel,
+    MachinePanel,
     Console,
     Tool,
     AimMachine,
@@ -72,6 +74,7 @@ public enum HintInteract
     Shipyard,
     Console,
     Bench,
+    BenchPanel,
     Drones,
     PickUp,
 }
@@ -117,6 +120,12 @@ public sealed record KeyState
     public bool ComputerOpen { get; init; }
     /// <summary>What F does at this moment.</summary>
     public HintInteract Interact { get; init; }
+    /// <summary>The ship workbench panel is open (ADR 0039).</summary>
+    public bool BenchOpen { get; init; }
+    /// <summary>The panel of a station machine is open.</summary>
+    public bool MachineOpen { get; init; }
+    /// <summary>A station-first world and the player is aboard a ship: floor building is closed, the panel says where to build instead (ADR 0039).</summary>
+    public bool AutomationBlocked { get; init; }
 
     /// <summary>The pilot looks at one cockpit display (F at the console): its keys replace the flying ones.</summary>
     public bool ConsoleFocus { get; init; }
@@ -209,7 +218,7 @@ public static class KeyHints
     public const int MaxRowsFlying = 8, MaxRowsBuild = 10;
 
     /// <summary>Which rows give way first when a context has more rows than fit (the first listed goes first); never an alert or a lit row.</summary>
-    private static readonly string[] DropOrder = { "fireGuns", "mineFire", "hudDetail", "assist", "scan", "roll", "run", "dockGuide" };
+    private static readonly string[] DropOrder = { "fireGuns", "mineFire", "hudDetail", "assist", "scan", "roll", "run", "dockGuide", "stationFirst" };
 
     private sealed record Context(HintContext Id, Func<KeyState, bool> When, string TitleKey, Func<KeyState, object[]> TitleArgs, Func<KeyState, IEnumerable<KeyRow>> Rows, bool ThreatGroup);
 
@@ -225,6 +234,8 @@ public static class KeyHints
         new(HintContext.Inventory, s => s.InventoryOpen, "key.ctx.inventory", _ => NoArgs, InventoryRows, false),
         new(HintContext.StarMap, s => s.MapOpen && s.HasGalaxy, "key.ctx.map", _ => NoArgs, StarMapRows, false),
         new(HintContext.Computer, s => s.ComputerOpen, "key.ctx.computer", _ => NoArgs, ComputerRows, false),
+        new(HintContext.BenchPanel, s => s.BenchOpen, "key.ctx.bench", _ => NoArgs, BenchPanelRows, false),
+        new(HintContext.MachinePanel, s => s.MachineOpen, "key.ctx.machine", _ => NoArgs, MachinePanelRows, false),
         new(HintContext.Console, s => s.ConsoleFocus, "key.ctx.console", _ => NoArgs, ConsoleRows, false),
         new(HintContext.Tool, s => s.Tool != HintTool.None, "key.ctx.tool", s => new object[] { s.ToolName }, ToolRows, true),
         new(HintContext.AimMachine, s => s.Aim == HintAim.Machine, "key.ctx.aimMachine", s => new object[] { s.AimName }, AimMachineRows, true),
@@ -329,6 +340,7 @@ public static class KeyHints
         HintInteract.Shipyard => Act("interact", "interact", "interactShipyard"),
         HintInteract.Console => Act("interact", "interact", "console"),
         HintInteract.Bench => Act("interact", "interact", "refine", Lit(s.Refining)),
+        HintInteract.BenchPanel => Act("interact", "interact", "interactBench"),
         HintInteract.Drones => Act("interact", "interact", "drones"),
         HintInteract.PickUp => Act("interact", "interact", "pickup"),
         _ => Act("interact", "interact", "interact"),
@@ -339,6 +351,7 @@ public static class KeyHints
         yield return InteractRow(s);
         foreach (var row in DockRows(s)) yield return row;
         yield return ComputerRow(s);
+        if (s.AutomationBlocked) yield return StationFirstRow();
         foreach (var row in WeaponRows(s)) yield return row;
         if (s.Dock != DockHint.Docked)
         {
@@ -385,8 +398,29 @@ public static class KeyHints
         yield return InteractRow(s);
         foreach (var row in DockRows(s)) yield return row;
         yield return ComputerRow(s);
+        if (s.AutomationBlocked) yield return StationFirstRow();
         yield return HudRow(s);
         yield return Act("help", "help", "help");
+    }
+
+    /// <summary>ADR 0039: aboard a ship the floor-building tools are closed; this row says so (hover for why) instead of offering them.</summary>
+    private static KeyRow StationFirstRow() =>
+        new("stationFirst", new[] { InputActions.PrimaryCap("openBuild") }, "key.stationFirst", KeyRowState.Disabled, null, "key.why.stationFirst");
+
+    /// <summary>The ship workbench panel: click a recipe button to queue, F or Esc to close.</summary>
+    private static IEnumerable<KeyRow> BenchPanelRows(KeyState s)
+    {
+        yield return Mouse("benchQueue", "@click", "benchQueue", KeyRowState.Info);
+        yield return Act("close", "interact", "closePanel", KeyRowState.Active);
+        yield return Act("esc", "cancel", "closePanel");
+    }
+
+    /// <summary>The panel of a station machine: click a recipe to use it, F or Esc to close.</summary>
+    private static IEnumerable<KeyRow> MachinePanelRows(KeyState s)
+    {
+        yield return Mouse("machineRecipe", "@click", "machineRecipe", KeyRowState.Info);
+        yield return Act("close", "interact", "closePanel", KeyRowState.Active);
+        yield return Act("esc", "cancel", "closePanel");
     }
 
     /// <summary>(c) A build tool is in hand.</summary>

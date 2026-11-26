@@ -272,6 +272,9 @@ public class KeyHintsTests
                 states.Add(b with { InventoryOpen = true });
                 states.Add(b with { ComputerOpen = true });
                 states.Add(b with { HelpOpen = true });
+                states.Add(b with { BenchOpen = true });
+                states.Add(b with { MachineOpen = true });
+                states.Add(b with { AutomationBlocked = true, Interact = near ? HintInteract.BenchPanel : HintInteract.None }); // ADR 0039: aboard a ship
                 states.Add(b with { PauseOpen = true });
                 states.Add(b with { ConsoleFocus = true, HasConsole = true, HudDetail = HudDetail.Detailed });
             }
