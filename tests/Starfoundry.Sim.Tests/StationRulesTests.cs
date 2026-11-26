@@ -154,7 +154,7 @@ public class StationRulesTests
         var w = World(rules: false);
         Ok(w, new PlaceMachine(9, 9, 9, Smelter, -1));
         byte[] bytes = WriteLog(w, rules: false);
-        Assert.Equal(18, bytes[4]);
+        Assert.Equal(19, bytes[4]);
         bytes[4] = 5;
         var log = CommandCodec.ReadLog(new MemoryStream(bytes), out ulong hash, out var mode, out ulong seed, out bool threats, out bool rules);
         Assert.Equal((C.Hash, GameMode.Sandbox, Seed, false, false), (hash, mode, seed, threats, rules));

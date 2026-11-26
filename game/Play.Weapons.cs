@@ -311,7 +311,9 @@ public partial class Play
             seen.Add(k.Id);
             if (!_pickupNodes.TryGetValue(k.Id, out var node))
             {
-                node = new MeshInstance3D { Mesh = new SphereMesh { Radius = 0.5f, Height = 1f, RadialSegments = 5, Rings = 3 }, MaterialOverride = _pickupMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+                node = k.Dropped
+                    ? new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(0.6f, 0.45f, 0.6f) }, MaterialOverride = CrateMaterial(k.Item), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off }
+                    : new MeshInstance3D { Mesh = new SphereMesh { Radius = 0.5f, Height = 1f, RadialSegments = 5, Rings = 3 }, MaterialOverride = _pickupMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
                 AddChild(node);
                 _pickupNodes[k.Id] = node;
             }
@@ -319,6 +321,7 @@ public partial class Play
             float size = 0.7f + Math.Min(0.9f, MathF.Sqrt(k.Count) * 0.08f);
             float fade = Math.Clamp(k.Life / (10f * Units.TicksPerSecond), 0f, 1f);
             node.Position = new Vector3(k.X, k.Y, k.Z) / CellUnits;
+            if (k.Dropped) { node.Scale = Vector3.One * (0.8f + Math.Min(0.6f, MathF.Sqrt(k.Count) * 0.05f)) * fade; node.Rotation = new Vector3(0f, k.Id * 0.7f, 0f); continue; }
             node.Scale = Vector3.One * size * fade;
             node.Rotation = new Vector3((float)_animTime * 0.9f + k.Id, (float)_animTime * 1.3f, 0f);
         }

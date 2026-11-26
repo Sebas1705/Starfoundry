@@ -16,7 +16,7 @@ public partial class Play
 {
     private enum ToolMode { Pointer, Build }
 
-    private enum HoverKind { None, Ground, Machine, Segment, Deposit, Enemy }
+    private enum HoverKind { None, Ground, Machine, Segment, Deposit, Enemy, Stack }
 
     private readonly record struct Hover(HoverKind Kind, int Id, string Text);
 
@@ -1861,6 +1861,15 @@ public partial class Play
             {
                 best = t;
                 _hover = new Hover(HoverKind.Enemy, en.Id, L("tip.enemy", Loc.Name("enemy", _content.Enemies[en.Type].Id), en.Hp));
+            }
+        }
+        foreach (var k in Net.Pickups())
+        {
+            if (!k.Dropped) continue;
+            if (RayHitsSphere(origin, dir, new Vector3(k.X, k.Y, k.Z) / CellUnits, 0.7f, out float t) && t < best)
+            {
+                best = t;
+                _hover = new Hover(HoverKind.Stack, k.Id, L("tip.stack", k.Count, ItemName(k.Item)));
             }
         }
         for (int d = 0; d < Net.DepositCount; d++)

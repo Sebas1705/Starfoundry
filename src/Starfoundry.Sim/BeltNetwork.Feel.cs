@@ -24,6 +24,9 @@ public static class FeelRules
     /// <summary>Ore pickups alive at once; the surplus of a rock merges into one pickup, so this is rarely reached.</summary>
     public const int MaxPickups = 64;
 
+    /// <summary>A stack the player dropped lies for 30 minutes (ADR 0038); it may be taken by hand within <see cref="HandReachUnits"/> on foot or by a seated pilot within <see cref="TractorRangeUnits"/>.</summary>
+    public const int DropLifeTicks = 30 * 60 * Units.TicksPerSecond, HandReachUnits = 3 * Units.CellUnits, DropMergeUnits = Units.CellUnits, DropActorReachUnits = 40 * Units.CellUnits;
+
     /// <summary>A pickup fades after three minutes.</summary>
     public const int PickupLifeTicks = 180 * Units.TicksPerSecond;
 
@@ -74,7 +77,11 @@ public enum PickupEventKind : byte
 public readonly record struct PickupEvent(PickupEventKind Kind, int Source, int Item, int Count);
 
 /// <summary>An ore pickup for rendering and tests: items that did not fit the hold, floating near the rock they came from. Position in units.</summary>
-public readonly record struct PickupInfo(int Id, int Item, int Count, int Source, int X, int Y, int Z, int Life);
+public readonly record struct PickupInfo(int Id, int Item, int Count, int Source, int X, int Y, int Z, int Life)
+{
+    /// <summary>True for a stack the player dropped (ADR 0038), false for ore from a rock.</summary>
+    public bool Dropped => Source < 0;
+}
 
 internal sealed class Projectile
 {
@@ -88,6 +95,8 @@ internal sealed class OrePickup
 {
     public int Id, Item, Count, Source, Life;
     public int X, Y, Z, Vx, Vy, Vz;
+    /// <summary>A stack the player dropped (ADR 0038): it has no source rock (Source is -1), does not drift and no tractor pulls it.</summary>
+    public bool Dropped;
 
     public OrePickup Clone() => (OrePickup)MemberwiseClone();
 }
@@ -282,6 +291,7 @@ public sealed partial class BeltNetwork
                 _pickups.RemoveAt(i--);
                 continue;
             }
+            if (k.Dropped) continue; // dropped stacks lie where they fell and are taken by hand (ADR 0038)
             if (k.Life > FeelRules.PickupLifeTicks - FeelRules.PickupDriftTicks) { k.X += k.Vx; k.Y += k.Vy; k.Z += k.Vz; }
 
             foreach (var p in _players.Values)
@@ -551,6 +561,7 @@ public sealed partial class BeltNetwork
         {
             mix(-612); mix(_nextPickupId); mix(_pickups.Count);
             foreach (var k in _pickups) { mix(k.Id); mix(k.Item); mix(k.Count); mix(k.Source); mix(k.Life); mix(k.X); mix(k.Y); mix(k.Z); mix(k.Vx); mix(k.Vy); mix(k.Vz); }
+            foreach (var k in _pickups) if (k.Dropped) { mix(-616); mix(k.Id); } // only when something was dropped
         }
         foreach (var d in _deposits)
             if (d.RegrowTicks != 0) { mix(-614); mix(d.Id); mix(d.RegrowTicks); }
@@ -579,7 +590,8 @@ public sealed partial class BeltNetwork
         {
             if (k.Id <= lastId) Fail("pickup ids are not increasing");
             lastId = k.Id;
-            if (k.Count < 1 || k.Item < 0 || k.Item >= items || k.Life < 1 || k.Life > FeelRules.PickupLifeTicks || !IsDeposit(k.Source)) Fail($"pickup {k.Id} is out of range");
+            if (k.Count < 1 || k.Item < 0 || k.Item >= items || k.Life < 1) Fail($"pickup {k.Id} is out of range");
+            if (k.Dropped ? k.Source != -1 || k.Life > FeelRules.DropLifeTicks || Rules.LegacyInventory : k.Life > FeelRules.PickupLifeTicks || !IsDeposit(k.Source)) Fail($"pickup {k.Id} is out of range");
         }
         if (_nextPickupId <= lastId) Fail("the pickup id counter is behind");
         foreach (var d in _deposits)

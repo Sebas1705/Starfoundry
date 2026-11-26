@@ -14,16 +14,17 @@ namespace Starfoundry.Game;
 /// </summary>
 public partial class Play
 {
-    private string? _gunShotPath, _overflowShotPath;
+    private string? _gunShotPath, _overflowShotPath, _dropShotPath;
     private int _feelPhase, _feelWait;
 
     private void FeelShotSetup(string[] args)
     {
         _gunShotPath = args.FirstOrDefault(a => a.StartsWith("--gun-shot="))?["--gun-shot=".Length..];
         _overflowShotPath = args.FirstOrDefault(a => a.StartsWith("--overflow-shot="))?["--overflow-shot=".Length..];
+        _dropShotPath = args.FirstOrDefault(a => a.StartsWith("--drop-shot="))?["--drop-shot=".Length..];
     }
 
-    private bool FeelShotOn => _gunShotPath is not null || _overflowShotPath is not null;
+    private bool FeelShotOn => _gunShotPath is not null || _overflowShotPath is not null || _dropShotPath is not null;
 
     private void FeelShotFrame()
     {
@@ -34,6 +35,12 @@ public partial class Play
         long cu = Units.CellUnits;
         int ship = ShipStruct;
         int iron = _content.ItemIndex("core:iron_ore");
+
+        if (_dropShotPath is not null)
+        {
+            DropShotFrame(Save);
+            return;
+        }
 
         if (_gunShotPath is not null)
         {

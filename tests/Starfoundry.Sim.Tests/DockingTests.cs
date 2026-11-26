@@ -559,7 +559,7 @@ public class DockingTests
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, log, C.Hash, GameMode.Sandbox, Seed, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(18, bytes[4]);
+        Assert.Equal(19, bytes[4]);
         Assert.Equal(log, CommandCodec.ReadLog(new MemoryStream(bytes)));
 
         // Older logs cannot hold them: the reader refuses, even inside a batch.

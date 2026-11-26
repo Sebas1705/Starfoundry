@@ -63,6 +63,9 @@ public partial class InventoryPanel : Control
     /// <summary>The container beside the bag.</summary>
     public ContainerRef Other => _other;
 
+    /// <summary>A stack of the bag or the hold was dragged out of the window and released over the world (ADR 0038): container, slot, count.</summary>
+    public event Action<ContainerRef, int, int>? DropToWorldRequested;
+
     public bool Dragging => _drag is not null;
 
     public bool Holding => _held is not null || _binPending is not null || _drag is not null;
@@ -672,6 +675,8 @@ public partial class InventoryPanel : Control
         _ghost.Visible = false;
         foreach (var s in _slots) s.DropTarget = false;
         if (drop && from is not null && SlotAt(globalMouse) is { } to && to != from) Drop(from, to, half);
+        else if (drop && from is not null && SlotAt(globalMouse) is null && from.Container.Kind is ContainerKind.Person or ContainerKind.Hold && !_window.GetGlobalRect().HasPoint(globalMouse))
+            DropToWorldRequested?.Invoke(from.Container, from.Slot, half ? InventoryView.HalfOf(from.Count) : from.Count);
         RefreshFlags();
     }
 
@@ -788,6 +793,6 @@ public partial class InventoryPanel : Control
     {
         if (!Visible || ev is not InputEventMouseButton { Pressed: false, ButtonIndex: MouseButton.Left or MouseButton.Right } || _drag is null) return;
         // A drag that ends outside every slot (the mouse can leave the window) is dropped on nothing.
-        if (SlotAt(GetGlobalMousePosition()) is null) EndDrag(false, default);
+        if (SlotAt(GetGlobalMousePosition()) is null) EndDrag(true, GetGlobalMousePosition()); // outside the window it drops onto the ground
     }
 }
