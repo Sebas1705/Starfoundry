@@ -332,8 +332,8 @@ public partial class MachinePanel : PanelContainer
         _power.Disabled = off && options.Count == 0;
         bool damaged = m.Hp < maxHp;
         _repair.Visible = damaged;
-        if (damaged) _repair.Text = Loc.T("insp.repair", string.Join(", ", net.RepairCost(_machine).Select(s => $"{Loc.Name("item", _content.Items[s.Item].Id)} x{s.Count}")));
-        _removeBtn.Text = Loc.T("insp.remove", string.Join(", ", def.Cost.Select(s => $"{Loc.Name("item", _content.Items[s.Item].Id)} x{s.Count}")));
+        if (damaged) _repair.Text = _repair.TooltipText = Loc.T("insp.repair", string.Join(", ", net.RepairCost(_machine).Select(s => $"{Loc.Name("item", _content.Items[s.Item].Id)} x{s.Count}")));
+        _removeBtn.Text = _removeBtn.TooltipText = Loc.T("insp.remove", string.Join(", ", def.Cost.Select(s => $"{Loc.Name("item", _content.Items[s.Item].Id)} x{s.Count}")));
         SetText(_hint, Loc.T("bench.panel.hint"));
     }
 }

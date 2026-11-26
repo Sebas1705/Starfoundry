@@ -36,7 +36,7 @@ public static partial class Loc
         ["act.roll.name"] = ("alabeo", "roll"),
         ["act.roll.hint"] = ("Gira la nave sobre su eje (izquierda y derecha).", "Rolls the ship about its own axis (left and right)."),
         ["act.interact.name"] = ("interactuar", "interact"),
-        ["act.interact.hint"] = ("Sentarte o levantarte, subir una escalera, atracar o desatracar, abrir lo que apuntas (máquina, reactor, astillero, pantalla).", "Sit or stand, climb a ladder, dock or undock, open what you aim at (machine, reactor, shipyard, screen)."),
+        ["act.interact.hint"] = ("Sentarte o levantarte, subir una escalera, atracar o desatracar, abrir lo que apuntas (máquina, banco de trabajo, reactor, astillero, pantalla).", "Sit or stand, climb a ladder, dock or undock, open what you aim at (machine, workbench, reactor, shipyard, screen)."),
         ["act.assist.name"] = ("asistente de vuelo", "flight assist"),
         ["act.assist.hint"] = ("Con él la nave frena el giro al soltar el ratón; sin él sigue girando.", "With it the ship damps its turn when you let go of the mouse; without it it keeps turning."),
         ["act.scan.name"] = ("escanear", "scan"),

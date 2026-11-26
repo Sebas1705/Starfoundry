@@ -75,6 +75,16 @@ public class StationFirstUiTests
             Assert.False(string.IsNullOrWhiteSpace(table[key].Es) || string.IsNullOrWhiteSpace(table[key].En), key);
     }
 
+    [Fact]
+    public void TheInteractActionIsDocumentedAsOpeningTheWorkbenchAndMachinePanels()
+    {
+        var table = Loc.All.ToDictionary(p => p.Key, p => p.Value);
+        Assert.Contains("banco de trabajo", table["act.interact.hint"].Es);
+        Assert.Contains("workbench", table["act.interact.hint"].En);
+        Assert.Contains("máquina", table["act.interact.hint"].Es);
+        Assert.Contains(InputActions.All, a => a.Id == "interact" && a.Keys.Contains("F")); // the one key both panels open with and close with
+    }
+
     // ---- the workbench panel ----
 
     [Fact]
