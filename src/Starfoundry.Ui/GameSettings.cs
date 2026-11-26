@@ -66,6 +66,9 @@ public sealed record GameSettings
 
     public bool Fullscreen { get; init; }
 
+    /// <summary>Fallback: use the earlier grid panel as the ship designer instead of the full-screen 3D blueprint editor (docs/prototypes/blueprint-editor.md). Off by default.</summary>
+    public bool ClassicDesigner { get; init; }
+
     /// <summary>Low texture quality: the procedural textures are generated at half their size (read when the game starts, so a change applies on the next launch).</summary>
     public bool LowTextures { get; init; }
 
@@ -125,6 +128,7 @@ public sealed record GameSettings
             new KeyValuePair<string, string>("ship_inertia", ShipInertias.Id(s.ShipInertia)),
             new KeyValuePair<string, string>("flight_assist", s.FlightAssist ? "true" : "false"),
             new KeyValuePair<string, string>("fullscreen", s.Fullscreen ? "true" : "false"),
+            new KeyValuePair<string, string>("classic_designer", s.ClassicDesigner ? "true" : "false"),
             new KeyValuePair<string, string>("low_textures", s.LowTextures ? "true" : "false"),
             new KeyValuePair<string, string>("blender_cockpit", s.BlenderCockpit ? "true" : "false"),
             new KeyValuePair<string, string>("goal_waves", s.GoalWaves.ToString(CultureInfo.InvariantCulture)),
@@ -168,6 +172,7 @@ public sealed record GameSettings
                 case "ui_click_sound" when bool.TryParse(value, out bool uc): s = s with { UiClickSound = uc }; break;
                 case "ui_hover_sound" when bool.TryParse(value, out bool uh): s = s with { UiHoverSound = uh }; break;
                 case "fullscreen" when bool.TryParse(value, out bool fs): s = s with { Fullscreen = fs }; break;
+                case "classic_designer" when bool.TryParse(value, out bool cd): s = s with { ClassicDesigner = cd }; break;
                 case "low_textures" when bool.TryParse(value, out bool lt): s = s with { LowTextures = lt }; break;
                 case "blender_cockpit" when bool.TryParse(value, out bool bc): s = s with { BlenderCockpit = bc }; break;
                 case "goal_waves" when int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int gw): s = s with { GoalWaves = gw }; break;

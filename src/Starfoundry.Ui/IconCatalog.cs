@@ -108,6 +108,7 @@ public static class IconCatalog
         ("drones", "drone"), ("place", "build"), ("quick", "bolt"), ("run", "bolt"), ("hp", "heart"), ("menu", "tabs"), ("resume", "play"),
         ("hold", "cargo"), ("designer", "shipyard"), ("fireGuns", "gun"), ("belt", "belt"), ("machine", "arm"), ("target", "crosshair"), ("add", "plus"),
         ("assist", "gauge"), ("computer", "tabs"), ("fullscreen", "layers"), ("systems", "gauge"),
+        ("move", "arm"), ("mirror", "tabs"), ("copy", "depot"), ("paste", "upload"), ("undo", "rotate"), ("redo", "cycle"),
     };
 
     /// <summary>The icons of the personal inventory panel (ADR 0035), by id (the part after <c>tool:</c>).</summary>

@@ -80,6 +80,7 @@ public static partial class Loc
         foreach (var (key, value) in FlightTable) Table[key] = value;
         foreach (var (key, value) in MaterialsTable) Table[key] = value;
         foreach (var (key, value) in MissionsTable) Table[key] = value;
+        foreach (var (key, value) in BlueprintTable) Table[key] = value;
         foreach (var (key, value) in InventoryTable) Table[key] = value;
         foreach (var (key, value) in ControlsTable) Table[key] = value;
         AddIconStrings();
