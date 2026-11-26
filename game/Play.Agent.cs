@@ -91,6 +91,7 @@ public partial class Play
             hover = new { kind = _hover.Kind.ToString(), id = _hover.Id },
             mouseLook = _mouseLook,
             computerOpen = ComputerOpen,
+            computerTab = _computerTab?.ToString(),
             inventoryOpen = InventoryOpen,
             pauseOpen = PauseOpen,
         });

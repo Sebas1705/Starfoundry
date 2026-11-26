@@ -96,6 +96,34 @@ public partial class Play
     /// <summary>For the agent harness: opens the editor (the ship must be docked at a shipyard).</summary>
     public void AgentOpenBlueprint() => OpenBlueprint();
 
+    /// <summary>
+    /// For the agent harness: one editing step of the open blueprint editor, through the same calls the pointer and the keyboard use. <c>place</c> puts a defence module on a free
+    /// cell next to the draft, <c>floor</c> opens the floor plan of the core, <c>back</c> leaves it, <c>apply</c> sends the draft; any other word changes nothing. Returns <see cref="BlueprintState"/> (or the reason).
+    /// </summary>
+    public string AgentBlueprint(string op)
+    {
+        if (_blueprint is not { Visible: true } ed) return "closed";
+        var s = ed.Session;
+        switch (op)
+        {
+            case "place":
+                var spots = BlueprintSpots();
+                if (spots.Count == 0) return "no free cell";
+                ed.PickKind(ModuleKind.Defence);
+                ed.ClickCell(spots[0]);
+                break;
+            case "floor":
+                var core = s.Draft.Modules.Where(kv => kv.Value == ModuleKind.Core).Select(kv => kv.Key).FirstOrDefault();
+                ed.SetTool(BlueprintTool.Select);
+                ed.ClickCell(core);
+                if (!ed.OpenFloorOfSelection()) return "floor refused";
+                break;
+            case "back": ed.CloseFloor(); break;
+            case "apply": ed.Apply(); break;
+        }
+        return ed.Describe();
+    }
+
     /// <summary>For the agent harness: opens the editor on a station's modules.</summary>
     public void AgentOpenStationBlueprint(int station) => OpenStationBlueprint(station);
 

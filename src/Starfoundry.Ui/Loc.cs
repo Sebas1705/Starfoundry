@@ -1034,7 +1034,7 @@ public static partial class Loc
         ["hazard.ion"] = ("Nube iónica: reactores al {0} %", "Ion cloud: reactors at {0}%"),
         ["hazard.gravity"] = ("Nube gravitatoria: motores al {0} %", "Gravity cloud: engines at {0}%"),
         ["hud.boost"] = ("IMPULSO", "BOOST"),
-        ["toast.collision"] = ("Colisión: -{0} en {1}", "Collision: -{0} to {1}"),
+        ["toast.collision"] = ("Colisión a {2} celdas/s: -{0} en {1}", "Collision at {2} cells/s: -{0} to {1}"),
         ["toast.bump"] = ("Roce con {0}", "Scraped {0}"),
         ["toast.explosion"] = ("¡Explosión de {0}!", "The {0} exploded!"),
         ["toast.salvaged"] = ("Recuperado: {1} x {0}", "Salvaged {1} x {0}"),

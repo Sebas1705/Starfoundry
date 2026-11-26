@@ -81,8 +81,8 @@ public partial class ShipComputerBar : PanelContainer
             b.SetPressedNoSignal(active == tab);
             b.TooltipText = number + "  " + name + (ShipComputerTabs.WhyOff(tab, availability) is { } why ? "\n" + Loc.T(why) : "");
             b.Text = names ? number + " " + name : number.ToString();
+            b.ClipText = true; // the width of a tab never depends on its text, so no tab moves when another one is chosen
             if (names) UiFit.ShrinkButton(b, number + " " + name, per, 13, 9, iconWidth: 24f);
-            else b.ClipText = true;
         }
         _close.TooltipText = Loc.T("computer.close") + "  (Tab)";
         // After the buttons: the strip may only shrink once their minimum widths have, or it would keep the old width.

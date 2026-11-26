@@ -305,6 +305,96 @@ const phases = {
       await mouseMove((yaw / 57.3 / 0.0025 * 0.2).toFixed(1), (-pitch / 57.3 / 0.0025 * 0.2).toFixed(1)); await sleep(500);
     }
   },
+  // The ship computer tab strip: every tab opens by a real mouse click at its centre (not by element name), by its number key and Build by B;
+  // nothing else (a research node, a page control) may take the click. Repeats at several window sizes.
+  async computer() {
+    await startGame();
+    await newCampaign();
+    const clickAt = async (x, y) => {
+      await script(`var m := InputEventMouseMotion.new()
+m.position = Vector2(${x}, ${y})
+m.global_position = m.position
+Input.parse_input_event(m)
+return 1`); await sleep(120);
+      await script(`var e := InputEventMouseButton.new()
+e.button_index = 1
+e.pressed = true
+e.position = Vector2(${x}, ${y})
+e.global_position = e.position
+Input.parse_input_event(e)
+return 1`); await sleep(60);
+      await script(`var e := InputEventMouseButton.new()
+e.button_index = 1
+e.pressed = false
+e.position = Vector2(${x}, ${y})
+e.global_position = e.position
+Input.parse_input_event(e)
+return 1`); await sleep(250);
+    };
+    const rects = async () => JSON.parse(unwrap(await script(`var out := {}
+for n in scene_tree.root.find_children("Tab*", "Button", true, false):
+	if n.is_visible_in_tree():
+		var r: Rect2 = n.get_global_rect()
+		out[n.name] = [r.position.x + r.size.x / 2.0, r.position.y + r.size.y / 2.0, r.size.x, r.size.y]
+return JSON.stringify(out)`)));
+    const hovered = async () => String(unwrap(await script(`var h = scene_tree.root.gui_get_hovered_control()
+return str(h.name) + ":" + str(h.get_class()) if h else "none"`)));
+    for (const [w, h] of [[1152, 648], [1280, 720], [1920, 1080], [1024, 600], [800, 600]]) {
+      await script(`scene_tree.root.size = Vector2i(${w}, ${h})
+scene_tree.root.content_scale_size = Vector2i(0, 0)
+return 1`); await sleep(500);
+      let s = await state();
+      if (s.computerOpen) { await key('Tab'); await sleep(400); }
+      await key('Tab'); await sleep(500); s = await state();
+      check(`3.${w}.tab-opens-computer`, s.computerOpen === true, `computerTab=${s.computerTab}`);
+      const r = await rects(); const names = Object.keys(r).filter(n => /^Tab[A-Z]/.test(n) && !/Story|Campaign|Custom|Sandbox/.test(n));
+      log(`${w}x${h} tabs:`, names.map(n => n + '@' + r[n].slice(0, 3).map(v => v.toFixed(0)).join('/')).join(' '));
+      for (const n of names) {
+        const rNow = await rects(); const [x, y] = rNow[n]; const want = n.slice(3); // positions are re-read before each click: they must not depend on the active tab
+        if (Math.abs(rNow[n][0] - r[n][0]) > 1.5) log(`  LAYOUT SHIFT ${n}: ${r[n][0].toFixed(0)} -> ${rNow[n][0].toFixed(0)} (active tab ${(await state()).computerTab})`);
+        const hv = await hovered();
+        await clickAt(x, y); s = await state();
+        const hv2 = await hovered();
+        check(`3.${w}.click-${want}`, s.computerTab === want || want === 'Designer', `clicked ${x.toFixed(0)},${y.toFixed(0)} hover-before=${hv} hover-at=${hv2} computerTab=${s.computerTab}`);
+      }
+      await key('Tab'); await sleep(400);
+      await key('B'); await sleep(500); s = await state();
+      check(`3.${w}.key-B-opens-Build`, s.computerTab === 'Build', `computerTab=${s.computerTab}`);
+      await key('B'); await sleep(500); s = await state();
+      check(`3.${w}.key-B-closes`, !s.computerOpen, `computerOpen=${s.computerOpen}`);
+    }
+    log('errors:', JSON.stringify(errors()));
+  },
+  // Dock at a station through the ship's dock module with real keys, open the station blueprint editor, its floor plan, change something, apply, undock.
+  // Run with `--scenario=sandbox_station` after the phase name.
+  async stationflow() {
+    await startGame(); await sleep(4000);
+    let s = await state();
+    check('4.station-in-scenario', !!s.station, `scenario=${s.scenario} station=${JSON.stringify(s.station)} seated=${s.seated}`);
+    const bp = async op => String(unwrap(await script(FIND + `return play.call("AgentBlueprint", "${op}")`)));
+    for (let i = 0; i < 80 && !s.dockNear; i++) {
+      await script(FIND + 'return play.call("AgentFacePoint", "station")'); await keyDown('W'); await sleep(300); s = await state();
+      if (s.station && s.station.dist < 14) { await keyUp('W'); await keyDown('S'); await sleep(500); await keyUp('S'); }
+    }
+    await keyUp('W'); await sleep(1500); s = await state();
+    check('4.dock-near', s.dockNear, `dockNear=${s.dockNear} dist=${s.station?.dist?.toFixed(1)}`);
+    for (let i = 0; i < 12 && !s.docked; i++) { await key('F'); await sleep(2500); s = await state(); }
+    check('4.docked-through-the-dock-module', s.docked === true, `docked=${s.docked}`);
+    await script(FIND + `return play.call("AgentOpenStationBlueprint", ${s.station.id})`); await sleep(1500);
+    let d = await bp('state');
+    check('4.editor-open', /unknown op/.test(d) === false && d !== 'closed', d.slice(0, 160));
+    d = await bp('place'); check('4.place', /dirty=True/.test(d) && /added=1/.test(d), d.slice(0, 200));
+    d = await bp('floor'); check('4.floor-plan-opens', /floor=\d/.test(d), d.slice(0, 200));
+    await sleep(800); d = await bp('back'); check('4.floor-plan-closes', /floor=none/.test(d), d.slice(0, 200));
+    d = await bp('apply'); await sleep(2000);
+    d = String(unwrap(await script(FIND + 'return play.call("BlueprintState")')));
+    check('4.applied', /dirty=False/.test(d) && /added=0/.test(d), d.slice(0, 200));
+    await key('Escape'); await sleep(800); s = await state(); log('after Escape: paused', s.paused);
+    if (s.paused) { await key('Escape'); await sleep(800); }
+    for (let i = 0; i < 6 && (await state()).docked; i++) { await key('F'); await sleep(2500); }
+    s = await state(); check('4.undocked', s.docked === false, `docked=${s.docked}`);
+    const errs = errors(); check('4.no-errors-in-log', errs.length === 0, JSON.stringify(errs).slice(0, 400));
+  },
   async explore() {
     await startGame();
     log('menu:', (await ui()).filter(e => e.text).map(e => `${e.name}=${e.text}`).join(' | '));
