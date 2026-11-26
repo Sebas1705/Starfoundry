@@ -16,7 +16,7 @@ public class ShipStationTests
 
     private static SimWorld World(WorldRules? rules = null)
     {
-        var w = SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, threats: false, stationRules: false, structures: true, rules: (rules ?? new WorldRules { FreeBuild = true }).WithLegacyBlueprint(true));
+        var w = SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, threats: false, stationRules: false, structures: true, rules: (rules ?? new WorldRules { FreeBuild = true }).WithLegacyBlueprint(true).WithLegacyInterior(true));
         w.Network.EnsurePlayer(0);
         return w;
     }
@@ -144,7 +144,7 @@ public class ShipStationTests
         var w = World();
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, w.Log, C.Hash, GameMode.Campaign, Seed, threats: false, structures: true);
-        Assert.Equal(24, ms.ToArray()[4]);
+        Assert.Equal(25, ms.ToArray()[4]);
         CommandCodec.ReadLog(new MemoryStream(ms.ToArray()), out _, out _, out _, out _, out _, out _, out var now);
         Assert.False(now.LegacyShipAutomation);
         for (byte version = 6; version <= 19; version++)

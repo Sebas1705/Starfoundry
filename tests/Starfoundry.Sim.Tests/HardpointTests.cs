@@ -13,7 +13,7 @@ public class HardpointTests
     private static readonly int Ore = C.ItemIndex("core:iron_ore");
 
     private static SimWorld World(WorldRules? rules = null, bool threats = false) =>
-        SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: threats, stationRules: false, structures: true, rules: (rules ?? WorldRules.Default).WithLegacyBlueprint(true));
+        SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: threats, stationRules: false, structures: true, rules: (rules ?? WorldRules.Default).WithLegacyBlueprint(true).WithLegacyInterior(true));
 
     private static Reject Run(SimWorld w, Command c)
     {
@@ -205,7 +205,7 @@ public class HardpointTests
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, new List<LoggedCommand> { new(0, 0, inBatch) }, C.Hash, GameMode.Sandbox, Seed, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(24, bytes[4]);
+        Assert.Equal(25, bytes[4]);
         CommandCodec.ReadLog(new MemoryStream(bytes), out _, out _, out _, out _, out _, out _, out var rules);
         Assert.False(rules.LegacyHardpoints);
         bytes[4] = 13;

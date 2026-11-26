@@ -302,7 +302,7 @@ public class ScenarioTests
         Ok(w, new SetMovement(1, 0, 0));
         byte[] plain = LogBytes(w, null);
         byte[] scen = LogBytes(w, def);
-        Assert.Equal(24, scen[4]);
+        Assert.Equal(25, scen[4]);
         const int flagsAt = 4 + 1 + 8 + 1 + 8;
         Assert.Equal(0, plain[flagsAt] & 16);
         Assert.Equal(16, scen[flagsAt] & 16);
@@ -363,7 +363,9 @@ public class ScenarioTests
         var net = w.Network;
         var station = net.Structures().Single(s => s.Kind == StructureKind.Station).Id;
         Ok(w, new SetWeapons(true));
-        Ok(w, new PlaceMachineIn(station, 5, 4, 8, C.MachineIndex("core:turret"), -1));
+        var cur = net.ReadInterior(station); // ADR 0044: machines reach a station through its blueprint
+        var modules = net.GetStructure(station).Modules.Select(kv => new DesignModule(kv.Key.Mx, kv.Key.My, kv.Key.Mz, kv.Value)).ToArray();
+        Ok(w, new ApplyBlueprint(station, modules, new BlueprintInterior(cur.Machines.Append(new BlueprintMachine(5, 4, 8, C.MachineIndex("core:turret"), -1)).ToArray(), cur.Belts, cur.Links)));
         w.Step(300);
         return w;
     }
@@ -460,7 +462,7 @@ public class ScenarioTests
     [Fact]
     public void Stations_founded_and_modules_built_count_commands_only()
     {
-        var w = SimWorld.CreateScenario(C, Catalog, "sandbox", Seed, WorldRules.Default.WithLegacyBlueprint(true));
+        var w = SimWorld.CreateScenario(C, Catalog, "sandbox", Seed, WorldRules.Default.WithLegacyBlueprint(true).WithLegacyInterior(true));
         var net = w.Network;
         Assert.Equal(0, net.StationsFounded);
         var p = net.GetPlayerInfo(0);
@@ -481,7 +483,7 @@ public class ScenarioTests
         Assert.Equal(2, net.ModulesBuilt(ModuleKind.Reactor));
         w.ValidateInvariants();
         Assert.Equal(2, net.Clone().ModulesBuilt(ModuleKind.Reactor));
-        var replay = SimWorld.ReplayScenario(w.Log, w.Tick, C, Catalog, "sandbox", Seed, WorldRules.Default.WithLegacyBlueprint(true));
+        var replay = SimWorld.ReplayScenario(w.Log, w.Tick, C, Catalog, "sandbox", Seed, WorldRules.Default.WithLegacyBlueprint(true).WithLegacyInterior(true));
         Assert.Equal(1, replay.Network.StationsFounded);
         Assert.Equal(2, replay.Network.ModulesBuilt(ModuleKind.Reactor));
     }

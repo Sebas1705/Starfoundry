@@ -54,7 +54,7 @@ public class FlightFeelTests
     }
 
     private static SimWorld World(ContentDb? content = null, WorldRules? rules = null, ulong seed = Seed) =>
-        SimWorld.CreateGalaxy(content ?? C, GameMode.Sandbox, seed, threats: false, stationRules: false, structures: true, rules: (rules ?? WorldRules.Default).WithLegacyBlueprint(true));
+        SimWorld.CreateGalaxy(content ?? C, GameMode.Sandbox, seed, threats: false, stationRules: false, structures: true, rules: (rules ?? WorldRules.Default).WithLegacyBlueprint(true).WithLegacyInterior(true));
 
     /// <summary>A hand-built ship (cockpit, engine, workshop, cargo, reactor and a mining laser) at the origin with hydrogen.</summary>
     private static int Ship(SimWorld w) => PowerTests.Ship(w, 1, 30);
@@ -291,7 +291,7 @@ public class FlightFeelTests
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, recorded.Log, C.Hash, GameMode.Sandbox, Seed, threats: false, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(24, bytes[4]);
+        Assert.Equal(25, bytes[4]);
         var empty = new MemoryStream();
         CommandCodec.WriteLog(empty, new List<LoggedCommand>(), C.Hash, GameMode.Sandbox, Seed, threats: false, structures: true);
         CommandCodec.ReadLog(new MemoryStream(bytes), out _, out _, out _, out _, out _, out _, out var current);

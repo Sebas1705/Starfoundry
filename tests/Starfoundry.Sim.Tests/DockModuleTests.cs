@@ -17,7 +17,7 @@ public class DockModuleTests
     private static readonly ContentDb Shipped = TestContent.CoreFloor;
 
     private static SimWorld World(ContentDb? content = null, GameMode mode = GameMode.Sandbox, WorldRules? rules = null) =>
-        SimWorld.CreateGalaxy(content ?? C, mode, Seed, threats: false, stationRules: false, structures: true, rules: (rules ?? WorldRules.Default).WithLegacyShipAutomation(true).WithLegacyBlueprint(true));
+        SimWorld.CreateGalaxy(content ?? C, mode, Seed, threats: false, stationRules: false, structures: true, rules: (rules ?? WorldRules.Default).WithLegacyShipAutomation(true).WithLegacyBlueprint(true).WithLegacyInterior(true));
 
     private static Reject Run(SimWorld w, Command c)
     {
@@ -306,7 +306,7 @@ public class DockModuleTests
         using var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, recorded.Log, C.Hash, GameMode.Sandbox, Seed, threats: false, structures: true, rules: recorded.Network.Rules);
         var bytes = ms.ToArray();
-        Assert.Equal(24, bytes[4]);
+        Assert.Equal(25, bytes[4]);
         for (byte version = 12; version <= 21; version++)
         {
             var old = (byte[])bytes.Clone();

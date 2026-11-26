@@ -223,6 +223,18 @@ public partial class Play
                 if (_blueprintAwait || Net.Tick < _bpTick + 3) break;
                 BlueprintCheckStationApplied();
                 break;
+            case 10: // the floor plan of the station's core (ADR 0044)
+                if (Wait(6)) break;
+                BlueprintCheckFloorOpen();
+                break;
+            case 11:
+                if (Wait(4)) break;
+                BlueprintCheckFloorEdited();
+                break;
+            case 12:
+                if (_blueprintAwait || Net.Tick < _bpTick + 3) break;
+                BlueprintCheckFloorApplied();
+                break;
         }
     }
 
@@ -432,6 +444,92 @@ public partial class Play
         Check("station: the station has the new module", st.Modules.Count == _bpStationModules + 1 && st.Modules.TryGetValue(_bpSpot, out var k) && k == ModuleKind.Defence, $"modules={st.Modules.Count}");
         Check("station: the editor reloaded the applied layout", !s.Dirty && s.Draft.Count == st.Modules.Count && !s.CanApply);
         Check("station: the module tool is refused in the world", Net.BlueprintRules);
+        _bpWait = 0; _bpPhase = 10; // on to the floor plan
+    }
+
+    // ---- the floor plan section of --blueprint-check -------------------------------------------------------------------
+
+    private static (int X, int Y, int Z) FloorCell(int mx, int mz, int cx, int cz) => (mx * StationGrid.ModuleX + cx, 0, mz * StationGrid.ModuleZ + cz);
+
+    private void BlueprintCheckFloorOpen()
+    {
+        var ed = _blueprint!;
+        var s = ed.Session;
+        var core = s.Draft.Modules.First(kv => kv.Value == ModuleKind.Core).Key;
+        Check("floor: the core opens its floor plan", ed.OpenFloor(core) && ed.FloorOpenNow && s.FloorModule == core);
+        foreach (var n in new[] { "FloorPlan", "FloorPalette", "FloorTool_Select", "FloorTool_Machine", "FloorTool_Belt", "FloorTool_Erase", "FloorMachine_core_smelter", "FloorMachine_core_depot", "FloorMachinePanel", "FloorUndo", "FloorBackButton", "FloorClearButton" })
+            Check("floor: node " + n, ed.FindChild(n, true, false) is not null);
+        ed.LayoutProblems(new Vector2(1280, 720)); // refreshes the panels so the plan is shown
+        Check("floor: the plan replaces the 3D view", ed.FindChild("FloorPlan", true, false) is Control { Visible: true } && ed.FindChild("PlanView", true, false) is Control { Visible: false });
+        Check("floor: the 3D palette is hidden and the plan's shown", ed.FindChild("Palette_Defence", true, false) is Control { } pd && !pd.IsVisibleInTree() && ed.FindChild("FloorMachine_core_smelter", true, false) is Control { } fm && fm.IsVisibleInTree());
+        var original = Loc.Lang;
+        foreach (var lang in new[] { Language.Es, Language.En })
+        {
+            Loc.Lang = lang;
+            foreach (var size in new[] { new Vector2(1280, 720), new Vector2(1920, 1080), new Vector2(960, 540), new Vector2(1152, 648) })
+            {
+                var problems = ed.LayoutProblems(size);
+                Check($"floor: layout {lang} {size.X}x{size.Y}", problems.Count == 0, string.Join(" | ", problems));
+            }
+        }
+        Loc.Lang = original;
+        foreach (var item in _content.Items) Net.GiveStock(_bpStation, item.Index, 500); // the plan's parts are paid from the station's stock
+        int smelter = _content.MachineIndex("core:smelter"), depot = _content.MachineIndex("core:depot");
+        s.PickPlanMachine(smelter);
+        ed.FloorClick(FloorCell(core.Mx, core.Mz, 3, 3));
+        s.PickPlanMachine(depot);
+        ed.FloorClick(FloorCell(core.Mx, core.Mz, 6, 3));
+        s.SetPlanTier(BeltTier.Mk1);
+        ed.FloorDrag(FloorCell(core.Mx, core.Mz, 4, 3), FloorCell(core.Mx, core.Mz, 5, 3));
+        Check("floor: three parts are drawn", s.Interior.Machines.Count == 2 && s.Interior.Belts.Count == 1 && s.Dirty);
+        s.SetPlanTool(PlanTool.Machine);
+        var cell = FloorCell(core.Mx, core.Mz, 1, 1);
+        ed.FloorClick((cell.X, 1, cell.Z));
+        Check("floor: a cell above the floor is refused with a reason", s.Interior.Machines.Count == 2 && s.LastMessageKey == PlanReasons.NotFloor);
+    }
+
+    private void BlueprintCheckFloorEdited()
+    {
+        var ed = _blueprint!;
+        var s = ed.Session;
+        var core = s.FloorModule!.Value;
+        var d = ed.Describe();
+        Check("floor: the simulation agrees with the plan", s.Report.Ok && s.Report.PartsAdded == 3 && s.InteriorChange.Added == 3, $"{s.Report.Reject} added={s.Report.PartsAdded}");
+        Check("floor: cost equals the simulation's", s.Cost.ToPay.SequenceEqual(s.Report.Cost) && s.Cost.ToRefund.SequenceEqual(s.Report.Refund) && s.Report.Cost.Length > 0);
+        Check("floor: the describe line counts the parts", d.Contains("parts=3") && d.Contains("partsAdded=3") && d.Contains("floor=" + core.Mx), d);
+        Check("floor: a belt that joins its neighbours has no gap warnings", !s.Validation.Entries.Any(e => e.Code is "beltEnd" or "beltStart") && s.CanApply);
+        s.SetPlanTier(BeltTier.Mk1);
+        ed.FloorDrag(FloorCell(core.Mx, core.Mz, 1, 6), FloorCell(core.Mx, core.Mz, 2, 6));
+        Check("floor: a dangling belt warns about its ends but does not block", s.Validation.Entries.Any(e => e.Code == "beltEnd" && !e.Blocks) && s.Validation.Entries.Any(e => e.Code == "beltStart" && !e.Blocks) && s.CanApply, $"belts={s.Interior.Belts.Count} msg={s.LastMessageKey} entries={string.Join(",", s.Validation.Entries.Select(e => e.Code))}");
+        Check("floor: the gap entries have icon and both languages", s.Validation.Entries.Where(e => e.Code is "beltEnd" or "beltStart").All(e => IconCatalog.IsRegistered(e.Icon) && e.Text(Language.Es) != e.Text(Language.En)));
+        ed.RunAction("bpUndo", 0);
+        Check("floor: undo takes the dangling belt back", s.Interior.Belts.Count == 1 && !s.Validation.Entries.Any(e => e.Code is "beltEnd" or "beltStart"));
+        ed.RunAction("bpRedo", 0);
+        ed.RunAction("bpUndo", 0);
+        s.SetPlanTool(PlanTool.Select);
+        ed.FloorClick(FloorCell(core.Mx, core.Mz, 3, 3));
+        ed.LayoutProblems(new Vector2(1280, 720)); // refreshes the panels
+        Check("floor: selecting a machine shows its panel", s.PlanSelection == FloorCell(core.Mx, core.Mz, 3, 3) && ed.FindChild("FloorRecipeButton", true, false) is Control { Visible: true });
+        int iron = _content.RecipeIndex("core:smelt_iron");
+        s.Interior.SetRecipe(FloorCell(core.Mx, core.Mz, 3, 3), iron);
+        Check("floor: a recipe is set on the draft", s.Interior.MachineAt(FloorCell(core.Mx, core.Mz, 3, 3))!.Value.Recipe == iron && s.Report.Ok);
+        _bpTick = Net.Tick;
+        ed.Apply();
+        Check("floor: apply sends one ApplyBlueprint with the interior", _blueprintAwait);
+        _bpWait = 0; _bpPhase = 12;
+    }
+
+    private void BlueprintCheckFloorApplied()
+    {
+        var ed = _blueprint!;
+        var s = ed.Session;
+        var read = Net.ReadInterior(_bpStation);
+        Check("floor: the station has the machines, the belt and the links", read.Machines.Length == 2 && read.Belts.Length == 1 && read.Links.Length == 2, $"machines={read.Machines.Length} belts={read.Belts.Length} links={read.Links.Length}");
+        Check("floor: the smelter has its recipe", read.Machines.Any(m => m.Type == _content.MachineIndex("core:smelter") && m.Recipe == _content.RecipeIndex("core:smelt_iron")));
+        Check("floor: the editor reloaded the applied interior", !s.Dirty && s.Interior.Machines.Count == 2 && !s.CanApply);
+        Check("floor: placing a machine in the world is refused", Net.InteriorBlueprintRules);
+        ed.CloseFloor();
+        Check("floor: back to the 3D plan", !ed.FloorOpenNow);
         GD.Print($"BLUEPRINTCHECK done pass={_bpPass} fail={_bpFail}");
         GetTree().Quit(_bpFail > 0 ? 1 : 0);
     }

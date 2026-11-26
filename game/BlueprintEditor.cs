@@ -93,6 +93,7 @@ public partial class BlueprintEditor : Control
         BuildSidePanel();
         BuildFootBar();
         foreach (var p in new Control[] { _topBar, _palettePanel, _sidePanel, _footBar }) AddChild(p);
+        BuildFloor();
     }
 
     // ---- building the panels ----------------------------------------------------------------------------------------
@@ -134,8 +135,8 @@ public partial class BlueprintEditor : Control
         _topBar.AddChild(row);
         row.AddChild(new IconRect("tool:designer", 26, UiTheme.Gold, tooltip: false));
         _title = Label("Title", 1, UiTheme.Heading + 2, UiTheme.Small);
-        _title.CustomMinimumSize = new Vector2(170, 0);
-        _title.FitWidth = 170;
+        _title.CustomMinimumSize = new Vector2(120, 0);
+        _title.FitWidth = 120;
         _title.AutowrapMode = TextServer.AutowrapMode.Off;
         row.AddChild(_title);
 
@@ -150,17 +151,17 @@ public partial class BlueprintEditor : Control
         row.AddChild(_frameAll);
 
         _deckLabel = Label("DeckLabel", 1, UiTheme.Small, UiTheme.Caption);
-        _deckLabel.FitWidth = 96; _deckLabel.AutowrapMode = TextServer.AutowrapMode.Off;
+        _deckLabel.FitWidth = 80; _deckLabel.AutowrapMode = TextServer.AutowrapMode.Off;
         _deckLabel.HorizontalAlignment = HorizontalAlignment.Right;
         row.AddChild(_deckLabel);
-        _deck = new HSlider { Name = "DeckSlider", MinValue = -1, MaxValue = 1, Step = 1, CustomMinimumSize = new Vector2(150, 24), SizeFlagsVertical = SizeFlags.ShrinkCenter, FocusMode = FocusModeEnum.All, TooltipText = Loc.T("bp.view.section") + " (" + Cap("bpLayer") + ")" };
+        _deck = new HSlider { Name = "DeckSlider", MinValue = -1, MaxValue = 1, Step = 1, CustomMinimumSize = new Vector2(100, 24), SizeFlagsVertical = SizeFlags.ShrinkCenter, FocusMode = FocusModeEnum.All, TooltipText = Loc.T("bp.view.section") + " (" + Cap("bpLayer") + ")" };
         _deck.ValueChanged += v => { if (!_settingDeck) { _s.Camera.SetSection((int)v); SyncViewButtons(); _sceneDirty = true; } };
         row.AddChild(_deck);
 
         var spacer = new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore };
         row.AddChild(spacer);
         _selectionLabel = Label("SelectionLabel", 1, UiTheme.Small, UiTheme.Caption, Muted);
-        _selectionLabel.FitWidth = 170; _selectionLabel.AutowrapMode = TextServer.AutowrapMode.Off;
+        _selectionLabel.FitWidth = 130; _selectionLabel.AutowrapMode = TextServer.AutowrapMode.Off;
         _selectionLabel.HorizontalAlignment = HorizontalAlignment.Right;
         row.AddChild(_selectionLabel);
         _close = UiKit.Button(Loc.T("bp.close"), () => RequestClose(), 14, 90);
@@ -330,6 +331,7 @@ public partial class BlueprintEditor : Control
         _structure = structure;
         _s.Open(structure);
         FillPalette();
+        _floorShown = false;
         _hoverCell = null;
         _lastSize = Vector2.Zero;
         _title.SetFit(Loc.T(structure >= 0 ? "bp.title.station" : "bp.title"));

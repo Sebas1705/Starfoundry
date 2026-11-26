@@ -58,7 +58,7 @@ public class BlueprintStationTests
         w.Step();
         CommandCodec.WriteLog(ms, w.Log, C.Hash, GameMode.Campaign, Seed, threats: false, structures: true);
         var bytes = ms.ToArray();
-        Assert.Equal(24, bytes[4]);
+        Assert.Equal(25, bytes[4]);
         var back = CommandCodec.ReadLog(new MemoryStream(bytes), out _, out _, out _, out _, out _, out _, out var rules);
         Assert.False(rules.LegacyBlueprint);
         var read = Assert.IsType<ApplyBlueprint>(back.Single().Command);
@@ -174,9 +174,9 @@ public class BlueprintStationTests
     public void A_module_holding_a_machine_cannot_go_and_a_docked_port_cannot_go()
     {
         var (w2, st2) = Make();
-        Fill(w2); // machines are still placed one by one in this phase
         var bay = (1, 0, 0);
-        Assert.Equal(Reject.None, Run(w2, new PlaceMachineIn(st2, 8 + 2, 0, 2, C.MachineIndex("core:smelter"), -1)));
+        var smelter = new BlueprintInterior(new[] { new BlueprintMachine(8 + 2, 0, 2, C.MachineIndex("core:smelter"), -1) }, Array.Empty<BlueprintBelt>(), Array.Empty<BlueprintLink>());
+        Assert.Equal(Reject.None, Run(w2, new ApplyBlueprint(st2, Modules(w2, st2), smelter))); // ADR 0044: machines reach a station through its blueprint
         Assert.Equal(Reject.ModuleOccupied, Run(w2, new ApplyBlueprint(st2, Without(w2, st2, bay))));
         Assert.Equal(Reject.ModuleOccupied, w2.CheckBlueprint(0, st2, Modules(w2, st2).Select(m => (m.Mx, m.My, m.Mz) == bay ? m with { Kind = ModuleKind.Defence } : m).ToArray()).Reject);
         Assert.Equal(ModuleKind.Workshop, w2.Network.GetStructure(st2).Modules[bay]);
