@@ -738,6 +738,17 @@ public static partial class Models
         // output port on the +X face
         mb.C(HullLight).Block(new(0.43f, -0.325f, 0), new(0.10f, 0.09f, 0.18f));
         mb.C(accent).Block(new(0.482f, -0.325f, 0), new(0.012f, 0.05f, 0.11f));
+        // the shared machine trim: four corner bolts, a hazard strip along the back edge and a data plate with a lit tag on each flank, so every machine reads as one family
+        foreach (float sx in new[] { -1f, 1f })
+            foreach (float sz in new[] { -1f, 1f })
+                mb.C(Steel).Prism(new(sx * 0.385f, -0.395f, sz * 0.385f), 0.032f, 0.026f, 0.026f, 6);
+        for (int i = 0; i < 6; i++)
+            mb.C(i % 2 == 0 ? Yellow : Hull).Block(new(-0.405f, -0.392f, -0.25f + i * 0.1f), new(0.05f, 0.012f, 0.07f));
+        foreach (float sz in new[] { -1f, 1f })
+        {
+            mb.C(Hull).Block(new(-0.12f, -0.41f, sz * 0.437f), new(0.20f, 0.04f, 0.02f));
+            mb.C(accent).Block(new(-0.05f, -0.41f, sz * 0.4475f), new(0.05f, 0.02f, 0.012f));
+        }
     }
 
     private static Node3D NewMachine(string name) => new() { Name = name };

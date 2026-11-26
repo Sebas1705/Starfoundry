@@ -155,6 +155,9 @@ public static class BeltModels
             mb.C(G(1f)).Block(new(0, rail / 2, s * 0.385f), new(1.0f, rail, 0.12f));
             mb.C(G(0.80f)).Block(new(0, rail + 0.005f, s * 0.385f), new(1.0f, 0.012f, 0.07f)); // bright rail cap
         }
+        // a bracket plate on the outer face of each rail, so a long run reads as bolted sections
+        foreach (float s in new[] { -1f, 1f })
+            mb.C(G(0.30f)).Block(new(0.2f, rail * 0.5f, s * 0.447f), new(0.2f, rail * 0.8f, 0.02f));
         // support ribs under the bed every cell so a long belt looks segmented
         mb.C(G(0.34f)).Block(new(0.47f, 0.07f, 0), new(0.06f, 0.15f, 0.9f));
         if (tier == 2) mb.C(G(0.9f)).Block(new(0, 0.168f, 0), new(1.0f, 0.006f, 0.04f));
@@ -178,6 +181,17 @@ public static class BeltModels
         mb.C(G(1f)).Prism(new(0, 0.168f, 0), 0.34f, 0.34f, 0.014f, 8, 22.5f);
         mb.C(G(0.50f)).Prism(new(0, 0.178f, 0), 0.22f, 0.22f, 0.008f, 8, 22.5f);
         mb.C(G(1f)).Prism(new(0, 0.184f, 0), 0.08f, 0.08f, 0.008f, 8, 22.5f);
+        // a ring of eight bolts and four short flow ribs on the inner disc, so a hub reads as a machined junction
+        for (int i = 0; i < 8; i++)
+        {
+            float a = Mathf.Tau * i / 8f;
+            mb.C(G(0.8f)).Prism(new(MathF.Cos(a) * 0.29f, 0.178f, MathF.Sin(a) * 0.29f), 0.032f, 0.026f, 0.014f, 6);
+        }
+        for (int i = 0; i < 4; i++)
+        {
+            float a = Mathf.Tau * i / 4f + Mathf.Pi / 4f;
+            mb.C(G(0.75f)).Beam(new(MathF.Cos(a) * 0.1f, 0.19f, MathF.Sin(a) * 0.1f), new(MathF.Cos(a) * 0.2f, 0.19f, MathF.Sin(a) * 0.2f), 0.03f);
+        }
     });
 }
 
