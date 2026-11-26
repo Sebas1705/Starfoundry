@@ -82,6 +82,7 @@ public static partial class Loc
         foreach (var (key, value) in MissionsTable) Table[key] = value;
         foreach (var (key, value) in InventoryTable) Table[key] = value;
         foreach (var (key, value) in ControlsTable) Table[key] = value;
+        foreach (var (key, value) in StationTable) Table[key] = value;
         AddIconStrings();
         foreach (var (key, value) in CockpitTable) Table[key] = value;
         // the camel-case forms of the names (the game looks modules up both ways, as for droneBay)
