@@ -17,7 +17,7 @@ public class DockModuleTests
     private static readonly ContentDb Shipped = TestContent.CoreFloor;
 
     private static SimWorld World(ContentDb? content = null, GameMode mode = GameMode.Sandbox, WorldRules? rules = null) =>
-        SimWorld.CreateGalaxy(content ?? C, mode, Seed, threats: false, stationRules: false, structures: true, rules: rules);
+        SimWorld.CreateGalaxy(content ?? C, mode, Seed, threats: false, stationRules: false, structures: true, rules: (rules ?? WorldRules.Default).WithLegacyShipAutomation(true));
 
     private static Reject Run(SimWorld w, Command c)
     {

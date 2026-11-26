@@ -30,14 +30,14 @@ public class ShipStationTests
 
     private static int Ship(SimWorld w) => w.Network.ShipStructure(0);
 
-    /// <summary>A world with a station founded beside the ship: core at (0,0,0), a bay at (1,0,0) and a defence module at (0,0,-1).</summary>
+    /// <summary>A world with a station founded beside the ship: core at (0,0,0), a bay at (1,0,0) and a defence module at (0,0,1); the dock module is at (0,0,-1).</summary>
     private static (SimWorld W, int Station) WithStation(WorldRules? rules = null)
     {
         var w = World(rules);
         Assert.Equal(Reject.None, Run(w, new FoundStation(10, 0, -12)));
         int st = w.Network.Structures().First(s => s.Kind == StructureKind.Station).Id;
         Assert.Equal(Reject.None, Run(w, new PlaceModuleIn(st, 1, 0, 0, ModuleKind.Workshop)));
-        Assert.Equal(Reject.None, Run(w, new PlaceModuleIn(st, 0, 0, -1, ModuleKind.Defence)));
+        Assert.Equal(Reject.None, Run(w, new PlaceModuleIn(st, 0, 0, 1, ModuleKind.Defence)));
         return (w, st);
     }
 
@@ -89,8 +89,8 @@ public class ShipStationTests
         Assert.Equal(Reject.None, Run(w, new PlaceMachineIn(st, 1, 0, 1, Type("core:smelter"), C.RecipeIndex("core:smelt_iron"))));
         Assert.Equal(Reject.None, Run(w, new PlaceMachineIn(st, 5, 0, 1, Type("core:assembler"), C.RecipeIndex("core:iron_plate"))));
         Assert.Equal(Reject.None, Run(w, new PlaceSegmentIn(st, 2, 0, 1, Dir.PosX, 3, BeltTier.Mk1)));
-        Assert.Equal(Reject.None, Run(w, new PlaceMachineIn(st, 1, 0, -3, Type("core:turret"), -1)));
-        Assert.Equal(Reject.None, Run(w, new PlaceMachineIn(st, 1, 0, -6, Type("core:wall"), -1)));
+        Assert.Equal(Reject.None, Run(w, new PlaceMachineIn(st, 1, 0, 10, Type("core:turret"), -1)));
+        Assert.Equal(Reject.None, Run(w, new PlaceMachineIn(st, 1, 0, 13, Type("core:wall"), -1)));
         w.Step(20 * 30);
         w.Network.ValidateInvariants();
     }
@@ -134,7 +134,7 @@ public class ShipStationTests
         Assert.True(legacy.WithResourceDensity(120).LegacyShipAutomation);
         Assert.False(legacy.WithLegacyShipAutomation(false).LegacyShipAutomation);
         var bad = legacy.Serialize();
-        bad[1 + 8 * 4 + 1] = 16;
+        bad[1 + 8 * 4 + 1] = 128;
         Assert.Throws<InvalidDataException>(() => WorldRules.Deserialize(bad));
     }
 
@@ -144,7 +144,7 @@ public class ShipStationTests
         var w = World();
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, w.Log, C.Hash, GameMode.Campaign, Seed, threats: false, structures: true);
-        Assert.Equal(20, ms.ToArray()[4]);
+        Assert.Equal(23, ms.ToArray()[4]);
         CommandCodec.ReadLog(new MemoryStream(ms.ToArray()), out _, out _, out _, out _, out _, out _, out var now);
         Assert.False(now.LegacyShipAutomation);
         for (byte version = 6; version <= 19; version++)
