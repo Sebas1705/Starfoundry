@@ -118,7 +118,7 @@ public class StructureEconomyTests
     [Fact]
     public void Ports_are_free_in_structure_worlds_and_gated_elsewhere()
     {
-        var structure = SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, structures: true);
+        var structure = SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, structures: true, rules: TestContent.LegacyShip);
         var legacy = SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed);
         foreach (var m in C.Machines.Where(m => m.Role == MachineRole.Unloader))
         {
@@ -192,7 +192,7 @@ public class StructureEconomyTests
     {
         var c = QuartzOnly();
         int quartz = c.ItemIndex("core:quartz"), ingot = c.ItemIndex("core:iron_ingot"), plate = c.ItemIndex("core:iron_plate");
-        var w = SimWorld.CreateGalaxy(c, GameMode.Campaign, Seed, threats: false, stationRules: false, structures: true);
+        var w = SimWorld.CreateGalaxy(c, GameMode.Campaign, Seed, threats: false, stationRules: false, structures: true, rules: TestContent.LegacyShip);
         var n = w.Network;
         int ship = PowerTests.Ship(w, hydrogen: 10); // workshop in module 2, cells x 16..23
         n.GrantResearch(c.ResearchIndex("core:titanium_smelting"));
@@ -242,7 +242,7 @@ public class StructureEconomyTests
     [Fact]
     public void The_last_cockpit_engine_reactor_or_cargo_of_the_ship_cannot_be_removed()
     {
-        var w = SimWorld.CreateGalaxy(TestContent.CoreWithoutStarterShip, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true);
+        var w = SimWorld.CreateGalaxy(TestContent.CoreWithoutStarterShip, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: TestContent.LegacyShip);
         var n = w.Network;
         int s = PowerTests.Ship(w, hydrogen: 5); // cockpit 0, engine 1, workshop 2, cargo 3, reactor 4
         // Extra end modules of each kind next to the first reactor, to remove the spare ones first.
@@ -266,7 +266,7 @@ public class StructureEconomyTests
     [Fact]
     public void Stations_keep_the_old_removal_rules()
     {
-        var w = SimWorld.CreateGalaxy(TestContent.CoreWithoutStarterShip, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true);
+        var w = SimWorld.CreateGalaxy(TestContent.CoreWithoutStarterShip, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: TestContent.LegacyShip);
         var n = w.Network;
         PowerTests.Ship(w, hydrogen: 5); // the player needs a ship (and its cockpit) in range
         int st = n.CreateStructure(0, StructureKind.Station, 0, 0, 0);

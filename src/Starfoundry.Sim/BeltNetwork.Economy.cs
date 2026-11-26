@@ -44,6 +44,12 @@ public static class PlayerRules
     /// <summary>The ship's micro-refinery works this many times slower than the recipe time.</summary>
     public const int ShipCraftMultiplier = 2;
 
+    /// <summary>ADR 0039: the workbench of a world without <see cref="WorldRules.LegacyShipAutomation"/> takes this many times the recipe time (8 s for a 1 s recipe) and does one craft at a time.</summary>
+    public const int BenchCraftMultiplier = 8;
+
+    /// <summary>ADR 0039: crafts that may wait in the workbench queue.</summary>
+    public const int BenchQueueMax = 5;
+
     /// <summary>Ship speed along one axis: 48 units per tick, 6 cells per second.</summary>
     public const int MoveUnitsPerTick = 48;
 
@@ -81,7 +87,11 @@ public readonly record struct PlayerInfo(
     int Id, int HoldTotal, int MiningDeposit, int ShipRecipe, bool ShipCrafting, int ShipRemaining,
     int X = 0, int Y = 0, int Z = 0, int MoveX = 0, int MoveY = 0, int MoveZ = 0,
     int ScanCooldown = 0, int JumpTarget = -1, int JumpRemaining = 0, int Hull = 0, bool Armed = false, int RespawnRemaining = 0,
-    int ThrustX = 0, int ThrustY = 0, int ThrustZ = 0, int VelX = 0, int VelY = 0, int VelZ = 0);
+    int ThrustX = 0, int ThrustY = 0, int ThrustZ = 0, int VelX = 0, int VelY = 0, int VelZ = 0, IReadOnlyList<int>? Queue = null)
+{
+    /// <summary>The recipes waiting at the workbench, in order (ADR 0039); always empty in a world with the legacy ship rules.</summary>
+    public IReadOnlyList<int> BenchQueue => Queue ?? Array.Empty<int>();
+}
 
 internal sealed partial class Player
 {
@@ -99,6 +109,9 @@ internal sealed partial class Player
     public int ShipRecipe = -1;
     public bool ShipCrafting;
     public int ShipRemaining;
+
+    /// <summary>ADR 0039: crafts waiting at the workbench (recipe indices), never more than <see cref="PlayerRules.BenchQueueMax"/>. Mixed only when not empty.</summary>
+    public readonly List<int> BenchQueue = new();
 
     /// <summary>Output items of the craft in progress, counted against the hold capacity.</summary>
     public int ShipReserved;
@@ -192,6 +205,7 @@ internal sealed partial class Player
             ShipStructure = ShipStructure, ShipLost = ShipLost,
         };
         Array.Copy(Hold, c.Hold, Hold.Length);
+        c.BenchQueue.AddRange(BenchQueue);
         CloneInventoryInto(c);
         return c;
     }
@@ -448,7 +462,8 @@ public sealed partial class BeltNetwork
     {
         var p = GetPlayer(id);
         return new PlayerInfo(p.Id, p.HoldTotal, p.MiningDeposit, p.ShipRecipe, p.ShipCrafting, p.ShipRemaining,
-            p.X, p.Y, p.Z, p.MoveX, p.MoveY, p.MoveZ, p.ScanCooldown, p.JumpTarget, p.JumpRemaining, p.Hull, p.Armed, p.RespawnRemaining, p.ThrustX, p.ThrustY, p.ThrustZ, p.VelX, p.VelY, p.VelZ);
+            p.X, p.Y, p.Z, p.MoveX, p.MoveY, p.MoveZ, p.ScanCooldown, p.JumpTarget, p.JumpRemaining, p.Hull, p.Armed, p.RespawnRemaining, p.ThrustX, p.ThrustY, p.ThrustZ, p.VelX, p.VelY, p.VelZ,
+            p.BenchQueue.Count == 0 ? null : p.BenchQueue.ToArray());
     }
 
     /// <summary>Switches the ship's weapon on or off. It fires at the nearest enemy in range while on.</summary>
@@ -613,6 +628,24 @@ public sealed partial class BeltNetwork
         p.ShipRecipe = recipe;
     }
 
+    /// <summary>ADR 0039: adds crafts to the workbench queue. The caller has checked the recipe and the rules.</summary>
+    public void QueueBenchCore(int player, int recipe, int count)
+    {
+        var p = GetOrCreatePlayer(player);
+        for (int i = 0; i < count; i++) p.BenchQueue.Add(recipe);
+    }
+
+    /// <summary>The crafts waiting at the workbench of a player, in order.</summary>
+    public int BenchQueueCount(int player) => _players.TryGetValue(player, out var p) ? p.BenchQueue.Count : 0;
+
+    /// <summary>ADR 0039: cancels the craft in progress (inputs back to the hold) and empties the queue.</summary>
+    public void ClearBenchCore(int player)
+    {
+        var p = GetOrCreatePlayer(player);
+        AbortShipCraft(p);
+        p.BenchQueue.Clear();
+    }
+
     private Player GetPlayer(int id) =>
         _players.TryGetValue(id, out var p) ? p : throw new ArgumentOutOfRangeException(nameof(id), "Unknown player.");
 
@@ -712,7 +745,7 @@ public sealed partial class BeltNetwork
                     HandMinedItem(p, d);
                 }
             }
-            if (p.ShipRecipe >= 0) StepShip(p);
+            if (!StationFirst ? p.ShipRecipe >= 0 : p.ShipCrafting || p.BenchQueue.Count > 0) StepShip(p);
         }
     }
 
@@ -755,6 +788,8 @@ public sealed partial class BeltNetwork
 
     private void StepShip(Player p)
     {
+        bool bench = StationFirst; // ADR 0039: one craft at a time from a queue, 8 s each
+        if (bench && !p.ShipCrafting) p.ShipRecipe = p.BenchQueue[0]; // the head is only looked at; it leaves the queue when its inputs are taken
         var r = Content!.Recipes[p.ShipRecipe];
 
         if (p.ShipCrafting && --p.ShipRemaining == 0)
@@ -781,8 +816,9 @@ public sealed partial class BeltNetwork
             p.HoldTotal -= i.Count;
             HoldOut += i.Count;
         }
+        if (bench) p.BenchQueue.RemoveAt(0);
         p.ShipCrafting = true;
-        p.ShipRemaining = r.TimeTicks * PlayerRules.ShipCraftMultiplier;
+        p.ShipRemaining = r.TimeTicks * (bench ? PlayerRules.BenchCraftMultiplier : PlayerRules.ShipCraftMultiplier);
         p.ShipReserved = outTotal;
     }
 
@@ -937,6 +973,7 @@ public sealed partial class BeltNetwork
             if (p.Boost) mix(-93);
             if (p.HasVelocity || (p.VelRemX | p.VelRemY | p.VelRemZ) != 0) { mix(-3303); mix(p.VelX); mix(p.VelY); mix(p.VelZ); mix(p.VelRemX); mix(p.VelRemY); mix(p.VelRemZ); } // worlds without inertia hash as before
             mix(p.ShipRecipe); mix(p.ShipCrafting ? 1 : 0); mix(p.ShipRemaining); mix(p.ShipReserved);
+            if (p.BenchQueue.Count > 0) { mix(-4404); foreach (int q in p.BenchQueue) mix(q); } // mixed only when not empty: worlds without the queue hash as before
             foreach (int h in p.Hold) mix(h);
             MixInventory(p, mix);
         }
@@ -984,6 +1021,9 @@ public sealed partial class BeltNetwork
             if (p.MineProgress < 0 || p.MineProgress >= mineLimit * MineLimitFactor) Fail($"player {p.Id} mine progress out of range");
             if (p.LaserCredit is < 0 or >= PowerRules.FullSatisfaction) Fail($"player {p.Id} laser credit out of range");
             if (p.MiningDeposit < 0 && (p.LaserReleased || p.LaserCredit != 0)) Fail($"player {p.Id} has laser state without a mining order");
+            if (p.BenchQueue.Count > PlayerRules.BenchQueueMax || (!StationFirst && p.BenchQueue.Count > 0)) Fail($"player {p.Id} has a bad workbench queue");
+            foreach (int q in p.BenchQueue)
+                if (Content is null || !Content.IsRecipe(q) || Content.Machines[Content.Recipes[q].Machine].Role != MachineRole.Ship) Fail($"player {p.Id} queues an invalid workbench recipe");
             if (p.ShipRecipe == -1)
             {
                 if (p.ShipCrafting || p.ShipReserved != 0) Fail($"player {p.Id} has no ship recipe but is crafting");
@@ -993,7 +1033,7 @@ public sealed partial class BeltNetwork
                 var content = Content ?? throw new InvalidOperationException("Players have recipes without content.");
                 if (!content.IsRecipe(p.ShipRecipe) || content.Machines[content.Recipes[p.ShipRecipe].Machine].Role != MachineRole.Ship)
                     Fail($"player {p.Id} has an invalid ship recipe");
-                if (p.ShipCrafting && (p.ShipRemaining < 1 || p.ShipRemaining > content.Recipes[p.ShipRecipe].TimeTicks * PlayerRules.ShipCraftMultiplier))
+                if (p.ShipCrafting && (p.ShipRemaining < 1 || p.ShipRemaining > content.Recipes[p.ShipRecipe].TimeTicks * (StationFirst ? PlayerRules.BenchCraftMultiplier : PlayerRules.ShipCraftMultiplier)))
                     Fail($"player {p.Id} ship craft time out of range");
                 if (!p.ShipCrafting && (p.ShipRemaining != 0 || p.ShipReserved != 0)) Fail($"player {p.Id} is idle with a craft pending");
             }

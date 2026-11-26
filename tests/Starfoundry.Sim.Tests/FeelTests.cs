@@ -98,7 +98,7 @@ public class FeelTests
         using var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, log, C.Hash, GameMode.Sandbox, Seed, threats: false, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(19, bytes[4]);
+        Assert.Equal(20, bytes[4]);
         var back = CommandCodec.ReadLog(new MemoryStream(bytes));
         Assert.Equal(new SetAim(10, -700, 512), back[0].Command);
         Assert.Equal(new SetAim(0, 0, -1024), ((Batch)back[1].Command).Commands[0]);

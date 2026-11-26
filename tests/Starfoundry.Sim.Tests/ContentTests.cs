@@ -5,6 +5,9 @@ namespace Starfoundry.Sim.Tests;
 
 internal static class TestContent
 {
+    /// <summary>Rules of a world made before ADR 0039: a ship may hold machines, belts, turrets, walls and bays, and the workbench repeats a recipe (the older structure tests build on the ship).</summary>
+    public static readonly WorldRules LegacyShip = new WorldRules().WithLegacyShipAutomation(true);
+
     /// <summary>
     /// The content as it was before the floor-building rule (ADR 0031; <c>floor_building</c> false): the starter ship has its workshop and factory and
     /// machines go anywhere in a module that allows them. The older structure tests run against it; <see cref="CoreFloor"/> is the shipped content.

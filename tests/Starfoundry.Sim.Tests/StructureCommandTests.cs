@@ -13,7 +13,7 @@ public class StructureCommandTests
 
     private static SimWorld World(GameMode mode = GameMode.Sandbox, bool structures = false)
     {
-        var w = SimWorld.CreateGalaxy(C, mode, Seed, threats: false, stationRules: false, structures: structures);
+        var w = SimWorld.CreateGalaxy(C, mode, Seed, threats: false, stationRules: false, structures: structures, rules: TestContent.LegacyShip);
         w.Network.EnsurePlayer(0);
         return w;
     }

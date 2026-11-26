@@ -18,7 +18,7 @@ public class PowerTests
     private const int Tps = Units.TicksPerSecond;
 
     private static SimWorld World(bool threats = false, bool emergency = true) =>
-        SimWorld.CreateGalaxy(emergency ? C : TestContent.CoreWithoutEmergencyPower, GameMode.Sandbox, Seed, threats, stationRules: false, structures: true);
+        SimWorld.CreateGalaxy(emergency ? C : TestContent.CoreWithoutEmergencyPower, GameMode.Sandbox, Seed, threats, stationRules: false, structures: true, rules: TestContent.LegacyShip);
 
     /// <summary>A ship at the origin: cockpit, engine, workshop, cargo and the given number of reactors, with some hydrogen in the hold.</summary>
     internal static int Ship(SimWorld w, int reactors = 1, int hydrogen = 0)
@@ -265,7 +265,7 @@ public class PowerTests
     [Fact]
     public void Starter_ship_runs_at_full_power_with_starting_hydrogen()
     {
-        var w = SimWorld.CreateGalaxy(TestContent.Core, GameMode.Sandbox, Seed, structures: true);
+        var w = SimWorld.CreateGalaxy(TestContent.Core, GameMode.Sandbox, Seed, structures: true, rules: TestContent.LegacyShip);
         var n = w.Network;
         Assert.Equal(20, n.HoldCount(0, TestContent.Core.FuelItem));
         w.Step();
@@ -284,7 +284,7 @@ public class PowerTests
     [Fact]
     public void Starter_ship_runs_out_of_hydrogen_after_the_expected_time()
     {
-        var w = SimWorld.CreateGalaxy(TestContent.Core, GameMode.Sandbox, Seed, structures: true);
+        var w = SimWorld.CreateGalaxy(TestContent.Core, GameMode.Sandbox, Seed, structures: true, rules: TestContent.LegacyShip);
         var n = w.Network;
         int interval = TestContent.Core.Structures!.BurnIntervalTicks(ModuleKind.Reactor);
         long firstShort = -1;
@@ -381,7 +381,7 @@ public class PowerTests
     public void Power_state_roundtrips_replay_and_save()
     {
         var content = TestContent.Core;
-        SimWorld Fresh() => SimWorld.CreateGalaxy(content, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true);
+        SimWorld Fresh() => SimWorld.CreateGalaxy(content, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: TestContent.LegacyShip);
         int lab = content.MachineIndex("core:research_lab");
         int ship = 1;
 
@@ -396,7 +396,7 @@ public class PowerTests
 
         // Save in the middle of a burn with a partial satisfaction.
         var bytes = new MemoryStream();
-        SaveGame.Write(bytes, a, content, GameMode.Sandbox, Seed, threats: false, player: 0, structures: true);
+        SaveGame.Write(bytes, a, content, GameMode.Sandbox, Seed, threats: false, player: 0, structures: true, rules: TestContent.LegacyShip);
         var loaded = SaveGame.Read(new MemoryStream(bytes.ToArray()), content, out _);
         Assert.Equal(a.Checksum(), loaded.Checksum());
         Assert.Equal(a.Network.ShipPower(0), loaded.Network.ShipPower(0));
@@ -411,7 +411,7 @@ public class PowerTests
         // A clone and a replay of the log agree too.
         Assert.Equal(a.Checksum(), a.Network.Clone().Checksum());
         using var ms = new MemoryStream();
-        CommandCodec.WriteLog(ms, a.Log, content.Hash, GameMode.Sandbox, Seed, threats: false, structures: true);
+        CommandCodec.WriteLog(ms, a.Log, content.Hash, GameMode.Sandbox, Seed, threats: false, structures: true, rules: TestContent.LegacyShip);
         ms.Position = 0;
         var log = CommandCodec.ReadLog(ms, out _, out _, out _, out _, out _, out _);
         var b = SimWorld.Replay(log, a.Tick, Fresh());

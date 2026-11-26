@@ -41,6 +41,9 @@ public sealed partial class BeltNetwork
     /// <summary>The world's rules (difficulty percentages and flags). Defaults equal the game before the rules existed.</summary>
     public WorldRules Rules { get; }
 
+    /// <summary>ADR 0039: structure worlds without <see cref="WorldRules.LegacyShipAutomation"/>: automation is built in stations only and the workbench is a slow queue.</summary>
+    public bool StationFirst => StructureRules && !Rules.LegacyShipAutomation;
+
     /// <summary>True when machines and belts may stand at any layer of a module that allows them: <see cref="WorldRules.LegacyBuilding"/> or content that predates ADR 0031.</summary>
     public bool FreeBuilding => Rules.LegacyBuilding || !(Content?.FloorBuilding ?? true);
 
