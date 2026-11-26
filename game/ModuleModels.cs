@@ -149,6 +149,7 @@ public static partial class ModuleModels
         PortGuides(c);
         Exposed(c);
         Details(c);
+        Exterior(c); // ModuleModels.Exterior.cs
         return r;
     }
 
@@ -1061,6 +1062,27 @@ public static partial class ModuleModels
                 mb.At(pos, rot).C(Steel).Prism(default, 1.3f, 1.15f, 0.1f, 8, 22.5f);
                 mb.C(Dark).Prism(new(0, 0.005f, 0), 0.95f, 0.95f, 0.11f, 8, 22.5f);
                 mb.C(c.Role).Prism(new(0, 0.01f, 0), 0.4f, 0.4f, 0.115f, 8, 22.5f);
+                // a raised docking ring: eight capture clamps round the rim with a bevelled outer flange
+                mb.C(Panel).Prism(new(0, 0.07f, 0), 1.42f, 1.3f, 0.1f, 8, 22.5f);
+                for (int i = 0; i < 8; i++)
+                {
+                    float a = Mathf.Tau * i / 8f;
+                    mb.C(Steel).Block(new(MathF.Cos(a) * 1.15f, 0.17f, MathF.Sin(a) * 1.15f), new(0.3f, 0.14f, 0.3f), 0.8f, 0.8f);
+                }
+            }
+            mb.At(default);
+        });
+        Models.Add(c.R, "GlowStrip", $"{c.K}.collarlights", Models.Glow(c.Role, 2.4f), mb =>
+        {
+            foreach (var (side, _, pos, rot) in CollarSpots(-0.03f))
+            {
+                if (c.Has(side)) continue;
+                mb.At(pos, rot);
+                for (int i = 0; i < 8; i++)
+                {
+                    float a = Mathf.Tau * i / 8f;
+                    mb.Block(new(MathF.Cos(a) * 1.15f, 0.27f, MathF.Sin(a) * 1.15f), new(0.1f, 0.1f, 0.1f)); // a lamp on each clamp
+                }
             }
             mb.At(default);
         });
@@ -1476,10 +1498,17 @@ public static partial class ModuleModels
     {
         Models.Add(c.R, "Nozzle", $"{c.K}.nozzle.{x}.{y}", Models.Burnt(), mb =>
         {
-            ZPrism(mb, x, y, 5.1f, 1.05f, 1.05f, 0.5f, 10, Panel);
-            ZPrism(mb, x, y, 5.6f, 0.8f, 1.3f, 1.4f, 10, new Color(0.20f, 0.22f, 0.28f));
-            ZPrism(mb, x, y, 6.95f, 1.36f, 1.36f, 0.1f, 10, Steel);
-            ZPrism(mb, x, y, 6.98f, 1.1f, 1.1f, 0.06f, 10, new Color(0.75f, 0.26f, 0.08f));
+            // a bell: mount flange, gimbal collar, then three stepped frusta that flare to a lip (16 sides), with cooling rings, a dark throat and a heat ring
+            var bell = new Color(0.20f, 0.22f, 0.28f);
+            ZPrism(mb, x, y, 5.1f, 1.05f, 1.05f, 0.4f, 16, Panel);
+            ZPrism(mb, x, y, 5.45f, 1.16f, 1.16f, 0.14f, 16, c.Acc);
+            ZPrism(mb, x, y, 5.55f, 0.8f, 0.92f, 0.5f, 16, bell);
+            ZPrism(mb, x, y, 6.0f, 0.92f, 1.1f, 0.5f, 16, bell);
+            ZPrism(mb, x, y, 6.45f, 1.1f, 1.3f, 0.5f, 16, bell);
+            foreach (var (zr, rr) in new[] { (5.85f, 0.95f), (6.3f, 1.12f), (6.7f, 1.32f) }) ZPrism(mb, x, y, zr, rr, rr, 0.09f, 16, Steel); // cooling rings
+            ZPrism(mb, x, y, 6.9f, 1.4f, 1.4f, 0.1f, 16, Steel); // the lip
+            ZPrism(mb, x, y, 6.985f, 1.22f, 1.22f, 0.02f, 16, Dark); // the dark throat seen from behind
+            ZPrism(mb, x, y, 6.995f, 1.0f, 1.0f, 0.02f, 16, new Color(0.75f, 0.26f, 0.08f)); // the heat ring
             mb.C(c.Acc);
             for (int i = 0; i < 4; i++)
             {
@@ -1758,6 +1787,16 @@ public static partial class ModuleModels
             mb.At(default).C(c.Ship ? White : Steel).Prism(new(0, -0.28f, 0), 0.62f, 0.5f, 0.53f, 8); // down into the mount (its top is at -0.28)
             mb.C(Dark).Sphere(new(0, 0.24f, 0), new(0.4f, 0.26f, 0.4f), 2, 8, dome: true);
             mb.C(c.Acc).Block(new(0.3f, 0.05f, 0), new(0.3f, 0.12f, 0.9f));
+            // an armoured mantlet round the breech, a counterweight at the back, a sight block with a lens on the roof and two ammo drums on the flanks
+            mb.C(c.Ship ? Panel : SlabLt).Block(new(0.3f, 0.12f, 0), new(0.5f, 0.38f, heavy ? 0.95f : 0.8f), 0.8f, 0.9f);
+            mb.C(Steel).Block(new(-0.42f, 0.02f, 0), new(0.3f, 0.34f, 0.62f));
+            mb.C(Dark).Block(new(-0.05f, 0.48f, 0.22f), new(0.34f, 0.16f, 0.16f));
+            mb.C(c.Acc).Block(new(0.14f, 0.48f, 0.22f), new(0.04f, 0.1f, 0.1f));
+            foreach (float s in new[] { -1f, 1f })
+            {
+                mb.C(Steel).Prism(new(-0.12f, -0.08f, s * (heavy ? 0.58f : 0.52f)), 0.15f, 0.15f, 0.34f, 8);
+                mb.C(Amber).Prism(new(-0.12f, 0.24f, s * (heavy ? 0.58f : 0.52f)), 0.09f, 0.09f, 0.04f, 8);
+            }
         });
         var barrel = Models.Pivot(head, "Barrel", new(0.25f, 0.08f, 0));
         Models.Add(barrel, "BarrelMesh", $"{c.K}.barrel", Models.Burnt(), mb =>
@@ -1771,13 +1810,21 @@ public static partial class ModuleModels
                 mb.C(c.Acc).Block(new(1.15f, 0, 0), new(0.14f, 0.56f, 0.56f));
                 mb.C(Steel).Block(new(2.55f, 0, 0), new(0.5f, 0.42f, 0.42f));
                 mb.C(Dark).Block(new(1.8f, 0, 0), new(0.12f, 0.4f, 0.4f));
+                // recoil cylinders along the shroud, cooling slots in the muzzle brake and a shell hopper on top
+                foreach (float s in new[] { -1f, 1f }) mb.C(Steel).Beam(new(0.3f, 0.02f, s * 0.31f), new(1.4f, 0.02f, s * 0.31f), 0.1f);
+                mb.C(Dark);
+                for (int i = 0; i < 3; i++) mb.Block(new(2.42f + i * 0.1f, 0, 0), new(0.04f, 0.46f, 0.1f));
+                mb.C(c.Acc).Block(new(0.55f, 0.3f, 0), new(0.4f, 0.12f, 0.36f));
                 return;
             }
             foreach (float z in new[] { -0.17f, 0.17f })
             {
                 mb.Block(new(0.8f, 0, z), new(1.6f, 0.15f, 0.15f));
                 mb.C(Steel).Block(new(1.62f, 0, z), new(0.22f, 0.22f, 0.22f));
+                mb.Block(new(0.45f, 0, z), new(0.7f, 0.24f, 0.24f)); // the jacket round the breech end of each barrel
+                mb.C(c.Acc).Block(new(0.82f, 0, z), new(0.06f, 0.26f, 0.26f));
                 mb.C(Dark);
+                for (int i = 0; i < 3; i++) mb.Block(new(1.12f + i * 0.14f, 0, z), new(0.04f, 0.2f, 0.2f)); // cooling slots
             }
         });
         Models.Add(barrel, "GlowMuzzle", heavy ? "mod.muzzle.heavy" : "mod.muzzle", Models.GlowPlain(new Color(1f, 0.5f, 0.15f), 2f), mb =>

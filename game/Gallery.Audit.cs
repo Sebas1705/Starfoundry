@@ -21,6 +21,11 @@ public partial class Gallery
         var tris = new List<AuditTri>();
         foreach (var m in _auditModules) Collect(m.Node, m.Kind.ToString(), tris);
         GD.Print($"AUDIT modules={_auditModules.Count} triangles={tris.Count}");
+        // the per-module budget the visual pass reports: mesh instances (about one draw call each, before culling) and triangles per module
+        int instances = 0;
+        void CountMeshes(Node n) { if (n is MeshInstance3D { Mesh: not null }) instances++; foreach (var ch in n.GetChildren()) CountMeshes(ch); }
+        foreach (var m in _auditModules) CountMeshes(m.Node);
+        if (_auditModules.Count > 0) GD.Print($"AUDIT budget meshInstances={instances} perModule={instances / (float)_auditModules.Count:0.0} trianglesPerModule={tris.Count / (float)_auditModules.Count:0}");
         int problems = 0;
         var probeArg = OS.GetCmdlineUserArgs().FirstOrDefault(a => a.StartsWith("--probe="));
         if (probeArg is not null)
