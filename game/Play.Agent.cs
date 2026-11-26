@@ -42,6 +42,22 @@ public partial class Play
             var local = inv * centre;
             bench = new { cx = local.X, cy = local.Y, cz = local.Z, dist = (centre - _camera.GlobalPosition).Length(), aimed = AimingAtBench(), recipe = info.ShipRecipe >= 0 ? _content.Recipes[info.ShipRecipe].Id : null, crafting = info.ShipCrafting, remaining = info.ShipRemaining };
         }
+        object? wreck = null, station = null;
+        foreach (int oi in Net.Galaxy?.ObstaclesOf(Net.CurrentSystem(Player)) ?? Array.Empty<int>())
+        {
+            var ob = Net.GetObstacle(oi);
+            if (_content.World is null || ob.Gone || _content.World.Kinds[ob.Kind].Behaviour != ObstacleBehaviour.Wreck) continue;
+            var wp = new Vector3(ob.X, ob.Y, ob.Z) / CellUnits; var wl = inv * wp;
+            wreck = new { id = oi, cx = wl.X, cy = wl.Y, cz = wl.Z, dist = (wp - _camera.GlobalPosition).Length() };
+            break;
+        }
+        foreach (var st in Net.Structures())
+        {
+            if (st.Kind != StructureKind.Station) continue;
+            var sp = new Vector3(st.OriginX, st.OriginY, st.OriginZ) / CellUnits; var sl = inv * sp;
+            station = new { id = st.Id, cx = sl.X, cy = sl.Y, cz = sl.Z, dist = (sp - _camera.GlobalPosition).Length() };
+            break;
+        }
         return JsonSerializer.Serialize(new
         {
             player = true,
@@ -63,6 +79,10 @@ public partial class Play
             outcome = _progress?.Outcome.ToString(),
             outcomeShown = _outcomeShown,
             goals,
+            wreck,
+            station,
+            dockNear = _dockNear,
+            wrecksSalvaged = Net.WrecksSalvaged(),
             bench,
             scanCooldown = info.ScanCooldown,
             stackInReach = StackInReach() is not null,
@@ -112,5 +132,25 @@ public partial class Play
             return n;
         }
         return 0;
+    }
+
+    /// <summary>Agent shortcut: turns the ship at once toward the first wreck ("wreck") or station ("station") of the system; returns the angle left in degrees.</summary>
+    public float AgentFacePoint(string which)
+    {
+        Vector3? target = null;
+        if (which == "wreck")
+            foreach (int oi in Net.Galaxy?.ObstaclesOf(Net.CurrentSystem(Player)) ?? Array.Empty<int>())
+            {
+                var ob = Net.GetObstacle(oi);
+                if (!ob.Gone && _content.World is { } wg && wg.Kinds[ob.Kind].Behaviour == ObstacleBehaviour.Wreck) { target = new Vector3(ob.X, ob.Y, ob.Z) / CellUnits; break; }
+            }
+        else
+            foreach (var st in Net.Structures())
+                if (st.Kind == StructureKind.Station) { target = new Vector3(st.OriginX, st.OriginY, st.OriginZ) / CellUnits; break; }
+        if (target is null) return -1f;
+        var local = _camera.GlobalTransform.AffineInverse() * target.Value;
+        float yaw = Mathf.Atan2(local.X, -local.Z), pitch = Mathf.Atan2(local.Y, Mathf.Sqrt(local.X * local.X + local.Z * local.Z));
+        _shipQuat = FlightOrientation.Rotate(_shipQuat, pitch, yaw, 0f);
+        return Mathf.RadToDeg(Mathf.Acos(Mathf.Clamp(-local.Normalized().Z, -1f, 1f)));
     }
 }

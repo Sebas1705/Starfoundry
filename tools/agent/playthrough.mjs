@@ -220,6 +220,43 @@ const phases = {
     check('3.pickup-with-F', (s.hold['core:iron_ore'] ?? 0) + s.bag > oreB4, `hold+bag ore ${oreB4} -> ${(s.hold['core:iron_ore'] ?? 0) + s.bag} (bag=${s.bag}) after F; seated=${s.seated}`);
     log('errors:', JSON.stringify(errors()));
   },
+
+  // A story level driven with real keys: scripted inputs until the outcome flips. Level 06: salvage the wreck, dock, unload crystals.
+  async level06() {
+    await startGame(); await sleep(5000);
+    const t0 = Date.now(); const trail = []; const mark = m => { trail.push(`${((Date.now() - t0) / 1000).toFixed(1)}s ${m}`); log('  @', trail[trail.length - 1]); };
+    let s = await state(); log('start: scenario', s.scenario, 'tick', s.tick, 'outcome', s.outcome, 'story open?', JSON.stringify(await texts('Briefing|BRIEFING|Start|Continue|Close')).slice(0, 200));
+    log('goals:', JSON.stringify(s.goals), 'wreck', JSON.stringify(s.wreck), 'station', JSON.stringify(s.station));
+    // dismiss a briefing/story dialog if one is up (Enter, then Esc could open pause: check)
+    if (s.paused) { await key('Enter'); await sleep(600); s = await state(); log('after Enter: paused', s.paused); }
+    mark('flying to the wreck');
+    await keyDown('Shift');
+    for (let i = 0; i < 60; i++) {
+      await script(FIND + 'return play.call("AgentFacePoint", "wreck")'); await keyDown('W'); await sleep(500); s = await state();
+      if (!s.wreck || s.wreck.dist < 12) break;
+    }
+    await keyUp('W'); await keyUp('Shift'); await keyDown('S'); await sleep(2500); await keyUp('S');
+    mark('at the wreck, dist ' + (s.wreck?.dist ?? 'gone'));
+    for (let i = 0; i < 40 && (await state()).wrecksSalvaged < 1; i++) await sleep(500);
+    s = await state(); mark(`wrecksSalvaged=${s.wrecksSalvaged} hold=${JSON.stringify(s.hold)}`);
+    mark('flying to the station');
+    for (let i = 0; i < 80 && !s.dockNear; i++) {
+      await script(FIND + 'return play.call("AgentFacePoint", "station")'); await keyDown('W'); await sleep(400); s = await state();
+      if (s.station && s.station.dist < 14) { await keyUp('W'); await keyDown('S'); await sleep(700); await keyUp('S'); }
+    }
+    await keyUp('W'); mark(`dockNear=${s.dockNear} station dist=${s.station?.dist?.toFixed(1)}`);
+    for (let i = 0; i < 20 && !s.docked; i++) { await key('F'); await sleep(2500); s = await state(); }
+    mark(`docked=${s.docked}`);
+    await key('Comma'); await sleep(1500); s = await state(); mark(`after unload (,): hold=${JSON.stringify(s.hold)} outcome=${s.outcome} goals=${s.goals.map(g => g.id + ':' + g.status).join(',')}`);
+    for (let i = 0; i < 20 && s.outcome === 'Playing'; i++) { await sleep(1000); s = await state(); }
+    const total = ((Date.now() - t0) / 1000).toFixed(1);
+    check('6.level06-won', s.outcome === 'Won', `outcome=${s.outcome} outcomeShown=${s.outcomeShown} in ${total} s wall clock, tick ${s.tick}; trail: ${trail.join(' | ')}`);
+    const endNodes = await texts('Victory|VICTORY|Level complete|stars|Stars|Continue|Next');
+    log('end screen texts:', JSON.stringify(endNodes).slice(0, 400));
+    const udir = readFileSync(join(project, 'project.godot'), 'utf8').match(/custom_user_dir_name="Godot\/app_userdata\/([^"]+)"/)?.[1];
+    try { log('progress.cfg:', readFileSync(join(process.env.APPDATA, 'Godot', 'app_userdata', udir, 'progress.cfg'), 'utf8').slice(0, 300)); } catch (e) { log('progress.cfg not written:', e.code); }
+    log('errors:', JSON.stringify(errors()));
+  },
   async calib() {
     await startGame(); await newCampaign();
     const dirOf = async () => { const d = (await state()).deposits.sort((a, b) => a.dist - b.dist)[0]; const v = [d.cx, d.cy, d.cz]; const n = Math.hypot(...v); return v.map(x => x / n); };
