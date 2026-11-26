@@ -131,7 +131,7 @@ public static class BuildCatalog
                 by = locked ? FirstNode(content, n => n.UnlockAbilities.Contains(needed)) : -1;
                 break;
         }
-        return new BuildStatus(locked, net.CanPay(player, cost), cost, by);
+        return new BuildStatus(locked, net.Mode != GameMode.Campaign || net.CanPay(player, cost), cost, by); // sandbox placements cost nothing
     }
 
     private static int FirstNode(ContentDb content, Func<ResearchDef, bool> unlocks)

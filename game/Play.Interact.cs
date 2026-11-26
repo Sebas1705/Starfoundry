@@ -18,6 +18,7 @@ public partial class Play
         if (_demo || !Net.HasPlayer(Player)) return HintInteract.None;
         if (_focus is not null) return HintInteract.Console;
         if (StackInReach() is not null) return HintInteract.PickUp;
+        if (_tool != ToolMode.Build && AimActive && AimingAtBench()) return HintInteract.Bench; // the aimed workbench wins over the seat, standing or seated
         if (Standing)
         {
             if (LadderWay() is not null) return HintInteract.Climb;
@@ -32,7 +33,6 @@ public partial class Play
                 if (ModuleKindIds.IsReactor(module.Kind)) return HintInteract.Reactor;
                 if (module.Kind == ModuleKind.Shipyard && ShipyardDocked) return HintInteract.Shipyard;
             }
-            if (_tool != ToolMode.Build && AimingAtBench()) return HintInteract.Bench;
             if (_hover.Kind == HoverKind.Deposit && _structuresOn && DroneStructure() >= 0) return HintInteract.Drones;
         }
         if (_structuresOn)
@@ -137,6 +137,7 @@ public partial class Play
             if (_computerTab == ComputerTab.Inventory && _inventory!.HandleEscape()) return;
             CloseComputer();
         }
+        else if (_dockAssist) { _dockAssist = false; SendThrust((0, 0, 0), force: true); ToastLogistics(L("toast.approachCancelled")); }
         else if (_beltAnchor is not null) { _beltAnchor = null; _dragStart = null; } // first Esc cancels a belt line in progress
         else if (_selMachine >= 0) _selMachine = -1;
         else if (_tool == ToolMode.Build) _tool = ToolMode.Pointer;

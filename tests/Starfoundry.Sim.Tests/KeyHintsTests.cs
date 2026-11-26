@@ -113,6 +113,16 @@ public class KeyHintsTests
     }
 
     [Fact]
+    public void TheAimedWorkbenchReplacesTheSeatRowWhileStanding()
+    {
+        var s = Flying() with { Standing = true, Interact = HintInteract.Bench };
+        Assert.Equal(HintContext.Walking, KeyHints.ContextOf(s));
+        var row = Find(s, "interact");
+        Assert.Equal("key.refine", row.LabelKey);
+        Assert.True(row.Clickable);
+    }
+
+    [Fact]
     public void AMachineToolShowsPlacementKeys()
     {
         var s = Flying() with { Tool = HintTool.Machine, ToolName = "smelter", ToolHasRecipes = true };
