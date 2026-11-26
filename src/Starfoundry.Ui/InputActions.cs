@@ -103,6 +103,7 @@ public static class InputActions
         new("bpUpgrade", new[] { "U" }, Bp, HelpGroup.Blueprint, "tool:add"),
         new("bpNudge", new[] { "Up", "Down", "Left", "Right" }, Bp, HelpGroup.Blueprint, "tool:move"),
         new("bpView", new[] { "T" }, Bp, HelpGroup.Blueprint, "tool:layer"),
+        new("bpTurn", new[] { "Q", "E" }, Bp, HelpGroup.Blueprint, "tool:rotate"),
         new("bpLayer", new[] { "Pageup", "Pagedown" }, Bp, HelpGroup.Blueprint, "tool:layer"),
         new("bpFrame", new[] { "F" }, Bp, HelpGroup.Blueprint, "tool:inspect"),
         new("bpUndo", new[] { "@ctrlz" }, Bp, HelpGroup.Blueprint, "tool:undo"),

@@ -48,6 +48,9 @@ public partial class ShipDesigner : Control
 
     public event Action? CloseRequested;
 
+    /// <summary>The player asked for the full-screen 3D plan instead of this panel.</summary>
+    public event Action? PlanRequested;
+
     /// <summary>A refused edit or a result the game should say aloud (a toast).</summary>
     public event Action<string>? Say;
 
@@ -116,6 +119,8 @@ public partial class ShipDesigner : Control
         var sub = UiKit.Text(13, Muted); sub.Text = Loc.T("designer.subtitle");
         titles.AddChild(title); titles.AddChild(sub);
         head.AddChild(titles);
+        var plan = UiKit.Button(Loc.T("bp.classic.openPlan"), () => PlanRequested?.Invoke(), 14); plan.Name = "OpenPlanButton";
+        head.AddChild(plan);
         head.AddChild(UiKit.Button(Loc.T("designer.close"), () => CloseRequested?.Invoke(), 14));
         root.AddChild(head);
 
