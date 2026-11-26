@@ -27,7 +27,15 @@ Since ADR 0029 a port was a free horizontal face of a station's core, of a ship'
 ## Consequences
 - Benefits: a clear rule a player can read (the thing with the collars is the port), a ship that docks only if it was built to, a designer that cannot build an undockable ship, and no change to the content hash or old saves.
 - Costs: a ship's dock module widens the starter ship by one module on its -X flank (the scripted player's layout moves its fourth cargo spot and its station drone bays to cells the docks do not use). A station's first dock sits beside its core, so the first module a player builds on that side is a second step away. The scripted player now docks through the dock-module pair (`DockAtStation`).
-- Balance: the dock module costs nothing at the start (it is part of the starter ship and of the founded station) and adds no mass to the pacing steps measured before; the Normal, Relaxed and Hard win times of the scripted player are in the pull request.
+- Balance: the dock module costs nothing (it is part of the starter ship and of the founded station). Win times of the scripted player (`--structures --minutes 120`), mm:ss:
+
+  | Preset (band) | seed 20261121 | seed 20261120 | seed 777 |
+  | --- | --- | --- | --- |
+  | Relaxed (44-50) | 45:24 | 45:30 | 44:29 |
+  | Normal (48-53) | 47:35 | 47:44 | 47:45 |
+  | Hard (51-56) | 51:13 | 53:46 | 51:49 |
+
+  Normal sits about 15 seconds under its band, as it did before this change (47:19 to 47:44); levels 02 and 06 are still won by the bot, which now docks through the dock-module pair.
 - Not decided here: presets of ship designs in the shipyard (the blueprint editor's phase 1) must include a dock module, which its validation enforces; a second dock on the starter ship so that a ship can also come from the other side of a station; removing the last dock of a station to demolish it whole.
 
 ## Alternatives considered
