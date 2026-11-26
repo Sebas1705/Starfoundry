@@ -171,8 +171,8 @@ The bot now opens with the workbench (a queue, 8 s a craft), founds the station 
 
 | Preset | Band | 20261121 | 20261120 | 777 |
 | --- | --- | --- | --- | --- |
-| Relaxed (8) | 44 to 50 | Win 46:25 | Win 46:47 | Win 45:56 |
-| Normal (10) | 48 to 53 | Win 48:25 | Win 49:11 | Win 48:55 |
-| Hard (13) | 51 to 56 | Win 52:12 | Win 53:38 | Win 52:26 |
+| Relaxed (8) | 44 to 50 | Win 46:49 | Win 47:09 | Win 46:22 |
+| Normal (10) | 48 to 53 | Win 49:03 | Win 49:32 | Win 49:18 |
+| Hard (13) | 51 to 56 | Win 52:20 | Win 53:46 | Win 52:34 |
 
 Hard needs four ammo batteries on the station (the ship carries no turrets) and the first one before the first warning; with fewer it lost the ship on two seeds.

@@ -153,7 +153,7 @@ public class StructureBotTests
         Assert.True(Min(r, "First drone bay built") <= 45, $"the first drone bay came at minute {Min(r, "First drone bay built"):F1}");
         Assert.True(r.MinedByDrones > 2000, $"drones mined only {r.MinedByDrones}");
         // Hydrogen holds: the ice deposit of home (1500 to 2000) lasts, so no reactor ran dry for more than a few minutes in two hours.
-        Assert.True(r.EmergencySeconds < 600, $"{r.EmergencySeconds} s on emergency power");
+        Assert.True(r.EmergencySeconds < 900, $"{r.EmergencySeconds} s on emergency power"); // ADR 0039: the 20 hydrogen of the start run out at about minute 9 and the cracker comes with the station factory at about 18: about 620 s of that is the opening
     }
 
     [Fact]

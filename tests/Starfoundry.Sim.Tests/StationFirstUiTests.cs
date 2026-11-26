@@ -177,7 +177,7 @@ public class StationFirstUiTests
         Assert.Equal(0.0, MachineView.CurrentPerMinute(MachineRun.NoPower, 1, 30, 0));
         Assert.Equal(60.0, MachineView.CurrentPerMinute(MachineRun.Running, 1, 30, 5000), 6); // never above full power
         Assert.Equal("60", MachineView.PerMinuteText(60.0));
-        Assert.Equal("7.5", MachineView.PerMinuteText(7.5));
+        Assert.Equal(7.5.ToString("0.#", Loc.Culture), MachineView.PerMinuteText(7.5)); // the decimal separator follows the language
     }
 
     [Fact]

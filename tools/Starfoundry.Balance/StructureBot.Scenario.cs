@@ -135,7 +135,7 @@ public sealed partial class StructureBot
         Cmd(new SetWeapons(true));
         var (dx, dy, dz) = Origin(1, 0, 1);
         Goal("siege: walls to draw the fire");
-        Walls(_station, dx, dy, dz, 2);
+        Walls(_station, dx, dy, dz, 2, nearBelts: true);
         Goal("siege: a second ammo battery with two turrets");
         _stationBatteries += AmmoBattery(_station, 0, 0, 8, 5).Count > 0 ? 1 : 0;
         Goal("siege: a repair bay");

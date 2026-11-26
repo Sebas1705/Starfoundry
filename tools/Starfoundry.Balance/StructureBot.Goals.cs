@@ -388,9 +388,9 @@ public sealed partial class StructureBot
     }
 
     /// <summary>Walls in a defence module draw the enemies' fire (they attack the nearest wall first) to where the turrets reach.</summary>
-    private void Walls(int st, int ox, int oy, int oz, int count)
+    private void Walls(int st, int ox, int oy, int oz, int count, bool nearBelts = false)
     {
-        var cells = new (int X, int Y, int Z)[] { (6, 0, 0), (6, 0, 2), (6, 0, 4), (6, 0, 6) }; // beyond the turrets, clear of the ammo belts that cross the seam
+        var cells = nearBelts ? new (int X, int Y, int Z)[] { (1, 0, 0), (6, 0, 0), (1, 0, 2), (6, 0, 2) } : new (int X, int Y, int Z)[] { (6, 0, 0), (6, 0, 2), (6, 0, 4), (6, 0, 6) }; // beyond the turrets, clear of the ammo belts that cross the seam
         for (int i = 0; i < Math.Min(count, cells.Length); i++)
             PlaceMachine(st, ox + cells[i].X, oy + cells[i].Y, oz + cells[i].Z, "core:wall");
     }
@@ -476,7 +476,7 @@ public sealed partial class StructureBot
     }
 
     /// <summary>Ammo batteries on the station: two, and four on the hard presets (a harder wave needs more turrets; every battery costs research plates).</summary>
-    private int MaxBatteries => Net.Rules.EnemyHpPercent >= 120 ? 4 : 3;
+    private int MaxBatteries => Net.Rules.EnemyHpPercent >= 120 ? 4 : 2;
 
     private readonly HashSet<int> _batteryRows = new() { 4 };
 
@@ -514,8 +514,20 @@ public sealed partial class StructureBot
     {
         foreach (var (isMachine, id) in f.Parts)
         {
-            if (isMachine) { if (Net.IsMachineAlive(id)) Cmd(new RemoveMachine(id)); }
-            else if (Net.IsAlive(id)) Cmd(new RemoveSegment(id));
+            // Demolishing needs the cell in build range (campaign): a player flies back first, as the bot does for every placement.
+            if (isMachine)
+            {
+                if (!Net.IsMachineAlive(id)) continue;
+                var mi = Net.GetMachineInfo(id);
+                EnsureRange(mi.Structure, mi.X, mi.Y, mi.Z);
+                Cmd(new RemoveMachine(id));
+            }
+            else if (Net.IsAlive(id))
+            {
+                var si = Net.GetSegmentInfo(id);
+                EnsureRange(si.Structure, si.OriginX, si.OriginY, si.OriginZ);
+                Cmd(new RemoveSegment(id));
+            }
         }
         f.Parts.Clear();
         _activeFeeds.Remove(f);
