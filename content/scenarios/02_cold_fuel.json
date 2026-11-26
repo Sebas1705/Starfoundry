@@ -4,15 +4,18 @@
   "order": 2,
   "name_es": "Combustible frío",
   "name_en": "Cold Fuel",
-  "description_es": "Seis unidades de hidrógeno y un reactor hambriento: fabrica combustible y da energía a una estación.",
-  "description_en": "Six units of hydrogen and a hungry reactor: make fuel and power a station.",
-  "briefing_es": "El reactor quema hidrógeno y solo nos quedan seis unidades: unos tres minutos. Sin reactor no hay energía, y sin energía la bahía se arrastra. Fabrica un craqueador, mina hielo y mantén las luces encendidas. Luego, dale a una estación su propio reactor. Si te sobra tiempo, atraca en ella y deja lingotes en su almacén.",
-  "briefing_en": "The reactor burns hydrogen and we have six units left: about three minutes. No reactor, no power; no power, the bay crawls. Build a cracker, mine ice and keep the lights on. Then give a station a reactor of its own. If you have time to spare, dock at it and leave ingots in its stock.",
+  "description_es": "Catorce unidades de hidrógeno y reactores hambrientos: fabrica combustible y da energía a una estación con su fábrica apagada.",
+  "description_en": "Fourteen units of hydrogen and hungry reactors: make fuel and power a station whose factory is switched off.",
+  "briefing_es": "El reactor quema hidrógeno y solo nos quedan catorce unidades. La estación de al lado tiene fábrica y bahía, pero ningún reactor: sin energía no trabaja, y la nave no lleva fábrica. Mina carbono y dale a la estación su reactor; luego coloca un craqueador en la bahía, mina hielo y mantén las luces encendidas. Si te sobra tiempo, atraca en ella y deja lingotes en su almacén.",
+  "briefing_en": "The reactor burns hydrogen and we have fourteen units left. The station next door has a factory and a bay but no reactor: no power, no work, and the ship carries no factory. Mine carbon and give the station its reactor; then put a cracker in the bay, mine ice and keep the lights on. If you have time to spare, dock at it and leave ingots in its stock.",
   "rules": { "preset": "relaxed", "threats_enabled": false },
   "start": {
-    "structures": [ { "template": "cold_ship" } ],
+    "structures": [
+      { "template": "cold_ship" },
+      { "template": "cold_station", "kind": "station", "offset": [10, 0, -8] }
+    ],
     "starting_items": [
-      { "item": "core:iron_plate", "count": 20 },
+      { "item": "core:iron_plate", "count": 40 },
       { "item": "core:iron_ingot", "count": 60 }
     ],
     "seed": 20261121
@@ -22,9 +25,9 @@
       { "id": "make_hydrogen", "type": "produce", "item": "core:hydrogen", "count": 10,
         "text_es": "Fabrica 10 de hidrógeno", "text_en": "Make 10 hydrogen" },
       { "id": "build_reactor", "type": "build_module", "kind": "reactor", "count": 1,
-        "text_es": "Construye un módulo reactor", "text_en": "Build a reactor module" },
-      { "id": "found_station", "type": "found_stations", "count": 1,
-        "text_es": "Funda una estación", "text_en": "Found a station" }
+        "text_es": "Construye un módulo reactor en la estación", "text_en": "Build a reactor module in the station" },
+      { "id": "run_station", "type": "produce", "item": "core:iron_plate", "count": 20,
+        "text_es": "Fabrica 20 placas con la fábrica de la estación", "text_en": "Make 20 plates with the station's factory" }
     ],
     "secondary": [
       { "id": "never_dry", "type": "keep_fuel",
@@ -35,14 +38,14 @@
   },
   "story": [
     { "trigger": "start",
-      "text_es": "Seis de hidrógeno. El reactor se come uno cada treinta segundos. Hay un craqueador en tus bolsillos: coloca el puerto de hielo y el craqueador en el suelo de la bahía, y mina hielo.",
-      "text_en": "Six hydrogen. The reactor eats one every thirty seconds. There is a cracker's worth of plates in the hold: put an ice port and a cracker on the bay floor, and mine ice." },
-    { "trigger": "time:120",
-      "text_es": "Queda cerca de un minuto de combustible. Después, el reactor solo gotea energía. Craquea hielo ya.",
-      "text_en": "About a minute of fuel left. After that the reactor only trickles power. Crack some ice now." },
+      "text_es": "Catorce de hidrógeno y cada reactor se come uno cada treinta segundos. La estación no tiene reactor: mina carbono y constrúyeselo. Hay placas para un craqueador: coloca el puerto de hielo y el craqueador en el suelo de la bahía, y mina hielo.",
+      "text_en": "Fourteen hydrogen and every reactor eats one every thirty seconds. The station has no reactor: mine carbon and build it one. There are plates for a cracker in the hold: put an ice port and a cracker on the bay floor, and mine ice." },
+    { "trigger": "time:240",
+      "text_es": "Queda poco combustible. Después, los reactores solo gotean energía. Craquea hielo ya.",
+      "text_en": "Fuel is running low. After that the reactors only trickle power. Crack some ice now." },
     { "trigger": "goal:make_hydrogen",
-      "text_es": "Hidrógeno en la cinta. Ahora que sabemos fabricarlo, una estación necesita su propio reactor: sin uno, no tiene energía.",
-      "text_en": "Hydrogen on the belt. Now that we can make it: a station needs a reactor of its own, or it has no power." },
+      "text_es": "Hidrógeno en la cinta. Ahora que sabemos fabricarlo, el reactor de la estación tiene con qué arder: sin él, su fábrica sigue apagada.",
+      "text_en": "Hydrogen on the belt. Now that we can make it, the station reactor has something to burn: without it, its factory stays dark." },
     { "trigger": "goal:dock_stock",
       "text_es": "Atracados y con el almacén lleno. Lo que dejas en la estación sigue ahí aunque la nave se vaya.",
       "text_en": "Docked and stocked. What you leave in the station stays there even when the ship leaves." },

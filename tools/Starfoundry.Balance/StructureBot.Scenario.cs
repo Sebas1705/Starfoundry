@@ -42,6 +42,7 @@ public sealed partial class StructureBot
                 PlayColdFuel();
                 break;
             case "03_under_siege":
+                _factoryUp = true; // the pre-built station factory feeds the hold
                 PlaySiege();
                 break;
             case "06_salvage_run":
@@ -59,14 +60,16 @@ public sealed partial class StructureBot
 
     private void PlayColdFuel()
     {
-        HydrogenLoop();
+        // The level starts with a station that has a bay and a factory but no reactor (ADR 0039: the ship carries no factory).
+        _station = Net.Structures().First(s => s.Kind == StructureKind.Station && s.Owner == 0).Id;
+        _factoryUp = true; // the workbench is not part of this plan
         MineIron();
-        FoundStation();
-        if (_station >= 0 && _progress!.Find("dock_stock") is not null) DockAndStore("core:iron_ingot", 20);
-        MoreCargo(2);
-        FetchCarbon(8, "the reactor module");
+        FetchCarbon(8, "the station reactor");
         Goal("a reactor module on the station");
-        if (_station >= 0) PlaceModule(_station, 0, -1, 0, ModuleKind.Reactor);
+        PlaceModule(_station, 0, -1, 0, ModuleKind.Reactor);
+        HydrogenLoop();
+        if (_progress!.Find("dock_stock") is not null) DockAndStore("core:iron_ingot", 20);
+        MoreCargo(2);
     }
 
     // ---- 01 first light: the optional fabrication bay ----------------------------------------------------

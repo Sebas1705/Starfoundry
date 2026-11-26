@@ -47,11 +47,12 @@ public sealed partial class StructureBot
         FetchCarbon(8, "carbon for the station reactor");
         StationPower();
         BuildBay();
+        MoreIngotLines(2);
         HydrogenLoop();
+        StationDefence();
         MoreCargo(2);
         FetchCarbon(18, "carbon for the second reactors");
         ShipReactor();
-        StationDefence();
         Laboratory();
         ResearchPlan();
     }
@@ -112,8 +113,23 @@ public sealed partial class StructureBot
         }
     }
 
+    /// <summary>More ingot lines (ore port, smelter, depot) on the free rows of the core floor: one line makes 30 ingots a minute and everything else is paid in ingots.</summary>
+    private void MoreIngotLines(int count)
+    {
+        if (_station < 0) return;
+        Goal($"{count} more ingot line(s) on the core floor");
+        var (ox, oy, oz) = Origin(F0.X, F0.Y, F0.Z);
+        for (int i = 0; i < count; i++) IngotLine(_station, ox, oy, oz, 0, 4 + i);
+    }
+
     /// <summary>Plates the next purchases need: the station core, then the station reactor; once those are paid the factory makes plates itself.</summary>
     private int PlatesWanted()
+    {
+        if (_scenario?.Id == "01_first_light") return Math.Max(12, PlatesForNext()); // the level asks for ten plates as well as the station
+        return PlatesForNext();
+    }
+
+    private int PlatesForNext()
     {
         if (_station < 0) return _c.Structures!.ModuleCost(ModuleKind.Core).Where(c => c.Item == Item("core:iron_plate")).Sum(c => c.Count);
         if (!Net.GetStructure(_station).Modules.Values.Any(ModuleKindIds.IsReactor)) return _c.Structures!.ModuleCost(ModuleKind.Reactor).Where(c => c.Item == Item("core:iron_plate")).Sum(c => c.Count);
@@ -374,7 +390,7 @@ public sealed partial class StructureBot
     /// <summary>Walls in a defence module draw the enemies' fire (they attack the nearest wall first) to where the turrets reach.</summary>
     private void Walls(int st, int ox, int oy, int oz, int count)
     {
-        var cells = new (int X, int Y, int Z)[] { (1, 0, 0), (6, 0, 0), (1, 0, 2), (6, 0, 2) };
+        var cells = new (int X, int Y, int Z)[] { (6, 0, 0), (6, 0, 2), (6, 0, 4), (6, 0, 6) }; // beyond the turrets, clear of the ammo belts that cross the seam
         for (int i = 0; i < Math.Min(count, cells.Length); i++)
             PlaceMachine(st, ox + cells[i].X, oy + cells[i].Y, oz + cells[i].Z, "core:wall");
     }
@@ -433,22 +449,33 @@ public sealed partial class StructureBot
     {
         long waves = Net.WavesSpawned;
         // No third reactor: each burns 2 hydrogen a minute (4 ice) and the home ice is finite, so a station at 83 percent power is the cheaper choice.
-        // ADR 0039: the ship carries no turrets, so the station takes all of the defence.
+        // ADR 0039: the ship carries no turrets, so the station takes all of the defence: up to four ammo batteries on the bay beside the defence module
+        // (rows 4, 6, 2 and 0 of the bay floor) and a repair bay on the core floor.
         if (_stationBatteries < 1 && _station >= 0 && Net.HoldCount(0, Item("core:iron_plate")) >= 14) StationDefence();
-        if (waves >= 1 && !_stationRepair && _stationBatteries >= 1)
+        if (_stationBatteries < 1) return;
+        bool Rich() => Net.HoldCount(0, Item("core:iron_plate")) >= 14 && Net.HoldCount(0, Item("core:iron_ingot")) >= 40;
+        var (ox, oy, oz) = Origin(S1.X, S1.Y, S1.Z);
+        if (waves >= 1 && !_stationRepair && Rich())
         {
             _stationRepair = true;
             Goal("a repair bay for the station");
-            var (ox, oy, oz) = Origin(S1.X, S1.Y, S1.Z);
-            RepairBay(_station, ox, oy, oz, 7);
+            var (cx, cy, cz) = Origin(F0.X, F0.Y, F0.Z);
+            RepairBay(_station, cx, cy, cz, 7);
         }
-        if (waves >= 1 && _stationBatteries == 1)
+        foreach (var (z, minWave) in new[] { (6, 0), (2, 0), (0, 1) })
         {
-            Goal("more defence: second station battery");
-            var (ox, oy, oz) = Origin(S1.X, S1.Y, S1.Z);
-            _stationBatteries += AmmoBattery(_station, ox, oy, oz, 6).Count > 0 ? 1 : 0;
+            if (_stationBatteries >= MaxBatteries || waves < minWave || !Rich()) continue;
+            if (_batteryRows.Contains(z)) continue;
+            _batteryRows.Add(z);
+            Goal($"more defence: station battery on row {z}");
+            _stationBatteries += AmmoBattery(_station, ox, oy, oz, z).Count > 0 ? 1 : 0;
         }
     }
+
+    /// <summary>Ammo batteries on the station: two, and four on the hard presets (a harder wave needs more turrets; every battery costs research plates).</summary>
+    private int MaxBatteries => Net.Rules.EnemyHpPercent >= 120 ? 4 : 2;
+
+    private readonly HashSet<int> _batteryRows = new() { 4 };
 
     // ---- 4: laboratory ----------------------------------------------------------------------------------
 
