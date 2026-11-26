@@ -5,6 +5,9 @@ namespace Starfoundry.Sim.Tests;
 
 internal static class TestContent
 {
+    /// <summary>Default rules with <see cref="WorldRules.LegacyDock"/> on: the worlds of before ADR 0041, where the core and the cockpit are docking ports and no template carries a dock module.</summary>
+    public static WorldRules OldDock => new WorldRules().WithLegacyDock(true);
+
     /// <summary>
     /// The content as it was before the floor-building rule (ADR 0031; <c>floor_building</c> false): the starter ship has its workshop and factory and
     /// machines go anywhere in a module that allows them. The older structure tests run against it; <see cref="CoreFloor"/> is the shipped content.

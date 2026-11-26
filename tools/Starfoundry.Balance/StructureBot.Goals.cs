@@ -338,7 +338,7 @@ public sealed partial class StructureBot
 
     // ---- hold, defence, power ---------------------------------------------------------------------------
 
-    private static readonly (int X, int Y, int Z)[] CargoSpots = { (1, 0, 3), (1, 0, 4), (-1, 0, 3), (-1, 0, 0) };
+    private static readonly (int X, int Y, int Z)[] CargoSpots = { (1, 0, 3), (1, 0, 4), (-1, 0, 3), (2, 0, 3) }; // (-1,0,0) is the ship's dock module (ADR 0041)
 
     /// <summary>Extra cargo modules (60 hold each): the depots' stock, hydrogen and hand-mined ore fill the starter hold's 45 usable slots.</summary>
     private void MoreCargo(int count)

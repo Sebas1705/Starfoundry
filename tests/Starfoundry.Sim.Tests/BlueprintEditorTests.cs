@@ -18,10 +18,12 @@ public class BlueprintEditorTests
     {
         var w = SimWorld.CreateGalaxy(C, mode, Seed, threats: false, stationRules: false, structures: true);
         ship = w.Network.ShipStructure(0);
-        station = w.Network.CreateStructure(0, StructureKind.Station, -18L * Cell, 0, 0);
+        // ADR 0041: the ship's dock module (on the -X flank of its cockpit) joins the dock module beside the station core.
+        station = w.Network.CreateStructure(0, StructureKind.Station, -26L * Cell, 0, StationGrid.ModuleZ * (long)Cell);
         w.Network.AddStructureModuleUnchecked(station, 0, 0, 0, ModuleKind.Core);
+        w.Network.AddStructureModuleUnchecked(station, 0, 0, -1, ModuleKind.Dock);
         w.Network.AddStructureModuleUnchecked(station, 0, 0, 1, ModuleKind.Shipyard);
-        w.Submit(0, new DockAt(station, 0, 0, 0, Dir.PosX));
+        w.Submit(0, new DockAt(station, 0, 0, -1, Dir.PosX));
         w.Step();
         Assert.Equal(Reject.None, w.LastResults.Single().Reject);
         return w;

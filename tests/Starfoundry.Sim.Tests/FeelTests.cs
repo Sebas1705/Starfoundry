@@ -98,7 +98,7 @@ public class FeelTests
         using var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, log, C.Hash, GameMode.Sandbox, Seed, threats: false, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(21, bytes[4]);
+        Assert.Equal(22, bytes[4]);
         var back = CommandCodec.ReadLog(new MemoryStream(bytes));
         Assert.Equal(new SetAim(10, -700, 512), back[0].Command);
         Assert.Equal(new SetAim(0, 0, -1024), ((Batch)back[1].Command).Commands[0]);
@@ -402,7 +402,7 @@ public class FeelTests
     [Fact]
     public void A_legacy_world_plays_a_version_16_log_exactly_as_recorded()
     {
-        var legacy = new WorldRules().WithLegacyFeel(true).WithLegacyResources(true).WithLegacyField(true); // a version 16 world had no rock field (ADR 0040)
+        var legacy = new WorldRules().WithLegacyFeel(true).WithLegacyResources(true).WithLegacyField(true).WithLegacyDock(true); // a version 16 world had no rock field (ADR 0040) and no dock modules (ADR 0041)
         var recorded = World(legacy, threats: true);
         recorded.Network.ScheduleWave(0);
         var n = recorded.Network;

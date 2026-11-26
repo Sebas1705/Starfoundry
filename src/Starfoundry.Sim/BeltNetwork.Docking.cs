@@ -36,7 +36,7 @@ public static class DockRules
     public static readonly Dir[] PortFaces = { Dir.PosX, Dir.NegX, Dir.PosZ, Dir.NegZ };
 }
 
-/// <summary>A docking port: a free horizontal face of a core, dock or cockpit module.</summary>
+/// <summary>A docking port: a free horizontal face of a dock module (and, in worlds with <see cref="WorldRules.LegacyDock"/>, of a core or cockpit).</summary>
 /// <param name="Free">Nothing is built against the face and no ship is docked there.</param>
 /// <param name="DockedShip">The id of the ship structure docked at this port (stations only), or -1.</param>
 public readonly record struct DockPort(int Structure, int Mx, int My, int Mz, Dir Face, bool Free, int DockedShip);
@@ -59,6 +59,12 @@ public sealed partial class BeltNetwork
     public static bool HasPorts(StructureKind structureKind, ModuleKind kind) =>
         kind == ModuleKind.Dock || (kind == ModuleKind.Core && structureKind == StructureKind.Station) || (kind == ModuleKind.Cockpit && structureKind == StructureKind.Ship);
 
+    /// <summary>
+    /// Like <see cref="HasPorts"/> under this world's rules: with <see cref="WorldRules.LegacyDock"/> off (ADR 0041) only the dedicated dock module has ports, on both
+    /// ships and stations; a station's core and a ship's cockpit are not docking ports any more.
+    /// </summary>
+    public bool ModuleHasPorts(StructureKind structureKind, ModuleKind kind) => Rules.LegacyDock ? HasPorts(structureKind, kind) : kind == ModuleKind.Dock;
+
     private static (int X, int Z) FaceStep(Dir face) => face switch
     {
         Dir.PosX => (1, 0),
@@ -73,7 +79,7 @@ public sealed partial class BeltNetwork
         if (!_structures.TryGetValue(structure, out var s)) yield break;
         foreach (var (key, kind) in s.ModuleMap)
         {
-            if (!HasPorts(s.Kind, kind)) continue;
+            if (!ModuleHasPorts(s.Kind, kind)) continue;
             foreach (var face in DockRules.PortFaces)
             {
                 if (kind == ModuleKind.Cockpit && face is Dir.PosZ or Dir.NegZ) continue; // a cockpit docks sideways: its nose and the engine side are not ports
@@ -470,8 +476,8 @@ public sealed partial class BeltNetwork
         if (s.DockedTo < 0) return;
         if (s.Kind != StructureKind.Ship) Fail($"structure {s.Id} is docked but is no ship");
         if (!_structures.TryGetValue(s.DockedTo, out var st) || st.Kind != StructureKind.Station) { Fail($"ship {s.Id} is docked at a missing station {s.DockedTo}"); return; }
-        if (!s.ModuleMap.TryGetValue(s.DockShipModule, out var sk) || !HasPorts(s.Kind, sk)) Fail($"ship {s.Id} is docked with a module that has no port");
-        if (!st.ModuleMap.TryGetValue(s.DockStationModule, out var tk) || !HasPorts(st.Kind, tk)) Fail($"ship {s.Id} is docked at a module that has no port");
+        if (!s.ModuleMap.TryGetValue(s.DockShipModule, out var sk) || !ModuleHasPorts(s.Kind, sk)) Fail($"ship {s.Id} is docked with a module that has no port");
+        if (!st.ModuleMap.TryGetValue(s.DockStationModule, out var tk) || !ModuleHasPorts(st.Kind, tk)) Fail($"ship {s.Id} is docked at a module that has no port");
         if (s.DockShipFace != DockRules.Opposite(s.DockStationFace)) Fail($"ship {s.Id} docks with ports that do not face each other");
         var pose = DockPose(st, s.DockStationModule, s.DockStationFace, s.DockShipModule);
         if (s.OriginX != pose.X || s.OriginY != pose.Y || s.OriginZ != pose.Z) Fail($"ship {s.Id} is docked but not at the port pose");
