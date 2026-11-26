@@ -789,7 +789,7 @@ public sealed partial class BeltNetwork
     private void StepShip(Player p)
     {
         bool bench = StationFirst; // ADR 0039: one craft at a time from a queue, 8 s each
-        if (bench && !p.ShipCrafting) p.ShipRecipe = p.BenchQueue[0]; // the head is only looked at; it leaves the queue when its inputs are taken
+        if (bench && !p.ShipCrafting && p.BenchQueue.Count > 0) p.ShipRecipe = p.BenchQueue[0];
         var r = Content!.Recipes[p.ShipRecipe];
 
         if (p.ShipCrafting && --p.ShipRemaining == 0)
@@ -800,6 +800,12 @@ public sealed partial class BeltNetwork
         }
 
         if (p.ShipCrafting) return;
+        if (bench)
+        {
+            if (p.BenchQueue.Count == 0) return;
+            p.ShipRecipe = p.BenchQueue[0]; // the next craft: only looked at here, it leaves the queue when its inputs are taken
+            r = Content.Recipes[p.ShipRecipe];
+        }
 
         int inTotal = 0, outTotal = 0;
         foreach (var i in r.Inputs)

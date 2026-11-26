@@ -238,6 +238,26 @@ public class ShipStationTests
     }
 
     [Fact]
+    public void The_bench_runs_a_mixed_queue_in_order()
+    {
+        var w = World();
+        var n = w.Network;
+        n.GiveItems(0, Item("core:iron_ore"), 2);
+        Assert.Equal(Reject.None, Run(w, new QueueBench(Smelt, 2)));
+        Assert.Equal(Reject.None, Run(w, new QueueBench(Press, 1)));
+        Assert.Equal(Reject.None, Run(w, new QueueBench(Ammo, 1)));
+        w.Step(Tps * 8 * 4 + 20);
+        Assert.Equal(1, n.HoldCount(0, Item("core:iron_plate"))); // 2 ingots smelted, then pressed
+        Assert.Equal(0, n.HoldCount(0, Item("core:iron_ingot")));
+        Assert.Equal(0, n.HoldCount(0, Item("core:ammo"))); // the ammo craft had no ingot left to wait on
+        Assert.Single(n.GetPlayerInfo(0).BenchQueue);
+        n.GiveItems(0, Item("core:iron_ingot"), 1);
+        w.Step(Tps * 9);
+        Assert.Equal(4, n.HoldCount(0, Item("core:ammo")));
+        n.ValidateInvariants();
+    }
+
+    [Fact]
     public void The_bench_queue_holds_five_and_waits_for_inputs()
     {
         var w = World();
