@@ -156,13 +156,68 @@ const phases = {
     }
     log('approach trace (dist, R = in range):', trace.join(' '));
     await keyDown('S'); await sleep(1500); await keyUp('S'); // brake
-    for (let i = 0; i < 12; i++) { s = await state(); if (s.deposits.find(x => x.id === iron.id)?.inRange) break; await aimAt(iron.id, 1); await keyDown('W'); await sleep(350); await keyUp('W'); await sleep(500); }
+    for (let i = 0; i < 40; i++) { s = await state(); if (s.deposits.find(x => x.id === iron.id)?.inRange) break; await aimAt(iron.id, 1); await keyDown('W'); await sleep(350); await keyUp('W'); await sleep(500); }
     const aimed = await aimAt(iron.id, 1.5); s = await state();
     check('2.iron-selected', s.hover.kind === 'Deposit' && s.hover.id === iron.id, `aim=${JSON.stringify(aimed)} hover=${JSON.stringify(s.hover)} inRange=${s.deposits.find(x => x.id === iron.id)?.inRange}`);
     const hold0 = s.hold['core:iron_ore'] ?? 0;
     await mouseButton(true); await sleep(3000); const mid = await state(); await sleep(5000); const mid2 = await state(); await mouseButton(false); await sleep(500); s = await state();
     check('2.laser-mines', (s.hold['core:iron_ore'] ?? 0) > hold0, `iron ore hold ${hold0} -> ${mid.hold['core:iron_ore'] ?? 0} (3 s) -> ${mid2.hold['core:iron_ore'] ?? 0} (8 s) -> ${s.hold['core:iron_ore'] ?? 0} after release; laserFiring while held=${mid.laserFiring} miningDeposit=${mid.miningDeposit}`);
+    log('hold after mining:', JSON.stringify((await state()).hold));
+    // arsenal: V steps, 1-4 pick; fire with nothing to shoot at
+    const picks = []; for (const k of ['2', '3', '4', 'V', '1']) { await key(k); await sleep(250); picks.push(`${k}->${(await state()).arsenalSelected}`); }
+    await key('2'); await sleep(200); const g0 = logTail(/./, 4000).length; await mouseButton(true); await sleep(2000); const gs = await state(); await mouseButton(false);
+    const gl = logTail(/proj|impact|shot|fire|laser|bolt/i, 8);
+    log('weapons: ', picks.join(' '), '| armed while firing slot 2:', gs.armed, '| log lines mentioning fire:', JSON.stringify(gl));
+    check('2.weapon-switch', new Set(picks.map(p => p.split('->')[1])).size > 1, picks.join(' ') + ` armed=${gs.armed}`);
+    await key('1'); await sleep(200);
+    // workbench
+    // ship computer
+    log('hold after weapons:', JSON.stringify((await state()).hold));
+    await key('Tab'); await sleep(800); s = await state();
+    const tabs = await names(/^Tab(Map|Research|Inventory|Build|Info|Designer|Systems|Settings)$/);
+    check('3.computer-open', s.computerOpen === true, `computerOpen=${s.computerOpen} tabs=${tabs.join(',')}`);
+    for (const t of ['Map', 'Research', 'Inventory', 'Build', 'Info', 'Systems', 'Settings']) {
+      await click('Tab' + t).catch(() => {}); await sleep(500); const tx = await texts('.');
+      check('3.tab-' + t, tx.length > 5, `${tx.length} visible texts, e.g. ${tx.slice(2, 5).join(' | ').slice(0, 110)}`);
+    }
+    log('Designer tab present:', tabs.includes('TabDesigner'), '(designer is docked-only)');
+    await key('Tab'); await sleep(500); s = await state(); check('3.tab-closes', s.computerOpen === false, `computerOpen=${s.computerOpen}`);
+    for (const [k, nm] of [['B', 'Build'], ['I', 'Inventory'], ['M', 'Map']]) {
+      await key(k); await sleep(600); const st = await state(); const open = st.computerOpen || st.inventoryOpen;
+      check('3.key-' + k, open, `computerOpen=${st.computerOpen} inventoryOpen=${st.inventoryOpen} (expected ${nm})`);
+      await key('Escape'); await sleep(500);
+    }
+    s = await state(); log('after Esc closes: computerOpen', s.computerOpen, 'pauseOpen', s.pauseOpen);
+    // save, change, load
+    s = await state(); const saved = { tick: s.tick, hold: s.hold['core:iron_ore'] ?? 0, pos: s.pos };
+    await key('F5'); await sleep(1500);
+    const iron2 = (await state()).deposits.find(d => d.id === iron.id); await aimAt(iron.id, 1.5); await mouseButton(true); await sleep(3500); await mouseButton(false); await sleep(300);
+    const changed = await state(); log('saved', JSON.stringify(saved), 'changed', JSON.stringify({ tick: changed.tick, hold: changed.hold['core:iron_ore'], pos: changed.pos }));
+    await key('F9'); await sleep(3500); const loaded = await state();
+    check('4.save-load', loaded.tick <= saved.tick + 120 && (loaded.hold['core:iron_ore'] ?? 0) === saved.hold && Math.hypot(...loaded.pos.map((v, i) => v - saved.pos[i])) < 500, `saved tick=${saved.tick} hold=${saved.hold}; before F9 tick=${changed.tick} hold=${changed.hold['core:iron_ore']}; loaded tick=${loaded.tick} hold=${loaded.hold['core:iron_ore'] ?? 0} posDelta=${Math.hypot(...loaded.pos.map((v, i) => v - saved.pos[i])).toFixed(0)}`);
     globalThis.__s = s;
+    await keyDown('Alt'); await sleep(300); s = await state(); log('seated, Alt (look) held: seated', s.seated, 'bench', JSON.stringify(s.bench));
+    for (let i = 0; i < 4; i++) { await script(FIND + 'return play.call("AgentFaceBench")'); await sleep(250); }
+    s = await state(); log('bench after facing: aimed', s.bench?.aimed, 'dist', s.bench?.dist);
+    if (!s.bench?.aimed) { for (let i = 0; i < 6; i++) { await script(FIND + 'return play.call("AgentFaceBench")'); await sleep(250); } s = await state(); log('bench after more facing: aimed', s.bench?.aimed); }
+    const ing0 = s.hold['core:iron_ingot'] ?? 0, plate0 = s.hold['core:iron_plate'] ?? 0;
+    await key('F'); await sleep(800); let b1 = (await state()).bench; log('F at bench (1st): recipe', b1?.recipe, 'crafting', b1?.crafting);
+    await sleep(7000); s = await state(); const ing1 = s.hold['core:iron_ingot'] ?? 0;
+    check('2.workbench-smelts', ing1 > ing0, `recipe=${s.bench?.recipe}; ingots ${ing0} -> ${ing1}; ore 40 -> ${s.hold['core:iron_ore'] ?? 0}`);
+    await key('F'); await sleep(800); await sleep(7000); await keyUp('Alt'); s = await state();
+    check('2.workbench-crafts-plate', (s.hold['core:iron_plate'] ?? 0) > plate0, `recipe=${s.bench?.recipe}; plates ${plate0} -> ${s.hold['core:iron_plate'] ?? 0}; ingots ${ing1} -> ${s.hold['core:iron_ingot'] ?? 0}`);
+    await key('F'); await sleep(300);
+    // inventory: the slot menu is a popup window (not drivable headless), so the drop runs the same method the menu entries call; F picks up
+    await key('I'); await sleep(600); const invTexts = await texts('Inventory|slots'); await key('Escape'); await sleep(500);
+    s = await state(); if (s.pauseOpen) { await key('Escape'); await sleep(400); }
+    s = await state(); const hb = s.hold['core:iron_ore'] ?? 0;
+    const nDrop = unwrap(await script(FIND + 'return play.call("AgentDrop", "core:iron_ore", 10)')); await sleep(1200); s = await state();
+    log('after drop: ore', hb, '->', s.hold['core:iron_ore'] ?? 0, 'stackInReach', s.stackInReach, 'seated', s.seated);
+    check('3.inventory-drop', Number(nDrop) === 10 && (s.hold['core:iron_ore'] ?? 0) === hb - 10, `dropped ${nDrop}; ore ${hb} -> ${s.hold['core:iron_ore'] ?? 0} (inventory page texts: ${invTexts.slice(0, 3).join(' | ')})`);
+    for (let i = 0; i < 12 && !s.stackInReach; i++) { await keyDown('W'); await sleep(250); await keyUp('W'); await sleep(250); s = await state(); }
+    const oreB4 = (s.hold['core:iron_ore'] ?? 0) + s.bag; log('stackInReach before F:', s.stackInReach);
+    await key('F'); await sleep(1500); s = await state();
+    check('3.pickup-with-F', (s.hold['core:iron_ore'] ?? 0) + s.bag > oreB4, `hold+bag ore ${oreB4} -> ${(s.hold['core:iron_ore'] ?? 0) + s.bag} (bag=${s.bag}) after F; seated=${s.seated}`);
     log('errors:', JSON.stringify(errors()));
   },
   async calib() {

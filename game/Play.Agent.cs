@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
 using Godot;
 using Starfoundry.Sim;
@@ -48,6 +50,7 @@ public partial class Play
             vel = new[] { info.VelX, info.VelY, info.VelZ },
             speedCps = _speedCps,
             hold,
+            bag = Net.ContainerStacks(Player, new ContainerRef(ContainerKind.Person)).Sum(t => t.Item3),
             holdTotal = info.HoldTotal,
             seated = _seated,
             docked = IsDockedNow,
@@ -62,6 +65,8 @@ public partial class Play
             goals,
             bench,
             scanCooldown = info.ScanCooldown,
+            stackInReach = StackInReach() is not null,
+            laserOn = _laserOn,
             deposits,
             hover = new { kind = _hover.Kind.ToString(), id = _hover.Id },
             mouseLook = _mouseLook,
@@ -82,5 +87,30 @@ public partial class Play
         float yaw = Mathf.Atan2(local.X, -local.Z), pitch = Mathf.Atan2(local.Y, Mathf.Sqrt(local.X * local.X + local.Z * local.Z));
         _shipQuat = FlightOrientation.Rotate(_shipQuat, pitch, yaw, 0f);
         return Mathf.RadToDeg(Mathf.Acos(Mathf.Clamp(-local.Normalized().Z, -1f, 1f)));
+    }
+
+    /// <summary>Agent shortcut: turns the view (the head when standing) toward the workbench through the normal look path; returns the angle left in degrees.</summary>
+    public float AgentFaceBench()
+    {
+        if (BenchBox() is not { } box || ShipStruct < 0 || _stationView.StructureRoot(ShipStruct) is not { } root) return -1f;
+        var local = _camera.GlobalTransform.AffineInverse() * (root.GlobalTransform * (box.Min + box.Size / 2f));
+        float yaw = Mathf.Atan2(local.X, -local.Z), pitch = Mathf.Atan2(local.Y, Mathf.Sqrt(local.X * local.X + local.Z * local.Z));
+        float sens = MouseSensitivity * SettingsStore.Current.MouseSensitivity;
+        LookBy(new Vector2(yaw / sens, -pitch / sens));
+        return Mathf.RadToDeg(Mathf.Acos(Mathf.Clamp(-local.Normalized().Z, -1f, 1f)));
+    }
+
+    /// <summary>Agent shortcut: the code behind the slot menu's "drop" entries (the menu itself is a popup window that cannot be driven headless). Returns the count dropped.</summary>
+    public int AgentDrop(string itemId, int count)
+    {
+        int item = _content.Items.First(i => i.Id == itemId).Index;
+        foreach (var (slot, it, have) in Net.ContainerStacks(Player, ContainerRef.Hold))
+        {
+            if (it != item) continue;
+            int n = Math.Min(count, have);
+            DropToWorld(ContainerRef.Hold, slot, n);
+            return n;
+        }
+        return 0;
     }
 }
