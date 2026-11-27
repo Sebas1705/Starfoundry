@@ -94,8 +94,8 @@ public static partial class ModuleModels
         }
         else
         {
-            Container(mb, lit, 2.5f, 6.5f, 2.6f, 1.5f, b0, c.Acc, c.Role);
-            Container(mb, lit, 5.6f, 6.5f, 2.6f, 1.5f, b1, c.Acc, c.Role);
+            Container(mb, lit, 2.5f, 6.3f, 2.6f, 1.5f, b0, c.Acc, c.Role);
+            Container(mb, lit, 5.6f, 6.3f, 2.6f, 1.5f, b1, c.Acc, c.Role);
         }
     }
 
@@ -269,23 +269,24 @@ public static partial class ModuleModels
     private static void WallTrim(Cx c, Models.Mb mb, bool lit)
     {
         if (c.Kind is ModuleKind.Dock) return;
+        float bev = StationBevel(c, Roof), dy = bev > 0f ? -0.41f : 0f; // under a roof chamfer the cornice drops between the window frames and the wall top, and the lamp row and conduit strip go
         foreach (float sd in new[] { -1f, 1f }) // sd = outward direction along x: -1 on the left wall
         {
             if (sd < 0 ? c.Has(Left) : c.Has(Right)) continue;
             float face = sd < 0 ? StationFace : W - StationFace;
             if (lit)
             {
-                for (int i = 0; i < 9; i++) mb.C(c.Acc).Block(new(face + sd * 0.145f, 3.14f, 0.9f + i * 0.77f), new(0.03f, 0.06f, 0.14f));
+                if (bev == 0f) for (int i = 0; i < 9; i++) mb.C(c.Acc).Block(new(face + sd * 0.145f, 3.14f, 0.9f + i * 0.77f), new(0.03f, 0.06f, 0.14f));
                 continue;
             }
-            mb.C(SlabLt).Block(new(face + sd * 0.06f, 3.36f, 4f), new(0.16f, 0.22f, 6.9f), 1f, 1f);
-            mb.C(Dark).Block(new(face + sd * 0.1f, 3.22f, 4f), new(0.08f, 0.05f, 6.9f));
+            mb.C(SlabLt).Block(new(face + sd * 0.06f, 3.36f + dy, 4f), new(0.16f, 0.22f, 6.9f), 1f, 1f);
+            if (bev == 0f) mb.C(Dark).Block(new(face + sd * 0.1f, 3.22f, 4f), new(0.08f, 0.05f, 6.9f));
             bool front = c.Kind is ModuleKind.Hull or ModuleKind.Workshop or ModuleKind.Reactor or ModuleKind.ReactorMk2 or ModuleKind.Core or ModuleKind.Cockpit;
             bool back = c.Kind is ModuleKind.Hull or ModuleKind.Workshop or ModuleKind.Reactor or ModuleKind.ReactorMk2 or ModuleKind.Core;
             foreach (float z in new[] { 2.15f, 5.85f })
             {
                 if (z < 4f ? !front : !back) continue;
-                mb.C(Steel).Prism(new(face + sd * 0.07f, 0.35f, z), 0.085f, 0.085f, 2.95f, 6);
+                mb.C(Steel).Prism(new(face + sd * 0.07f, 0.35f, z), 0.085f, 0.085f, bev > 0f ? 2.55f : 2.95f, 6);
                 mb.C(c.Acc).Prism(new(face + sd * 0.07f, 1.2f, z), 0.115f, 0.115f, 0.08f, 6);
                 mb.C(Dark);
                 foreach (float y in new[] { 0.7f, 1.7f, 2.7f }) mb.Block(new(face + sd * 0.05f, y, z), new(0.1f, 0.06f, 0.26f));

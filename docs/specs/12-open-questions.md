@@ -54,3 +54,10 @@ See the [resource fields study](../superpowers/specs/2026-11-27-resource-fields-
 - Look: keep the flat bright lighting or move to a shadowed key light; the mood of interiors.
 - Floating origin: keep the 4,000,000-cell world limit or cap it until the origin shift exists.
 - Route: the hand-test pass, audio listening, minimum hardware, accessibility target, save promise and the co-op go or no-go.
+
+## Hull shapes (2026-11-27)
+See [the spec](../superpowers/specs/2026-11-27-hull-shapes-design.md) (proposal, not built; step A of the work is the drawn-only [visual pass 3](../prototypes/visual-pass-models.md#visual-pass-3-hull-curves-ships-and-stations)).
+- Whether corner, wedge, round and ring modules are a shape and a turn on a module (recommended), new module kinds or half cells.
+- Which shapes come first, whether a shape changes price, hit points and mass, and whether it is gated by research.
+- Whether the sim learns the module turn that the editor's rotate tool only keeps on the client today.
+- Scale: a deposit rock is smaller than one module (8 cells) and a ship is 40 cells long and 5 : 1; a bigger rock radius, a lower module height or a wider starter footprint are sim-level choices listed in the visual pass.

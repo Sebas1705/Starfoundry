@@ -423,6 +423,34 @@ public static class HullProfile
         return p;
     }
 
+    // ---- exterior fairings: drawn only, never walkable -------------------------------------------------------------------
+
+    /// <summary>
+    /// The corner of the module box that the chamfer <paramref name="edge"/> (1, 3, 5 or 7: the odd edges of <see cref="Octagon"/>) of a section cuts off:
+    /// the point where the wall and the roof (or the floor) it joins would meet. Edges 1 and 5 start on a horizontal line, 3 and 7 on a vertical one.
+    /// </summary>
+    public static Vector2 ShoulderCorner(Vector2 start, Vector2 end, int edge) => edge is 1 or 5 ? new Vector2(end.X, start.Y) : new Vector2(start.X, end.Y);
+
+    /// <summary>
+    /// The point <paramref name="t"/> (0 to 1) along the rounded shoulder of a chamfer: a quadratic Bezier from <paramref name="start"/> to <paramref name="end"/>
+    /// of the chamfer with the cut corner as control point, tangent to the wall and the roof at its ends. It bulges from the chamfer towards the corner by
+    /// half the distance, so it is always outside the hull section (the walking body, which stands in the liner, never meets it) and inside the module box (the
+    /// hit volume of the simulation is at least as big as what is drawn). The model builder draws it as the fairing of <c>ModuleModels.RoundedShoulders</c>.
+    /// </summary>
+    public static Vector2 ShoulderPoint(Vector2 start, Vector2 end, int edge, float t)
+    {
+        var k = ShoulderCorner(start, end, edge);
+        float u = 1f - t;
+        return u * u * start + 2f * u * t * k + t * t * end;
+    }
+
+    /// <summary>
+    /// The roof edge chamfer of an exposed side of a station hull, cargo, reactor or core module, in cells (45 degrees). The cut starts at
+    /// <c>Roof - StationRoofBevel</c>, above the viewport frames and above the head of the walking body (<see cref="BodyHeight"/>), so no collision changes:
+    /// the visible hull is only ever smaller than the module box.
+    /// </summary>
+    public const float StationRoofBevel = 0.7f;
+
     /// <summary>The scale of the nose section at depth z (0.28 at the tip, 1 at <see cref="NoseEnd"/>).</summary>
     public static float NoseScale(float z) => NoseTipScale + (1f - NoseTipScale) * (z - NoseStart) / (NoseEnd - NoseStart);
 

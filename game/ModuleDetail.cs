@@ -50,7 +50,8 @@ public static partial class ModuleModels
         }
         if (c.Kind is ModuleKind.Workshop or ModuleKind.Defence or ModuleKind.DroneBay || c.Has(Up)) return;
         float top = c.Kind == ModuleKind.Shield || ModuleKindIds.IsAntenna(c.Kind) ? Starfoundry.Ui.HullProfile.RoofOf(c.Kind, c.Ship) : Roof;
-        StrobeAt(c, "roof", W - 0.6f, top + 0.12f, 0.6f, new Color(1f, 0.15f, 0.12f));
+        float strobeAt = StationBevel(c, top) > 0f ? 1.2f : 0.6f; // a roof chamfer cuts the corner the strobe stood on
+        StrobeAt(c, "roof", W - strobeAt, top + 0.12f, strobeAt, new Color(1f, 0.15f, 0.12f));
     }
 
     // ---- lighting ------------------------------------------------------------------------------------------
