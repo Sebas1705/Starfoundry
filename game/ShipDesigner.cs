@@ -175,7 +175,7 @@ public partial class ShipDesigner : Control
         var palScroll = new ScrollContainer { SizeFlagsVertical = SizeFlags.ExpandFill, HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
         var pal = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         pal.AddThemeConstantOverride("separation", 3);
-        foreach (var kind in ShipDesignEditor.Catalogue(_content))
+        foreach (var kind in ShipDesignEditor.Catalogue(_content).Where(k => k != ModuleKind.Dock || !_world().Network.DockPieceRules)) // ADR 0047: no dock module in a world with docking collars
         {
             var k = kind;
             var b = UiKit.Button(KindName(k), () => PickKind(k), 13);
@@ -244,7 +244,7 @@ public partial class ShipDesigner : Control
         var net = _world().Network;
         int ship = net.ShipStructure(_player);
         if (ship >= 0) _editor.Load(net.GetStructure(ship).Modules);
-        _editor.RequireDock = !net.Rules.LegacyDock; // ADR 0041
+        _editor.RequireDock = !net.Rules.LegacyDock && !net.DockPieceRules; // ADR 0041 (ADR 0047: the collars stay with their modules)
         _sel = null; _moving = false; _kind = null;
         _layer = 0;
         _signature = "";

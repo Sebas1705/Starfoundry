@@ -67,7 +67,7 @@ public class StarterShipTests
         w.ValidateInvariants();
     }
 
-    private const int ObjectiveStarterModules = 8; // five ship modules plus the nose mining laser, the top gun (ADR 0032) and the dock module on the +X flank (ADR 0041)
+    private const int ObjectiveStarterModules = 7; // five ship modules plus the nose mining laser and the top gun (ADR 0032); the dock is a collar on the cockpit flank, not a module (ADR 0047)
 
     [Fact]
     public void Starter_ship_is_only_built_with_structure_rules()
@@ -134,10 +134,10 @@ public class StarterShipTests
         var st = w.Network.Structures().Single(s => s.Kind == StructureKind.Station);
         Assert.Equal(0, st.Owner);
         Assert.Equal((12L * Cell, 0L, 0L), (st.OriginX, st.OriginY, st.OriginZ));
-        // ADR 0041: a station is founded with its core and a dock module beside it, at no extra cost.
-        Assert.Equal(new[] { ModuleKind.Core, ModuleKind.Dock }.OrderBy(k => k), st.Modules.Values.OrderBy(k => k));
+        // ADR 0047: a station is founded with its core and a docking collar on it, at no extra cost.
+        Assert.Equal(new[] { ModuleKind.Core }, st.Modules.Values.ToArray());
         Assert.Equal(ModuleKind.Core, st.Modules[(0, 0, 0)]);
-        Assert.Equal(ModuleKind.Dock, st.Modules[(0, 0, -1)]);
+        Assert.Equal(new[] { new DockPieceSpec(0, 0, 0, Dir.NegZ) }, w.Network.DockPieces(st.Id).ToArray()); // ADR 0047: the collar comes with the core, on its -Z face
 
         // A sandbox founding is free.
         var sb = World();

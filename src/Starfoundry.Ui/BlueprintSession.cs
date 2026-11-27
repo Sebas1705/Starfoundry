@@ -2,7 +2,7 @@ using Starfoundry.Sim;
 
 namespace Starfoundry.Ui;
 
-public enum BlueprintTool { Select, Place, Move, Rotate, Delete }
+public enum BlueprintTool { Select, Place, Move, Rotate, Delete, Collar }
 
 /// <summary>
 /// Everything the blueprint editor knows about one editing session, with no engine in it: the draft, the tool and the kind in hand, the selection, the
@@ -88,7 +88,7 @@ public sealed class BlueprintSession
         {
             var st = net.GetStructure(ship);
             Interior.Load(structure >= 0 ? net.ReadInterior(structure) : BlueprintInterior.Empty);
-            Draft.Load(st.Modules, st.Kind, structure >= 0 ? structure : -1);
+            Draft.Load(st.Modules, st.Kind, structure >= 0 ? structure : -1, net.DockPieceRules ? net.DockPieces(ship).ToList() : null);
         }
         var (min, max) = Draft.Bounds(1);
         Camera.Frame(min, max);
@@ -138,7 +138,7 @@ public sealed class BlueprintSession
         var w = _world();
         bool station = StructureKind == StructureKind.Station;
         InteriorChange = station ? InteriorDiff.Compute(Interior.Original, Interior.ToInterior()) : InteriorDiff.Empty;
-        Report = station ? w.CheckBlueprint(_player, StructureId, Draft.ToModules(), InteriorCarried()) : Draft.Check(w, _player);
+        Report = station ? w.CheckBlueprint(_player, StructureId, Draft.ToModules(), InteriorCarried(), Draft.PiecesCarried()) : Draft.Check(w, _player);
         var bonuses = Bonuses();
         Stats = ShipStats.Compute(Draft.Modules.Values, _content, _handling, bonuses);
         StatsBefore = ShipStats.Compute(Draft.Original.Values, _content, _handling, bonuses);
@@ -219,6 +219,9 @@ public sealed class BlueprintSession
                 break;
             case BlueprintTool.Delete:
                 if (occupied) key = EditKey(Draft.Remove(cell));
+                break;
+            case BlueprintTool.Collar:
+                if (occupied) key = EditKey(Draft.CycleCollar(cell)); // ADR 0047: each click turns the docking collar to the next face, then takes it off
                 break;
         }
         LastMessageKey = key;
@@ -386,7 +389,7 @@ public sealed class BlueprintSession
     public BlueprintInterior? InteriorCarried() => StructureKind == StructureKind.Station && Interior.Dirty ? Interior.ToInterior() : null;
 
     /// <summary>The one command that applies the draft.</summary>
-    public Command ToCommand() => StructureKind == StructureKind.Station ? new ApplyBlueprint(StructureId, Draft.ToModules(), InteriorCarried()) : Draft.ToCommand();
+    public Command ToCommand() => StructureKind == StructureKind.Station ? new ApplyBlueprint(StructureId, Draft.ToModules(), InteriorCarried(), Draft.PiecesCarried()) : Draft.ToCommand();
 
     /// <summary>The rows of the stats panel for what is being edited.</summary>
     public IReadOnlyList<StatRow> StatRows() => Starfoundry.Ui.StatRows.Build(Stats, StatsBefore, StructureKind);

@@ -186,8 +186,9 @@ public sealed record SetAttitude(int W, int X, int Y, int Z) : Command;
 /// <summary>Replaces the whole module list of the commanding player's ship (ADR 0032): the ship designer's apply. The ship must be docked at one of the
 /// player's stations that has a shipyard module. The design is validated like a sequence of single placements and removals (a cockpit, an engine, a reactor and
 /// a cargo module, no core, connected, nothing removed that holds a machine or belt, the docked port kept, no overlap with the station, the hold still fits) and
-/// priced: modules that only move are free, a removed module refunds half its cost, the hold pays first and the station stock the rest. All or nothing.</summary>
-public sealed record DesignerApply(DesignModule[] Modules) : Command;
+/// priced: modules that only move are free, a removed module refunds half its cost, the hold pays first and the station stock the rest. All or nothing.
+/// With <see cref="DockPieces"/> (ADR 0047, tag 67) the same step also sets the ship's docking collars exactly; without it the collars that still have a host are kept.</summary>
+public sealed record DesignerApply(DesignModule[] Modules, DockPieceSpec[]? DockPieces = null) : Command;
 
 /// <summary>
 /// Replaces the whole module list of one of the player's structures in a single atomic step (ADR 0043), the blueprint editor's apply: a station, or the player's ship
@@ -196,8 +197,9 @@ public sealed record DesignerApply(DesignModule[] Modules) : Command;
 /// or the port a ship is docked with; modules that only move are free, a removed module refunds half its cost and the hold pays first and the station stock the rest.
 /// Refused with <see cref="Reject.NotAllowedHere"/> in a world with <see cref="WorldRules.LegacyBlueprint"/>.
 /// With a <see cref="BlueprintInterior"/> (ADR 0044, tag 66) the same step also makes the machines, belts, turrets and walls of the station exactly that interior; without one the interior is left alone.
+/// With <see cref="DockPieces"/> (ADR 0047, tags 68 and 69) it also sets the docking collars exactly; without it the collars that still have a host are kept.
 /// </summary>
-public sealed record ApplyBlueprint(int Structure, DesignModule[] Modules, BlueprintInterior? Interior = null) : Command;
+public sealed record ApplyBlueprint(int Structure, DesignModule[] Modules, BlueprintInterior? Interior = null, DockPieceSpec[]? DockPieces = null) : Command;
 
 /// <summary>Several commands applied atomically: either all succeed or the world is left untouched.</summary>
 public sealed record Batch(Command[] Commands) : Command;
@@ -347,6 +349,9 @@ public enum Reject
 
     /// <summary>Stations are edited in the blueprint editor (ADR 0043): the module tool and the in-world placement of station parts are refused, send ApplyBlueprint.</summary>
     UseBlueprint,
+
+    /// <summary>The face cannot carry a docking collar (ADR 0047): there is no module there, its kind cannot host one, or the face is not a horizontal one.</summary>
+    BadDockPiece,
 }
 
 /// <summary>Outcome of one submitted command.</summary>

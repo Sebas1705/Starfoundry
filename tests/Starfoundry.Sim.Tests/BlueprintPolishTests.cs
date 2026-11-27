@@ -122,7 +122,7 @@ public class BlueprintPolishTests
     /// <summary>A station of <paramref name="modules"/> modules: the core, a dock and a field of Fabrication bays on deck 0 (connected, sandbox, so nothing is priced).</summary>
     private static (SimWorld W, int Station) Station(int modules, bool sandbox)
     {
-        var w = SimWorld.CreateGalaxy(C, sandbox ? GameMode.Sandbox : GameMode.Campaign, Seed, threats: false, stationRules: false, structures: true, rules: WorldRules.Default);
+        var w = SimWorld.CreateGalaxy(C, sandbox ? GameMode.Sandbox : GameMode.Campaign, Seed, threats: false, stationRules: false, structures: true, rules: WorldRules.Default.WithLegacyDockPieces(true));
         w.Network.EnsurePlayer(0);
         int st = w.Network.CreateStructure(0, StructureKind.Station, -26L * Cell, 0, StationGrid.ModuleZ * (long)Cell);
         w.Network.AddStructureModuleUnchecked(st, 0, 0, 0, ModuleKind.Core);

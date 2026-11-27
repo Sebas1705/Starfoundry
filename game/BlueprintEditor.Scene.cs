@@ -119,6 +119,18 @@ void fragment() {
             p.Name = "Real_" + p.Name;
             _real.AddChild(p);
         }
+        // The docking collars (ADR 0047): the structure's own ones are drawn real, the ones the draft adds as ghosts; one the draft takes away keeps its red tint through the module it is on.
+        foreach (var pc in d.Pieces.Concat(d.OriginalPieces).Distinct())
+        {
+            bool original = d.OriginalPieces.Contains(pc), kept = d.Pieces.Contains(pc);
+            if (!d.Modules.ContainsKey((pc.Mx, pc.My, pc.Mz)) && !d.Original.ContainsKey((pc.Mx, pc.My, pc.Mz))) continue;
+            var node = ModuleModels.CollarPiece(pc.Face, true);
+            node.Name = "Collar_" + pc.Mx + "_" + pc.My + "_" + pc.Mz + "_" + pc.Face;
+            node.Position = new Vector3(pc.Mx * StationGrid.ModuleX, pc.My * StationGrid.ModuleY, pc.Mz * StationGrid.ModuleZ);
+            node.Visible = _s.Camera.LayerVisible(pc.My);
+            if (!kept) Overlay(node, _removedMat); else if (!original) Overlay(node, _addedMat);
+            (original ? _real : _ghosts).AddChild(node);
+        }
         // The new parts and the moved ones at their target, as tinted ghosts.
         foreach (var (cell, kind) in diff.Added)
         {

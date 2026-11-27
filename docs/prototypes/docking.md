@@ -6,7 +6,7 @@ Decision: [ADR 0029](../adr/0029-docking-ship-and-station-are-different.md). Eve
 | Rule | Value |
 | --- | --- |
 | Station | Fixed. No player, no thrust, no `cockpit` or `engine` module (`KindNotAllowed`). A ship takes no `core`. |
-| Ports | A free horizontal face of a station `core`, a ship `cockpit` (its two flanks) or a `dock` module (any kind of structure, four faces). A face is free when no module touches it and no ship is docked there. |
+| Ports | A free horizontal face of a station `core`, a ship `cockpit` (its two flanks) or a `dock` module (any kind of structure, four faces). A face is free when no module touches it and no ship is docked there. Since [ADR 0041](../adr/0041-ship-and-station-dock-through-a-dedicated-dock-module.md) only a dock module is a port, and since [ADR 0047](../adr/0047-the-dock-is-a-small-collar-on-a-module-face.md) a port is a docking collar, a small piece on a horizontal face of an ordinary module (no dock module in new worlds). |
 | `dock` module | Optional content. 10 iron plates and 8 iron ingots, 200 hit points, no machines, +40 to the station stock. |
 | Docking range | Centre of the ship's port within 12 cells of the station's port (`DockRules.RangeCells`). |
 | Docking speed | Speed at most 12 units a tick, a quarter of the base speed (`DockRules.MaxSpeedUnitsPerTick`): the larger of the commanded speed (the thrust vector or the axis intent, the engines and the power) and, since [ADR 0033](../adr/0033-flight-inertia-solid-deposits-and-hit-volumes.md), the real speed of a ship with inertia, so a coasting ship is too fast. |

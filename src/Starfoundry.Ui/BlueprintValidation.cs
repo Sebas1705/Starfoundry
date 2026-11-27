@@ -94,7 +94,8 @@ public sealed class BlueprintValidation
                 if (!mods.Values.Any(ModuleKindIds.IsReactor)) Add(ValidationSeverity.Error, "noReactor", "bp.val.noReactor");
                 if (!mods.Values.Contains(ModuleKind.Cargo)) Add(ValidationSeverity.Error, "noCargo", "bp.val.noCargo");
             }
-            if (requireDock && !mods.Values.Contains(ModuleKind.Dock)) Add(ValidationSeverity.Error, "noDock", station ? "bp.val.noDockStation" : "bp.val.noDock"); // ADR 0041: a structure docks only through a dock module
+            if (draft.UsesPieces) { if (requireDock && !draft.Pieces.Any()) Add(ValidationSeverity.Error, "noDock", station ? "bp.val.noDockStation" : "bp.val.noDock"); } // ADR 0047: a structure docks through a docking collar
+            else if (requireDock && !mods.Values.Contains(ModuleKind.Dock)) Add(ValidationSeverity.Error, "noDock", station ? "bp.val.noDockStation" : "bp.val.noDock"); // ADR 0041: a structure docks only through a dock module
             var stray = Disconnected(mods, port ?? (station ? draft.Original.Where(kv => kv.Value == ModuleKind.Core).Select(kv => ((int, int, int)?)kv.Key).FirstOrDefault() : null));
             if (stray.Count > 0) Add(ValidationSeverity.Error, "disconnected", station ? "bp.val.disconnectedStation" : "bp.val.disconnected", stray.Select(c => (c.Mx, c.My, c.Mz)).ToList(), stray.Count);
         }
@@ -102,6 +103,8 @@ public sealed class BlueprintValidation
         {
             if (!mods.TryGetValue(p, out var pk) || !draft.Original.TryGetValue(p, out var ok) || pk != ok)
                 Add(ValidationSeverity.Error, "port", "bp.val.port", new[] { (p.Mx, p.My, p.Mz) });
+            else if (draft.UsesPieces && portFace is { } pf0 && DirOf(p, pf0) is { } pdir && !draft.Pieces.Any(c => c.Mx == p.Mx && c.My == p.My && c.Mz == p.Mz && c.Face == pdir))
+                Add(ValidationSeverity.Error, "port", "bp.val.port", new[] { (p.Mx, p.My, p.Mz) }); // the docked collar has to stay
             else if (portFace is { } f && mods.ContainsKey(f))
                 Add(ValidationSeverity.Error, "portBlocked", "bp.val.portBlocked", new[] { (f.Mx, f.My, f.Mz), (p.Mx, p.My, p.Mz) });
         }
@@ -196,6 +199,11 @@ public sealed class BlueprintValidation
             ?? pieces.OrderByDescending(pc => pc.Count).First();
         return pieces.Where(pc => !ReferenceEquals(pc, main)).SelectMany(pc => pc).OrderBy(c => c).ToList();
     }
+
+    private static Dir? DirOf((int Mx, int My, int Mz) from, (int Mx, int My, int Mz) to) => (to.Mx - from.Mx, to.Mz - from.Mz) switch
+    {
+        (1, 0) => Dir.PosX, (-1, 0) => Dir.NegX, (0, 1) => Dir.PosZ, (0, -1) => Dir.NegZ, _ => null,
+    };
 
     private static readonly (int, int, int)[] Steps = { (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1) };
 }

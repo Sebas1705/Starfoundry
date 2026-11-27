@@ -28,8 +28,9 @@ public static partial class Loc
         // rejects
         ["toast.reject.noLaser"] = ("La nave no tiene láser de minería: instala uno en un astillero", "The ship has no mining laser: fit one at a shipyard"),
         ["toast.reject.noGun"] = ("La nave no tiene cañón: instala uno en un astillero", "The ship has no gun: fit one at a shipyard"),
-        ["toast.reject.noDockModule"] = ("El diseño necesita un módulo de enganche: sin él la nave no puede atracar", "The design needs a dock module: without one the ship cannot dock"),
-        ["toast.reject.lastDockModule"] = ("Es el último módulo de enganche: una nave o estación no puede quedarse sin ninguno", "That is the last dock module: a ship or station cannot do without one"),
+        ["toast.reject.noDockModule"] = ("El diseño necesita un enganche: sin él la nave no puede atracar", "The design needs a dock: without one the ship cannot dock"),
+        ["toast.reject.lastDockModule"] = ("Es el último enganche: una nave o estación no puede quedarse sin ninguno", "That is the last dock: a ship or station cannot do without one"),
+        ["toast.reject.badDockPiece"] = ("Ahí no cabe un enganche: solo en una cara lateral libre de un módulo cerrado", "A dock collar does not fit there: only on a free side face of a closed module"),
         ["toast.reject.noShipyard"] = ("Hace falta la nave atracada en una estación tuya con un astillero", "The ship must be docked at one of your stations that has a shipyard"),
 
         // key panel

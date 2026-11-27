@@ -25,10 +25,30 @@ public sealed class BlueprintDraft
     private readonly SortedDictionary<(int Mx, int My, int Mz), ModuleKind> _kinds = new();
     private readonly Dictionary<(int Mx, int My, int Mz), int> _rotation = new();
     private readonly Dictionary<(int Mx, int My, int Mz), ModuleKind> _original = new();
+    private readonly SortedSet<(int Mx, int My, int Mz, int Face)> _pieces = new(), _originalPieces = new();
     private readonly List<Snapshot> _undo = new(), _redo = new();
     private List<((int Mx, int My, int Mz) Offset, ModuleKind Kind, int Rotation)> _clipboard = new();
 
-    private sealed record Snapshot(((int Mx, int My, int Mz) Key, ModuleKind Kind, int Rotation)[] Parts);
+    private sealed record Snapshot(((int Mx, int My, int Mz) Key, ModuleKind Kind, int Rotation)[] Parts, (int Mx, int My, int Mz, int Face)[] Pieces);
+
+    /// <summary>
+    /// True in a world where the dock is a docking collar, a small piece on a module face (ADR 0047), not a dock module: the draft then carries the collars, the Dock module kind is
+    /// not offered and <see cref="ToCommand"/> sends the collars. Set by <see cref="Load"/>.
+    /// </summary>
+    public bool UsesPieces { get; private set; }
+
+    /// <summary>The draft's docking collars (empty unless <see cref="UsesPieces"/>), in cell then face order.</summary>
+    public IEnumerable<DockPieceSpec> Pieces => _pieces.Select(p => new DockPieceSpec(p.Mx, p.My, p.Mz, (Dir)p.Face));
+
+    /// <summary>The structure's own collars, the ones Revert goes back to.</summary>
+    public IEnumerable<DockPieceSpec> OriginalPieces => _originalPieces.Select(p => new DockPieceSpec(p.Mx, p.My, p.Mz, (Dir)p.Face));
+
+    /// <summary>The collar on a module, when it has one (the first, in face order).</summary>
+    public Dir? PieceOn((int Mx, int My, int Mz) key)
+    {
+        foreach (var p in _pieces) if ((p.Mx, p.My, p.Mz) == key) return (Dir)p.Face;
+        return null;
+    }
 
     /// <summary>The draft's modules in cell order.</summary>
     public IReadOnlyDictionary<(int Mx, int My, int Mz), ModuleKind> Modules => _kinds;
@@ -64,11 +84,15 @@ public sealed class BlueprintDraft
     // ---- loading and the plain state --------------------------------------------------------------------------
 
     /// <summary>Loads the structure's modules as the draft and as the layout Revert goes back to; the history and the clipboard are cleared.</summary>
-    public void Load(IEnumerable<KeyValuePair<(int Mx, int My, int Mz), ModuleKind>> modules, StructureKind kind = StructureKind.Ship, int structureId = -1)
+    public void Load(IEnumerable<KeyValuePair<(int Mx, int My, int Mz), ModuleKind>> modules, StructureKind kind = StructureKind.Ship, int structureId = -1, IEnumerable<DockPieceSpec>? pieces = null)
     {
         Kind = kind; StructureId = structureId;
         _kinds.Clear(); _rotation.Clear(); _original.Clear(); _undo.Clear(); _redo.Clear(); _clipboard = new();
+        _pieces.Clear(); _originalPieces.Clear();
+        UsesPieces = pieces is not null;
         foreach (var (k, v) in modules) { _kinds[k] = v; _original[k] = v; }
+        if (pieces is not null)
+            foreach (var p in pieces) { _pieces.Add((p.Mx, p.My, p.Mz, (int)p.Face)); _originalPieces.Add((p.Mx, p.My, p.Mz, (int)p.Face)); }
         Changed?.Invoke();
     }
 
@@ -77,6 +101,7 @@ public sealed class BlueprintDraft
     {
         get
         {
+            if (!_pieces.SetEquals(_originalPieces)) return true;
             if (_kinds.Count != _original.Count) return true;
             foreach (var (k, v) in _kinds)
                 if (!_original.TryGetValue(k, out var o) || o != v) return true;
@@ -90,11 +115,14 @@ public sealed class BlueprintDraft
     public DesignModule[] ToModules() => _kinds.Select(kv => new DesignModule(kv.Key.Mx, kv.Key.My, kv.Key.Mz, kv.Value)).ToArray();
 
     /// <summary>The one command that applies the draft: <see cref="ApplyBlueprint"/> for a station, <see cref="DesignerApply"/> for the ship.</summary>
-    public Command ToCommand() => Kind == StructureKind.Station ? new ApplyBlueprint(StructureId, ToModules()) : new DesignerApply(ToModules());
+    public Command ToCommand() => Kind == StructureKind.Station ? new ApplyBlueprint(StructureId, ToModules(), null, PiecesCarried()) : new DesignerApply(ToModules(), PiecesCarried());
+
+    /// <summary>The collars the command carries: all of them in a world with docking collars, null otherwise (the command then reads as before).</summary>
+    public DockPieceSpec[]? PiecesCarried() => UsesPieces ? Pieces.ToArray() : null;
 
     /// <summary>The simulation's verdict and price for the draft (the same code the apply runs): for a ship docked at a shipyard, or for the station being edited.</summary>
     public DesignReport Check(SimWorld world, int player) =>
-        Kind == StructureKind.Station ? world.CheckBlueprint(player, StructureId, ToModules()) : world.CheckDesign(player, ToModules());
+        Kind == StructureKind.Station ? world.CheckBlueprint(player, StructureId, ToModules(), null, PiecesCarried()) : world.CheckDesign(player, ToModules(), PiecesCarried());
 
     /// <summary>The bounds of the draft (inclusive), widened by <paramref name="margin"/> modules on every side; a small box around the origin when it is empty.</summary>
     public ((int X, int Y, int Z) Min, (int X, int Y, int Z) Max) Bounds(int margin = 1)
@@ -112,12 +140,14 @@ public sealed class BlueprintDraft
 
     // ---- history ------------------------------------------------------------------------------------------------
 
-    private Snapshot Capture() => new(_kinds.Select(kv => (kv.Key, kv.Value, _rotation.GetValueOrDefault(kv.Key))).ToArray());
+    private Snapshot Capture() => new(_kinds.Select(kv => (kv.Key, kv.Value, _rotation.GetValueOrDefault(kv.Key))).ToArray(), _pieces.ToArray());
 
     private void Restore(Snapshot s)
     {
         _kinds.Clear(); _rotation.Clear();
         foreach (var (k, kind, rot) in s.Parts) { _kinds[k] = kind; if (rot != 0) _rotation[k] = rot; }
+        _pieces.Clear();
+        foreach (var p in s.Pieces) _pieces.Add(p);
     }
 
     /// <summary>Records the state before an edit; a new edit forgets what could have been redone.</summary>
@@ -128,7 +158,11 @@ public sealed class BlueprintDraft
         _redo.Clear();
     }
 
-    private void Done() => Changed?.Invoke();
+    private void Done()
+    {
+        if (UsesPieces) _pieces.RemoveWhere(p => !_kinds.TryGetValue((p.Mx, p.My, p.Mz), out var k) || !DockRules.CanHostPiece(k, (Dir)p.Face)); // a collar goes with its host, or when the host stops being able to carry it
+        Changed?.Invoke();
+    }
 
     public bool Undo()
     {
@@ -155,8 +189,9 @@ public sealed class BlueprintDraft
     {
         if (!Dirty && _rotation.Count == 0) return;
         Push();
-        _kinds.Clear(); _rotation.Clear();
+        _kinds.Clear(); _rotation.Clear(); _pieces.Clear();
         foreach (var (k, v) in _original) _kinds[k] = v;
+        foreach (var p in _originalPieces) _pieces.Add(p);
         Done();
     }
 
@@ -178,7 +213,7 @@ public sealed class BlueprintDraft
 
     public DesignEditResult Add((int Mx, int My, int Mz) key, ModuleKind kind, ContentDb content, int rotation = 0)
     {
-        if (!ShipDesignEditor.Catalogue(content, Kind).Contains(kind)) return DesignEditResult.KindNotAllowed;
+        if (!Catalogue(content).Contains(kind)) return DesignEditResult.KindNotAllowed;
         if (!StructureGrid.IsValidLocalModule(key.Mx, key.My, key.Mz)) return DesignEditResult.OutOfBounds;
         if (_kinds.ContainsKey(key)) return DesignEditResult.Occupied;
         if (_kinds.Count >= Max) return DesignEditResult.TooManyModules;
@@ -233,6 +268,9 @@ public sealed class BlueprintDraft
         }
         Push();
         var carried = list.Select(k => (k, _kinds[k], _rotation.GetValueOrDefault(k))).ToList();
+        var carriedPieces = _pieces.Where(p => set.Contains((p.Mx, p.My, p.Mz))).ToList();
+        foreach (var p in carriedPieces) _pieces.Remove(p);
+        foreach (var p in carriedPieces) _pieces.Add((p.Mx + offset.Dx, p.My + offset.Dy, p.Mz + offset.Dz, p.Face)); // a collar moves with its module
         foreach (var (k, _, _) in carried) { _kinds.Remove(k); _rotation.Remove(k); }
         foreach (var (k, kind, rot) in carried)
         {
@@ -253,6 +291,54 @@ public sealed class BlueprintDraft
         foreach (var k in list) _rotation[k] = (_rotation.GetValueOrDefault(k) + quarterTurns) & 3;
         Done();
         return new(list.Count, 0);
+    }
+
+    /// <summary>The module kinds this draft may add: the structure's catalogue, without the retired dock module in a world with docking collars (ADR 0047).</summary>
+    public IReadOnlyList<ModuleKind> Catalogue(ContentDb content)
+    {
+        var all = ShipDesignEditor.Catalogue(content, Kind);
+        return UsesPieces ? all.Where(k => k != ModuleKind.Dock).ToList() : all;
+    }
+
+    /// <summary>The horizontal faces of a module in the draft that can carry a collar now: the kind can host it and no module of the draft stands against the face.</summary>
+    public IReadOnlyList<Dir> CollarFaces((int Mx, int My, int Mz) key)
+    {
+        var list = new List<Dir>();
+        if (!_kinds.TryGetValue(key, out var kind)) return list;
+        foreach (var face in DockRules.PortFaces)
+        {
+            if (!DockRules.CanHostPiece(kind, face)) continue;
+            var v = Dirs.Vector(face);
+            if (_kinds.ContainsKey((key.Mx + v.X, key.My, key.Mz + v.Z))) continue;
+            list.Add(face);
+        }
+        return list;
+    }
+
+    /// <summary>
+    /// The collar tool on a module (ADR 0047): each click moves its collar to the next face that can carry it and, after the last one, takes it away. One undoable step.
+    /// </summary>
+    public DesignEditResult CycleCollar((int Mx, int My, int Mz) key)
+    {
+        if (!UsesPieces) return DesignEditResult.KindNotAllowed;
+        if (!_kinds.ContainsKey(key)) return DesignEditResult.Empty;
+        var faces = CollarFaces(key);
+        if (faces.Count == 0) return DesignEditResult.KindNotAllowed;
+        Dir? current = null;
+        foreach (var p in _pieces) if ((p.Mx, p.My, p.Mz) == key) { current = (Dir)p.Face; break; }
+        if (current is null && _pieces.Count >= DockRules.MaxPieces) return DesignEditResult.TooManyModules;
+        Push();
+        foreach (var p in _pieces.Where(p => (p.Mx, p.My, p.Mz) == key).ToList()) _pieces.Remove(p);
+        int next = 0;
+        if (current is { } c)
+        {
+            int at = -1;
+            for (int i = 0; i < faces.Count; i++) if (faces[i] == c) at = i;
+            next = at + 1;
+        }
+        if (next < faces.Count) _pieces.Add((key.Mx, key.My, key.Mz, (int)faces[next]));
+        Done();
+        return DesignEditResult.Ok;
     }
 
     public DesignEditResult Upgrade((int Mx, int My, int Mz) key, ContentDb content)
@@ -319,7 +405,7 @@ public sealed class BlueprintDraft
     public BulkResult Paste((int Mx, int My, int Mz) anchor, ContentDb content)
     {
         if (_clipboard.Count == 0) return new(0, 0);
-        var allowed = ShipDesignEditor.Catalogue(content, Kind);
+        var allowed = Catalogue(content);
         var plan = new List<((int Mx, int My, int Mz) At, ModuleKind Kind, int Rot)>();
         int skipped = 0;
         foreach (var (off, kind, rot) in _clipboard)

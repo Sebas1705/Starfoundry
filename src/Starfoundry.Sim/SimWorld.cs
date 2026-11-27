@@ -1022,6 +1022,7 @@ public sealed partial class SimWorld
         if (Network.BlueprintRules && s!.Kind == StructureKind.Station) return Reject.UseBlueprint; // ADR 0043: stations are edited in the blueprint editor
         if (!Enum.IsDefined(p.Kind)) return Reject.InvalidArgument;
         if (!kinds.IsDefined(p.Kind)) return Reject.KindNotAllowed;
+        if (p.Kind == ModuleKind.Dock && Network.DockPieceRules) return Reject.KindNotAllowed; // ADR 0047: the dock module is retired, the dock is a collar
         if (Network.Rules.LegacyArms && ModuleKindIds.IsArmsKind(p.Kind)) return Reject.KindNotAllowed; // ADR 0042: a world from before the antenna variants and the heavy cannon has no such kinds
         if (!StructureGrid.IsValidLocalModule(p.Mx, p.My, p.Mz)) return Reject.OutOfBounds;
         if (ModuleKindIds.RequiredAbility(p.Kind) is { } needed && Campaign && !Network.HasAbility(needed)) return Reject.Locked;
@@ -1068,7 +1069,8 @@ public sealed partial class SimWorld
 
         if (Network.IsDockPortInUse(r.Structure, r.Mx, r.My, r.Mz)) return Reject.ModuleOccupied; // undock first
         // ADR 0041: a ship or station keeps at least one dock module, the only port it docks through.
-        if (!Network.Rules.LegacyDock && kind == ModuleKind.Dock && s.Modules.Values.Count(k => k == ModuleKind.Dock) <= 1) return Reject.LastDockModule;
+        if (Network.DockPieceRules && kinds.IsDefined(ModuleKind.Dock) && Network.DockPieces(r.Structure).Any(p => p.Mx == r.Mx && p.My == r.My && p.Mz == r.Mz) && !Network.DockPieces(r.Structure).Any(p => (p.Mx, p.My, p.Mz) != (r.Mx, r.My, r.Mz))) return Reject.LastDockModule; // ADR 0047: the last collar goes with its module
+        if (!Network.Rules.LegacyDock && !Network.DockPieceRules && kind == ModuleKind.Dock && s.Modules.Values.Count(k => k == ModuleKind.Dock) <= 1) return Reject.LastDockModule;
         // The core anchors the structure: it can only go when it is the last module.
         if (kind == ModuleKind.Core && s.Modules.Count > 1) return Reject.ModuleOccupied;
         // The ship cannot do without its last cockpit, engine, reactor or cargo module (stations are unaffected).
@@ -1124,7 +1126,7 @@ public sealed partial class SimWorld
 
         // ADR 0041: a station is founded with its core and a dock module beside it (the first side whose volume is free: -Z, +Z, -X, +X; a dock on a Z side keeps both X faces free, so a ship can come from either side). The dock comes with the core at no extra cost.
         (int Mx, int Mz)? dockAt = null;
-        if (!Network.Rules.LegacyDock && kinds.IsDefined(ModuleKind.Dock))
+        if (!Network.Rules.LegacyDock && !Network.DockPieceRules && kinds.IsDefined(ModuleKind.Dock))
         {
             Reject dockFit = Reject.Overlap;
             foreach (var (dx, dz) in new[] { (0, -1), (0, 1), (-1, 0), (1, 0) })
@@ -1145,6 +1147,7 @@ public sealed partial class SimWorld
         int id = Network.CreateStructure(player, StructureKind.Station, ox, oy, oz);
         Network.AddStructureModuleUnchecked(id, 0, 0, 0, ModuleKind.Core);
         if (dockAt is { } dk) Network.AddStructureModuleUnchecked(id, dk.Mx, 0, dk.Mz, ModuleKind.Dock);
+        if (Network.DockPieceRules && kinds.IsDefined(ModuleKind.Dock)) Network.AddDockPieceUnchecked(id, 0, 0, 0, Dir.NegZ); // ADR 0047: the collar comes with the core, on its -Z face (no extra volume)
         Network.CountStationFounded();
         return Reject.None;
     }

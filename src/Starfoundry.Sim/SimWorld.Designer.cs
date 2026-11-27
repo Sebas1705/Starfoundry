@@ -1,3 +1,4 @@
+#nullable enable
 namespace Starfoundry.Sim;
 
 /// <summary>What a ship design would do (ADR 0032): the verdict, the items it costs and gives back, and how many modules it adds, removes and moves.</summary>
@@ -20,17 +21,17 @@ public sealed partial class SimWorld
     /// Checks a ship design for the player without changing anything: the same verdict <see cref="DesignerApply"/> would give, with the cost. The design
     /// is the ship's whole module list. It needs the ship docked at one of the player's stations that has a shipyard.
     /// </summary>
-    public DesignReport CheckDesign(int player, IReadOnlyList<DesignModule> modules) => DesignCore(player, modules, apply: false);
+    public DesignReport CheckDesign(int player, IReadOnlyList<DesignModule> modules, DockPieceSpec[]? pieces = null) => DesignCore(player, modules, apply: false, pieces);
 
     private Reject DesignerApplyCore(int player, DesignerApply d)
     {
         if (d.Modules is null) return Reject.InvalidArgument;
-        return DesignCore(player, d.Modules, apply: true).Reject;
+        return DesignCore(player, d.Modules, apply: true, d.DockPieces).Reject;
     }
 
     private static DesignReport Fail(Reject r) => new(r, NoStacks, NoStacks, 0, 0, 0);
 
-    private DesignReport DesignCore(int player, IReadOnlyList<DesignModule> modules, bool apply)
+    private DesignReport DesignCore(int player, IReadOnlyList<DesignModule> modules, bool apply, DockPieceSpec[]? pieces = null)
     {
         if (!Network.StructureRules) return Fail(Reject.NotAllowedHere);
         if (Network.Content?.Structures is not { } kinds) return Fail(Reject.NoContent);
@@ -52,6 +53,8 @@ public sealed partial class SimWorld
             if (Network.Rules.LegacyArms && ModuleKindIds.IsArmsKind(m.Kind)) return Fail(Reject.KindNotAllowed); // ADR 0042
             if (!next.TryAdd((m.Mx, m.My, m.Mz), m.Kind)) return Fail(Reject.InvalidArgument);
         }
+        var pieceVerdict = PlanDockPieces(ship, next, pieces, requireOne: true, out var piecePlan);
+        if (pieceVerdict != Reject.None) return Fail(pieceVerdict);
 
         var old = ship.Modules;
         var removed = new List<(int Mx, int My, int Mz)>();
@@ -64,7 +67,7 @@ public sealed partial class SimWorld
         // The ship cannot do without a cockpit, an engine, a reactor and a cargo module (ADR 0022); it has no core.
         if (!next.Values.Contains(ModuleKind.Cockpit) || !next.Values.Contains(ModuleKind.Engine)) return Fail(Reject.NoCockpitOrEngine);
         if (!next.Values.Any(ModuleKindIds.IsReactor) || !next.Values.Contains(ModuleKind.Cargo)) return Fail(Reject.LastEssentialModule);
-        if (!Network.Rules.LegacyDock && !next.Values.Contains(ModuleKind.Dock)) return Fail(Reject.NoDockModule); // ADR 0041: the ship docks only through a dock module
+        if (!Network.Rules.LegacyDock && !Network.DockPieceRules && !next.Values.Contains(ModuleKind.Dock)) return Fail(Reject.NoDockModule); // ADR 0041: the ship docks only through a dock module
         if (!BeltNetwork.ModulesConnected(new HashSet<(int, int, int)>(next.Keys))) return Fail(Reject.NotAdjacent); // the walkable path stays whole
 
         // New kinds need their research in a campaign world, as placing them one by one does.
@@ -94,13 +97,14 @@ public sealed partial class SimWorld
         if (Network.HoldCapacityOfKinds(next.Values) < Network.HoldLoadOf(player)) return Fail(Reject.NoRoom);
         if (Network.DesignOverlaps(ship, next.Keys)) return Fail(Reject.Overlap);
 
-        var (addedByKind, cost, refund, moved, affordable) = PriceDesign(player, station, kinds, old, removed, added, new SortedDictionary<int, int>());
+        var (addedByKind, cost, refund, moved, affordable) = PriceDesign(player, station, kinds, old, removed, added, ExtraWithPieces(piecePlan, null));
         if (!affordable) return new DesignReport(Reject.NotEnoughItems, cost, refund, added.Count, removed.Count, moved);
         var report = new DesignReport(Reject.None, cost, refund, added.Count, removed.Count, moved);
         if (!apply) return report;
 
         if (cost.Length > 0) Network.PayDesign(player, station, cost);
         Network.ApplyDesign(shipId, removed, added);
+        if (Network.DockPieceRules) Network.SetDockPieces(shipId, piecePlan.Next);
         if (refund.Length > 0) Network.Refund(player, refund);
         foreach (var (kind, n) in addedByKind)
             for (int i = 0; i < n; i++) Network.CountModuleBuilt(kind); // a module that only moved was not built again

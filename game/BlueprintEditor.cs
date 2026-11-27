@@ -196,6 +196,12 @@ public partial class BlueprintEditor : Control
         Tool(BlueprintTool.Move, "tool:move", "bp.tool.move", "bpMove");
         Tool(BlueprintTool.Rotate, "tool:rotate", "bp.tool.rotate", "bpRotate");
         Tool(BlueprintTool.Delete, "tool:demolish", "bp.tool.delete", "bpDelete");
+        if (_s.Draft.UsesPieces) // ADR 0047: the dock is a small collar on a module face; each click turns it to the next face and then takes it off
+        {
+            var collar = IconButton("tool:dock", Loc.T("bp.tool.collar") + " - " + Loc.T("bp.tool.collar.hint"), () => SetTool(BlueprintTool.Collar), "ToolCollar", toggle: true);
+            _toolButtons[BlueprintTool.Collar] = collar;
+            tools.AddChild(collar);
+        }
         tools.AddChild(IconButton("tool:mirror", Loc.T("bp.tool.mirror") + " (" + Cap("bpMirror") + ")", () => Mirror(), "ToolMirror"));
         tools.AddChild(IconButton("tool:copy", Loc.T("bp.tool.copy") + " (" + Cap("bpCopy") + ")", () => Copy(), "ToolCopy"));
         _paste = IconButton("tool:paste", Loc.T("bp.tool.paste") + " (" + Cap("bpPaste") + ")", () => Paste(), "ToolPaste");
@@ -220,7 +226,7 @@ public partial class BlueprintEditor : Control
     {
         foreach (var c in _paletteList.GetChildren()) { _paletteList.RemoveChild(c); c.QueueFree(); }
         _palette.Clear();
-        foreach (var kind in ShipDesignEditor.Catalogue(_content, _s.StructureKind))
+        foreach (var kind in _s.Draft.Catalogue(_content))
         {
             var k = kind;
             // one full-width tile per kind: the icon, the name on top and the cost icons under it (a long name no longer fights the costs for the row)

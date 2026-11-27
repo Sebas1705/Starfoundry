@@ -42,7 +42,7 @@ public class FootToolsTests
     [Fact]
     public void Demolish_and_repair_work_on_foot_in_a_floor_plan_world_with_the_commands_that_already_exist()
     {
-        var w = SimWorld.CreateGalaxy(C, GameMode.Campaign, 20261126UL, threats: false, stationRules: false, structures: true, rules: WorldRules.Default);
+        var w = SimWorld.CreateGalaxy(C, GameMode.Campaign, 20261126UL, threats: false, stationRules: false, structures: true, rules: WorldRules.Default.WithLegacyDockPieces(true));
         w.Network.EnsurePlayer(0);
         const int cell = Units.CellUnits;
         int st = w.Network.CreateStructure(0, StructureKind.Station, -18L * cell, 0, 0);

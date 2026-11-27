@@ -97,6 +97,7 @@ void fragment() {
         public Node3D Root = null!;
         public readonly Dictionary<(int Mx, int My, int Mz), (ModuleKind Kind, Node3D Node)> Modules = new();
         public readonly Dictionary<(int Mx, int My, int Mz), int> Masks = new();
+        public readonly Dictionary<(int Mx, int My, int Mz, int Face), Node3D> Collars = new(); // ADR 0047: the docking collars, drawn on top of their host modules
     }
 
     private readonly Dictionary<int, StructRoot> _structs = new();
@@ -177,6 +178,22 @@ void fragment() {
                 sr.Root.AddChild(node);
                 sr.Modules[key] = (kind, node);
                 sr.Masks[key] = mask;
+            }
+            // ADR 0047: the docking collars are small pieces on a module face; they follow the structure's own set (a removed host takes its collar with it).
+            var want = net.DockPieceRules ? net.DockPieces(st.Id).Where(p => st.Modules.ContainsKey((p.Mx, p.My, p.Mz))).Select(p => (p.Mx, p.My, p.Mz, (int)p.Face)).ToHashSet() : new HashSet<(int, int, int, int)>();
+            foreach (var key in sr.Collars.Keys.ToList())
+                if (!want.Contains(key) || !sr.Modules.ContainsKey((key.Mx, key.My, key.Mz)))
+                {
+                    sr.Collars[key].QueueFree();
+                    sr.Collars.Remove(key);
+                }
+            foreach (var key in want)
+            {
+                if (sr.Collars.ContainsKey(key) || !sr.Modules.ContainsKey((key.Item1, key.Item2, key.Item3))) continue;
+                var piece = ModuleModels.CollarPiece((Dir)key.Item4, ship);
+                piece.Position = new Vector3(key.Item1 * StationGrid.ModuleX, key.Item2 * StationGrid.ModuleY, key.Item3 * StationGrid.ModuleZ);
+                sr.Root.AddChild(piece);
+                sr.Collars[key] = piece;
             }
         }
         foreach (int id in _structs.Keys.Where(i => !alive.Contains(i)).ToList())

@@ -5,6 +5,7 @@
 - Area: simulation, content, client
 - Builds on: [ADR 0029](0029-docking-ship-and-station-are-different.md) (docking), [ADR 0032](0032-weapons-as-hardpoint-modules-and-the-shipyard.md) (the designer)
 - Supersedes in part: ADR 0029 alternative C ("ships always dock with a dedicated dock module"), rejected there for balance reasons and chosen now by the owner. ADR 0029 itself stays as written; the flag below keeps its rules for old logs.
+- Superseded in part by [ADR 0047](0047-the-dock-is-a-small-collar-on-a-module-face.md): in new worlds the dock is a collar on a module face and the dock module is retired; this ADR keeps its rules for logs of versions 22 to 26 (`LegacyDockPieces`).
 - Version 20 and ADR 0039 belong to the blueprint editor; 21 and 0040 are the rock field; this change takes 22 and 0041.
 
 ## Context

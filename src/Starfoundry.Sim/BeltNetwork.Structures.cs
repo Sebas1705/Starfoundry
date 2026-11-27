@@ -344,6 +344,7 @@ public sealed partial class BeltNetwork
         s.FeedSources.Remove((mx, my, mz));
         s.DroneProgress.Remove((mx, my, mz));
         s.ModuleDamage.Remove((mx, my, mz));
+        s.DockPieceSet.RemoveWhere(p => p.Mx == mx && p.My == my && p.Mz == mz); // its docking collars go with it (ADR 0047)
         ReleaseDocksUsing(id, (mx, my, mz)); // a destroyed port lets go of the ship docked there
         if (s.DroneDeposit >= 0 && ModuleCount(s, ModuleKind.DroneBay) == 0) s.DroneDeposit = -1; // the last bay is gone: nothing mines
         StructureVersion++;
@@ -414,6 +415,11 @@ public sealed partial class BeltNetwork
             mix(s.Id); mix((int)s.Kind); mix(s.Owner); mix(s.OriginX); mix(s.OriginY); mix(s.OriginZ);
             mix(s.ModuleMap.Count);
             foreach (var (m, kind) in s.ModuleMap) { mix(m.Mx); mix(m.My); mix(m.Mz); mix((int)kind); }
+            if (s.DockPieceSet.Count > 0) // worlds with dock modules hash as before docking collars existed (ADR 0047)
+            {
+                mix(-811); mix(s.DockPieceSet.Count);
+                foreach (var (px, py, pz, pf) in s.DockPieceSet) { mix(px); mix(py); mix(pz); mix(pf); }
+            }
             if (!StructureRules) continue; // power state exists only under the structure rules
             mix(s.PowerProduction); mix(s.PowerDemand); mix(s.Satisfaction); mix(s.BurnRemaining.Count);
             if (s.ImpactCooldown != 0) mix(-503 - s.ImpactCooldown);
@@ -445,6 +451,12 @@ public sealed partial class BeltNetwork
             if (!Enum.IsDefined(s.Kind)) Fail($"structure {id} has an unknown kind");
             foreach (var (m, kind) in s.ModuleMap)
                 if (!Enum.IsDefined(kind)) Fail($"structure {id} module {m} has an unknown kind");
+            foreach (var (px, py, pz, pf) in s.DockPieceSet)
+            {
+                if (!DockPieceRules) Fail($"structure {id} has a docking collar in a world with dock modules");
+                else if (!s.ModuleMap.TryGetValue((px, py, pz), out var hk) || !Enum.IsDefined((Dir)pf) || !DockRules.CanHostPiece(hk, (Dir)pf)) Fail($"structure {id} has a docking collar at {(px, py, pz, pf)} on a module that cannot host it");
+            }
+            if (s.DockPieceSet.Count > DockRules.MaxPieces) Fail($"structure {id} has too many docking collars");
             foreach (var (m, rem) in s.BurnRemaining)
             {
                 if (!s.ModuleMap.TryGetValue(m, out var rk) || !ModuleKindIds.IsReactor(rk)) Fail($"structure {id} burns a module {m} that is no reactor");
