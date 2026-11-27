@@ -51,6 +51,6 @@ See [the spec](../superpowers/specs/2026-11-24-pilot-feedback-round-design.md).
 ## Resource fields, lighting and the route (2026-11-27, studies)
 See the [resource fields study](../superpowers/specs/2026-11-27-resource-fields-design.md), the [lighting study](../prototypes/lighting-study.md) and the [improvement route](../superpowers/specs/2026-11-27-improvement-route.md). All proposals.
 - Fields: the gap between clusters (800, 1,000 or 1,300 cells), the ore scale of a cluster, how rare giants are, the rock radius scale, a bias toward the galactic plane, and whether clusters are visible before a scan.
-- Look: keep the flat bright lighting or move to a shadowed key light; the mood of interiors.
+- Look: a shadowed key light, star-coloured sun, lower ambient and lamp-lit interiors are now in (a *proposal* look, [lighting pass](../prototypes/lighting-pass.md)); still open for the owner: is the darker mood right, the default level (Medium), a Compatibility renderer target and a client-only versus content-file star light table.
 - Floating origin: keep the 4,000,000-cell world limit or cap it until the origin shift exists.
 - Route: the hand-test pass, audio listening, minimum hardware, accessibility target, save promise and the co-op go or no-go.

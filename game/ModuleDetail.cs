@@ -71,6 +71,33 @@ public static partial class ModuleModels
         _ => (new Color(0.75f, 0.85f, 1f), 0.8f, 7f, 3.2f),
     };
 
+    /// <summary>
+    /// The optional interior lamps of the graphics quality Medium and High (group <see cref="Ambience.InteriorExtraGroup"/>, switched by <see cref="Ambience.ApplyQuality"/>):
+    /// the cockpit gets a cool lamp over its screens and a warm low one for the seat, and every closed room a dim low "bounce" lamp that fakes the light
+    /// coming back off the floor, so a room lit by one ceiling lamp has no black floor corners. No shadows and a short fade: only the rooms near the camera pay for them.
+    /// </summary>
+    private static void InteriorExtraLamps(Cx c, Color lamp, float energy)
+    {
+        if (c.Kind is ModuleKind.Shield || ModuleKindIds.IsAntenna(c.Kind) || (c.Ship && ModuleKindIds.IsHardpoint(c.Kind))) return; // pods and masts have no room to light
+        void Extra(string name, Vector3 pos, Color col, float e, float range)
+        {
+            var l = new OmniLight3D
+            {
+                Name = name, Position = pos, LightColor = col, LightEnergy = e, OmniRange = range, OmniAttenuation = 1.0f, ShadowEnabled = false, LightSpecular = 0f,
+                DistanceFadeEnabled = true, DistanceFadeBegin = 24f, DistanceFadeLength = 14f, Visible = Ambience.InteriorExtras,
+            };
+            l.AddToGroup(Ambience.InteriorExtraGroup);
+            c.R.AddChild(l);
+        }
+        if (c.Kind == ModuleKind.Cockpit)
+        {
+            Extra("ScreenGlow", new Vector3(4f, 2.3f, 1.8f), new Color(0.45f, 0.75f, 1f), 0.9f, 6.5f);
+            Extra("SeatWarm", new Vector3(4f, 0.8f, 4.6f), new Color(1f, 0.72f, 0.45f), 0.45f, 5f);
+            return;
+        }
+        Extra("FloorBounce", new Vector3(4f, 0.55f, 4f), lamp.Lerp(new Color(1f, 0.85f, 0.65f), 0.5f), MathF.Min(0.5f, energy * 0.3f), 6f);
+    }
+
     private static void Lighting(Cx c)
     {
         var (col, energy, range, y) = LightFor(c.Kind);
@@ -79,6 +106,8 @@ public static partial class ModuleModels
             Name = "ModuleLight", Position = new Vector3(4f, y, 4f), LightColor = col, LightEnergy = energy, OmniRange = range, OmniAttenuation = 1.3f,
             ShadowEnabled = false, LightSpecular = 0.3f, DistanceFadeEnabled = true, DistanceFadeBegin = 38f, DistanceFadeLength = 22f,
         });
+
+        InteriorExtraLamps(c, col, energy);
 
         bool openDeck = c.Kind is ModuleKind.Workshop or ModuleKind.Defence or ModuleKind.DroneBay;
         bool lowShell = c.Kind is ModuleKind.Shield || ModuleKindIds.IsAntenna(c.Kind) || (c.Ship && ModuleKindIds.IsHardpoint(c.Kind)); // pods have no ceiling to hang a strip on

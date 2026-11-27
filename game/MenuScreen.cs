@@ -327,6 +327,17 @@ public partial class MenuScreen : Control
         AddCheck("SmoothLookCheck", Loc.T("settings.smoothLook"), s.SmoothLook, on => SettingsStore.Current with { SmoothLook = on }, "settings.tip.smoothLook");
         AddCheck("FullscreenCheck", Loc.T("settings.fullscreen"), s.Fullscreen, on => SettingsStore.Current with { Fullscreen = on }, "settings.tip.fullscreen");
         AddCheck("ClassicDesignerCheck", Loc.T("settings.classicDesigner"), s.ClassicDesigner, on => SettingsStore.Current with { ClassicDesigner = on }, "settings.tip.classicDesigner");
+        var graphics = UiKit.Button(Loc.T("settings.graphics") + ": " + Loc.T("settings.graphics." + GraphicsQualities.Id(s.Graphics)), () =>
+        {
+            var c = SettingsStore.Current;
+            _focusName = "GraphicsButton";
+            SettingsStore.Set(c with { Graphics = GraphicsQualities.Next(c.Graphics) });
+            CallDeferred(MethodName.Rebuild);
+        }, 14);
+        graphics.Name = "GraphicsButton";
+        graphics.CustomMinimumSize = new Vector2(0, 34);
+        WithTip(graphics, "settings.tip.graphics");
+        _body.AddChild(graphics);
         AddCheck("LowTexturesCheck", Loc.T("settings.lowTextures"), s.LowTextures, on => SettingsStore.Current with { LowTextures = on }, "settings.tip.lowTextures");
 
         _body.AddChild(_tip);

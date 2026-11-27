@@ -37,6 +37,9 @@ public static class SettingsStore
         _current = Load();
         // A test flag, not stored: look at the half-size textures without touching the player's settings file.
         if (Array.IndexOf(OS.GetCmdlineUserArgs(), "--low-textures") >= 0) _current = _current with { LowTextures = true };
+        // A test flag, not stored: --quality=low|medium|high renders one run at that level (shots, measurements) without touching the settings file.
+        foreach (string a in OS.GetCmdlineUserArgs())
+            if (a.StartsWith("--quality=", StringComparison.Ordinal) && GraphicsQualities.TryParse(a["--quality=".Length..], out var forced)) _current = _current with { Graphics = forced };
         Apply(_current);
     }
 

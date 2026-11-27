@@ -384,7 +384,7 @@ public partial class Play : Node3D
 
     private void BuildScene()
     {
-        Ambience.Build(this, Ambience.SystemSeed(_galaxySeed, Net.CurrentSystem(Player))); // sky, sun light and dust
+        Ambience.Build(this, Ambience.SystemSeed(_galaxySeed, Net.CurrentSystem(Player)), CurrentStarId()); // sky, sun light and dust
 
         _camera = new Camera3D { Far = 500f, Fov = Overview ? 75f : CockpitFov, CullMask = Overview ? 0xFFFFFu : 0xFFFFFu & ~ShipLayer };
         AddChild(_camera);
@@ -533,7 +533,7 @@ void fragment() {
         _ship.Position = pos;
         // With structures the ship structure is the ship; the small legacy model stays hidden.
         _ship.Visible = !_structuresOn && !(Net.HasPlayer(Player) && Net.GetPlayerInfo(Player).RespawnRemaining > 0); // hidden while being rebuilt
-        Ambience.Retint(Ambience.SystemSeed(_galaxySeed, Net.CurrentSystem(Player))); // no-op unless the system changed
+        Ambience.Retint(Ambience.SystemSeed(_galaxySeed, Net.CurrentSystem(Player)), CurrentStarId()); // no-op unless the system changed
         // The range discs lie on the build plane (a disc at the ship's own height would be edge-on to the cockpit camera).
         // With structures the layer is local to the ship, so its world height is the ship's origin plus the layer.
         float layerWorldY = _cursorY + (ShipStruct >= 0 ? pos.Y : 0f);
@@ -886,6 +886,13 @@ void fragment() {
     {
         if (_selectedSystem < 0) { Toast(L("toast.chooseSystem")); return; }
         Send(new Jump(_selectedSystem));
+    }
+
+    /// <summary>The star type id of the system the player is in (the key light of <see cref="Ambience"/> follows it); null when there is no galaxy, which keeps the home star.</summary>
+    private string? CurrentStarId()
+    {
+        int cur = Net.CurrentSystem(Player);
+        return Net.Galaxy is { } g && cur >= 0 && cur < g.Systems.Count && _content.World is { } w && g.Systems[cur].Star >= 0 && g.Systems[cur].Star < w.StarTypes.Length ? w.StarTypes[g.Systems[cur].Star].Id : null;
     }
 
     private string SystemLine(int s)

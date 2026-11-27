@@ -1,5 +1,6 @@
 using System;
 using Godot;
+using Starfoundry.Ui;
 
 namespace Starfoundry.Game;
 
@@ -18,6 +19,8 @@ uniform vec3 nebula_color = vec3(0.35, 0.18, 0.55);
 uniform vec3 band_normal = vec3(0.0, 1.0, 0.0);
 uniform vec3 sun_dir = vec3(0.4, 0.6, -0.7);
 uniform vec3 sun_color = vec3(1.0, 0.92, 0.75);
+uniform vec3 sun2_dir = vec3(-0.4, 0.5, 0.7);
+uniform vec3 sun2_color = vec3(0.0); // a binary star's second sun; black switches it off
 uniform float seed_offset = 0.0;
 
 const mat3 ROT = mat3(vec3(0.36, 0.48, -0.8), vec3(-0.8, 0.6, 0.0), vec3(0.48, 0.64, 0.6));
@@ -197,6 +200,8 @@ void sky() {
     float along = dot(dir - sd * dot(dir, sd), side);
     float streak = exp(-abs(dot(dir - sd * dot(dir, sd), cross(sd, side))) * 90.0) * exp(-abs(along) * 5.0) * step(0.0, dot(dir, sd));
     col += sun_color * (disc * 6.0 + halo + streak * 0.07);
+    float s2 = max(dot(dir, normalize(sun2_dir)), 0.0);
+    col += sun2_color * (smoothstep(0.9989, 0.9995, s2) * 5.0 + pow(s2, 160.0) * 0.55 + pow(s2, 18.0) * 0.1);
 
     COLOR = col;
 }
@@ -204,7 +209,10 @@ void sky() {
 
     private static WorldEnvironment? _env;
     private static ShaderMaterial? _skyMaterial;
-    private static DirectionalLight3D? _sun, _fill;
+    private static DirectionalLight3D? _sun, _rim, _sun2;
+    private static MeshInstance3D? _glare;
+    private static ShaderMaterial? _glareMaterial;
+    private static Viewport? _viewport;
     private static GpuParticles3D? _dust, _farDust;
     private static StandardMaterial3D? _dustMaterial, _farDustMaterial;
     private static Godot.Environment? _environment;
@@ -220,26 +228,56 @@ void sky() {
     /// <summary>A stable seed for a system of a galaxy (so each system gets its own sky).</summary>
     public static ulong SystemSeed(ulong galaxySeed, int system) => Mix(galaxySeed ^ ((ulong)(system + 1) * 0x9E3779B97F4A7C15UL));
 
-    /// <summary>Builds the environment, sun light and dust under <paramref name="root"/> and tints them for the seed.</summary>
-    public static void Build(Node3D root, ulong systemSeed)
+    // ---- look constants (proposal values, tuned by eye on the shots of docs/prototypes/lighting-pass.md) -----------
+
+    /// <summary>Exposure and white point of the ACES tone mapper (AgX was tried on the same shots: it washed the hull to white and greyed the nebula, so ACES stays).</summary>
+    private const float Exposure = 1.0f, WhitePoint = 6.0f;
+    /// <summary>Bloom: emitters above the threshold glow, the rest stays crisp.</summary>
+    private const float GlowThreshold = 0.9f, GlowIntensity = 0.75f, GlowBloomAmount = 0.1f, GlowScale = 2.0f;
+    /// <summary>Distance (client units, inside the camera's far plane) of the glare quad that carries the sun's lens flare.</summary>
+    private const float GlareDistance = 380f;
+
+    private static Node? _root;
+    private static StarLight _star = StarLight.YellowDwarf;
+    private static Vector3 _sunDir = Vector3.Up;
+    private static QualityProfile _profile = GraphicsQualities.ProfileOf(GraphicsQualities.Default);
+    private static Color _keyTint = Colors.White;
+
+    /// <summary>True while the quality level adds the extra interior lamps (cockpit second lamp, floor bounce). Module models read it when they are built; <see cref="ApplyQuality"/> flips the ones already in the tree.</summary>
+    public static bool InteriorExtras => _profile.InteriorExtras;
+
+    /// <summary>The group of the optional interior lamps, so a quality change can switch them without rebuilding the models.</summary>
+    public const string InteriorExtraGroup = "interior_extra";
+
+    /// <summary>The profile the renderer can really run: the Compatibility renderer has no SSAO, no clustered shadow atlas to speak of and a small per-object light limit, so it always gets Low.</summary>
+    private static QualityProfile EffectiveProfile(GraphicsQuality q)
+    {
+        bool compatibility = RenderingServer.GetCurrentRenderingMethod() == "gl_compatibility";
+        return GraphicsQualities.ProfileOf(compatibility ? GraphicsQuality.Low : q);
+    }
+
+    /// <summary>Builds the environment, sun light and dust under <paramref name="root"/> and tints them for the seed and the star type (<paramref name="starId"/>, null for the home star).</summary>
+    public static void Build(Node3D root, ulong systemSeed, string? starId = null)
     {
         _skyMaterial = new ShaderMaterial { Shader = new Shader { Code = SkyShader } };
+        _profile = EffectiveProfile(SettingsStore.Current.Graphics);
         var environment = new Godot.Environment
         {
             BackgroundMode = Godot.Environment.BGMode.Sky,
             Sky = new Sky { SkyMaterial = _skyMaterial, RadianceSize = Sky.RadianceSizeEnum.Size128 },
             AmbientLightSource = Godot.Environment.AmbientSource.Sky,
-            AmbientLightEnergy = 1.35f,
+            // Lowered from 1.35: with the sun shadowed, the side turned away from the star is meant to be dark (lamps carry the rooms).
+            AmbientLightEnergy = _profile.AmbientEnergy,
             ReflectedLightSource = Godot.Environment.ReflectionSource.Sky,
             TonemapMode = Godot.Environment.ToneMapper.Aces,
-            TonemapExposure = 1.05f,
-            TonemapWhite = 6.0f,
+            TonemapExposure = Exposure,
+            TonemapWhite = WhitePoint,
             GlowEnabled = true,
-            GlowIntensity = 0.6f,
+            GlowIntensity = GlowIntensity,
             GlowStrength = 1.0f,
-            GlowBloom = 0.08f,
-            GlowHdrThreshold = 1.0f,
-            GlowHdrScale = 2.0f,
+            GlowBloom = GlowBloomAmount,
+            GlowHdrThreshold = GlowThreshold,
+            GlowHdrScale = GlowScale,
             GlowBlendMode = Godot.Environment.GlowBlendModeEnum.Screen,
             // A very thin tinted haze: distant deposits and stations fall into the dark with a hint of the system colour.
             FogEnabled = true,
@@ -248,23 +286,42 @@ void sky() {
             FogSkyAffect = 0.0f,
             FogLightEnergy = 0.8f,
             AdjustmentEnabled = true,
-            AdjustmentContrast = 1.06f,
+            AdjustmentContrast = 1.08f,
             AdjustmentSaturation = 1.08f,
         };
         _environment = environment;
         _env = new WorldEnvironment { Environment = environment };
         root.AddChild(_env);
+        _root = root;
+        _viewport = root.IsInsideTree() ? root.GetViewport() : null;
 
-        _sun = new DirectionalLight3D { LightEnergy = 1.1f, ShadowEnabled = false };
+        // The key light: the star. Colour and strength come from its type; it is the only light that casts shadows.
+        _sun = new DirectionalLight3D { LightEnergy = 1.1f, ShadowEnabled = false, Name = "Sun" };
         root.AddChild(_sun);
-        // A faint cool fill from the opposite side: the faces turned away from the star read as dim metal, not as black cut-outs.
-        _fill = new DirectionalLight3D { LightEnergy = 0.3f, ShadowEnabled = false, LightSpecular = 0.2f };
-        root.AddChild(_fill);
+        // Binary stars: a second, cooler sun without shadows (switched on by Retint).
+        _sun2 = new DirectionalLight3D { LightEnergy = 0f, ShadowEnabled = false, Visible = false, Name = "SecondSun" };
+        root.AddChild(_sun2);
+        // A faint rim light from behind the shadow side, in the sky tint: a bright edge on the dark faces of hulls and rocks without flattening them.
+        _rim = new DirectionalLight3D { LightEnergy = 0.2f, ShadowEnabled = false, LightSpecular = 1f, Name = "Rim" };
+        root.AddChild(_rim);
+
+        // Small decorative meshes (glow strips, sparks, puffs) never cast: the shadow pass draws the hull and the big hardware only.
+        var shadowTree = root.GetTree();
+        shadowTree.NodeAdded += NoShadowFromDecoration;
+        root.TreeExiting += () => shadowTree.NodeAdded -= NoShadowFromDecoration;
+
+        _glare = BuildGlare();
+        root.AddChild(_glare);
+
+        SettingsStore.Changed += OnSettingsChanged;
+        root.TreeExiting += () => SettingsStore.Changed -= OnSettingsChanged;
 
         _dust = BuildDust(false);
         root.AddChild(_dust);
         _farDust = BuildDust(true);
         root.AddChild(_farDust);
+        _dust.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+        _farDust.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
 
         // The dust cloud follows the camera so the specks stay around the viewer while they stay put in the world.
         var tree = root.GetTree();
@@ -305,29 +362,170 @@ void sky() {
             _streaks.GlobalTransform = Transform3D.Identity; // the mesh is built in world space
             DrawStreaks(cam.GlobalPosition, velocity, k);
             if (_environment is not null) _environment.FogDensity = 0.0012f + 0.0012f * k;
+            UpdateSun(cam, tree.Root.GetProcessDeltaTime());
         }
         tree.ProcessFrame += Update;
         root.TreeExiting += () => tree.ProcessFrame -= Update;
 
         _currentSeed = ulong.MaxValue;
-        Retint(systemSeed);
+        _currentStar = null;
+        Retint(systemSeed, starId);
+        ApplyQuality();
     }
 
-    /// <summary>Gives the sky, the sun and the dust the colours of another system.</summary>
-    public static void Retint(ulong systemSeed)
+    private static (float Az, float El)? ForcedSun
     {
-        if (_skyMaterial is null || _sun is null || systemSeed == _currentSeed) return;
+        get
+        {
+            foreach (string a in OS.GetCmdlineUserArgs())
+                if (a.StartsWith("--sun=", StringComparison.Ordinal))
+                {
+                    var parts = a["--sun=".Length..].Split(',');
+                    if (parts.Length == 2 && float.TryParse(parts[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float az) && float.TryParse(parts[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float el))
+                        return (az, el);
+                }
+            return null;
+        }
+    }
+
+    private static string? _currentStar;
+    private static double _pulseTime;
+
+    private static void OnSettingsChanged() => ApplyQuality();
+
+    /// <summary>
+    /// Applies the graphics quality of the settings to the running scene: shadows (cascades, atlas, distance, bias), anti-aliasing of the main view,
+    /// ambient occlusion, ambient strength, fog scattering, the sun glare and the optional interior lamps. Safe to call at any time (Settings changes it live).
+    /// </summary>
+    public static void ApplyQuality()
+    {
+        _profile = EffectiveProfile(SettingsStore.Current.Graphics);
+        var p = _profile;
+        if (_environment is not null)
+        {
+            _environment.AmbientLightEnergy = p.AmbientEnergy;
+            _environment.FogSunScatter = p.FogSunScatter;
+            _environment.SsaoEnabled = p.Ssao;
+            if (p.Ssao) { _environment.SsaoRadius = 0.6f; _environment.SsaoIntensity = 1.8f; _environment.SsaoPower = 1.6f; _environment.SsaoDetail = 0.5f; }
+        }
+        if (_sun is not null && GodotObject.IsInstanceValid(_sun))
+        {
+            _sun.ShadowEnabled = p.Shadows;
+            _sun.DirectionalShadowMode = p.ShadowSplits >= 2 ? DirectionalLight3D.ShadowMode.Parallel2Splits : DirectionalLight3D.ShadowMode.Orthogonal;
+            _sun.DirectionalShadowMaxDistance = Math.Max(p.ShadowDistance, 1f);
+            _sun.DirectionalShadowSplit1 = 0.2f; // the near cascade covers the ship and its neighbours, the far one the rocks around
+            _sun.DirectionalShadowBlendSplits = true;
+            _sun.DirectionalShadowFadeStart = 0.85f; // shadows fade out near the limit instead of popping
+            _sun.ShadowBias = 0.03f;
+            _sun.ShadowNormalBias = 1.2f;
+            _sun.ShadowBlur = 1.4f;
+        }
+        if (p.Shadows)
+        {
+            RenderingServer.DirectionalShadowAtlasSetSize(p.ShadowAtlas, true);
+            RenderingServer.DirectionalSoftShadowFilterSetQuality(p.ShadowSplits >= 2 ? RenderingServer.ShadowQuality.SoftMedium : RenderingServer.ShadowQuality.SoftLow);
+        }
+        if (_viewport is not null && GodotObject.IsInstanceValid(_viewport))
+            _viewport.Msaa3D = p.Msaa >= 4 ? Viewport.Msaa.Msaa4X : p.Msaa >= 2 ? Viewport.Msaa.Msaa2X : Viewport.Msaa.Disabled;
+        if (_glare is not null && GodotObject.IsInstanceValid(_glare)) _glare.Visible = p.SunGlare;
+        if (_root is not null && GodotObject.IsInstanceValid(_root) && _root.IsInsideTree())
+            foreach (var n in _root.GetTree().GetNodesInGroup(InteriorExtraGroup))
+                if (n is Node3D n3 && GodotObject.IsInstanceValid(n3)) n3.Visible = p.InteriorExtras;
+    }
+
+    /// <summary>Decorative meshes (the emissive strips and lamps, sparks, puffs) do not cast shadows.</summary>
+    private static void NoShadowFromDecoration(Node n)
+    {
+        if (n is not MeshInstance3D mi) return;
+        string name = mi.Name;
+        if (name.StartsWith("Glow", StringComparison.Ordinal) || name.StartsWith("Sparks", StringComparison.Ordinal) || name.StartsWith("Puffs", StringComparison.Ordinal) || name == "Swirl")
+            mi.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+    }
+
+    /// <summary>
+    /// The star's per-frame work: the pulsar's gentle flicker (under 10 percent, about 1.3 Hz) and the glare quad that sits on the sun's direction
+    /// in front of the camera (depth tested, so rocks, the hull and the cockpit frame cover it, and it fades in as the view turns towards the sun).
+    /// </summary>
+    private static void UpdateSun(Camera3D cam, double dt)
+    {
+        _pulseTime += dt;
+        if (_sun is not null && GodotObject.IsInstanceValid(_sun) && _star.PulseDepth > 0f)
+        {
+            float pulse = 1f + _star.PulseDepth * MathF.Sin((float)_pulseTime * 8.2f);
+            _sun.LightEnergy = _star.Energy * pulse;
+        }
+        if (_glare is null || !GodotObject.IsInstanceValid(_glare) || !_glare.Visible || _glareMaterial is null) return;
+        float facing = Mathf.Clamp((-cam.GlobalTransform.Basis.Z).Dot(_sunDir), 0f, 1f);
+        float k = Mathf.Clamp((facing - 0.35f) / 0.65f, 0f, 1f);
+        k *= k;
+        _glare.GlobalPosition = cam.GlobalPosition + _sunDir * GlareDistance;
+        _glareMaterial.SetShaderParameter("strength", k);
+        _glareMaterial.SetShaderParameter("tint", new Vector3(_keyTint.R, _keyTint.G, _keyTint.B));
+    }
+
+    private const string GlareShader = @"
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, fog_disabled, shadows_disabled;
+
+uniform float strength = 0.0;
+uniform vec3 tint = vec3(1.0, 0.95, 0.85);
+uniform float size = 150.0;
+
+void vertex() {
+    // A camera-facing quad: the model's position only, the rotation of the camera.
+    MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
+    VERTEX.xy *= size;
+}
+
+void fragment() {
+    vec2 p = UV * 2.0 - 1.0;
+    float r = length(p);
+    float core = exp(-r * r * 22.0) * 0.9;
+    float halo = 0.22 / (1.0 + r * r * 90.0);
+    float streak_h = exp(-abs(p.y) * 90.0) * exp(-abs(p.x) * 3.2) * 0.35;
+    float streak_v = exp(-abs(p.x) * 140.0) * exp(-abs(p.y) * 6.0) * 0.12;
+    float edge = smoothstep(1.0, 0.7, max(abs(p.x), abs(p.y)));
+    float g = (core + halo + streak_h + streak_v) * edge * strength;
+    ALBEDO = tint * g * 1.6;
+    ALPHA = 1.0;
+}
+";
+
+    /// <summary>The sun glare: one additive quad, one draw call.</summary>
+    private static MeshInstance3D BuildGlare()
+    {
+        _glareMaterial = new ShaderMaterial { Shader = new Shader { Code = GlareShader } };
+        return new MeshInstance3D
+        {
+            Mesh = new QuadMesh { Size = new Vector2(1f, 1f) },
+            MaterialOverride = _glareMaterial,
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            ExtraCullMargin = 4096f,
+            Name = "SunGlare",
+        };
+    }
+
+    /// <summary>Gives the sky, the sun and the dust the colours of another system; <paramref name="starId"/> (the star type of the system, null for the home star) sets the key light.</summary>
+    public static void Retint(ulong systemSeed, string? starId = null)
+    {
+        if (_skyMaterial is null || _sun is null || (systemSeed == _currentSeed && starId == _currentStar)) return;
         _currentSeed = systemSeed;
+        _currentStar = starId;
+        _star = StarLight.For(starId);
         var rng = new RandomNumberGenerator { Seed = systemSeed };
 
         float hue = rng.Randf();
         var baseColor = Color.FromHsv(hue, 0.45f, 0.055f);
         var nebula = Color.FromHsv((hue + 0.12f + rng.Randf() * 0.25f) % 1f, 0.55f + rng.Randf() * 0.3f, 0.7f);
-        var sunColor = Color.FromHsv(0.08f + rng.Randf() * 0.1f, 0.15f + rng.Randf() * 0.3f, 1f);
+        // The key light follows the star type (a client-only table); the seed only nudges it a little so two systems of one type are not twins.
+        var seedSun = Color.FromHsv(0.08f + rng.Randf() * 0.1f, 0.15f + rng.Randf() * 0.3f, 1f);
+        var sunColor = new Color(_star.R, _star.G, _star.B).Lerp(seedSun, 0.15f);
+        _keyTint = sunColor;
 
         // The sun sits above the horizon (so the light comes from above) at a seed-dependent azimuth and height.
         float az = rng.Randf() * Mathf.Tau;
         float el = Mathf.DegToRad(12f + rng.Randf() * 50f);
+        if (ForcedSun is { } fs) { az = Mathf.DegToRad(fs.Az); el = Mathf.DegToRad(fs.El); } // a test flag: --sun=azimuth,elevation (degrees) for reproducible shots
         var sunDir = new Vector3(Mathf.Cos(el) * Mathf.Cos(az), Mathf.Sin(el), Mathf.Cos(el) * Mathf.Sin(az)).Normalized();
         var bandNormal = new Vector3(rng.Randf() - 0.5f, rng.Randf() * 0.8f + 0.2f, rng.Randf() - 0.5f).Normalized();
 
@@ -335,6 +533,7 @@ void sky() {
         _skyMaterial.SetShaderParameter("nebula_color", new Vector3(nebula.R, nebula.G, nebula.B));
         _skyMaterial.SetShaderParameter("sun_color", new Vector3(sunColor.R, sunColor.G, sunColor.B));
         _skyMaterial.SetShaderParameter("sun_dir", sunDir);
+        _sunDir = sunDir;
         _skyMaterial.SetShaderParameter("band_normal", bandNormal);
         _skyMaterial.SetShaderParameter("seed_offset", rng.Randf() * 40f);
 
@@ -381,11 +580,27 @@ void sky() {
         // The light travels from the sun towards the scene: its forward (-Z) axis points opposite the sun direction.
         var up = Mathf.Abs(sunDir.Y) > 0.95f ? Vector3.Right : Vector3.Up;
         _sun.Basis = Basis.LookingAt(-sunDir, up);
-        _sun.LightColor = sunColor.Lerp(Colors.White, 0.4f);
-        if (_fill is not null)
+        _sun.LightColor = sunColor;
+        _sun.LightEnergy = _star.Energy;
+        if (_sun2 is not null)
         {
-            _fill.Basis = Basis.LookingAt(sunDir * new Vector3(0.9f, -0.7f, 0.9f) + new Vector3(0f, 0.15f, 0f), up);
-            _fill.LightColor = new Color(0.62f, 0.72f, 1f);
+            // A binary's second sun stands about 35 degrees away and lower, in its own colour, without shadows.
+            float a2 = Mathf.DegToRad(35f);
+            var sun2Dir = new Vector3(sunDir.X * Mathf.Cos(a2) - sunDir.Z * Mathf.Sin(a2), Mathf.Max(0.15f, sunDir.Y * 0.6f), sunDir.X * Mathf.Sin(a2) + sunDir.Z * Mathf.Cos(a2)).Normalized();
+            var c2 = new Color(_star.SecondR, _star.SecondG, _star.SecondB);
+            _sun2.Visible = _star.Binary;
+            _sun2.LightColor = c2;
+            _sun2.LightEnergy = _star.Binary ? 0.7f : 0f;
+            _sun2.Basis = Basis.LookingAt(-sun2Dir, Mathf.Abs(sun2Dir.Y) > 0.95f ? Vector3.Right : Vector3.Up);
+            _skyMaterial.SetShaderParameter("sun2_dir", sun2Dir);
+            _skyMaterial.SetShaderParameter("sun2_color", _star.Binary ? new Vector3(c2.R, c2.G, c2.B) : Vector3.Zero);
+        }
+        if (_rim is not null)
+        {
+            // The rim stands behind the shadow side of the scene (the sun's direction turned round, a little above the horizon) in the cool sky tint.
+            var rimFrom = new Vector3(-sunDir.X, 0.28f, -sunDir.Z).Normalized();
+            _rim.Basis = Basis.LookingAt(-rimFrom, Vector3.Up);
+            _rim.LightColor = nebula.Lerp(new Color(0.7f, 0.82f, 1f), 0.6f).Lightened(0.25f);
         }
     }
 

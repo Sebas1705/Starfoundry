@@ -72,6 +72,9 @@ public sealed record GameSettings
     /// <summary>Low texture quality: the procedural textures are generated at half their size (read when the game starts, so a change applies on the next launch).</summary>
     public bool LowTextures { get; init; }
 
+    /// <summary>Graphics quality (Low, Medium, High): shadows, anti-aliasing, ambient occlusion and the extra interior lamps; applied at once (docs/prototypes/lighting-pass.md). Client only.</summary>
+    public GraphicsQuality Graphics { get; init; } = GraphicsQualities.Default;
+
     /// <summary>Debug option (docs/prototypes/blender-pipeline.md): the starter cockpit's console, seat, frames and glass come from the Blender-authored glTF instead of the procedural meshes. The <c>--blender-cockpit</c> flag turns it on for one run.</summary>
     public bool BlenderCockpit { get; init; }
 
@@ -94,6 +97,7 @@ public sealed record GameSettings
         HudMode = Enum.IsDefined(HudMode) ? HudMode : HudModes.Default,
         ShipInertia = Enum.IsDefined(ShipInertia) ? ShipInertia : ShipInertias.Default,
         HudDetail = Enum.IsDefined(HudDetail) ? HudDetail : HudDetails.Default,
+        Graphics = Enum.IsDefined(Graphics) ? Graphics : GraphicsQualities.Default,
         MasterVolume = Clamp(MasterVolume, 0f, 1f, 0.8f),
         SfxVolume = Math.Clamp(SfxVolume, 0, 100),
         AmbienceVolume = Math.Clamp(AmbienceVolume, 0, 100),
@@ -130,6 +134,7 @@ public sealed record GameSettings
             new KeyValuePair<string, string>("fullscreen", s.Fullscreen ? "true" : "false"),
             new KeyValuePair<string, string>("classic_designer", s.ClassicDesigner ? "true" : "false"),
             new KeyValuePair<string, string>("low_textures", s.LowTextures ? "true" : "false"),
+            new KeyValuePair<string, string>("graphics_quality", GraphicsQualities.Id(s.Graphics)),
             new KeyValuePair<string, string>("blender_cockpit", s.BlenderCockpit ? "true" : "false"),
             new KeyValuePair<string, string>("goal_waves", s.GoalWaves.ToString(CultureInfo.InvariantCulture)),
         }.Concat(new KeyBindingEditor(s.Bindings).ToPairs()).ToList();
@@ -174,6 +179,7 @@ public sealed record GameSettings
                 case "fullscreen" when bool.TryParse(value, out bool fs): s = s with { Fullscreen = fs }; break;
                 case "classic_designer" when bool.TryParse(value, out bool cd): s = s with { ClassicDesigner = cd }; break;
                 case "low_textures" when bool.TryParse(value, out bool lt): s = s with { LowTextures = lt }; break;
+                case "graphics_quality" when GraphicsQualities.TryParse(value, out var gq): s = s with { Graphics = gq }; break;
                 case "blender_cockpit" when bool.TryParse(value, out bool bc): s = s with { BlenderCockpit = bc }; break;
                 case "goal_waves" when int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int gw): s = s with { GoalWaves = gw }; break;
             }
