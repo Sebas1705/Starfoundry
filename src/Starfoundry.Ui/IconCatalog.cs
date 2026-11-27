@@ -35,16 +35,16 @@ public static class IconCatalog
     {
         // Materials: the glyph is the form (ore, ingot, plate...), the tint the material.
         Add("item:core:iron_ore", "ore", Iron); Add("item:core:iron_ingot", "ingot", Iron); Add("item:core:iron_plate", "plate", Iron);
-        Add("item:core:titanium_ore", "ore", Titanium); Add("item:core:titanium_ingot", "ingot", Titanium); Add("item:core:titanium_plate", "plate", Titanium);
-        Add("item:core:nickel_ore", "ore", Nickel); Add("item:core:nickel_ingot", "ingot", Nickel); Add("item:core:nickel_plate", "plate", Nickel);
-        Add("item:core:carbon", "lump", Carbon); Add("item:core:ice", "gem", Ice); Add("item:core:quartz", "crystal", Quartz);
-        Add("item:core:ammo", "ammo", Ammo); Add("item:core:hydrogen", "drop", Hydrogen); Add("item:core:silicon", "wafer", Silicon);
+        Add("item:core:titanium_ore", "oreShard", Titanium); Add("item:core:titanium_ingot", "ingot", Titanium); Add("item:core:titanium_plate", "plate", Titanium);
+        Add("item:core:nickel_ore", "oreNodule", Nickel); Add("item:core:nickel_ingot", "ingot", Nickel); Add("item:core:nickel_plate", "plate", Nickel);
+        Add("item:core:carbon", "lump", Carbon); Add("item:core:ice", "iceChunk", Ice); Add("item:core:quartz", "crystal", Quartz);
+        Add("item:core:ammo", "ammo", Ammo); Add("item:core:hydrogen", "canister", Hydrogen); Add("item:core:silicon", "wafer", Silicon);
         Add("item:core:circuit", "chip", Circuit); Add("item:core:titanium_alloy", "alloy", Alloy); Add("item:core:fuel_cell", "cell", Cell);
-        Add("item:core:science_engineering", "gear", Engineering); Add("item:core:science_biology", "leaf", Biology);
-        Add("item:core:science_physics", "atom", Physics); Add("item:core:biomass", "sprout", Biomass);
+        Add("item:core:science_engineering", "gear", Engineering); Add("item:core:science_biology", "flask", Biology);
+        Add("item:core:science_physics", "atom", Physics); Add("item:core:biomass", "pod", Biomass);
         // The optional chains: composites, coolant and the salvaged resonant crystal (docs/prototypes/materials.md).
-        Add("item:core:carbon_fiber", "ingot", Fiber); Add("item:core:composite_plate", "plate", Composite); Add("item:core:coolant", "drop", Coolant);
-        Add("item:core:resonant_crystal", "crystal", Resonant); Add("item:core:focus_lens", "gem", Lens);
+        Add("item:core:carbon_fiber", "rods", Fiber); Add("item:core:composite_plate", "slab", Composite); Add("item:core:coolant", "jug", Coolant);
+        Add("item:core:resonant_crystal", "resonant", Resonant); Add("item:core:focus_lens", "lens", Lens);
 
         // Modules.
         Add("module:core", "core", 0); Add("module:cockpit", "cockpit", 0); Add("module:engine", "engine", 0); Add("module:reactor", "reactor", 0);

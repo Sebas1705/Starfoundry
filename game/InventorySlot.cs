@@ -84,6 +84,22 @@ public partial class InventorySlot : Control
 
     public override string _GetTooltip(Vector2 atPosition) => Tip;
 
+    /// <summary>The tooltip of a slot with an item: a turning 3D view of the item's model beside the text.</summary>
+    public override GodotObject _MakeCustomTooltip(string forText) => ItemId.Length == 0 || forText.Length == 0 ? null! : TooltipFor(ItemId, forText);
+
+    /// <summary>The tooltip body: a turning 3D view of the item beside its text.</summary>
+    public static Control TooltipFor(string itemId, string forText)
+    {
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 8);
+        var preview = new ItemPreview(84);
+        preview.Show(itemId);
+        row.AddChild(preview);
+        var label = new Label { Text = forText, CustomMinimumSize = new Vector2(180, 0), AutowrapMode = TextServer.AutowrapMode.WordSmart, VerticalAlignment = VerticalAlignment.Center };
+        row.AddChild(label);
+        return row;
+    }
+
     public override void _Notification(int what)
     {
         if (what == NotificationMouseEnter) { _hover = true; QueueRedraw(); }

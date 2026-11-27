@@ -971,6 +971,15 @@ public static partial class Models
                     mb.C(Yellow).Block(new(s * 0.14f, Y0 + 0.14f, t * 0.175f), new(0.20f, 0.07f, 0.012f));
                 }
             }
+            // riveted armour panels on both faces (a centre rib between two plates) and a row of rivet heads along the top plate
+            foreach (float t in new[] { -1f, 1f })
+            {
+                mb.C(Steel).Block(new(0, Y0 + 0.215f, t * 0.16f), new(0.07f, 0.28f, 0.014f));
+                foreach (float s in new[] { -1f, 1f })
+                    mb.C(Hull).Block(new(s * 0.20f, Y0 + 0.27f, t * 0.155f), new(0.20f, 0.14f, 0.012f));
+                for (int i = 0; i < 5; i++)
+                    mb.C(Panel).Block(new(-0.34f + i * 0.17f, Y0 + 0.352f, t * 0.12f), new(0.03f, 0.016f, 0.03f));
+            }
         });
         Add(r, "GlowLight", "wall.light", Glow(new Color(1f, 0.8f, 0.15f), 2.4f), mb =>
         {
@@ -1021,8 +1030,21 @@ public static partial class Models
             mb.C(Hull).Prism(new(0, Y0, 0), 0.41f, 0.32f, 0.10f, 8, 22.5f);
             mb.C(YellowDk).Prism(new(0, Y0 + 0.10f, 0), 0.325f, 0.325f, 0.025f, 8, 22.5f);
             mb.C(Steel).Prism(new(0, Y0 + 0.125f, 0), 0.21f, 0.19f, 0.09f, 8);
-            // ammo crates
-            foreach (float s in new[] { -1f, 1f }) mb.C(YellowDk).Block(new(-0.16f, Y0 + 0.17f, s * 0.26f), new(0.13f, 0.10f, 0.10f));
+            // ammo crates, each with a lid latch and a belt of rounds fed up to the breech
+            foreach (float s in new[] { -1f, 1f })
+            {
+                mb.C(YellowDk).Block(new(-0.16f, Y0 + 0.17f, s * 0.26f), new(0.13f, 0.10f, 0.10f), 0.94f, 0.94f);
+                mb.C(Steel).Block(new(-0.16f, Y0 + 0.225f, s * 0.26f), new(0.11f, 0.012f, 0.085f));
+                mb.C(Steel).Block(new(-0.095f, Y0 + 0.17f, s * 0.26f), new(0.012f, 0.05f, 0.03f));
+                mb.C(Steel).Beam(new(-0.12f, Y0 + 0.2f, s * 0.22f), new(-0.05f, Y0 + 0.30f, s * 0.10f), 0.018f);
+            }
+            // the turret ring: a collar and four stout lugs round the foot of the head
+            mb.C(Steel).Prism(new(0, Y0 + 0.205f, 0), 0.245f, 0.225f, 0.03f, 16);
+            for (int i = 0; i < 4; i++)
+            {
+                float a = i * Mathf.Pi / 2f + Mathf.Pi / 4f;
+                mb.C(Hull).Block(new(MathF.Cos(a) * 0.30f, Y0 + 0.14f, MathF.Sin(a) * 0.30f), new(0.07f, 0.09f, 0.07f), 0.8f, 1f);
+            }
         });
         var head = Pivot(r, "Head", new(0, Y0 + 0.22f, 0));
         Add(head, "HeadMesh", "turret.head", Body(), mb =>
@@ -1032,6 +1054,13 @@ public static partial class Models
                 mb.C(YellowDk).Block(new(0.02f, 0.085f, s * 0.185f), new(0.30f, 0.10f, 0.03f));
             mb.C(Hull).Block(new(-0.14f, 0.19f, 0), new(0.14f, 0.07f, 0.16f));
             mb.C(Hull).Block(new(0.16f, 0.09f, 0), new(0.04f, 0.10f, 0.25f)); // mantlet
+            // armoured cheeks, rear radiator vents and a rangefinder on the roof
+            foreach (float s in new[] { -1f, 1f })
+            {
+                mb.C(YellowDk).Block(new(0.06f, 0.115f, s * 0.215f), new(0.22f, 0.07f, 0.04f), 0.8f, 1f);
+            }
+            mb.C(Steel).Block(new(-0.09f, 0.245f, -0.04f), new(0.05f, 0.04f, 0.05f));
+            for (int i = 0; i < 4; i++) mb.C(Hull).Block(new(-0.222f, 0.085f, (i - 1.5f) * 0.07f), new(0.012f, 0.09f, 0.03f));
         });
         var barrel = Pivot(head, "Barrel", new(0.12f, 0.09f, 0));
         Add(barrel, "BarrelMesh", "turret.barrel", Body(), mb =>

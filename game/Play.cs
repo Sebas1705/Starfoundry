@@ -663,7 +663,7 @@ void fragment() {
         _itemTint = new Color[_content.Items.Count];
         for (int i = 0; i < _itemShape.Length; i++)
         {
-            var (shape, tint) = BeltModels.StyleOf(_content.Items[i].Id);
+            var (shape, tint) = ItemModels.StyleOf(_content.Items[i].Id);
             _itemShape[i] = (int)shape;
             _itemTint[i] = tint;
         }
@@ -1192,7 +1192,7 @@ void fragment() {
         if (what == NotificationWMCloseRequest || what == NotificationPredelete) FinishPlayLog();
     }
 
-    private const float ItemScale = 0.30f;
+    private const float ItemScale = ItemModels.BeltScale;
 
     /// <summary>Puts every item on its belt: two passes over the samples (count per shape, then write) so each shape's MultiMesh is exactly as big as needed.</summary>
     private void DrawItems(float alpha)
@@ -1201,7 +1201,7 @@ void fragment() {
         for (int i = 0; i < _sampleCount; i++)
         {
             var s = _samples[i];
-            if (_segGeo[s.Segment] is { Items: { } layers } && s.Type < _itemShape.Length) layers.Count(_itemShape[s.Type]);
+            if (_segGeo[s.Segment] is { Items: { } layers } && s.Type < _itemShape.Length) layers.Count(ItemModels.Layer((ItemModels.Shape)_itemShape[s.Type], ItemModels.VariantFor(s.Segment, s.Type)));
         }
         foreach (var geo in _geos.Values) geo.Items?.Allocate();
         for (int i = 0; i < _sampleCount; i++)
@@ -1213,7 +1213,8 @@ void fragment() {
             // Local to the segment's structure: the root node carries the item to its world position. Flat belts: the item stands on the
             // belt surface; vertical ones: it is centred on the path.
             var pos = new Vector3(g.Ox + 0.5f + g.Dx * (p - 0.5f), g.Oy + (g.Dy != 0 ? 0.5f + g.Dy * (p - 0.5f) - 0.1f : 0.172f), g.Oz + 0.5f + g.Dz * (p - 0.5f));
-            layers.Add(_itemShape[s.Type], ItemScale, pos, _itemTint[s.Type]);
+            float yaw = g.Dy != 0 ? 0f : MathF.Atan2(-g.Dz, g.Dx); // the long axis of a bar or a plate lies along the belt
+            layers.Add(ItemModels.Layer((ItemModels.Shape)_itemShape[s.Type], ItemModels.VariantFor(s.Segment, s.Type)), ItemScale, pos, yaw, _itemTint[s.Type]);
         }
         foreach (var geo in _geos.Values) geo.Items?.Flush();
     }
