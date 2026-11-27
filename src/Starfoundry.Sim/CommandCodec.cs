@@ -22,7 +22,7 @@ public static class CommandCodec
     /// <summary>Version 2 added the content hash to the header, version 3 the game mode, version 4 the galaxy seed, version 5 the threat flag.</summary>
     /// Version 6 added the station-rules flag (bit 1); the structures flag (bit 2) uses a bit that version 6 left free,
     /// so logs written before it simply read as structures off and the version stays 6.
-    private const byte LogVersion = 25;
+    private const byte LogVersion = 26;
     /// Version 7 added the world rules block (flags bit 3, written only for non-default rules). Version 8 added the scenario id (flags bit 4).
     /// Version 10 added the SetBoost command (tag 38) and the wide galaxy with obstacles: logs of versions 5 to 9 read with <see cref="WorldRules.LegacyGalaxy"/> on (ADR 0028).
     /// Version 9 added the FireLaser command (tag 37) and the mining laser's power draw: logs of versions 5 to 8 read with <see cref="WorldRules.LegacyLaser"/> on, so they replay without it (ADR 0027).
@@ -32,6 +32,7 @@ public static class CommandCodec
     /// Version 17 added the SetAim command (tag 59) and ADR 0036: free fire with projectiles and recoil, hold overflow, regrowing deposits and the resource density rule. Logs of versions 5 to 16 read with <see cref="WorldRules.LegacyFeel"/> and <see cref="WorldRules.LegacyResources"/> on, so they replay as recorded; the reader refuses SetAim in them.
     /// Version 19 added dropping items and picking them up by hand (ADR 0038): the DropItems and PickUp commands (tags 60 and 61). The reader refuses them in logs of versions 5 to 18; the world rules do not change.
     /// Version 23 added the antenna variants (short and long range sensors, the comms antenna) and the heavy cannon (ADR 0042): scanner and navigation reach from fitted antennas, stacking with diminishing returns, and a slow heavy gun volley. It adds no command. Logs of versions 5 to 22 read with <see cref="WorldRules.LegacyArms"/> on, so they replay as recorded. (Version 22 belongs to the dock module.)
+    /// Version 26 added the clustered rock field (ADR 0046): rocks come in clusters, belts and shells with voids between them, in size classes with rare giants, instead of the uniform scatter of ADR 0040. It adds no command. Logs of versions 5 to 25 read with <see cref="WorldRules.LegacyRockClusters"/> on, so they replay as recorded.
     /// Version 25 added the station floor plan (ADR 0044): ApplyBlueprint may carry the machines, belts and links of the station (tag 66), and in-world placement of machines and belts on a station is refused (Reject.UseBlueprint). Logs of versions 5 to 24 read with <see cref="WorldRules.LegacyInterior"/> on, so they replay as recorded; the reader refuses tag 66 in them.
     /// Version 24 added the blueprint editor for stations (ADR 0043): the ApplyBlueprint command (tag 65) and the refusal of the module tool and the in-world placement of station parts (Reject.UseBlueprint). Logs of versions 5 to 23 read with <see cref="WorldRules.LegacyBlueprint"/> on, so they replay as recorded; the reader refuses the command in them.
     /// Version 22 added dock modules as the only docking ports (ADR 0041): ships and stations carry a dedicated dock module, and core and cockpit ports are gone. It adds no command. Logs of versions 5 to 21 read with <see cref="WorldRules.LegacyDock"/> on, so they replay as recorded.
@@ -594,6 +595,7 @@ public static class CommandCodec
         if (version < 23) rules = rules.WithLegacyArms(true); // and before the antenna variants and the heavy cannon (ADR 0042)
         if (version < 24) rules = rules.WithLegacyBlueprint(true); // and before stations were edited in the blueprint editor (ADR 0043)
         if (version < 25) rules = rules.WithLegacyInterior(true); // and before the station floor plan (ADR 0044)
+        if (version < 26) rules = rules.WithLegacyRockClusters(true); // and before the clustered rock field (ADR 0046)
         scenarioId = null;
         if ((flags & 16) != 0)
         {

@@ -81,6 +81,9 @@ public partial class Play : Node3D
     private readonly Dictionary<int, Geo> _geos = new();
     private Geo?[] _segGeo = Array.Empty<Geo?>(); // by segment id
     private readonly List<DepositView?> _depositNodes = new();
+    private RockField? _rockField; // the rocks of the streamed field as MultiMesh batches per sector (ADR 0046); --rock-nodes draws them one node each, as before
+    private ClusterGlow? _clusterGlow; // far glow of the clusters beyond the loaded sectors
+    private bool _rockNodes;
     private readonly List<int> _depositSerials = new(); // which rock of the infinite field a slot held when its node was built (ADR 0040)
     private MeshInstance3D _ghost = null!, _dragGhost = null!;
 
@@ -148,6 +151,7 @@ public partial class Play : Node3D
         string? st = args.FirstOrDefault(a => a.StartsWith("--stress="));
         _stressActive = args.Contains("--stress-active");
         _stressClose = args.Contains("--stress-close");
+        _rockNodes = args.Contains("--rock-nodes");
         if (st is not null && int.TryParse(st["--stress=".Length..], out int sn)) _stressMachines = Math.Clamp(sn, 1, 5000);
         // A generated galaxy: the same seed always gives the same systems. Home's deposits start revealed; scan to find the rest.
         // The Remnant are on in the game and the threat demo; the production and exploration demos run without them.
@@ -156,7 +160,7 @@ public partial class Play : Node3D
         _droneShotPath = args.FirstOrDefault(a => a.StartsWith("--drone-shot="))?["--drone-shot=".Length..];
         _defenceShotPath = args.FirstOrDefault(a => a.StartsWith("--defence-shot="))?["--defence-shot=".Length..];
         _endShotPath = args.FirstOrDefault(a => a.StartsWith("--end-shot="))?["--end-shot=".Length..];
-        _structuresShot = _structuresShotPath is not null || _powerShotPath is not null || _droneShotPath is not null || _defenceShotPath is not null || _endShotPath is not null || args.Any(a => a.StartsWith("--obstacle-shot="));
+        _structuresShot = _structuresShotPath is not null || _powerShotPath is not null || _droneShotPath is not null || _defenceShotPath is not null || _endShotPath is not null || args.Any(a => a.StartsWith("--obstacle-shot=")) || args.Contains("--field-perf");
         _walkShotPath = args.FirstOrDefault(a => a.StartsWith("--walk-shot="))?["--walk-shot=".Length..];
         _walkShot = _walkShotPath is not null;
         _flightShotPath = args.FirstOrDefault(a => a.StartsWith("--flight-shot="))?["--flight-shot=".Length..];
@@ -228,6 +232,7 @@ public partial class Play : Node3D
         if (_structuresShot) StructuresShotSetup(args);
         if (_defenceShotPath is not null) DefenceShotSetup();
         if (args.Any(a => a.StartsWith("--obstacle-shot="))) ObstacleShotSetup(args);
+        if (args.Contains("--field-perf")) FieldPerfSetup(args);
         if (_endShotPath is not null) EndShotSetup(args);
         if (_goalsShotPath is not null) GoalsShotSetup(args);
         if (Launch.Mode == Launch.Intent.Continue && Launch.ContinueSave is { } slot)
@@ -407,6 +412,12 @@ public partial class Play : Node3D
         _ghost.AddChild(_cellHelper);
 
         // Deposits: spheres where the simulation says they are, shrinking as they run dry. Rocks of the infinite field come and go (ADR 0040): UpdateDeposits keeps the nodes in step.
+        if (!_rockNodes && Net.HasRockField)
+        {
+            _rockField = new RockField();
+            AddChild(_rockField);
+            if (Net.HasRockClusters) { _clusterGlow = new ClusterGlow(); AddChild(_clusterGlow); }
+        }
         for (int d = 0; d < Net.DepositCount; d++) SyncDepositNode(d);
 
         // The ship, with discs showing where it can build (big) and mine (small).
@@ -811,6 +822,7 @@ void fragment() {
     private void SyncDepositNode(int d)
     {
         while (_depositNodes.Count <= d) { _depositNodes.Add(null); _depositSerials.Add(-1); }
+        if (_rockField is not null && Net.DepositIsFieldRock(d)) return; // drawn by the RockField batches
         int serial = Net.DepositSerial(d);
         bool free = Net.DepositInitial(d) <= 0;
         if (_depositNodes[d] is { } old && (free || _depositSerials[d] != serial)) { old.QueueFree(); _depositNodes[d] = null; }
@@ -824,8 +836,14 @@ void fragment() {
         _depositSerials[d] = serial;
     }
 
-    private void UpdateDeposits()
+    private void UpdateDeposits(double delta = 0.0)
     {
+        var eye = _camera.GlobalPosition;
+        long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+        _rockField?.Sync(Net, _content, eye);
+        long t1 = System.Diagnostics.Stopwatch.GetTimestamp();
+        _clusterGlow?.Update(Net, _content, eye, delta, _content.World?.Field?.LoadCells ?? 360);
+        if (_fieldPerf && _fieldPerfFrame > 4 + 120) { _fpSyncMs += System.Diagnostics.Stopwatch.GetElapsedTime(t0, t1).TotalMilliseconds; _fpGlowMs += System.Diagnostics.Stopwatch.GetElapsedTime(t1).TotalMilliseconds; }
         for (int d = 0; d < Net.DepositCount; d++)
         {
             SyncDepositNode(d);
@@ -964,7 +982,7 @@ void fragment() {
             {
                 _scansDone++;
                 _depositsRevealed += r.RevealedDeposits.Count;
-                ToastProduction(r.RevealedDeposits.Count == 0 ? L("toast.scanNone") : L("toast.scanFound", r.RevealedDeposits.Count));
+                ToastProduction(r.RevealedDeposits.Count == 0 ? L("toast.scanNone") : ScanClusterName(r.RevealedDeposits) is { } scanned ? L("toast.scanCluster", r.RevealedDeposits.Count, scanned) : L("toast.scanFound", r.RevealedDeposits.Count));
                 if (r.RevealedDeposits.Count > 0) _selectedDeposit = RevealedDeposits().FirstOrDefault();
             }
             else if (r.Command is Jump j)
@@ -1221,7 +1239,7 @@ void fragment() {
         _animTime += delta;
         UpdateMachines();
         UpdateEnemies((float)delta);
-        UpdateDeposits();
+        UpdateDeposits(delta);
         UpdateDrones((float)delta);
         UpdateFlightFeel((float)delta); // the smoothed speed, acceleration, field-of-view kick, rumble and flame length (Play.FlightFeel.cs)
         UpdateCockpitHead((float)delta); // the field of view eases; a focused display narrows it

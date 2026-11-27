@@ -240,6 +240,9 @@ internal sealed class Deposit
     public long CellKey;
     public int CellIndex;
 
+    /// <summary>Streamed rocks of the clustered field (ADR 0046): the id of the cluster the rock belongs to, -1 for a stray and for the uniform field. Derived from the generator, so it is not hashed.</summary>
+    public long Cluster = -1;
+
     /// <summary>Streamed rocks: which materialization this slot holds; the client rebuilds the rock when it changes (a slot is reused after a sector is forgotten).</summary>
     public int Serial;
 
@@ -259,7 +262,7 @@ internal sealed class Deposit
     public Deposit Clone() => new(Id, Item, Initial, X, Y, Z)
     {
         Remaining = Remaining, Revealed = Revealed, Density = Density, RegrowTicks = RegrowTicks,
-        Radius = Radius, Streamed = Streamed, CellKey = CellKey, CellIndex = CellIndex, Serial = Serial, Free = Free,
+        Radius = Radius, Streamed = Streamed, CellKey = CellKey, CellIndex = CellIndex, Serial = Serial, Free = Free, Cluster = Cluster,
     };
 }
 
@@ -543,7 +546,7 @@ public sealed partial class BeltNetwork
         if (p is not null && HardpointsRequired(p)) return LasersInReach(p, deposit).Count > 0; // ADR 0032: a laser module must reach it
         long px = p?.X ?? 0, py = p?.Y ?? 0, pz = p?.Z ?? 0;
         long dx = d.X * (long)Units.CellUnits - px, dy = d.Y * (long)Units.CellUnits - py, dz = d.Z * (long)Units.CellUnits - pz;
-        long r = (long)PlayerRules.MineRangeCells * Units.CellUnits;
+        long r = (long)PlayerRules.MineRangeCells * Units.CellUnits + MineReachExtraUnits(d);
         return dx * dx + dy * dy + dz * dz <= r * r;
     }
 

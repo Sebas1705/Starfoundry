@@ -130,7 +130,7 @@ public class CollisionTests
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, new List<LoggedCommand> { new(0, 0, new Batch(new Command[] { new SetBoost(true) })) }, C.Hash, GameMode.Sandbox, Seed, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(25, bytes[4]);
+        Assert.Equal(26, bytes[4]);
         Assert.Single(CommandCodec.ReadLog(new MemoryStream(bytes)));
         bytes[4] = 9;
         Assert.Throws<InvalidDataException>(() => CommandCodec.ReadLog(new MemoryStream(bytes)));

@@ -36,6 +36,7 @@ if (only is "" or "region") foreach (var g in gens) Region(g);
 if (only is "" or "vantage") foreach (var g in gens) Vantage(g);
 if (only is "" or "loaded") foreach (var g in gens) Loaded(g);
 if (only is "" or "clusters") foreach (var g in gens.OfType<ClusterGen>()) Clusters(g);
+if (only is "shipped") ShippedReport.Run(content, F, galaxy, Seed, P);
 if (only is "" or "sim") SimCost();
 return;
 

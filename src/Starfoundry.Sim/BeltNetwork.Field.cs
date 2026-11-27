@@ -30,10 +30,52 @@ public sealed partial class BeltNetwork
     /// <summary>Emptied or partly mined rocks of forgotten sectors the world remembers.</summary>
     public int FieldRememberedRocks => _fieldMemory.Count;
 
+    private ClusterRules? _clusters;
+
+    /// <summary>True when the rocks of this world come from the clustered generator (ADR 0046): a rock field, content with clusters and no <see cref="WorldRules.LegacyRockClusters"/>.</summary>
+    public bool HasRockClusters => _clusters is not null;
+
     private void InitField()
     {
         _field = Galaxy is { Wide: true } && !Rules.LegacyField ? Content?.World?.Field : null;
+        _clusters = _field is not null && !Rules.LegacyRockClusters ? _field.Clusters : null;
     }
+
+    /// <summary>The cluster a field rock belongs to, or null for a stray, an ordinary deposit and the uniform field (ADR 0046).</summary>
+    public ClusterParent? DepositCluster(int id)
+    {
+        var d = GetDeposit(id);
+        if (_clusters is null || _field is null || !d.Streamed || d.Cluster < 0 || Galaxy is null) return null;
+        return ClusterField.ParentById(_field, _clusters, Galaxy.Seed, d.Cluster, Rules.LegacyResources ? 100 : Rules.ResourceDensityPercent);
+    }
+
+    /// <summary>The id of the cluster a field rock belongs to, -1 for none.</summary>
+    public long DepositClusterId(int id) => GetDeposit(id).Cluster;
+
+    /// <summary>The packed key of the sector a field rock was generated in (the renderer batches the rocks of a sector).</summary>
+    public long DepositSectorKey(int id) => GetDeposit(id).CellKey;
+
+    /// <summary>Side of a sector in cells (0 without a rock field).</summary>
+    public int FieldSectorCells => _field?.SectorCells ?? 0;
+
+    /// <summary>The rock radius law in percent of the reference size: 250 in the clustered field, 100 in the uniform one (the size words and the model classes divide by it).</summary>
+    public int RockRadiusPercent => _clusters?.RadiusPercent ?? 100;
+
+    /// <summary>The cluster parents whose centre lies within a box of <paramref name="radiusCells"/> around a point in units, for the far glow and the map: empty without clusters.</summary>
+    public IReadOnlyList<ClusterParent> ClustersNear(long xUnits, long yUnits, long zUnits, int radiusCells)
+    {
+        if (_clusters is null || _field is null || Galaxy is null) return Array.Empty<ClusterParent>();
+        long cx = xUnits / Units.CellUnits, cy = yUnits / Units.CellUnits, cz = zUnits / Units.CellUnits;
+        return ClusterField.ParentsInBox(_field, _clusters, Galaxy.Seed, cx - radiusCells, cx + radiusCells, cy - radiusCells, cy + radiusCells, cz - radiusCells, cz + radiusCells,
+            Rules.LegacyResources ? 100 : Rules.ResourceDensityPercent);
+    }
+
+    /// <summary>
+    /// Extra reach in units a laser or a hand needs for the rock of a deposit: the rocks of the clustered field are big and solid, so a ship stops at their
+    /// surface and the range is measured to it, not to the centre (0 for every other deposit and for the uniform field).
+    /// </summary>
+    private long MineReachExtraUnits(Deposit d) =>
+        _clusters is not null && d.Streamed ? (long)d.RadiusUnits * (WorldGen?.DepositHitPercent ?? 100) / 100 : 0;
 
     private void StepField()
     {
@@ -46,14 +88,23 @@ public sealed partial class BeltNetwork
             int x0 = SectorOf(p.X - load, f), x1 = SectorOf(p.X + load, f);
             int y0 = SectorOf(p.Y - load, f), y1 = SectorOf(p.Y + load, f);
             int z0 = SectorOf(p.Z - load, f), z1 = SectorOf(p.Z + load, f);
+            List<(long D, int X, int Y, int Z)>? wanted = _clusters is not null ? new() : null; // clustered fields can fill the cap: the nearest sectors load first
             for (int cx = x0; cx <= x1; cx++)
                 for (int cy = y0; cy <= y1; cy++)
                     for (int cz = z0; cz <= z1; cz++)
                     {
-                        if (SectorDistance2(p, cx, cy, cz, sectorUnits) > load * load) continue;
+                        long dist2 = SectorDistance2(p, cx, cy, cz, sectorUnits);
+                        if (dist2 > load * load) continue;
                         long key = SectorField.Key(cx, cy, cz);
-                        if (!_fieldCells.ContainsKey(key)) LoadSector(f, key, cx, cy, cz);
+                        if (_fieldCells.ContainsKey(key)) continue;
+                        if (wanted is not null) wanted.Add((dist2, cx, cy, cz));
+                        else LoadSector(f, key, cx, cy, cz);
                     }
+            if (wanted is not null)
+            {
+                wanted.Sort((a, b) => a.D != b.D ? a.D.CompareTo(b.D) : a.X != b.X ? a.X.CompareTo(b.X) : a.Y != b.Y ? a.Y.CompareTo(b.Y) : a.Z.CompareTo(b.Z));
+                foreach (var (_, cx, cy, cz) in wanted) LoadSector(f, SectorField.Key(cx, cy, cz), cx, cy, cz);
+            }
         }
 
         if (_fieldCells.Count == 0) return;
@@ -99,7 +150,9 @@ public sealed partial class BeltNetwork
     private void LoadSector(FieldRules f, long key, int cx, int cy, int cz)
     {
         var rocks = new List<FieldRock>(8);
-        SectorField.Generate(f, Galaxy!.Systems, Galaxy.Seed, cx, cy, cz, Rules.LegacyResources ? 100 : Rules.ResourceDensityPercent, rocks);
+        int density = Rules.LegacyResources ? 100 : Rules.ResourceDensityPercent;
+        if (_clusters is not null) ClusterField.Generate(f, _clusters, Galaxy!.Systems, Galaxy.Seed, cx, cy, cz, density, rocks);
+        else SectorField.Generate(f, Galaxy!.Systems, Galaxy.Seed, cx, cy, cz, density, rocks);
         if (_fieldLoaded + rocks.Count > f.MaxLoaded) return; // full: the sector is tried again at the next pass
         var slots = new List<int>(rocks.Count);
         foreach (var r in rocks)
@@ -108,7 +161,7 @@ public sealed partial class BeltNetwork
             int amount = Math.Max(1, WorldRules.Scale(r.Amount, Rules.DepositRichnessPercent));
             var d = new Deposit(slot, r.Item, amount, r.X, r.Y, r.Z)
             {
-                Revealed = false, Density = r.Density, Radius = r.Radius, Streamed = true, CellKey = key, CellIndex = r.Index, Serial = ++_fieldSerial,
+                Revealed = false, Density = r.Density, Radius = r.Radius, Streamed = true, CellKey = key, CellIndex = r.Index, Serial = ++_fieldSerial, Cluster = r.Cluster,
             };
             if (_fieldMemory.Remove((key, r.Index), out int taken)) d.Remaining = Math.Max(0, amount - taken);
             _deposits[slot] = d;
@@ -170,6 +223,7 @@ public sealed partial class BeltNetwork
     private void CopyFieldFrom(BeltNetwork other)
     {
         _field = other._field;
+        _clusters = other._clusters;
         _fieldSerial = other._fieldSerial;
         _fieldLoaded = other._fieldLoaded;
         _fieldCells.Clear();

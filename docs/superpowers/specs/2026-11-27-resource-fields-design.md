@@ -1,6 +1,6 @@
 # Resource fields: large voids and dense clusters of rocks (study and proposal)
 
-Status: study and proposal, 2026-11-27. Nothing here is implemented in the product. The numbers marked *measured* come from a throwaway program, [`tools/Starfoundry.FieldStudy`](../../../tools/Starfoundry.FieldStudy/Program.cs) (not part of the solution, not shipped), run on this PC with the shipped generator and the shipped `content/core.json`. Everything under "Proposal" is a *proposal*; what we have not measured is marked *TBD*.
+Status: study and proposal, 2026-11-27. Candidate D (steps 1 to 4 of the plan and the far glow of step 5) was implemented in [ADR 0046](../../adr/0046-clustered-rock-fields-with-voids-size-classes-and-giants.md); the floating origin and the plane bias are still open. The text below is the study as written, before that change. The numbers marked *measured* come from a throwaway program, [`tools/Starfoundry.FieldStudy`](../../../tools/Starfoundry.FieldStudy/Program.cs) (not part of the solution, not shipped), run on this PC with the shipped generator and the shipped `content/core.json`. Everything under "Proposal" is a *proposal*; what we have not measured is marked *TBD*.
 
 Owner request: much more gap between resources, many more concentrations (clusters, belts, fields of asteroids), and bigger asteroids: "today there are very few asteroids and the sizes are very small".
 

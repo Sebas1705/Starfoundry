@@ -1255,8 +1255,9 @@ public static partial class Models
     /// The asteroid mesh. <paramref name="cls"/> is the size class (see <see cref="RockPoint"/>); the huge class is built finer.
     /// <paramref name="vein"/> paints veins of that colour on the surface; <paramref name="veinWidth"/> (0 none, about 0.02 poor to 0.06 rich) is
     /// how wide they are, so the richness of a deposit reads on the rock itself.
+    /// <paramref name="levels"/> is the number of icosphere subdivisions (default 2, 3 for the huge class; 1 is the far tier of the rock field).
     /// </summary>
-    internal static void BuildRock(Mb mb, Color tint, int seed, float tone = 1f, float tintShare = 0.13f, int cls = 1, Color? vein = null, float veinWidth = 0f)
+    internal static void BuildRock(Mb mb, Color tint, int seed, float tone = 1f, float tintShare = 0.13f, int cls = 1, Color? vein = null, float veinWidth = 0f, int levels = -1)
     {
         // icosphere, one subdivision level above the base: 320 faces
         float t = (1f + MathF.Sqrt(5f)) / 2f;
@@ -1271,7 +1272,7 @@ public static partial class Models
             (0, 11, 5), (0, 5, 1), (0, 1, 7), (0, 7, 10), (0, 10, 11), (1, 5, 9), (5, 11, 4), (11, 10, 2), (10, 7, 6), (7, 1, 8),
             (3, 9, 4), (3, 4, 2), (3, 2, 6), (3, 6, 8), (3, 8, 9), (4, 9, 5), (2, 4, 11), (6, 2, 10), (8, 6, 7), (9, 8, 1),
         };
-        for (int level = 0; level < (cls >= 3 ? 3 : 2); level++)
+        for (int level = 0; level < (levels >= 0 ? levels : cls >= 3 ? 3 : 2); level++)
         {
             var cache = new Dictionary<(int, int), int>();
             int Mid(int a, int b)

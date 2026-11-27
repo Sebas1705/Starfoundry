@@ -69,6 +69,8 @@ if (args.Contains("--structures"))
     if (Value("--density") is { } dens) rules = rules.WithResourceDensity(int.Parse(dens));
     // --legacy-field plays the finite world as before ADR 0040 (no infinite rock field): the baseline to compare the field against.
     if (args.Contains("--legacy-field")) rules = rules.WithLegacyField(true);
+    // --legacy-clusters keeps the infinite field but with the uniform scatter of ADR 0040 instead of the clusters of ADR 0046.
+    if (args.Contains("--legacy-clusters")) rules = rules.WithLegacyRockClusters(true);
     var bot = new StructureBot(content, sSeed, threats: !args.Contains("--no-threats"), rules: rules)
     {
         ActionDelaySeconds = args.Any(a => a.StartsWith("--delay=")) ? delay : 6,

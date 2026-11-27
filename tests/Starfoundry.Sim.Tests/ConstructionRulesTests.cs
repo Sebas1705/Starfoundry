@@ -172,7 +172,7 @@ public class ConstructionRulesTests
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, log, C.Hash, GameMode.Campaign, Seed, threats: false, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(25, bytes[4]);
+        Assert.Equal(26, bytes[4]);
         CommandCodec.ReadLog(new MemoryStream(bytes), out _, out _, out _, out _, out _, out _, out var now);
         Assert.False(now.LegacyBuilding);
         for (byte version = 6; version <= 12; version++)

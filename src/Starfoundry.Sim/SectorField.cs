@@ -3,7 +3,8 @@ namespace Starfoundry.Sim;
 /// <summary>A resource asteroid of the infinite field (ADR 0040). Positions are in cells, the radius in units.</summary>
 /// <param name="Index">The rock's place in its sector's draw; with the sector it is the rock's stable identity.</param>
 /// <param name="Mass">Thousandths of the reference rock; with the density it gives the amount.</param>
-public readonly record struct FieldRock(int Index, int Item, int X, int Y, int Z, int Mass, int Density, int Radius, int Amount);
+/// <param name="Cluster">The id of the cluster parent the rock belongs to (ADR 0046), or -1 for a stray and for the uniform field.</param>
+public readonly record struct FieldRock(int Index, int Item, int X, int Y, int Z, int Mass, int Density, int Radius, int Amount, long Cluster = -1);
 
 /// <summary>
 /// The pure generator of the infinite rock field (ADR 0040): the rocks of one cubic sector are a function of the world seed, the content and the
@@ -92,7 +93,7 @@ public static class SectorField
         return false;
     }
 
-    private static int PickItem(FieldRules f, int roll, long fromHomeCells)
+    internal static int PickItem(FieldRules f, int roll, long fromHomeCells)
     {
         long total = 0;
         foreach (var i in f.Items) if (i.MinDistanceCells <= fromHomeCells) total += i.Weight;
