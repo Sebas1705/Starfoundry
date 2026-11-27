@@ -535,6 +535,12 @@ public static partial class ModuleModels
                 if (nose) Loft(mb, Oct(roofY, HullProfile.NoseTipScale, c.M, 0f), 0.05f, full, a, true, false, wrap ? skip | NoseGlassEdges : skip, true, wrap ? NoseGlassEdges : 0, c.M); // the nose keeps its liner floor: the deck plate does not reach the tip
                 Loft(mb, full, a, full, b, capFront, capRear, skip, true, 0, c.M, noLinerFloor: true);
                 if (tail) Loft(mb, full, b, Oct(roofY, HullProfile.TailScale, c.M), HullProfile.TailEnd, false, true, skip, true, 0, c.M, noLinerFloor: true);
+                // rounded shoulders over the chamfers (ModuleModels.Round.cs): the same sections as the lofts above, the same skipped edges
+                // an end of the strip is capped where it is free; where another module joins, the strip runs on into its own (no cap), unless the neighbour is shaped differently
+                Vector2[]? NbRing(bool front) => HullProfile.NeighbourMask(c.M, front) is { } nm ? Oct(roofY, 1f, nm) : null;
+                if (nose) RoundedShoulders(mb, Oct(roofY, HullProfile.NoseTipScale, c.M, 0f), 0.05f, full, a, wrap ? skip | NoseGlassEdges : skip, true, false, null, null);
+                RoundedShoulders(mb, full, a, full, b, skip, !nose, !tail, nose ? null : NbRing(true), tail ? null : NbRing(false));
+                if (tail) RoundedShoulders(mb, full, b, Oct(roofY, HullProfile.TailScale, c.M), HullProfile.TailEnd, skip, false, true, null, null);
                 // The module on the other side of an open joint may square its section differently (a corner touching a module above, beside or below):
                 // where this module's section is the bigger one, a plate closes the step in the joint plane, so no daylight shows through the corners.
                 foreach (bool front in new[] { true, false })
@@ -714,6 +720,7 @@ public static partial class ModuleModels
         const float T = 0.2f;
         if (c.Has(Up)) roofY = HullProfile.H; // the walls of a module with another on top reach the floor above, so no slit runs round a stacked station
         float si = StationFace, y0 = 0.08f, h = roofY - y0;
+        float bev = glassRoof || openRear ? 0f : StationBevel(c, roofY); // the roof edge chamfer of an exposed side (ModuleModels.Round.cs), 0 when the roof stays flat
         // Walls: (axis 0 = a wall across X at the left/right, axis 1 = across Z at the front/rear), side 0 or 1
         for (int axis = 0; axis < 2; axis++)
             for (int side = 0; side < 2; side++)
@@ -728,8 +735,9 @@ public static partial class ModuleModels
                 if (!open)
                 {
                     bool windowed = axis == 0 && wins.Length > 0;
-                    if (windowed) SideWall(mb, pos, T, si, D - si, y0, roofY, wins);
-                    else mb.Block(P(4, y0 + h / 2), S(span, h));
+                    float top = roofY - bev; // an exposed wall stops where its roof chamfer starts
+                    if (windowed) SideWall(mb, pos, T, si, D - si, y0, top, wins);
+                    else mb.Block(P(4, y0 + (top - y0) / 2), S(span, top - y0));
                     foreach (var (z0, z1) in windowed ? Spans(0.45f, D - 0.45f, wins) : new[] { (0.45f, D - 0.45f) })
                     {
                         mb.C(c.Role).Block(P((z0 + z1) / 2, roofY * 0.5f), S(z1 - z0, 0.2f, 0.04f));
@@ -738,8 +746,9 @@ public static partial class ModuleModels
                     if (detail && !windowed)
                     {
                         mb.C(SlabLt);
+                        float pTop = MathF.Min(roofY - 0.35f, top - 0.1f), pHeight = pTop - 0.55f; // the raised panel stops under the chamfer
                         foreach (float sx in new[] { 2f, 6f })
-                            mb.Block(P(sx, roofY * 0.5f + 0.1f), S(3.3f, roofY - 0.9f, 0.03f));
+                            mb.Block(P(sx, 0.55f + pHeight / 2), S(3.3f, pHeight, 0.03f));
                     }
                 }
                 else
@@ -765,14 +774,21 @@ public static partial class ModuleModels
             }
             else
             {
-                mb.C(Slab).Block(new(4, roofY - T / 2, 4), new(W - 2 * si, T, D - 2 * si));
-                mb.C(c.Acc).Block(new(4, roofY + 0.005f, 4), new(W - 2 * si - 0.6f, 0.02f, 0.14f));
+                if (bev > 0f) BevelCap(mb, roofY, bev, si, T, !c.Has(Left), !c.Has(Right), !c.Has(Front), !c.Has(Rear));
+                else mb.C(Slab).Block(new(4, roofY - T / 2, 4), new(W - 2 * si, T, D - 2 * si));
+                float lineLen = W - 2 * si - 0.6f - (bev > 0f && !c.Has(Left) ? bev : 0f) - (bev > 0f && !c.Has(Right) ? bev : 0f); // the flat part is as much narrower as the chamfers cut
+                mb.C(c.Acc).Block(new(4, roofY + 0.005f, 4), new(lineLen, 0.02f, 0.14f));
                 if (detail)
                 {
                     mb.C(SlabLt);
                     foreach (float sx in new[] { 2f, 6f })
                         foreach (float sz in new[] { 2f, 6f })
-                            mb.Block(new(sx, roofY + 0.012f, sz), new(3.3f, 0.025f, 3.3f));
+                        {
+                            float px0 = MathF.Max(sx - 1.65f, si + (bev > 0f && !c.Has(Left) ? bev + 0.1f : 0f)), px1 = MathF.Min(sx + 1.65f, W - si - (bev > 0f && !c.Has(Right) ? bev + 0.1f : 0f));
+                            float pz0 = MathF.Max(sz - 1.65f, si + (bev > 0f && !c.Has(Front) ? bev + 0.1f : 0f)), pz1 = MathF.Min(sz + 1.65f, D - si - (bev > 0f && !c.Has(Rear) ? bev + 0.1f : 0f));
+                            if (px1 - px0 < 0.3f || pz1 - pz0 < 0.3f) continue;
+                            mb.Block(new((px0 + px1) / 2, roofY + 0.012f, (pz0 + pz1) / 2), new(px1 - px0, 0.025f, pz1 - pz0));
+                        }
                 }
             }
         }
@@ -852,22 +868,41 @@ public static partial class ModuleModels
             }
             else
             {
-                float t = 0.30f, x0 = t / 2, x1 = W - t / 2, y0 = 0.08f + t / 2, y1 = roofY - t / 2, z0 = t / 2, z1 = D - t / 2;
+                // Round tubes and ball nodes instead of square beams (ModuleModels.Round.cs): the same twelve box edges, never beyond them, so the frame only
+                // gets lighter at the corners. The slabs of the walls stand behind it, unchanged. Where the roof has a chamfer (StationBevel) the top rail of an
+                // exposed side runs along the foot of the slope and a diagonal tube follows each hip.
+                float t = 0.34f, r = t / 2 - 0.02f, x0 = t / 2, x1 = W - t / 2, y0 = 0.08f + r, y1 = roofY - t / 2, z0 = t / 2, z1 = D - t / 2;
+                float bev = StationBevel(c, roofY), foot = roofY - bev - 0.05f;
+                bool eL = bev > 0f && !c.Has(Left), eR = bev > 0f && !c.Has(Right), eF = bev > 0f && !c.Has(Front), eK = bev > 0f && !c.Has(Rear);
+                float CornerTop(bool lat, bool lon) => lat && lon ? foot : y1; // a corner whose two sides both have a chamfer ends at the foot of the slopes
                 mb.C(Dark);
                 foreach (float y in new[] { y0, y1 })
                     foreach (float z in new[] { z0, z1 })
-                        mb.Block(new((x0 + x1) / 2, y, z), new(x1 - x0 + t, t, t));
+                    {
+                        float yy = y == y1 && (z == z0 ? eF : eK) ? foot : y;
+                        Pipe(mb, new(x0, yy, z), new(x1, yy, z), r);
+                    }
                 foreach (float x in new[] { x0, x1 })
                     foreach (float z in new[] { z0, z1 })
-                        mb.Block(new(x, (y0 + y1) / 2, z), new(t, y1 - y0 + t, t));
+                        Pipe(mb, new(x, y0, z), new(x, CornerTop(x == x0 ? eL : eR, z == z0 ? eF : eK), z), r);
                 foreach (float x in new[] { x0, x1 })
                     foreach (float y in new[] { y0, y1 })
-                        mb.Block(new(x, y, (z0 + z1) / 2), new(t, t, z1 - z0 + t));
-                mb.C(c.Acc);
-                foreach (float x in new[] { x0, x1 })
-                    foreach (float y in new[] { y0, y1 })
+                    {
+                        float yy = y == y1 && (x == x0 ? eL : eR) ? foot : y;
+                        Pipe(mb, new(x, yy, z0), new(x, yy, z1), r);
+                    }
+                if (bev > 0f)
+                    foreach (float x in new[] { x0, x1 })
                         foreach (float z in new[] { z0, z1 })
-                            mb.Block(new(x, y, z), new(t + 0.06f, t + 0.06f, t + 0.06f));
+                            if ((x == x0 ? eL : eR) && (z == z0 ? eF : eK))
+                                Pipe(mb, new(x, foot, z), new(x == x0 ? x0 + bev : x1 - bev, y1, z == z0 ? z0 + bev : z1 - bev), r * 0.8f); // the hip
+                mb.At(default).C(c.Acc);
+                foreach (float x in new[] { x0, x1 })
+                    foreach (float z in new[] { z0, z1 })
+                    {
+                        mb.Sphere(new(x, y0, z), new(t / 2, t / 2, t / 2), 3, 8);
+                        mb.Sphere(new(x, CornerTop(x == x0 ? eL : eR, z == z0 ? eF : eK), z), new(t / 2, t / 2, t / 2), 3, 8);
+                    }
             }
         });
     }
@@ -1160,10 +1195,8 @@ public static partial class ModuleModels
             {
                 if (s < 0 ? c.Has(Left) : c.Has(Right)) continue;
                 float x0 = s < 0 ? leftRoot : rightRoot, x1 = s < 0 ? -1.9f : W + 1.9f;
-                // a swept stub wing: a plate in the trim colour with a role-colour tip
-                mb.C(White).Extrude(new[] { new Vector2(x0, 1.2f), new Vector2(x1, 4.9f), new Vector2(x1, 6.0f), new Vector2(x0, 6.6f) }, y, y + th);
-                mb.C(c.Acc).Extrude(new[] { new Vector2(x1 - s * 0.03f, 4.9f), new Vector2(x1 + s * 0.015f, 4.9f), new Vector2(x1 + s * 0.015f, 6.0f), new Vector2(x1 - s * 0.03f, 6.0f) }, y - 0.02f, y + th + 0.02f);
-                mb.C(c.Role).Block(new(x1, y + 0.05f, 5.45f), new(0.16f, 0.2f, 1.2f));
+                // a swept wing (ModuleModels.Round.cs): a tapered plate with a clipped tip, a bevelled leading edge and a canted winglet at the tip
+                SweptWing(mb, c, s, x0, x1, y, th);
             }
         });
     }
@@ -1192,6 +1225,7 @@ public static partial class ModuleModels
                         continue;
                     }
                     mb.C(Steel).Beam(new(xw, y, 4f), new(xw + dir * 1.6f, y, 4f), 0.16f);
+                    mb.Beam(new(xw - dir * 0.04f, y - 1.05f, 4f), new(xw + dir * 1.45f, y - 0.06f, 4f), 0.1f); // a diagonal strut from the wall up to the boom
                     mb.Block(new(xw + dir * 1.6f, y, 4f), new(0.14f, 0.14f, 6.4f));
                     foreach (float z in new[] { 1.9f, 6.1f })
                     {
@@ -1501,6 +1535,7 @@ public static partial class ModuleModels
             // a bell: mount flange, gimbal collar, then three stepped frusta that flare to a lip (16 sides), with cooling rings, a dark throat and a heat ring
             var bell = new Color(0.20f, 0.22f, 0.28f);
             ZPrism(mb, x, y, 5.1f, 1.05f, 1.05f, 0.4f, 16, Panel);
+            ZPrism(mb, x, y, 6.02f, 1.27f, 0.97f, 0.42f, 16, Panel); // a boat-tail cowl: the tail plate blends into the bell (ModuleModels.Round.cs)
             ZPrism(mb, x, y, 5.45f, 1.16f, 1.16f, 0.14f, 16, c.Acc);
             ZPrism(mb, x, y, 5.55f, 0.8f, 0.92f, 0.5f, 16, bell);
             ZPrism(mb, x, y, 6.0f, 0.92f, 1.1f, 0.5f, 16, bell);
