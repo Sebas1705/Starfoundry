@@ -201,6 +201,14 @@ public partial class MenuScreen : Control
         hint.Text = Loc.T("menu.hint");
         hint.HorizontalAlignment = HorizontalAlignment.Center;
         _body.AddChild(hint);
+        if (_titleKey == "menu.title")
+        {
+            var ver = UiKit.Text(11, new Color(0.5f, 0.56f, 0.68f));
+            ver.Name = "VersionLabel";
+            ver.Text = Loc.T("credits.version", BuildInfo.Version);
+            ver.HorizontalAlignment = HorizontalAlignment.Center;
+            _body.AddChild(ver);
+        }
     }
 
     private KeyBindingsPage? _keysPage;

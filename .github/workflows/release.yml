@@ -1,0 +1,149 @@
+name: Release
+
+# Builds the Windows exe, the portable zip and the installer on a GitHub-hosted Windows runner (never the self-hosted PC) and uploads them
+# as workflow artifacts. A pushed tag vX.Y.Z also creates a DRAFT GitHub Release holding the same files; nothing is ever published
+# automatically: the owner reviews the draft and presses Publish. See docs/release.md.
+#
+# Not part of the required `build-and-test` gate of ci.yml, which stays untouched.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: Windows exe, zip and installer
+    runs-on: windows-latest
+    timeout-minutes: 60
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    env:
+      # Downloaded tools (portable Godot) are cached here; the export templates live in %APPDATA%\Godot\export_templates.
+      SF_TOOLS_DIR: ${{ github.workspace }}\.cache\tools
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read the version
+        id: version
+        shell: pwsh
+        run: |
+          $v = (Get-Content VERSION -TotalCount 1).Trim()
+          if ($v -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') { throw "VERSION is not a semantic version: '$v'" }
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$v") {
+            throw "The tag $env:GITHUB_REF_NAME does not match the VERSION file (v$v). Fix VERSION, then tag again."
+          }
+          "version=$v" >> $env:GITHUB_OUTPUT
+          "Building Starfoundry $v"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~\.nuget\packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'Directory.Build.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Cache portable Godot
+        uses: actions/cache@v4
+        with:
+          path: .cache\tools
+          key: godot-${{ runner.os }}-${{ hashFiles('game/Starfoundry.Game.csproj') }}
+
+      - name: Cache Godot export templates
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Roaming\Godot\export_templates
+          key: godot-templates-${{ runner.os }}-${{ hashFiles('game/Starfoundry.Game.csproj') }}
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Test simulation (fast tier)
+        run: dotnet test -c Release --no-restore --filter "Tier!=Slow"
+
+      # Exports the game, stamps icon and version, smoke-tests the export, zips it, compiles the installer and installs/uninstalls it
+      # silently in a temp folder. The three -Install switches only download what is missing (Godot, templates: official godot-builds
+      # release, size and SHA-512 verified; Inno Setup: winget/choco), so cache hits download nothing.
+      # -Sign does nothing unless the SF_SIGN_* secrets below exist (see docs/release.md); without them the artifacts are unsigned.
+      - name: Build, package, smoke-test and test the installer
+        shell: powershell
+        env:
+          SF_SIGN_AZURE_ENDPOINT: ${{ secrets.SF_SIGN_AZURE_ENDPOINT }}
+          SF_SIGN_AZURE_ACCOUNT: ${{ secrets.SF_SIGN_AZURE_ACCOUNT }}
+          SF_SIGN_AZURE_PROFILE: ${{ secrets.SF_SIGN_AZURE_PROFILE }}
+          SF_SIGN_DLIB: ${{ secrets.SF_SIGN_DLIB }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          SF_SIGN_PFX_BASE64: ${{ secrets.SF_SIGN_PFX_BASE64 }}
+          SF_SIGN_PFX_PASSWORD: ${{ secrets.SF_SIGN_PFX_PASSWORD }}
+        run: .\tools\release\build-windows.ps1 -InstallGodot -InstallTemplates -InstallInnoSetup -TestInstaller -Sign
+
+      - name: Collect the release files
+        shell: pwsh
+        run: |
+          $v = '${{ steps.version.outputs.version }}'
+          New-Item -ItemType Directory -Force release | Out-Null
+          Copy-Item "artifacts/windows/Starfoundry-$v-windows-x64.zip" release/
+          Copy-Item "artifacts/installer/Starfoundry-$v-setup.exe" release/
+          # One checksums file for the release page, covering both files.
+          $lines = Get-ChildItem release -File | ForEach-Object { '{0} *{1}' -f (Get-FileHash -Algorithm SHA256 $_.FullName).Hash.ToLowerInvariant(), $_.Name }
+          [IO.File]::WriteAllText("$PWD/release/SHA256SUMS.txt", (($lines -join "`n") + "`n"))
+          Get-Content release/SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: starfoundry-${{ steps.version.outputs.version }}-windows
+          path: release/*
+          if-no-files-found: error
+          retention-days: 30
+
+  # Only for tags: a DRAFT release with the same files. Publishing it is a manual decision.
+  draft-release:
+    name: Draft GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: windows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: starfoundry-${{ needs.windows.outputs.version }}-windows
+          path: release
+
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.windows.outputs.version }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          # Release notes: the matching section of CHANGELOG.md, or a pointer when the section has not been written yet.
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then echo "See CHANGELOG.md for the changes in $VERSION." > notes.md; fi
+          {
+            echo
+            echo "Files: \`Starfoundry-$VERSION-setup.exe\` (installer, per-user, no admin rights) and \`Starfoundry-$VERSION-windows-x64.zip\` (portable). SHA-256 sums are in \`SHA256SUMS.txt\`."
+            echo "Unless the release says otherwise these files are not code-signed, so Windows SmartScreen may warn on first run."
+          } >> notes.md
+          flags=""
+          case "$VERSION" in *-*) flags="--prerelease";; esac
+          gh release create "$TAG" --draft --verify-tag $flags --title "Starfoundry $VERSION" --notes-file notes.md release/*

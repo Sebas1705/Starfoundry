@@ -26,6 +26,7 @@ public partial class MainMenu : Control
     public override void _Ready()
     {
         var args = OS.GetCmdlineUserArgs();
+        GetWindow().Title = BuildInfo.WindowTitle;
         UiFx.Install(this); // hover, press and click feedback for every button of every screen
         if (AudioTest.Handle(GetTree(), args)) return;
         AudioManager.Enabled = !AudioFlags.IsSilent(args);
@@ -34,7 +35,7 @@ public partial class MainMenu : Control
         // --content=path only says where core.json is; it does not make the run scripted.
         _rebindShotPath = args.FirstOrDefault(a => a.StartsWith("--rebind-shot="))?["--rebind-shot=".Length..];
         _newGameShotPath = args.FirstOrDefault(a => a.StartsWith("--newgame-shot="))?["--newgame-shot=".Length..];
-        if (args.Any(a => !a.StartsWith("--menu-shot=") && !a.StartsWith("--newgame-shot=") && a != "--ui-audit-menu" && !a.StartsWith("--rebind-shot=") && !a.StartsWith("--audit-sizes=") && !a.StartsWith("--audit-shots=") && !a.StartsWith(ContentLocator.ContentFlag) && !a.StartsWith("--ui-lang=") && a != "--agent"))
+        if (args.Any(a => !a.StartsWith("--menu-shot=") && !a.StartsWith("--newgame-shot=") && a != "--ui-audit-menu" && !a.StartsWith("--rebind-shot=") && !a.StartsWith("--audit-sizes=") && !a.StartsWith("--audit-shots=") && !a.StartsWith(ContentLocator.ContentFlag) && !a.StartsWith("--ui-lang=") && a != "--agent" && a != SelfCheckFlag))
         {
             Launch.Mode = Launch.Intent.New;
             CallDeferred(MethodName.StartGame);
@@ -45,6 +46,11 @@ public partial class MainMenu : Control
         if (args.Contains("--ui-lang=es")) Loc.Lang = Language.Es;
         if (args.Contains("--ui-lang=en")) Loc.Lang = Language.En;
         _content = ContentSource.Load(args, out var contentLookup, out string? contentError);
+        if (args.Contains(SelfCheckFlag))
+        {
+            RunSelfCheck(_content, contentLookup.Path, contentError);
+            return;
+        }
         if (_content is null)
         {
             ContentSource.ShowError(this, contentLookup, contentError);
