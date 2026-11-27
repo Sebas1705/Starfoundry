@@ -4,7 +4,7 @@ using Xunit;
 
 namespace Starfoundry.Sim.Tests;
 
-/// <summary>The save slots (ADR 0047): the container, the folder (atomic writes, rotation, rename, duplicate, delete), the migration of the old single files, the checkpoint watcher and the list.</summary>
+/// <summary>The save slots (ADR 0049): the container, the folder (atomic writes, rotation, rename, duplicate, delete), the migration of the old single files, the checkpoint watcher and the list.</summary>
 public class SaveFilesTests : IDisposable
 {
     private static readonly ContentDb C = TestContent.Core;

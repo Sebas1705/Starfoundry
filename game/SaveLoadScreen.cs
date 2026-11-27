@@ -7,7 +7,7 @@ using Starfoundry.Ui;
 namespace Starfoundry.Game;
 
 /// <summary>
-/// The Save/Load screen (ADR 0047): every file of the saves folder as a row (name, kind, game, difficulty, seed, game time, wave, system, play time,
+/// The Save/Load screen (ADR 0049): every file of the saves folder as a row (name, kind, game, difficulty, seed, game time, wave, system, play time,
 /// date), filters (all, mine, checkpoints, this game only) and a sort, a detail pane with the screenshot and the facts, and the actions Load,
 /// Overwrite, Rename, Duplicate and Delete, each destructive one behind a confirmation. In a running game it also has the "save as new" row; from the
 /// main menu it only loads. The screen never writes a game itself: the host does (events), and calls <see cref="Refresh"/> afterwards.

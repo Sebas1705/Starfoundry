@@ -8,7 +8,7 @@ using Starfoundry.Ui;
 namespace Starfoundry.Game;
 
 /// <summary>
-/// The player's saves folder for the running game (ADR 0047): <c>user://saves</c> opened as a <see cref="SaveFolder"/> (all the logic is engine-free), prepared
+/// The player's saves folder for the running game (ADR 0049): <c>user://saves</c> opened as a <see cref="SaveFolder"/> (all the logic is engine-free), prepared
 /// once per run (leftover temporary files removed, the single-file saves of older versions wrapped into slots), plus the few things that need the engine: the
 /// screenshot of a save, the settings entry that remembers the slot used last, and the check of a save against the loaded content.
 /// Scripted runs (shots, audits, benchmarks) write to <c>user://saves-scripted</c> instead, so they never touch the player's saves.

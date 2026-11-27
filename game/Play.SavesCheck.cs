@@ -9,7 +9,7 @@ using Starfoundry.Ui;
 namespace Starfoundry.Game;
 
 /// <summary>
-/// <c>--saves-check [--ui-lang=es|en]</c>: the headless check of the save slots in the real game scene (ADR 0047). It uses a throwaway saves folder
+/// <c>--saves-check [--ui-lang=es|en]</c>: the headless check of the save slots in the real game scene (ADR 0049). It uses a throwaway saves folder
 /// (<c>user://saves-check</c>) and prints <c>SAVESCHECK PASS|FAIL</c> lines and <c>SAVESCHECK RESULT fails=N</c>; the exit code is 1 on any failure. It covers:
 /// writing and loading a manual, a quick and an automatic save and the checksum after the replay; the ring of checkpoints; the end screen's target; the screen's
 /// named nodes and its flows (a name that exists is not overwritten by accident, Overwrite and Delete ask first and No changes nothing, rename, duplicate);

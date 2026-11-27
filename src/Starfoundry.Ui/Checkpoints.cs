@@ -4,7 +4,7 @@ namespace Starfoundry.Ui;
 public readonly record struct CheckpointSample(bool Docked, bool WaveWarning, int System, int Stations, int Researched);
 
 /// <summary>
-/// Decides when the game takes an automatic checkpoint (ADR 0047). A checkpoint is a normal save written without the player asking, at a moment worth
+/// Decides when the game takes an automatic checkpoint (ADR 0049). A checkpoint is a normal save written without the player asking, at a moment worth
 /// coming back to: <b>a wave about to arrive</b> (its warning starts), <b>a station founded</b>, <b>a research finished</b>, <b>docking</b>, <b>right before
 /// a jump</b> (asked for explicitly), and <b>every five minutes</b> when nothing else happened. Events never write more often than <see cref="MinGapSeconds"/>:
 /// an event that comes sooner waits (the highest-priority one of the burst) and is written when the gap is over, or dropped after <see cref="PendingSeconds"/>.

@@ -81,7 +81,7 @@ public sealed record GameSettings
     /// <summary>Legacy: the goal-waves slider of older versions. It is still parsed and written so an old settings file round-trips, but no screen shows it and no game reads it: the difficulty preset or scenario (<c>WorldRules.GoalWaves</c>) decides the goal.</summary>
     public int GoalWaves { get; init; } = GoalSettings.DefaultWaves;
 
-    /// <summary>The id of the save slot used last (saved, loaded or continued), so Continue goes back to it (ADR 0047). Empty when none; an id that no longer exists is ignored by the menu.</summary>
+    /// <summary>The id of the save slot used last (saved, loaded or continued), so Continue goes back to it (ADR 0049). Empty when none; an id that no longer exists is ignored by the menu.</summary>
     public string LastSave { get; init; } = "";
 
     /// <summary>The player's key overrides (<c>bind.actionId=KEY1,KEY2</c> in the file), only for the actions that differ from the defaults. See <see cref="KeyBindingEditor"/>.</summary>

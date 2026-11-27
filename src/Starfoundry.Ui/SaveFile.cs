@@ -18,7 +18,7 @@ public sealed class SaveFileException : IOException
 public sealed record SaveParts(SaveMeta Meta, byte[] Thumbnail, string Goals, byte[] Payload);
 
 /// <summary>
-/// The container of one save slot (ADR 0047): <c>SFSL</c>, a format byte, then length-prefixed blocks (metadata text, thumbnail, goals text, the
+/// The container of one save slot (ADR 0049): <c>SFSL</c>, a format byte, then length-prefixed blocks (metadata text, thumbnail, goals text, the
 /// <c>SaveGame</c> bytes) and a SHA-256 of everything before it. The checksum makes a truncated or edited file recognisable without replaying it.
 /// The payload is exactly what <c>SaveGame.Write</c> produces, so replaying a slot is the same code as before. Files written by older versions
 /// (a bare <c>SFSV</c> save) are recognised by <see cref="IsLegacy"/> and wrapped once by the migration.

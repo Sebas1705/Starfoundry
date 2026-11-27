@@ -8,7 +8,7 @@ using Starfoundry.Ui;
 namespace Starfoundry.Game;
 
 /// <summary>
-/// Saving and loading in the game scene (ADR 0047). A save is a slot file of the saves folder: the replayable command log plus what the Save/Load screen shows
+/// Saving and loading in the game scene (ADR 0049). A save is a slot file of the saves folder: the replayable command log plus what the Save/Load screen shows
 /// (name, kind, game, difficulty, seed, game time, wave, system, play time, date, a screenshot) and the goals sidecar of a scenario game. Four kinds:
 /// <b>manual</b> (named by the player, on the Save/Load screen), <b>quick</b> (F5 writes its own slot, F9 loads it), <b>checkpoint</b> (automatic, at a moment
 /// worth coming back to, a ring of the newest few per game: see <see cref="CheckpointWatcher"/>) and <b>victory</b>. Loading any of them replays the log

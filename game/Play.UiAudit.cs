@@ -110,7 +110,7 @@ public partial class Play
             if (_inventory?.FindSlot(ContainerRef.Person, _content.ItemIndex("core:iron_ore")) is { } slot) _inventory.AskBinFor(slot);
         }));
         s.Add(("designer", () => { CloseAllPanels(); _designer?.Open(); }));
-        // The Save/Load screen (ADR 0047) on the fixture saves: the list with every kind of row, the detail of a damaged file, of other content, of a checkpoint,
+        // The Save/Load screen (ADR 0049) on the fixture saves: the list with every kind of row, the detail of a damaged file, of other content, of a checkpoint,
         // the filters, and each dialog (load, delete, rename). Opened from the game, so the save-as-new row and the Overwrite button are there.
         s.Add(("saves.save", () => { CloseAllPanels(); OpenSaves(SavesReturn.Game); }));
         s.Add(("saves.save.checkpoint", () => _savesScreen?.SelectForTest("auto-1")));

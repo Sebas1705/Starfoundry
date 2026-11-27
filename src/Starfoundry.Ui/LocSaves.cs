@@ -1,6 +1,6 @@
 namespace Starfoundry.Ui;
 
-/// <summary>Spanish and English text of the save slots (ADR 0047): the Save/Load screen, checkpoints, the pause and end screens' buttons and the reasons a save cannot be loaded. Merged into <see cref="Loc"/>'s table (and overriding the one-slot wording of older keys).</summary>
+/// <summary>Spanish and English text of the save slots (ADR 0049): the Save/Load screen, checkpoints, the pause and end screens' buttons and the reasons a save cannot be loaded. Merged into <see cref="Loc"/>'s table (and overriding the one-slot wording of older keys).</summary>
 public static partial class Loc
 {
     private static readonly Dictionary<string, (string Es, string En)> SavesTable = new()
