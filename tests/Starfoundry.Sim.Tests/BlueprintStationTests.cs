@@ -58,7 +58,7 @@ public class BlueprintStationTests
         w.Step();
         CommandCodec.WriteLog(ms, w.Log, C.Hash, GameMode.Campaign, Seed, threats: false, structures: true);
         var bytes = ms.ToArray();
-        Assert.Equal(27, bytes[4]);
+        Assert.Equal(28, bytes[4]);
         var back = CommandCodec.ReadLog(new MemoryStream(bytes), out _, out _, out _, out _, out _, out _, out var rules);
         Assert.False(rules.LegacyBlueprint);
         var read = Assert.IsType<ApplyBlueprint>(back.Single().Command);

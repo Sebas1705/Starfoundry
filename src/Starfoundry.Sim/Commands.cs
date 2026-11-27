@@ -352,6 +352,9 @@ public enum Reject
 
     /// <summary>The face cannot carry a docking collar (ADR 0047): there is no module there, its kind cannot host one, or the face is not a horizontal one.</summary>
     BadDockPiece,
+
+    /// <summary>A machine footprint (ADR 0050) would leave the floor of its module or reach a cell no module covers.</summary>
+    FootprintBlocked,
 }
 
 /// <summary>Outcome of one submitted command.</summary>

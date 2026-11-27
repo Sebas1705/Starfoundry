@@ -612,9 +612,46 @@ public partial class Play
         Check("floor: the smelter has its recipe", read.Machines.Any(m => m.Type == _content.MachineIndex("core:smelter") && m.Recipe == _content.RecipeIndex("core:smelt_iron")));
         Check("floor: the editor reloaded the applied interior", !s.Dirty && s.Interior.Machines.Count == 2 && !s.CanApply);
         Check("floor: placing a machine in the world is refused", Net.InteriorBlueprintRules);
+        BlueprintCheckFootprints();
         ed.CloseFloor();
         Check("floor: back to the 3D plan", !ed.FloorOpenNow);
         _bpWait = 0; _bpPhase = 13;
+    }
+
+    /// <summary>The multi-cell machines of ADR 0050 on the open floor plan: the palette, the footprint ghost, turning, the cells a machine covers, erasing it from any of them and undo.</summary>
+    private void BlueprintCheckFootprints()
+    {
+        var ed = _blueprint!;
+        var s = ed.Session;
+        var core = s.FloorModule!.Value;
+        int large = _content.MachineIndex("core:large_smelter"), plus = _content.MachineIndex("core:reactor_core");
+        Net.GrantResearch(_content.ResearchIndex("core:heavy_industry")); // the check world is a campaign one: the machines unlock with this research
+        Check("footprint: the palette lists the four multi-cell machines", new[] { "core:large_smelter", "core:long_assembler", "core:l_fabricator", "core:reactor_core" }.All(id => ed.FindChild("FloorMachine_" + id.Replace(':', '_'), true, false) is Button));
+        Check("footprint: the turn button exists", ed.FindChild("FloorTurn", true, false) is Button);
+        int before = s.Interior.Machines.Count;
+        s.PickPlanMachine(large);
+        Check("footprint: a footprint that crosses the module edge is refused with a reason", s.Interior.FootprintProblem(FloorCell(core.Mx, core.Mz, 7, 5), large, 0) == PlanReasons.Footprint);
+        ed.FloorClick(FloorCell(core.Mx, core.Mz, 5, 5));
+        Check("footprint: the large smelter is placed on four cells", s.Interior.Machines.Count == before + 1 && new[] { (5, 5), (6, 5), (5, 6), (6, 6) }.All(c => s.Interior.MachineAt(FloorCell(core.Mx, core.Mz, c.Item1, c.Item2)) is not null));
+        Check("footprint: the simulation agrees with the plan", s.Report.Ok, s.Report.Reject.ToString());
+        s.SetPlanTool(PlanTool.Select);
+        ed.FloorClick(FloorCell(core.Mx, core.Mz, 6, 6));
+        Check("footprint: a click on any covered cell selects the machine", s.PlanSelection is not null && s.Interior.MachineAt(s.PlanSelection.Value) is { } m0 && m0.Type == large);
+        ed.RunAction("bpRotate", 0);
+        var turned = s.Interior.MachineAt(FloorCell(core.Mx, core.Mz, 5, 5));
+        Check("footprint: the rotate key turns the machine a quarter turn", turned is { Turn: 1 } && s.Report.Ok && new[] { (5, 5), (4, 5), (5, 6), (4, 6) }.All(c => s.Interior.MachineAt(FloorCell(core.Mx, core.Mz, c.Item1, c.Item2)) is not null), s.Report.Reject.ToString());
+        s.PickPlanMachine(plus);
+        ed.RunAction("bpRotate", 0);
+        Check("footprint: with the Machine tool the key turns the next one", s.PlanTurn >= 0);
+        Check("footprint: a turned machine and the ghost have the same cells", s.Interior.FootprintProblem(FloorCell(core.Mx, core.Mz, 1, 1), plus, s.PlanTurn) is null);
+        s.SetPlanTool(PlanTool.Erase);
+        ed.FloorClick(FloorCell(core.Mx, core.Mz, 4, 6));
+        Check("footprint: erasing any covered cell removes the whole machine", s.Interior.Machines.Count == before && s.Interior.MachineAt(FloorCell(core.Mx, core.Mz, 5, 5)) is null);
+        s.Interior.Undo();
+        Check("footprint: undo brings it back whole", s.Interior.Machines.Count == before + 1 && s.Interior.MachineAt(FloorCell(core.Mx, core.Mz, 4, 5)) is not null);
+        for (int i = 0; i < 5 && s.Interior.Machines.Count > before; i++) s.Interior.Undo();
+        s.SetPlanTool(PlanTool.Select);
+        Check("footprint: the draft is back to the applied plan", s.Interior.Machines.Count == before && !s.Interior.Dirty);
     }
 
     // ---- the saved designs and the walkthrough section of --blueprint-check (phase 5) ---------------------------------------

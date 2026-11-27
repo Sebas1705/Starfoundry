@@ -27,7 +27,7 @@ public sealed partial class BeltNetwork
     }
 
     /// <summary>Adds a machine of a content type, optionally with a recipe (-1 for none).</summary>
-    public int AddMachine(int x, int y, int z, int type, int recipe, int owner = -1, int structure = 0)
+    public int AddMachine(int x, int y, int z, int type, int recipe, int owner = -1, int structure = 0, int turn = 0)
     {
         CheckLocal(structure, x, y, z);
         var content = Content ?? throw new InvalidOperationException("The network has no content.");
@@ -35,7 +35,7 @@ public sealed partial class BeltNetwork
         CheckRecipe(type, recipe);
 
         int id = _machines.Count;
-        _machines.Add(new Machine(id, x, y, z, type, content.Items.Count, structure) { Recipe = recipe, Owner = owner, Hp = MaxHp(type) });
+        _machines.Add(new Machine(id, x, y, z, type, content.Items.Count, structure, turn & 3) { Recipe = recipe, Owner = owner, Hp = MaxHp(type) });
         _machinesAlive++;
         StructureVersion++;
         return id;
@@ -140,7 +140,7 @@ public sealed partial class BeltNetwork
     {
         var m = GetMachine(id);
         return new MachineInfo(m.Id, m.X, m.Y, m.Z, m.Type, m.Recipe, m.Crafting, m.Remaining, m.HeldInputs, m.HeldOutputs, m.Deposit,
-            m.Hp, m.TurretCooldown, m.Structure);
+            m.Hp, m.TurretCooldown, m.Structure, m.Turn);
     }
 
     private Machine GetMachine(int id)
@@ -298,6 +298,7 @@ public sealed partial class BeltNetwork
         {
             if (m is null) { mix(-1); continue; }
             mix(m.Id); mix(m.X); mix(m.Y); mix(m.Z); mix(m.Type); mix(m.Recipe); mix(m.Deposit); mix(m.Owner); mix(m.Hp); mix(m.TurretCooldown);
+            if (m.Turn != 0) mix(-700 - m.Turn); // a turned footprint (ADR 0050); worlds without turns hash as before
             if (m.Structure != 0) mix(m.Structure); // mixed only when non-zero so worlds without structures hash as before
             if (StructureRules && m.Structure != 0) mix(m.PowerCredit);
             mix(m.Crafting ? 1 : 0); mix(m.Remaining);

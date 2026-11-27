@@ -1744,11 +1744,12 @@ public partial class Play
             if (!Net.IsMachineAlive(id)) continue;
             var m = Net.GetMachineInfo(id);
             var (lo, ld) = AimInStruct(m.Structure); // the ray in the machine structure frame
-            if (RayHitsBox(lo, ld, new Vector3(m.X, m.Y, m.Z), out float tb) && tb < best)
-            {
-                best = tb;
-                _hover = new Hover(HoverKind.Machine, id, MachineSummary(id));
-            }
+            foreach (var (fx, fz) in _content.Machines[m.Type].Cells(m.Turn)) // every cell of a multi-cell footprint (ADR 0050)
+                if (RayHitsBox(lo, ld, new Vector3(m.X + fx, m.Y, m.Z + fz), out float tb) && tb < best)
+                {
+                    best = tb;
+                    _hover = new Hover(HoverKind.Machine, id, MachineSummary(id));
+                }
         }
         // Belts: the ray against the box of each segment, at any layer and from any side (the build plane only finds the cell it crosses).
         for (int id = 0; id < Net.SegmentIdLimit; id++)

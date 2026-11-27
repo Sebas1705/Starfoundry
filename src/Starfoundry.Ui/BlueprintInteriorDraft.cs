@@ -8,6 +8,8 @@ public readonly record struct DraftLink(BlueprintLinkKind Kind, (int X, int Y, i
 /// <summary>Why the floor plan refuses to put a part somewhere: the Loc key shown as the ghost's reason.</summary>
 public static class PlanReasons
 {
+    /// <summary>A machine footprint (ADR 0050) would leave the floor of its module.</summary>
+    public const string Footprint = "bp.plan.footprint";
     public const string NoModule = "bp.plan.noModule", NotFloor = "bp.plan.notFloor", NotAllowed = "bp.plan.notAllowed", Occupied = "bp.plan.occupied", Locked = "bp.plan.locked", Gap = "bp.plan.gap", Bounds = "bp.plan.bounds", Many = "bp.plan.many";
 }
 
@@ -173,8 +175,22 @@ public sealed class InteriorDraft
 
     // ---- what is where -----------------------------------------------------------------------------------------------
 
-    /// <summary>The machine at a cell, if any.</summary>
-    public BlueprintMachine? MachineAt((int X, int Y, int Z) cell) => _machines.TryGetValue(cell, out var m) ? m : null;
+    /// <summary>The cells a machine of the draft covers (its footprint, turned; ADR 0050).</summary>
+    public IEnumerable<(int X, int Y, int Z)> CellsOf(BlueprintMachine m)
+    {
+        foreach (var (dx, dz) in _content.Machines[m.Type].Cells(m.Turn)) yield return (m.X + dx, m.Y, m.Z + dz);
+    }
+
+    /// <summary>The machine that covers a cell (any cell of its footprint), if any.</summary>
+    public BlueprintMachine? MachineAt((int X, int Y, int Z) cell)
+    {
+        if (_machines.TryGetValue(cell, out var m)) return m;
+        foreach (var o in _machines.Values)
+            if (_content.Machines[o.Type].IsMultiCell && CellsOf(o).Contains(cell)) return o;
+        return null;
+    }
+
+    private bool TouchesMachine(BlueprintMachine m, (int X, int Y, int Z) c) => CellsOf(m).Any(k => Touch(k, c));
 
     /// <summary>The belt segment that covers a cell, if any.</summary>
     public BlueprintBelt? BeltAt((int X, int Y, int Z) cell)
@@ -188,7 +204,7 @@ public sealed class InteriorDraft
         return null;
     }
 
-    public bool IsFree((int X, int Y, int Z) cell) => !_machines.ContainsKey(cell) && BeltAt(cell) is null;
+    public bool IsFree((int X, int Y, int Z) cell) => MachineAt(cell) is null && BeltAt(cell) is null;
 
     /// <summary>Why a belt or machine may not go on a cell, or null when it may: the module under it must exist and allow it, the cell must be on the floor and free.</summary>
     public string? PlaceProblem((int X, int Y, int Z) cell, bool belt, MachineRole role = MachineRole.Crafter)
@@ -210,18 +226,56 @@ public sealed class InteriorDraft
     // ---- edits ---------------------------------------------------------------------------------------------------------
 
     /// <summary>Puts a machine on a cell and links it to what touches it. Returns the reason it was refused, or null.</summary>
-    public string? PlaceMachine((int X, int Y, int Z) cell, int type, int recipe = -1)
+    public string? PlaceMachine((int X, int Y, int Z) cell, int type, int recipe = -1, int turn = 0)
     {
         if (!_content.IsMachine(type)) return PlanReasons.NotAllowed;
         var def = _content.Machines[type];
         if (def.Role is MachineRole.Ship or MachineRole.Drill) return PlanReasons.NotAllowed;
-        if (PlaceProblem(cell, belt: false, def.Role) is { } why) return why;
+        if (FootprintProblem(cell, type, turn) is { } why) return why;
         if (PartCount >= BlueprintInterior.MaxParts) return PlanReasons.Many;
         Push();
-        _machines[cell] = new BlueprintMachine(cell.X, cell.Y, cell.Z, type, recipe);
+        _machines[cell] = new BlueprintMachine(cell.X, cell.Y, cell.Z, type, recipe, def.IsMultiCell ? turn & 3 : 0);
         LinkMachine(cell);
         Done();
         return null;
+    }
+
+    /// <summary>
+    /// Why a machine of <paramref name="type"/>, turned <paramref name="turn"/> quarter turns, may not have its anchor on <paramref name="cell"/> (every covered cell must be free floor of
+    /// one module, ADR 0050), or null when it may. <paramref name="ignore"/> is a machine of the draft that is being turned and so does not block itself.
+    /// </summary>
+    public string? FootprintProblem((int X, int Y, int Z) cell, int type, int turn, BlueprintMachine? ignore = null)
+    {
+        var def = _content.Machines[type];
+        var anchorModule = StationGrid.ModuleOfCell(cell.X, cell.Y, cell.Z);
+        foreach (var (dx, dz) in def.Cells(turn))
+        {
+            var c = (X: cell.X + dx, Y: cell.Y, Z: cell.Z + dz);
+            if (StructureGrid.InLocalBounds(c.X) && StructureGrid.InLocalBounds(c.Z) && StationGrid.ModuleOfCell(c.X, c.Y, c.Z) != anchorModule) return PlanReasons.Footprint;
+            if (ignore is { } ig && CellsOf(ig).Contains(c))
+            {
+                // the machine being turned does not block itself, but a belt on the cell still does
+                if (BeltAt(c) is not null) return PlanReasons.Occupied;
+                continue;
+            }
+            if (PlaceProblem(c, belt: false, def.Role) is { } why) return why;
+        }
+        return null;
+    }
+
+    /// <summary>Turns the machine on a cell by a quarter turn about its anchor when the turned footprint fits (one undoable step). False when it does not fit or the machine has one cell.</summary>
+    public bool TurnMachine((int X, int Y, int Z) cell)
+    {
+        if (MachineAt(cell) is not { } m || !_content.Machines[m.Type].IsMultiCell) return false;
+        int turn = (m.Turn + 1) & 3;
+        if (FootprintProblem((m.X, m.Y, m.Z), m.Type, turn, m) is not null) return false;
+        var key = (m.X, m.Y, m.Z);
+        Push();
+        _machines[key] = m with { Turn = turn };
+        _links.RemoveWhere(l => (l.Kind == BlueprintLinkKind.BeltToMachine && l.To == key) || (l.Kind == BlueprintLinkKind.MachineToBelt && l.From == key));
+        LinkMachine(key);
+        Done();
+        return true;
     }
 
     /// <summary>
@@ -299,11 +353,12 @@ public sealed class InteriorDraft
     /// <summary>Removes the machine or the belt segment on a cell, with its links. Returns false when there is nothing there.</summary>
     public bool Erase((int X, int Y, int Z) cell)
     {
-        if (_machines.ContainsKey(cell))
+        if (MachineAt(cell) is { } hit)
         {
+            var anchor = (hit.X, hit.Y, hit.Z);
             Push();
-            _machines.Remove(cell);
-            _links.RemoveWhere(l => (l.Kind == BlueprintLinkKind.BeltToMachine && l.To == cell) || (l.Kind == BlueprintLinkKind.MachineToBelt && l.From == cell));
+            _machines.Remove(anchor);
+            _links.RemoveWhere(l => (l.Kind == BlueprintLinkKind.BeltToMachine && l.To == anchor) || (l.Kind == BlueprintLinkKind.MachineToBelt && l.From == anchor));
             Done();
             return true;
         }
@@ -322,7 +377,8 @@ public sealed class InteriorDraft
     /// <summary>Sets a machine's recipe (-1 for none); false when there is no machine or the recipe is not its own.</summary>
     public bool SetRecipe((int X, int Y, int Z) cell, int recipe)
     {
-        if (!_machines.TryGetValue(cell, out var m)) return false;
+        if (MachineAt(cell) is not { } m) return false;
+        cell = (m.X, m.Y, m.Z);
         if (recipe != -1 && (!_content.IsRecipe(recipe) || _content.Recipes[recipe].Machine != m.Type)) return false;
         if (m.Recipe == recipe) return true;
         Push();
@@ -403,7 +459,7 @@ public sealed class InteriorDraft
             }
             if (!linked)
                 foreach (var m in _machines.Values)
-                    if (CanFeed(m) && Touch((m.X, m.Y, m.Z), start) && MachineOuts((m.X, m.Y, m.Z)) < 2)
+                    if (CanFeed(m) && TouchesMachine(m, start) && MachineOuts((m.X, m.Y, m.Z)) < 2)
                     {
                         _links.Add(new DraftLink(BlueprintLinkKind.MachineToBelt, (m.X, m.Y, m.Z), start));
                         break;
@@ -422,7 +478,7 @@ public sealed class InteriorDraft
             }
             if (!linked)
                 foreach (var m in _machines.Values)
-                    if (CanTake(m) && Touch(end, (m.X, m.Y, m.Z)) && !_links.Contains(new DraftLink(BlueprintLinkKind.MachineToBelt, (m.X, m.Y, m.Z), start)))
+                    if (CanTake(m) && TouchesMachine(m, end) && !_links.Contains(new DraftLink(BlueprintLinkKind.MachineToBelt, (m.X, m.Y, m.Z), start)))
                     {
                         _links.Add(new DraftLink(BlueprintLinkKind.BeltToMachine, start, (m.X, m.Y, m.Z)));
                         break;
@@ -438,7 +494,7 @@ public sealed class InteriorDraft
             foreach (var b in _belts.Values)
             {
                 var key = (b.X, b.Y, b.Z);
-                if (!Touch(BeltNetwork.LastCell(b), cell) || BeltOutBelts(key) > 0 || BeltFeedsMachine(key)) continue;
+                if (!TouchesMachine(m, BeltNetwork.LastCell(b)) || BeltOutBelts(key) > 0 || BeltFeedsMachine(key)) continue;
                 _links.Add(new DraftLink(BlueprintLinkKind.BeltToMachine, key, cell));
                 break;
             }
@@ -447,7 +503,7 @@ public sealed class InteriorDraft
             {
                 if (MachineOuts(cell) >= 2) break;
                 var start = (b.X, b.Y, b.Z);
-                if (Touch(cell, start) && BeltIn(start) == 0) _links.Add(new DraftLink(BlueprintLinkKind.MachineToBelt, cell, start));
+                if (TouchesMachine(m, start) && BeltIn(start) == 0) _links.Add(new DraftLink(BlueprintLinkKind.MachineToBelt, cell, start));
             }
     }
 

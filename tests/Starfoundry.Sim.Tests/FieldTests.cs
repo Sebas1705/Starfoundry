@@ -412,7 +412,7 @@ public class FieldTests
             Assert.False(replay.Network.HasRockField);
         }
         var current = CommandCodec.ReadLog(new MemoryStream(bytes), out _, out _, out _, out _, out _, out _, out var cur);
-        Assert.Equal(27, bytes[4]);
+        Assert.Equal(28, bytes[4]);
         Assert.True(cur.LegacyField); // this log was written for a legacy-field world, so its header says so
         var fresh = new MemoryStream();
         CommandCodec.WriteLog(fresh, new List<LoggedCommand>(), C.Hash, GameMode.Sandbox, Seed, structures: true);

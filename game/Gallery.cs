@@ -79,6 +79,7 @@ public partial class Gallery : Node3D
         {
             case "machines": _focusPoint = new Vector3(0, 0, 0f); defDist = 9f; break;
             case "machines2": _focusPoint = new Vector3(0, 0, 0f); defDist = 9f; _page = 1; break;
+            case "machines3": _focusPoint = new Vector3(0, 0, 0f); defDist = 15f; _page = 2; break; // the multi-cell machines (ADR 0050)
             case "items": _focusPoint = new Vector3(9.5f, 0f, 5.2f); defDist = 20f; break;
             case "belts": _focusPoint = new Vector3(2f, 0, 0f); defDist = 8f; break;
             case "modules": _focusPoint = new Vector3(32f, 1.5f, 8f); defDist = 75f; break;
@@ -495,17 +496,17 @@ public partial class Gallery : Node3D
 
     private void BuildModels()
     {
-        string[] ids = _page == 0
+        string[] ids = _page == 2 ? new[] { "core:large_smelter", "core:long_assembler", "core:l_fabricator", "core:reactor_core" } : _page == 0
             ? new[] { "core:extractor", "core:drill", "core:smelter", "core:assembler", "core:research_lab", "core:depot", "core:turret", "core:wall", "core:repair_bay", "core:unloader" }
             : new[] { "core:hydrogen_cracker", "core:greenhouse", "core:engineering_bench", "core:physics_lab", "core:micro_refinery", "core:ore_unloader", "core:titanium_ore_unloader", "core:nickel_ore_unloader", "core:ice_unloader", "core:quartz_unloader", "core:carbon_unloader", "core:crystal_unloader" };
         var tile = new StandardMaterial3D { AlbedoColor = new Color(0.12f, 0.14f, 0.19f), Roughness = 0.9f };
         for (int i = 0; i < ids.Length; i++)
         {
-            float x = (i - 3) * 1.45f;
+            float x = _page == 2 ? (i - 1.5f) * 4.4f : (i - 3) * 1.45f;
             for (int row = 0; row < 2; row++)
             {
-                float z = row == 0 ? -1.0f : 1.0f;
-                var m = Models.Machine(ids[i]);
+                float z = _page == 2 ? (row == 0 ? -2.4f : 2.4f) : row == 0 ? -1.0f : 1.0f;
+                var m = Models.Machine(ids[i], Models.PreviewCells(ids[i]));
                 m.Position = new Vector3(x, 0, z);
                 AddChild(m);
                 if (row == 1) Models.SetDamage(m, 0.7f);

@@ -90,8 +90,11 @@ public partial class Play
             var m = Net.GetMachineInfo(id);
             Vector3 shift = m.Structure == ship ? Vector3.Zero : m.Structure == station ? off : new Vector3(float.NaN, 0, 0);
             if (float.IsNaN(shift.X)) continue;
-            var c = CellCenter(m.X, m.Y, m.Z) + shift;
-            list.Add(new BodySolid(c.X - 0.5f, c.Y - 0.5f, c.Z - 0.5f, c.X + 0.5f, c.Y + 0.5f, c.Z + 0.5f));
+            foreach (var (fx, fz) in _content.Machines[m.Type].Cells(m.Turn)) // a solid per covered cell (ADR 0050)
+            {
+                var c = CellCenter(m.X + fx, m.Y, m.Z + fz) + shift;
+                list.Add(new BodySolid(c.X - 0.5f, c.Y - 0.5f, c.Z - 0.5f, c.X + 0.5f, c.Y + 0.5f, c.Z + 0.5f));
+            }
         }
         if (BenchBox() is { } bb) list.Add(new BodySolid(bb.Min.X, bb.Min.Y, bb.Min.Z, bb.Min.X + bb.Size.X, bb.Min.Y + bb.Size.Y, bb.Min.Z + bb.Size.Z));
         return list.ToArray();

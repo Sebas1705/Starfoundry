@@ -31,7 +31,9 @@ Reconciliation, decided: (a) the hull shapes' `Turn` byte stays a module concern
 - **Migration.** `WorldRules.LegacyDockPieces` (third flags byte, bit 2, value 4) keeps ADR 0041 as it was: logs of versions 5 to 26 read with it on and replay byte for byte (existing structures keep their dock modules; collars are refused). Saves are command logs, so they replay in the same way. Checksum: collars are hashed only when a structure has any.
 - **Blueprint and designer.** `DesignerApply` and `ApplyBlueprint` may carry the collar set (tags 67 to 69; the older tags keep the collars that still have a host). The editor has a *Dock collar* tool: each click on a module turns its collar to the next free face and then takes it off.
 
-## 4. Stage 2: multi-cell, irregular machines (branch `feature/multicell-machines`, log version 28, ADR 0048)
+## 4. Stage 2: multi-cell, irregular machines (branch `feature/multicell-machines`, log version 28, [ADR 0050](../../adr/0050-machines-cover-several-cells-in-irregular-footprints.md); built)
+
+As built: research `core:heavy_industry` unlocks the four machines; the tag-70 flags byte carries the interior and the collars (bit 3 stays reserved for spans); the anchor is the first filled cell of the mask in row order, so a plus has its top arm as anchor.
 
 ### 4.1 Footprint model
 - A machine type gets an optional content field `footprint`: an ASCII mask, one string per row along +Z and one character per cell along +X, `X` filled and `.` empty, at most 4 x 4, connected, at least one cell. `["X"]` is today's machine and is the default, so no existing content changes. Examples: 2 x 2 `["XX","XX"]`; long 1 x 3 `["XXX"]`; L `["X.","X.","XX"]`; T `["XXX",".X."]`; plus `[".X.","XXX",".X."]`; 2 x 3 `["XX","XX","XX"]`.
@@ -56,7 +58,7 @@ Reconciliation, decided: (a) the hull shapes' `Turn` byte stays a module concern
 ### 4.3 Tests (stage 2)
 Determinism (same log, same checksum, clone, replay); legacy replay of every older log (golden-checksum idiom: the frozen `core_pre0031.json` fixture); preview equals apply for random floor plans with footprints and turns (300); every refusal; belts feeding and leaving at every covered cell; demolish and refund; the mask parser (connected, size, default); `--blueprint-check` extended with a large smelter placed, turned and demolished.
 
-## 5. Stage 3: large modules and the first big factory (branch `feature/large-modules`, log version 29, ADR 0049)
+## 5. Stage 3: large modules and the first big factory (branch `feature/large-modules`, log version 29, ADR 0051)
 
 ### 5.1 Model: a span groups ordinary cells
 - A **large module** is `n x n` ordinary module cells of **one kind** in one layer (`n` = 2 or 3) grouped by a **span** `(anchor, n)` in `Structure.Spans`. Every covered cell stays an entry of `ModuleMap`, so the hit volumes, connectivity, ports, collars, hull points and power are per cell exactly as today; the span adds only **identity** (these cells are one unit) and a **joined floor**: the floor plan of the span is one 16 x 16 (n = 2) or 24 x 24 (n = 3) cell area whose internal seams have no wall, so machines, belts and footprints may cross an internal seam (the one exception to the stage 2 rule), and a machine at the seam works as in a single bay.
@@ -80,8 +82,8 @@ Determinism (same log, same checksum, clone, replay); legacy replay of every old
 | Stage | Flag (third flags byte) | Log version | ADR | Commands |
 | --- | --- | --- | --- | --- |
 | 1 | `LegacyDockPieces`, bit 2 (4) | 27 | 0047 | tags 67 to 69 (collars on designs and blueprints) |
-| 2 | `LegacyFootprints`, bit 3 (8) | 28 | 0048 | tag 70 (`ApplyBlueprintExt`) |
-| 3 | `LegacyLargeModules`, bit 4 (16) | 29 | 0049 | tag 70 bit 3, tag 71 (ship spans) |
+| 2 | `LegacyFootprints`, bit 3 (8) | 28 | 0050 | tag 70 (`ApplyBlueprintExt`) |
+| 3 | `LegacyLargeModules`, bit 4 (16) | 29 | 0051 | tag 70 bit 3, tag 71 (ship spans) |
 Latest merged on `origin/main` when this was written: v26 and ADR 0046. The hull shapes proposal takes the next free numbers when it is built. Each stage re-checks `git fetch` and renumbers if another effort merged first (rebase keeps both sides).
 
 ## 7. Legacy replay, bot and bands
@@ -107,4 +109,4 @@ Stages 2 and 3 must leave these within the bands; they add no scripted behaviour
 Other risks: the shared 32-bit neighbour mask (spans pass a separate parameter); content hash changes when machines and modules are added (old saves and logs refuse by design as in earlier content ADRs; legacy tests use the frozen fixture); editor complexity (the collar tool and the span palette are separate small tools); the owner's other effort on item and machine visuals (stage 2 touches model files minimally).
 
 ## 9. Decisions
-1. A collar on a module face, not a pod (built). 2. Footprint masks up to 4 x 4 inside one module, anchor plus turn (stage 2). 3. Spans grouping ordinary cells, 2 and 3, one kind per span (stage 3). 4. One extended command tag for the optional parts from stage 2 on. 5. Flags in the third flags byte, log versions 27, 28 and 29, ADRs 0047 to 0049. 6. Prices, throughputs and research costs are proposals and are tuned with the stat panel and the balance bot, not here.
+1. A collar on a module face, not a pod (built). 2. Footprint masks up to 4 x 4 inside one module, anchor plus turn (stage 2). 3. Spans grouping ordinary cells, 2 and 3, one kind per span (stage 3). 4. One extended command tag for the optional parts from stage 2 on. 5. Flags in the third flags byte, log versions 27, 28 and 29, ADRs 0047 to 0051. 6. Prices, throughputs and research costs are proposals and are tuned with the stat panel and the balance bot, not here.

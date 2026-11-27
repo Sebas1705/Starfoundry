@@ -57,7 +57,7 @@ public partial class BuildPreview : SubViewportContainer
             Node3D node = entry.Kind switch
             {
                 BuildEntryKind.Belt => BeltRun((int)entry.Tier),
-                BuildEntryKind.Machine => Models.Machine(entry.Id),
+                BuildEntryKind.Machine => Models.Machine(entry.Id, Models.PreviewCells(entry.Id)),
                 BuildEntryKind.Station => ModuleModels.Build(ModuleKind.Core, false),
                 _ => ModuleModels.Build(entry.Module!.Value, !ModuleKindIds.AllowedOn(StructureKind.Station, entry.Module.Value)),
             };

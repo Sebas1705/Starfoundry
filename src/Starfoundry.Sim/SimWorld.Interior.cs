@@ -25,8 +25,8 @@ public sealed partial class SimWorld
         var plan = new InteriorPlan { Cur = Network.ReadInterior(structure, out var mids, out var sids) };
         plan.CurMachineIds = mids; plan.CurBeltIds = sids;
         var cur = plan.Cur;
-        var curMachine = new Dictionary<(int, int, int, int), int>();
-        for (int i = 0; i < cur.Machines.Length; i++) curMachine[(cur.Machines[i].X, cur.Machines[i].Y, cur.Machines[i].Z, cur.Machines[i].Type)] = i;
+        var curMachine = new Dictionary<(int, int, int, int, int), int>();
+        for (int i = 0; i < cur.Machines.Length; i++) curMachine[(cur.Machines[i].X, cur.Machines[i].Y, cur.Machines[i].Z, cur.Machines[i].Type, cur.Machines[i].Turn)] = i;
         var curBelt = new Dictionary<BlueprintBelt, int>();
         for (int i = 0; i < cur.Belts.Length; i++) curBelt[cur.Belts[i]] = i;
 
@@ -42,7 +42,10 @@ public sealed partial class SimWorld
             if (!content.IsMachine(m.Type)) return Reject.UnknownMachineType;
             var def = content.Machines[m.Type];
             if (def.Role == MachineRole.Ship) return Reject.NotPlaceable;
-            bool kept = curMachine.TryGetValue((m.X, m.Y, m.Z, m.Type), out int ci);
+            if ((uint)m.Turn > 3) return Reject.InvalidArgument;
+            if (Network.Rules.LegacyFootprints && (m.Turn != 0 || def.IsMultiCell)) return Reject.NotAllowedHere; // ADR 0050: a world from before footprints has one-cell machines only
+            if (m.Turn != 0 && !def.IsMultiCell) return Reject.InvalidArgument; // a one-cell machine has no turn to give
+            bool kept = curMachine.TryGetValue((m.X, m.Y, m.Z, m.Type, m.Turn), out int ci);
             if (def.Role == MachineRole.Drill && !kept) return Reject.KindNotAllowed; // a drill needs a deposit: it is linked in the world, not drawn
             var recipe = CheckRecipe(m.Type, m.Recipe);
             if (recipe != Reject.None) return recipe;
@@ -52,7 +55,14 @@ public sealed partial class SimWorld
             if (!next.TryGetValue(StationGrid.ModuleOfCell(m.X, m.Y, m.Z), out var mk)) return Reject.OutsideStation;
             var problem = kinds.CellProblem(mk, m.Y, isBelt: false, def.Role, Network.FreeBuilding);
             if (problem != Reject.None) return problem;
-            if (!occupied.Add((m.X, m.Y, m.Z))) return Reject.Overlap;
+            var anchorModule = StationGrid.ModuleOfCell(m.X, m.Y, m.Z);
+            foreach (var (dx, dz) in def.Cells(m.Turn))
+            {
+                int cx = m.X + dx, cz = m.Z + dz;
+                if (!StructureGrid.InLocalBounds(cx) || !StructureGrid.InLocalBounds(cz)) return Reject.OutOfBounds;
+                if (StationGrid.ModuleOfCell(cx, m.Y, cz) != anchorModule) return Reject.FootprintBlocked; // a footprint stays inside one module's floor
+                if (!occupied.Add((cx, m.Y, cz))) return Reject.Overlap;
+            }
             if (kept)
             {
                 keptMachine[ci] = true;
@@ -139,7 +149,13 @@ public sealed partial class SimWorld
         var seen = new HashSet<(byte, int, int)>();
         (int, int, int) Start(int i) => (it.Belts[i].X, it.Belts[i].Y, it.Belts[i].Z);
         (int, int, int) End(int i) => BeltNetwork.LastCell(it.Belts[i]);
-        (int, int, int) At(int i) => (it.Machines[i].X, it.Machines[i].Y, it.Machines[i].Z);
+        bool TouchesMachine((int X, int Y, int Z) c, int i)
+        {
+            var m = it.Machines[i];
+            foreach (var (dx, dz) in content.Machines[m.Type].Cells(m.Turn))
+                if (Touching(c, (m.X + dx, m.Y, m.Z + dz))) return true;
+            return false;
+        }
         foreach (var l in it.Links)
         {
             if (!Enum.IsDefined(l.Kind) || !seen.Add(((byte)l.Kind, l.From, l.To))) return Reject.InvalidArgument;
@@ -154,13 +170,13 @@ public sealed partial class SimWorld
                 case BlueprintLinkKind.BeltToMachine:
                     if ((uint)l.From >= (uint)nb || (uint)l.To >= (uint)nm) return Reject.InvalidArgument;
                     if (content.Machines[it.Machines[l.To].Type].Role is MachineRole.Wall or MachineRole.Unloader) return Reject.WrongRole;
-                    if (!Touching(End(l.From), At(l.To))) return Reject.NotAdjacent;
+                    if (!TouchesMachine(End(l.From), l.To)) return Reject.NotAdjacent;
                     beltOutMachines[l.From]++;
                     break;
                 default:
                     if ((uint)l.From >= (uint)nm || (uint)l.To >= (uint)nb) return Reject.InvalidArgument;
                     if (content.Machines[it.Machines[l.From].Type].Role is MachineRole.Wall or MachineRole.Repairer) return Reject.WrongRole;
-                    if (!Touching(At(l.From), Start(l.To))) return Reject.NotAdjacent;
+                    if (!TouchesMachine(Start(l.To), l.From)) return Reject.NotAdjacent;
                     machineOut[l.From]++; beltIn[l.To]++;
                     break;
             }
@@ -188,7 +204,7 @@ public sealed partial class SimWorld
         foreach (int id in plan.RemoveMachines)
         {
             var m = Network.GetMachineInfo(id);
-            RemoveCell(structure, Key(m.X, m.Y, m.Z));
+            ReleaseMachineCells(structure, m.X, m.Y, m.Z, m.Type, m.Turn);
             Network.RemoveMachine(id);
         }
         foreach (int id in plan.RemoveBelts)
@@ -208,8 +224,8 @@ public sealed partial class SimWorld
         foreach (int i in plan.NewMachines)
         {
             var m = it.Machines[i];
-            int id = Network.AddMachine(m.X, m.Y, m.Z, m.Type, m.Recipe, player, structure);
-            if (!CellsFor(structure, create: true)!.TryAdd(Key(m.X, m.Y, m.Z), -(id + 1))) throw new InvalidOperationException("A blueprint machine overlaps a part.");
+            int id = Network.AddMachine(m.X, m.Y, m.Z, m.Type, m.Recipe, player, structure, m.Turn);
+            if (!ClaimMachineCells(structure, id, m.X, m.Y, m.Z, m.Type, m.Turn)) throw new InvalidOperationException("A blueprint machine overlaps a part.");
             plan.MachineId[i] = id;
         }
 

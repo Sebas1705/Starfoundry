@@ -82,7 +82,7 @@ public enum ShotKind { Turret, Ship, Enemy }
 public readonly record struct ShotEvent(ShotKind Kind, int FromX, int FromY, int FromZ, int ToX, int ToY, int ToZ);
 
 /// <summary>A machine that was destroyed by enemies. <see cref="SimWorld"/> uses it to free the machine's cell.</summary>
-public readonly record struct DestroyedMachine(int Id, int X, int Y, int Z, int Structure = 0);
+public readonly record struct DestroyedMachine(int Id, int X, int Y, int Z, int Structure = 0, int Type = 0, int Turn = 0);
 
 /// <summary>The threat state of one system, for the HUD.</summary>
 public readonly record struct SystemThreatInfo(int System, int Signature, int Alert, int AlertMax, int Wave, int WarningRemaining, int Enemies);
@@ -492,7 +492,7 @@ public sealed partial class BeltNetwork
     {
         m.Hp -= damage;
         if (m.Hp > 0) return;
-        _destroyedMachines.Add(new DestroyedMachine(m.Id, m.X, m.Y, m.Z, m.Structure));
+        _destroyedMachines.Add(new DestroyedMachine(m.Id, m.X, m.Y, m.Z, m.Structure, m.Type, m.Turn));
         if (Content!.Machines[m.Type].Role == MachineRole.Wall) WallsLost++;
         else MachinesLost++;
         RemoveMachine(m.Id);

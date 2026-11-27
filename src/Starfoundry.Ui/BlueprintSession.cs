@@ -30,6 +30,9 @@ public sealed class BlueprintSession
     /// <summary>The machine type the Machine tool places (a content machine index), or -1 for none yet.</summary>
     public int PlanMachine { get; private set; } = -1;
 
+    /// <summary>Quarter turns the next multi-cell machine is placed with (ADR 0050); <see cref="TurnPlan"/> changes it.</summary>
+    public int PlanTurn { get; private set; }
+
     public BeltTier PlanTier { get; private set; } = BeltTier.Mk1;
 
     /// <summary>The cell the Select tool picked in the floor plan, or null.</summary>
@@ -348,6 +351,22 @@ public sealed class BlueprintSession
 
     public void SetPlanTool(PlanTool tool) { PlanTool = tool; PlanSelection = null; Changed?.Invoke(); }
 
+    /// <summary>
+    /// The turn key of the floor plan (ADR 0050): turns the selected multi-cell machine a quarter turn when it fits, else the machine that will be placed next. Returns the refusal key or null.
+    /// </summary>
+    public string? TurnPlan()
+    {
+        string? why = null;
+        if (PlanSelection is { } sel && Interior.MachineAt(sel) is { } m && _content.Machines[m.Type].IsMultiCell)
+        {
+            if (!Interior.TurnMachine(sel)) why = PlanReasons.Footprint;
+        }
+        else PlanTurn = (PlanTurn + 1) & 3;
+        LastMessageKey = why;
+        Changed?.Invoke();
+        return why;
+    }
+
     public void PickPlanMachine(int type) { PlanMachine = type; PlanTool = PlanTool.Machine; Changed?.Invoke(); }
 
     public void SetPlanTier(BeltTier tier) { PlanTier = tier; PlanTool = PlanTool.Belt; Changed?.Invoke(); }
@@ -362,7 +381,7 @@ public sealed class BlueprintSession
             case PlanTool.Machine:
                 if (PlanMachine < 0) why = "designer.hint";
                 else if (Interior.MachineAt(cell) is not null) { PlanSelection = cell; Changed?.Invoke(); }
-                else why = Interior.PlaceMachine(cell, PlanMachine, DefaultRecipe(PlanMachine));
+                else why = Interior.PlaceMachine(cell, PlanMachine, DefaultRecipe(PlanMachine), PlanTurn);
                 break;
             case PlanTool.Belt: why = Interior.PlaceBelt(new[] { cell }, PlanTier); break;
             case PlanTool.Erase: if (!Interior.Erase(cell)) why = "bp.plan.nothing"; break;
