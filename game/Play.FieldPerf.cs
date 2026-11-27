@@ -20,7 +20,8 @@ public partial class Play
     private int _fieldPerfFrame;
     private (int X, int Y, int Z, int Rocks, long Ore, int Richness) _fieldPerfSpot;
     private readonly List<double> _fpFrames = new(), _fpProcess = new(), _fpDraws = new(), _fpObjects = new(), _fpPrims = new();
-    private double _fpNodes;
+    private double _fpNodes, _fpSyncMs, _fpGlowMs;
+    private ulong _fpWallStart;
 
     private void FieldPerfSetup(string[] args)
     {
@@ -79,15 +80,17 @@ public partial class Play
         {
             _fieldPerfSpot = FindDensestCluster();
             var (x, y, z, _, _, _) = _fieldPerfSpot;
-            Teleport(new Vector3(x, y, z));
+            int from = int.TryParse(System.Environment.GetCommandLineArgs().FirstOrDefault(a => a.StartsWith("--field-perf-from="))?["--field-perf-from=".Length..], out int fromCells) ? fromCells : 0; // --field-perf-from=N: N cells away from the centre, looking at it
+            Teleport(from > 0 ? new Vector3(x - from, y, z) : new Vector3(x, y, z));
             _world.Step(20 * 15);
             _world.Submit(Player, new Scan());
             _world.Step(2);
-            LookFromSeat(new Vector3(x + 60f, y, z - 60f));
+            LookFromSeat(from > 0 ? new Vector3(x, y, z) : new Vector3(x + 60f, y, z - 60f));
             DisplayServer.WindowSetVsyncMode(DisplayServer.VSyncMode.Disabled); // measure what the work costs, not the refresh rate
             return;
         }
         if (_fieldPerfFrame <= 4 + 120) return;
+        if (_fpFrames.Count == 0) _fpWallStart = Time.GetTicksMsec();
         _fpFrames.Add(delta * 1000.0);
         _fpProcess.Add(Performance.GetMonitor(Performance.Monitor.TimeProcess) * 1000.0);
         _fpDraws.Add(Performance.GetMonitor(Performance.Monitor.RenderTotalDrawCallsInFrame));
@@ -100,7 +103,7 @@ public partial class Play
         string mode = _rockField is not null ? "multimesh" : "nodes";
         string field = _rockField is not null ? $" batches={_rockField.BatchCount} near_batches={_rockField.NearBatches} multimesh_nodes={_rockField.MultiMeshNodes} drawn_rocks={_rockField.DrawnRocks}" : "";
         GD.Print($"FIELDPERF mode={mode} cluster_rocks={_fieldPerfSpot.Rocks} cluster_ore={_fieldPerfSpot.Ore} richness={_fieldPerfSpot.Richness} at=({_fieldPerfSpot.X},{_fieldPerfSpot.Y},{_fieldPerfSpot.Z}) loaded={Net.FieldLoadedRocks} sectors={Net.FieldLoadedSectors} revealed={revealed}"
-            + $" nodes={_fpNodes:F0} draw_calls={_fpDraws.Average():F0} objects={_fpObjects.Average():F0} primitives={_fpPrims.Average():F0} frames={sorted.Count} avg_ms={sorted.Average():F2} process_ms={_fpProcess.Average():F2} p95_ms={sorted[(int)(sorted.Count * 0.95)]:F2} worst_ms={sorted[^1]:F2} fps={1000.0 / sorted.Average():F0}" + field);
+            + $" nodes={_fpNodes:F0} draw_calls={_fpDraws.Average():F0} objects={_fpObjects.Average():F0} primitives={_fpPrims.Average():F0} frames={sorted.Count} avg_ms={sorted.Average():F2} p95_ms={sorted[(int)(sorted.Count * 0.95)]:F2} worst_ms={sorted[^1]:F2} wall_ms={(Time.GetTicksMsec() - _fpWallStart) / (double)_fpFrames.Count:F2} fps={1000.0 / sorted.Average():F0}" + field + $" sync_ms={_fpSyncMs / _fpFrames.Count:F3} glow_ms={_fpGlowMs / _fpFrames.Count:F3}");
         if (_fieldPerfShot is not null) Save(_fieldPerfShot);
         GetTree().Quit();
     }

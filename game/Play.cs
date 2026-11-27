@@ -839,8 +839,11 @@ void fragment() {
     private void UpdateDeposits(double delta = 0.0)
     {
         var eye = _camera.GlobalPosition;
+        long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
         _rockField?.Sync(Net, _content, eye);
+        long t1 = System.Diagnostics.Stopwatch.GetTimestamp();
         _clusterGlow?.Update(Net, _content, eye, delta, _content.World?.Field?.LoadCells ?? 360);
+        if (_fieldPerf && _fieldPerfFrame > 4 + 120) { _fpSyncMs += System.Diagnostics.Stopwatch.GetElapsedTime(t0, t1).TotalMilliseconds; _fpGlowMs += System.Diagnostics.Stopwatch.GetElapsedTime(t1).TotalMilliseconds; }
         for (int d = 0; d < Net.DepositCount; d++)
         {
             SyncDepositNode(d);
