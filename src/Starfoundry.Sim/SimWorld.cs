@@ -1147,7 +1147,7 @@ public sealed partial class SimWorld
         int id = Network.CreateStructure(player, StructureKind.Station, ox, oy, oz);
         Network.AddStructureModuleUnchecked(id, 0, 0, 0, ModuleKind.Core);
         if (dockAt is { } dk) Network.AddStructureModuleUnchecked(id, dk.Mx, 0, dk.Mz, ModuleKind.Dock);
-        if (Network.DockPieceRules && kinds.IsDefined(ModuleKind.Dock)) Network.AddDockPieceUnchecked(id, 0, 0, 0, Dir.NegZ); // ADR 0047: the collar comes with the core, on its -Z face (no extra volume)
+        if (Network.DockPieceRules && kinds.IsDefined(ModuleKind.Dock)) foreach (var face in new[] { Dir.NegX, Dir.PosX }) Network.AddDockPieceUnchecked(id, 0, 0, 0, face); // ADR 0047: the collars come with the core, on its two X faces (no extra volume)
         Network.CountStationFounded();
         return Reject.None;
     }

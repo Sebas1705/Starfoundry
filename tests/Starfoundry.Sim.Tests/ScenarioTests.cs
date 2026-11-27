@@ -262,7 +262,7 @@ public class ScenarioTests
         var w = SimWorld.CreateScenario(C, Catalog, "sandbox_station", 5);
         var station = w.Network.Structures().Single(s => s.Kind == StructureKind.Station);
         Assert.Equal(new[] { ModuleKind.Core }, station.Modules.Values.ToArray()); // the core, with its docking collar (ADR 0047)
-        Assert.Single(w.Network.DockPieces(station.Id));
+        Assert.NotEmpty(w.Network.DockPieces(station.Id));
         Assert.Equal(0, w.Network.StationsFounded); // a start structure is not a founded one
     }
 

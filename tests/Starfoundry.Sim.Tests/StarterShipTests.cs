@@ -137,7 +137,7 @@ public class StarterShipTests
         // ADR 0047: a station is founded with its core and a docking collar on it, at no extra cost.
         Assert.Equal(new[] { ModuleKind.Core }, st.Modules.Values.ToArray());
         Assert.Equal(ModuleKind.Core, st.Modules[(0, 0, 0)]);
-        Assert.Equal(new[] { new DockPieceSpec(0, 0, 0, Dir.NegZ) }, w.Network.DockPieces(st.Id).ToArray()); // ADR 0047: the collar comes with the core, on its -Z face
+        Assert.Equal(2, w.Network.DockPieces(st.Id).Count()); // ADR 0047: the collars come with the core, on its two X faces
 
         // A sandbox founding is free.
         var sb = World();

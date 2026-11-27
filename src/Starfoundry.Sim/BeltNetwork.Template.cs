@@ -62,15 +62,16 @@ public sealed partial class BeltNetwork
     }
 
     /// <summary>
-    /// ADR 0047: gives a pre-built structure its docking collar when it has none: a ship on the -X flank of its cockpit (the place its old docking port was), else the +X flank, else
-    /// a face of its first host module whose neighbour cell is empty; a station on the -Z face of its core (then +Z, -X, +X). Nothing is added when no face is free. No module is
+    /// ADR 0047: gives a pre-built structure its docking collar when it has none: both flanks of a ship's cockpit (the -X one is where its old docking port was) and both X faces of a station's core, else
+    /// a Z face of the host, else a face of the first module that can carry one, whose neighbour cell is empty. Nothing is added when no face is free. No module is
     /// added: the collar is a small piece on a module face.
     /// </summary>
     private int EnsureDockPiece(Structure s)
     {
         if (s.DockPieceSet.Count > 0 || s.ModuleMap.Count == 0) return s.Id;
         bool station = s.Kind == StructureKind.Station;
-        var faces = station ? new[] { Dir.NegZ, Dir.PosZ, Dir.NegX, Dir.PosX } : new[] { Dir.NegX, Dir.PosX, Dir.NegZ, Dir.PosZ };
+        // A ship docks axis-aligned, so its collar on a flank meets a station collar on the opposite X face: both get collars on both X faces (the two flanks of the cockpit, the two sides of the core).
+        var faces = new[] { Dir.NegX, Dir.PosX, Dir.NegZ, Dir.PosZ };
         for (int pass = 0; pass < 2; pass++)
             foreach (var (key, kind) in s.ModuleMap)
             {
@@ -78,12 +79,14 @@ public sealed partial class BeltNetwork
                 if (pass == 0 && !host) continue;
                 foreach (var face in faces)
                 {
+                    if (face is Dir.NegZ or Dir.PosZ && s.DockPieceSet.Count > 0) return s.Id; // the X faces are the ones a ship can meet
                     if (!DockRules.CanHostPiece(kind, face)) continue;
                     var (dx, dz) = FaceStep(face);
                     if (s.ModuleMap.ContainsKey((key.Mx + dx, key.My, key.Mz + dz))) continue;
                     AddDockPieceUnchecked(s.Id, key.Mx, key.My, key.Mz, face);
-                    return s.Id;
+                    if (face is Dir.NegZ or Dir.PosZ) return s.Id;
                 }
+                if (s.DockPieceSet.Count > 0) return s.Id;
             }
         return s.Id;
     }

@@ -61,9 +61,9 @@ public class DockPieceTests
         var w = World();
         var ship = w.Network.GetStructure(w.Network.ShipStructure(0));
         Assert.DoesNotContain(ModuleKind.Dock, ship.Modules.Values);
-        Assert.Equal(new[] { new DockPieceSpec(0, 0, 0, Dir.NegX) }, w.Network.DockPieces(ship.Id).ToArray()); // the -X flank of the cockpit, where the old port was
-        var port = Assert.Single(w.Network.DockPorts(ship.Id));
-        Assert.Equal((0, 0, 0, Dir.NegX), (port.Mx, port.My, port.Mz, port.Face));
+        Assert.Equal(new[] { Dir.NegX, Dir.PosX }.OrderBy(d => (int)d), w.Network.DockPieces(ship.Id).Select(p => p.Face).OrderBy(d => (int)d)); // both flanks of the cockpit: the -X one is where the old port was
+        Assert.All(w.Network.DockPieces(ship.Id), p => Assert.Equal((0, 0, 0), (p.Mx, p.My, p.Mz)));
+        Assert.Equal(2, w.Network.DockPorts(ship.Id).Count());
         w.ValidateInvariants();
 
         int worlds = 0;
@@ -158,9 +158,9 @@ public class DockPieceTests
         Assert.Equal(Reject.None, Run(w, new FoundStation(14, 0, 4)));
         var st = w.Network.Structures().Single(s => s.Kind == StructureKind.Station);
         Assert.Equal(new[] { ModuleKind.Core }, st.Modules.Values.ToArray());
-        Assert.Equal(new[] { new DockPieceSpec(0, 0, 0, Dir.NegZ) }, w.Network.DockPieces(st.Id).ToArray());
+        Assert.Equal(new[] { Dir.NegX, Dir.PosX }.OrderBy(d => (int)d), w.Network.DockPieces(st.Id).Select(p => p.Face).OrderBy(d => (int)d)); // a ship docks axis-aligned: it meets an X face
         Assert.All(core, c => Assert.Equal(0, w.Network.HoldCount(0, c.Item))); // only the core was paid
-        Assert.Equal(DockRules.CoreStockCapacity + DockRules.DockStockCapacity, w.Network.StockCapacity(st.Id)); // a collar adds what a dock module did
+        Assert.Equal(DockRules.CoreStockCapacity + 2 * DockRules.DockStockCapacity, w.Network.StockCapacity(st.Id)); // a collar adds what a dock module did
         w.ValidateInvariants();
     }
 
@@ -495,9 +495,10 @@ public class DockPieceTests
         session.Open(ship);
         var d = session.Draft;
         Assert.True(d.UsesPieces);
-        Assert.Equal(Dir.NegX, d.PieceOn((0, 0, 0)));
+        Assert.Equal(2, d.Pieces.Count()); // both flanks of the cockpit
         Assert.IsType<DesignerApply>(d.ToCommand());
-        Assert.Equal(DesignEditResult.Ok, d.CycleCollar((0, 0, 0)));
+        for (int i = 0; i < 4 && d.Pieces.Any(p => p.Face == Dir.NegX); i++) Assert.Equal(DesignEditResult.Ok, d.CycleCollar((0, 0, 0)));
+        Assert.DoesNotContain(d.Pieces, p => p.Face == Dir.NegX);
         Assert.Contains(session.Validation.Entries, e => e.Code == "port" && e.Blocks); // the ship is docked with that collar
     }
 }

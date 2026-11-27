@@ -324,11 +324,14 @@ public sealed class BlueprintDraft
         if (!_kinds.ContainsKey(key)) return DesignEditResult.Empty;
         var faces = CollarFaces(key);
         if (faces.Count == 0) return DesignEditResult.KindNotAllowed;
-        Dir? current = null;
-        foreach (var p in _pieces) if ((p.Mx, p.My, p.Mz) == key) { current = (Dir)p.Face; break; }
-        if (current is null && _pieces.Count >= DockRules.MaxPieces) return DesignEditResult.TooManyModules;
+        // A module may carry several collars; a click works on its first one and never lands on a face another collar of the module holds.
+        var here = _pieces.Where(p => (p.Mx, p.My, p.Mz) == key).ToList();
+        Dir? current = here.Count > 0 ? (Dir)here[0].Face : null;
+        var others = here.Skip(1).Select(p => (Dir)p.Face).ToHashSet();
+        faces = faces.Where(f => !others.Contains(f)).ToList();
+        if (current is null && (_pieces.Count >= DockRules.MaxPieces || faces.Count == 0)) return current is null && faces.Count == 0 ? DesignEditResult.Occupied : DesignEditResult.TooManyModules;
         Push();
-        foreach (var p in _pieces.Where(p => (p.Mx, p.My, p.Mz) == key).ToList()) _pieces.Remove(p);
+        if (here.Count > 0) _pieces.Remove(here[0]);
         int next = 0;
         if (current is { } c)
         {
