@@ -73,6 +73,7 @@ public static class RejectTexts
         Reject.WrongItem => "toast.reject.wrongItem",
         Reject.NoDockModule => "toast.reject.noDockModule",
         Reject.LastDockModule => "toast.reject.lastDockModule",
+        Reject.BadDockPiece => "toast.reject.badDockPiece",
         _ => null,
     };
 }

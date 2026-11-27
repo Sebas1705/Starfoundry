@@ -187,11 +187,12 @@ public partial class Play
                 _wantCapture = false;
                 var o = Net.GetStructure(ship);
                 // ADR 0041: the ship's dock module joins the dock module beside the station core (the same layout the editor tests use).
-                int st = Net.CreateStructure(Player, StructureKind.Station, o.OriginX - 26 * cu, o.OriginY, o.OriginZ + StationGrid.ModuleZ * cu);
+                int st = Net.CreateStructure(Player, StructureKind.Station, o.OriginX - (Net.DockPieceRules ? 16 : 26) * cu, o.OriginY, o.OriginZ + StationGrid.ModuleZ * cu);
                 Net.AddStructureModuleUnchecked(st, 0, 0, 0, ModuleKind.Core);
-                Net.AddStructureModuleUnchecked(st, 0, 0, -1, ModuleKind.Dock);
+                Net.AddStructureModuleUnchecked(st, 0, 0, -1, Net.DockPieceRules ? ModuleKind.Hull : ModuleKind.Dock); // ADR 0047: a hull module that carries the docking collar (a dock module before it)
+                if (Net.DockPieceRules) Net.AddDockPieceUnchecked(st, 0, 0, -1, Dir.PosX);
                 Net.AddStructureModuleUnchecked(st, 0, 0, 1, ModuleKind.Shipyard);
-                Net.AddStructureModuleUnchecked(st, 1, 0, 0, ModuleKind.Reactor);
+                Net.AddStructureModuleUnchecked(st, Net.DockPieceRules ? -1 : 1, 0, 0, ModuleKind.Reactor); // ADR 0047: the docked ship takes the cells on the +X side
                 _bpStation = st;
                 foreach (var (item, n) in new[] { ("core:iron_plate", 80), ("core:iron_ingot", 40), ("core:carbon", 30), ("core:circuit", 20), ("core:titanium_alloy", 20), ("core:focus_lens", 4), ("core:coolant", 10), ("core:composite_plate", 4) })
                     Net.GiveStock(st, _content.ItemIndex(item), n);
@@ -341,7 +342,7 @@ public partial class Play
             Check("node " + n, ed.FindChild(n, true, false) is not null);
         Check("the unchanged ship has nothing to apply", !s.Dirty && !s.CanApply && s.Validation.Entries.Any(e => e.Code == "unchanged"));
         var d0 = ed.Describe();
-        Check("the real structure is drawn", d0.Contains($"realNodes={s.Draft.Original.Count} "), d0);
+        Check("the real structure is drawn (modules and docking collars)", d0.Contains($"realNodes={s.Draft.Original.Count + s.Draft.OriginalPieces.Count()} "), d0);
         var original = Loc.Lang;
         foreach (var lang in new[] { Language.Es, Language.En })
         {
@@ -461,7 +462,7 @@ public partial class Play
         Check("station: the unchanged station has nothing to apply", !s.Dirty && !s.CanApply);
         Check("station: no ship-only errors", !s.Validation.Entries.Any(e => e.Code is "noCockpit" or "noEngine" or "noReactor" or "noCargo"));
         var d0 = ed.Describe();
-        Check("station: the real structure is drawn", d0.Contains($"realNodes={s.Draft.Original.Count} "), d0);
+        Check("station: the real structure is drawn", d0.Contains($"realNodes={s.Draft.Original.Count + s.Draft.OriginalPieces.Count()} "), d0);
         var original = Loc.Lang;
         foreach (var lang in new[] { Language.Es, Language.En })
         {
@@ -502,6 +503,15 @@ public partial class Play
             ed.ClickCell(dk);
             Check("station: removing the last dock module is an error", s.Validation.Entries.Any(x => x.Code == "noDock" && x.Blocks) && !s.CanApply);
             ed.RunAction("bpUndo", 0);
+        }
+        if (s.Draft.UsesPieces && s.DockPort() is { } dp)
+        {
+            // ADR 0047: the collar tool turns a collar to the next face; the docked collar cannot leave its face, and undo brings it back
+            ed.SetTool(BlueprintTool.Collar);
+            ed.ClickCell(dp.Port);
+            Check("station: moving the docked collar is an error", s.Validation.Entries.Any(x => x.Code == "port" && x.Blocks) && !s.CanApply);
+            ed.RunAction("bpUndo", 0);
+            Check("station: undo puts the docked collar back", !s.Validation.Entries.Any(x => x.Code == "port"));
         }
         ed.SetTool(BlueprintTool.Select);
         _bpTick = Net.Tick;

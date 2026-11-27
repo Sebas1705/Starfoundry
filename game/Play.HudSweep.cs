@@ -96,7 +96,7 @@ public partial class Play
                 int st = Net.CreateStructure(Player, StructureKind.Station, o.OriginX - (8 + 22) * cu, o.OriginY, o.OriginZ);
                 Net.AddStructureModuleUnchecked(st, 0, 0, 0, ModuleKind.Core);
                 Net.AddStructureModuleUnchecked(st, 0, 0, 1, ModuleKind.Workshop);
-                Net.AddStructureModuleUnchecked(st, -1, 0, 0, ModuleKind.Dock);
+                if (Net.DockPieceRules) Net.AddDockPieceUnchecked(st, 0, 0, 0, Dir.PosX); else Net.AddStructureModuleUnchecked(st, -1, 0, 0, ModuleKind.Dock); // ADR 0047: a docking collar on the core's +X face (a dock module before it)
                 Net.AddStructureModuleUnchecked(st, 0, 0, -1, ModuleKind.Reactor);
                 Net.GiveStock(st, _content.FuelItem, 8);
                 _yaw = MathF.PI * 0.5f; _pitch = -0.05f;

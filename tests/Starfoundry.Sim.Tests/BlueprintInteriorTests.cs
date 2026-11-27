@@ -15,7 +15,7 @@ public partial class BlueprintInteriorTests
     /// <summary>A campaign world with a station: core (0,0,0), dock (0,0,-1), bay (1,0,0) and a defence module (0,0,1); the stock holds plenty.</summary>
     private static (SimWorld W, int Station) Make(WorldRules? rules = null)
     {
-        var w = SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, threats: false, stationRules: false, structures: true, rules: rules ?? WorldRules.Default);
+        var w = SimWorld.CreateGalaxy(C, GameMode.Campaign, Seed, threats: false, stationRules: false, structures: true, rules: (rules ?? WorldRules.Default).WithLegacyDockPieces(true));
         w.Network.EnsurePlayer(0);
         int st = w.Network.CreateStructure(0, StructureKind.Station, -18L * Cell, 0, 0);
         w.Network.AddStructureModuleUnchecked(st, 0, 0, 0, ModuleKind.Core);
@@ -55,7 +55,7 @@ public partial class BlueprintInteriorTests
         using var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, w.Log, C.Hash, GameMode.Campaign, Seed, threats: false, structures: true);
         var bytes = ms.ToArray();
-        Assert.Equal(26, bytes[4]);
+        Assert.Equal(27, bytes[4]);
         var back = CommandCodec.ReadLog(new MemoryStream(bytes), out _, out _, out _, out _, out _, out _, out var rules);
         Assert.False(rules.LegacyInterior);
         var read = Assert.IsType<ApplyBlueprint>(back.Single().Command);

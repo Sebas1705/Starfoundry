@@ -206,7 +206,7 @@ public class ScenarioTests
         var net = w.Network;
         var station = net.Structures().Single(s => s.Kind == StructureKind.Station);
         Assert.Equal(0, station.Owner);
-        Assert.Equal(new[] { ModuleKind.Core, ModuleKind.Workshop, ModuleKind.Defence, ModuleKind.Reactor, ModuleKind.Dock }.OrderBy(k => k), station.Modules.Values.OrderBy(k => k));
+        Assert.Equal(new[] { ModuleKind.Core, ModuleKind.Workshop, ModuleKind.Defence, ModuleKind.Reactor }.OrderBy(k => k), station.Modules.Values.OrderBy(k => k));
         Assert.Equal((10L * Units.CellUnits, -8L * Units.CellUnits), (station.OriginX, station.OriginZ));
         var machines = Enumerable.Range(0, net.MachineIdLimit).Where(net.IsMachineAlive).Select(net.GetMachineInfo).Where(m => m.Structure == station.Id).ToList();
         Assert.Equal(5, machines.Count);
@@ -261,7 +261,8 @@ public class ScenarioTests
     {
         var w = SimWorld.CreateScenario(C, Catalog, "sandbox_station", 5);
         var station = w.Network.Structures().Single(s => s.Kind == StructureKind.Station);
-        Assert.Equal(new[] { ModuleKind.Core, ModuleKind.Dock }.OrderBy(k => k), station.Modules.Values.OrderBy(k => k)); // the core and its dock module (ADR 0041)
+        Assert.Equal(new[] { ModuleKind.Core }, station.Modules.Values.ToArray()); // the core, with its docking collar (ADR 0047)
+        Assert.NotEmpty(w.Network.DockPieces(station.Id));
         Assert.Equal(0, w.Network.StationsFounded); // a start structure is not a founded one
     }
 
@@ -302,7 +303,7 @@ public class ScenarioTests
         Ok(w, new SetMovement(1, 0, 0));
         byte[] plain = LogBytes(w, null);
         byte[] scen = LogBytes(w, def);
-        Assert.Equal(26, scen[4]);
+        Assert.Equal(27, scen[4]);
         const int flagsAt = 4 + 1 + 8 + 1 + 8;
         Assert.Equal(0, plain[flagsAt] & 16);
         Assert.Equal(16, scen[flagsAt] & 16);

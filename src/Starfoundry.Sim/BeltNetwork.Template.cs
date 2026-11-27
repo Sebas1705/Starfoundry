@@ -39,6 +39,7 @@ public sealed partial class BeltNetwork
     {
         if (Rules.LegacyDock || Content?.Structures is not { } kinds || !kinds.IsDefined(ModuleKind.Dock)) return id;
         var s = GetStructure(id);
+        if (DockPieceRules) return EnsureDockPiece(s);
         if (s.ModuleMap.ContainsValue(ModuleKind.Dock) || s.ModuleMap.Count == 0) return id;
         bool station = s.Kind == StructureKind.Station;
         var offsets = station ? new[] { (0, -1), (0, 1), (-1, 0), (1, 0) } : new[] { (-1, 0), (1, 0) };
@@ -58,5 +59,35 @@ public sealed partial class BeltNetwork
                 }
             }
         return id;
+    }
+
+    /// <summary>
+    /// ADR 0047: gives a pre-built structure its docking collar when it has none: both flanks of a ship's cockpit (the -X one is where its old docking port was) and both X faces of a station's core, else
+    /// a Z face of the host, else a face of the first module that can carry one, whose neighbour cell is empty. Nothing is added when no face is free. No module is
+    /// added: the collar is a small piece on a module face.
+    /// </summary>
+    private int EnsureDockPiece(Structure s)
+    {
+        if (s.DockPieceSet.Count > 0 || s.ModuleMap.Count == 0) return s.Id;
+        bool station = s.Kind == StructureKind.Station;
+        // A ship docks axis-aligned, so its collar on a flank meets a station collar on the opposite X face: both get collars on both X faces (the two flanks of the cockpit, the two sides of the core).
+        var faces = new[] { Dir.NegX, Dir.PosX, Dir.NegZ, Dir.PosZ };
+        for (int pass = 0; pass < 2; pass++)
+            foreach (var (key, kind) in s.ModuleMap)
+            {
+                bool host = station ? kind == ModuleKind.Core : kind == ModuleKind.Cockpit;
+                if (pass == 0 && !host) continue;
+                foreach (var face in faces)
+                {
+                    if (face is Dir.NegZ or Dir.PosZ && s.DockPieceSet.Count > 0) return s.Id; // the X faces are the ones a ship can meet
+                    if (!DockRules.CanHostPiece(kind, face)) continue;
+                    var (dx, dz) = FaceStep(face);
+                    if (s.ModuleMap.ContainsKey((key.Mx + dx, key.My, key.Mz + dz))) continue;
+                    AddDockPieceUnchecked(s.Id, key.Mx, key.My, key.Mz, face);
+                    if (face is Dir.NegZ or Dir.PosZ) return s.Id;
+                }
+                if (s.DockPieceSet.Count > 0) return s.Id;
+            }
+        return s.Id;
     }
 }

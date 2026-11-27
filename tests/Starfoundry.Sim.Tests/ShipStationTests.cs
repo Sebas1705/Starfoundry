@@ -144,7 +144,7 @@ public class ShipStationTests
         var w = World();
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, w.Log, C.Hash, GameMode.Campaign, Seed, threats: false, structures: true);
-        Assert.Equal(26, ms.ToArray()[4]);
+        Assert.Equal(27, ms.ToArray()[4]);
         CommandCodec.ReadLog(new MemoryStream(ms.ToArray()), out _, out _, out _, out _, out _, out _, out var now);
         Assert.False(now.LegacyShipAutomation);
         for (byte version = 6; version <= 19; version++)

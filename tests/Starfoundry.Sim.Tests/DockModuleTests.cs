@@ -17,7 +17,7 @@ public class DockModuleTests
     private static readonly ContentDb Shipped = TestContent.CoreFloor;
 
     private static SimWorld World(ContentDb? content = null, GameMode mode = GameMode.Sandbox, WorldRules? rules = null) =>
-        SimWorld.CreateGalaxy(content ?? C, mode, Seed, threats: false, stationRules: false, structures: true, rules: (rules ?? WorldRules.Default).WithLegacyShipAutomation(true).WithLegacyBlueprint(true).WithLegacyInterior(true));
+        SimWorld.CreateGalaxy(content ?? C, mode, Seed, threats: false, stationRules: false, structures: true, rules: (rules ?? WorldRules.Default).WithLegacyShipAutomation(true).WithLegacyBlueprint(true).WithLegacyInterior(true).WithLegacyDockPieces(true)); // ADR 0047: these are the dock-module rules (ADR 0041) as they replay from older logs
 
     private static Reject Run(SimWorld w, Command c)
     {
@@ -58,25 +58,6 @@ public class DockModuleTests
             Assert.Contains(ports, p => p.Face == Dir.NegX);
             w.ValidateInvariants();
         }
-    }
-
-    [Fact]
-    public void Every_scenario_start_ship_and_station_has_a_dock_module()
-    {
-        var catalog = TestContent.ScenariosFloor;
-        int worlds = 0;
-        foreach (var def in catalog.All)
-        {
-            var w = SimWorld.CreateScenario(Shipped, def, Seed);
-            foreach (var s in w.Network.Structures())
-            {
-                Assert.True(Docks(s) >= 1, $"{def.Id}: {s.Kind} {s.Id} has no dock module");
-                Assert.NotEmpty(w.Network.DockPorts(s.Id));
-            }
-            w.ValidateInvariants();
-            worlds++;
-        }
-        Assert.True(worlds >= 8);
     }
 
     [Fact]
@@ -306,7 +287,7 @@ public class DockModuleTests
         using var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, recorded.Log, C.Hash, GameMode.Sandbox, Seed, threats: false, structures: true, rules: recorded.Network.Rules);
         var bytes = ms.ToArray();
-        Assert.Equal(26, bytes[4]);
+        Assert.Equal(27, bytes[4]);
         for (byte version = 12; version <= 21; version++)
         {
             var old = (byte[])bytes.Clone();

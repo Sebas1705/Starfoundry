@@ -12,7 +12,7 @@ public class BlueprintLibraryTests
 
     private static (SimWorld W, int Station) Make()
     {
-        var w = SimWorld.CreateGalaxy(C, GameMode.Campaign, 20261126UL, threats: false, stationRules: false, structures: true, rules: WorldRules.Default);
+        var w = SimWorld.CreateGalaxy(C, GameMode.Campaign, 20261126UL, threats: false, stationRules: false, structures: true, rules: WorldRules.Default.WithLegacyDockPieces(true));
         w.Network.EnsurePlayer(0);
         int st = w.Network.CreateStructure(0, StructureKind.Station, -18L * Cell, 0, 0);
         w.Network.AddStructureModuleUnchecked(st, 0, 0, 0, ModuleKind.Core);

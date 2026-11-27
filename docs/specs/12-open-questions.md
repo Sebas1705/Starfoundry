@@ -60,6 +60,11 @@ See the [resource fields study](../superpowers/specs/2026-11-27-resource-fields-
 - Floating origin: keep the 4,000,000-cell world limit or cap it until the origin shift exists.
 - Route: the hand-test pass, audio listening, minimum hardware, accessibility target, save promise and the co-op go or no-go.
 
+## Multi-cell machines, large modules and the small dock (2026-11-27)
+See [the design](../superpowers/specs/2026-11-27-multicell-and-large-modules-design.md) and [ADR 0047](../adr/0047-the-dock-is-a-small-collar-on-a-module-face.md) (stage 1, built).
+- Whether a collar may also sit on a roof or a floor (vertical docking), and whether a ship that docks from its nose needs a second collar variant.
+- Stage 2 and 3 are proposals: the machine footprint size limit (4 x 4), the price and throughput of the large machines, the span discount (0.85), which module kinds may be large, and the research node that gates them.
+
 ## Hull shapes (2026-11-27)
 See [the spec](../superpowers/specs/2026-11-27-hull-shapes-design.md) (proposal, not built; step A of the work is the drawn-only [visual pass 3](../prototypes/visual-pass-models.md#visual-pass-3-hull-curves-ships-and-stations)).
 - Whether corner, wedge, round and ring modules are a shape and a turn on a module (recommended), new module kinds or half cells.

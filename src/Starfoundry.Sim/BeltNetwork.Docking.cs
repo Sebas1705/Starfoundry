@@ -34,7 +34,25 @@ public static class DockRules
 
     /// <summary>The port faces in their fixed order (the order ports are listed and ties are broken in).</summary>
     public static readonly Dir[] PortFaces = { Dir.PosX, Dir.NegX, Dir.PosZ, Dir.NegZ };
+
+    /// <summary>Most docking collars one structure may carry (ADR 0047).</summary>
+    public const int MaxPieces = 16;
+
+    /// <summary>
+    /// ADR 0047: whether a docking collar may be attached to the face of a module of this kind. Only horizontal faces; not on an engine, a hardpoint, an antenna or a shield dome
+    /// (their shapes are open), nor on an open deck (a bay, a defence module, a drone bay), nor on the retired dock module; a cockpit takes it on its two flanks only.
+    /// </summary>
+    public static bool CanHostPiece(ModuleKind kind, Dir face) =>
+        IsPortFace(face) && kind switch
+        {
+            ModuleKind.Core or ModuleKind.Hull or ModuleKind.Cargo or ModuleKind.Reactor or ModuleKind.ReactorMk2 or ModuleKind.Shipyard => true,
+            ModuleKind.Cockpit => face is Dir.PosX or Dir.NegX,
+            _ => false,
+        };
 }
+
+/// <summary>ADR 0047: a docking collar, the small dock piece: a port element on a horizontal face of a host module, with no module of its own.</summary>
+public readonly record struct DockPieceSpec(int Mx, int My, int Mz, Dir Face);
 
 /// <summary>A docking port: a free horizontal face of a dock module (and, in worlds with <see cref="WorldRules.LegacyDock"/>, of a core or cockpit).</summary>
 /// <param name="Free">Nothing is built against the face and no ship is docked there.</param>
@@ -65,6 +83,59 @@ public sealed partial class BeltNetwork
     /// </summary>
     public bool ModuleHasPorts(StructureKind structureKind, ModuleKind kind) => Rules.LegacyDock ? HasPorts(structureKind, kind) : kind == ModuleKind.Dock;
 
+    /// <summary>
+    /// ADR 0047: true when the dock is a small piece, a docking collar on a module face, instead of a dock module: the world is not <see cref="WorldRules.LegacyDockPieces"/> and does not
+    /// keep the ADR 0029 ports (<see cref="WorldRules.LegacyDock"/>). The dock module kind is retired in such a world.
+    /// </summary>
+    public bool DockPieceRules => !Rules.LegacyDock && !Rules.LegacyDockPieces;
+
+    /// <summary>The docking collars of a structure, in module key then face order.</summary>
+    public IEnumerable<DockPieceSpec> DockPieces(int structure)
+    {
+        if (!_structures.TryGetValue(structure, out var s)) yield break;
+        foreach (var (mx, my, mz, face) in s.DockPieceSet) yield return new DockPieceSpec(mx, my, mz, (Dir)face);
+    }
+
+    /// <summary>The cost of one docking collar: half the cost of the retired dock module (rounded up), so it needs no content of its own (ADR 0047). Empty when the content has no dock kind.</summary>
+    public ItemStack[] DockPieceCost()
+    {
+        if (Content?.Structures is not { } kinds || !kinds.IsDefined(ModuleKind.Dock)) return Array.Empty<ItemStack>();
+        return kinds.ModuleCost(ModuleKind.Dock).Select(c => new ItemStack(c.Item, (c.Count + 1) / 2)).ToArray();
+    }
+
+    /// <summary>True when a collar is attached to this face of this module.</summary>
+    public bool HasDockPiece(int structure, int mx, int my, int mz, Dir face) =>
+        _structures.TryGetValue(structure, out var s) && s.DockPieceSet.Contains((mx, my, mz, (int)face));
+
+    /// <summary>Attaches a docking collar without any rule check (commands validate before calling this).</summary>
+    public void AddDockPieceUnchecked(int structure, int mx, int my, int mz, Dir face)
+    {
+        var s = GetStructure(structure);
+        if (!s.ModuleMap.TryGetValue((mx, my, mz), out var kind) || !DockRules.CanHostPiece(kind, face)) throw new InvalidOperationException("No module there can host a docking collar.");
+        if (!s.DockPieceSet.Add((mx, my, mz, (int)face))) throw new InvalidOperationException("The docking collar already exists.");
+        StructureVersion++;
+    }
+
+    /// <summary>Replaces all the docking collars of a structure by a set the caller has validated.</summary>
+    internal void SetDockPieces(int structure, IEnumerable<DockPieceSpec> pieces)
+    {
+        var s = GetStructure(structure);
+        s.DockPieceSet.Clear();
+        foreach (var p in pieces) s.DockPieceSet.Add((p.Mx, p.My, p.Mz, (int)p.Face));
+        StructureVersion++;
+    }
+
+    /// <summary>True if a ship is docked at this very collar, on either side (the ship's own collar or the station's).</summary>
+    internal bool IsDockPieceInUse(int structure, int mx, int my, int mz, Dir face)
+    {
+        foreach (var s in _structures.Values)
+        {
+            if (s.DockedTo < 0) continue;
+            if ((s.Id == structure && s.DockShipModule == (mx, my, mz) && s.DockShipFace == face) || (s.DockedTo == structure && s.DockStationModule == (mx, my, mz) && s.DockStationFace == face)) return true;
+        }
+        return false;
+    }
+
     private static (int X, int Z) FaceStep(Dir face) => face switch
     {
         Dir.PosX => (1, 0),
@@ -88,6 +159,15 @@ public sealed partial class BeltNetwork
                 int docked = DockedShipAt(s, key, face);
                 yield return new DockPort(structure, key.Mx, key.My, key.Mz, face, docked < 0, docked);
             }
+        }
+        if (!DockPieceRules) yield break;
+        foreach (var (mx, my, mz, f) in s.DockPieceSet)
+        {
+            var face = (Dir)f;
+            var (dx, dz) = FaceStep(face);
+            if (s.ModuleMap.ContainsKey((mx + dx, my, mz + dz))) continue; // a module is built against it: there is no outside
+            int docked = DockedShipAt(s, (mx, my, mz), face);
+            yield return new DockPort(structure, mx, my, mz, face, docked < 0, docked);
         }
     }
 
@@ -381,7 +461,7 @@ public sealed partial class BeltNetwork
     public int StockCapacity(int station)
     {
         if (!_structures.TryGetValue(station, out var s) || s.Kind != StructureKind.Station) return 0;
-        int total = 0;
+        int total = DockPieceRules ? s.DockPieceSet.Count * DockRules.DockStockCapacity : 0; // ADR 0047: a docking collar adds what a dock module did
         foreach (var kind in s.ModuleMap.Values)
         {
             if (kind == ModuleKind.Core) total += DockRules.CoreStockCapacity;
@@ -476,8 +556,16 @@ public sealed partial class BeltNetwork
         if (s.DockedTo < 0) return;
         if (s.Kind != StructureKind.Ship) Fail($"structure {s.Id} is docked but is no ship");
         if (!_structures.TryGetValue(s.DockedTo, out var st) || st.Kind != StructureKind.Station) { Fail($"ship {s.Id} is docked at a missing station {s.DockedTo}"); return; }
-        if (!s.ModuleMap.TryGetValue(s.DockShipModule, out var sk) || !ModuleHasPorts(s.Kind, sk)) Fail($"ship {s.Id} is docked with a module that has no port");
-        if (!st.ModuleMap.TryGetValue(s.DockStationModule, out var tk) || !ModuleHasPorts(st.Kind, tk)) Fail($"ship {s.Id} is docked at a module that has no port");
+        if (DockPieceRules)
+        {
+            if (!s.DockPieceSet.Contains((s.DockShipModule.Mx, s.DockShipModule.My, s.DockShipModule.Mz, (int)s.DockShipFace))) Fail($"ship {s.Id} is docked with a face that has no docking collar");
+            if (!st.DockPieceSet.Contains((s.DockStationModule.Mx, s.DockStationModule.My, s.DockStationModule.Mz, (int)s.DockStationFace))) Fail($"ship {s.Id} is docked at a face that has no docking collar");
+        }
+        else
+        {
+            if (!s.ModuleMap.TryGetValue(s.DockShipModule, out var sk) || !ModuleHasPorts(s.Kind, sk)) Fail($"ship {s.Id} is docked with a module that has no port");
+            if (!st.ModuleMap.TryGetValue(s.DockStationModule, out var tk) || !ModuleHasPorts(st.Kind, tk)) Fail($"ship {s.Id} is docked at a module that has no port");
+        }
         if (s.DockShipFace != DockRules.Opposite(s.DockStationFace)) Fail($"ship {s.Id} docks with ports that do not face each other");
         var pose = DockPose(st, s.DockStationModule, s.DockStationFace, s.DockShipModule);
         if (s.OriginX != pose.X || s.OriginY != pose.Y || s.OriginZ != pose.Z) Fail($"ship {s.Id} is docked but not at the port pose");

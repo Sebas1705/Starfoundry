@@ -153,6 +153,9 @@ public sealed partial class Structure
     internal (int Mx, int My, int Mz) DockShipModule, DockStationModule;
     internal Dir DockShipFace, DockStationFace;
 
+    /// <summary>ADR 0047: the docking collars of this structure, small pieces attached to a horizontal face of a module (host module, face as a <see cref="Dir"/> value), sorted for determinism. Empty in worlds with dock modules; mixed into the checksum only when not empty.</summary>
+    internal SortedSet<(int Mx, int My, int Mz, int Face)> DockPieceSet { get; private set; } = new();
+
     /// <summary>Stations only: the items kept in the station's stock by item index, or null while it never held anything. See ADR 0029.</summary>
     internal int[]? Stock;
 
@@ -178,6 +181,7 @@ public sealed partial class Structure
         c.PowerProduction = PowerProduction; c.PowerDemand = PowerDemand; c.Satisfaction = Satisfaction; c.LaserDraw = LaserDraw; c.ImpactCooldown = ImpactCooldown;
         c.Attitude = Attitude; c.DockedTo = DockedTo; c.DockShipModule = DockShipModule; c.DockStationModule = DockStationModule;
         c.DockShipFace = DockShipFace; c.DockStationFace = DockStationFace;
+        foreach (var dp in DockPieceSet) c.DockPieceSet.Add(dp);
         c.Stock = Stock is null ? null : (int[])Stock.Clone();
         CloneReactorFuelInto(c);
         return c;

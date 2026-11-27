@@ -383,7 +383,7 @@ public class ClusterFieldTests
         using var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, recorded.Log, C.Hash, GameMode.Sandbox, Seed, threats: false, structures: true, rules: recorded.Network.Rules);
         var bytes = ms.ToArray();
-        Assert.Equal(26, bytes[4]);
+        Assert.Equal(27, bytes[4]);
         for (byte version = 21; version <= 25; version++)
         {
             var old = (byte[])bytes.Clone();
