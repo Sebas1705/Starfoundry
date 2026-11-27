@@ -28,6 +28,7 @@ public partial class MenuScreen
         scroll.AddChild(box);
 
         AddCreditsLine(box, Loc.T("credits.project", Starfoundry.Ui.Credits.ProjectLicence, Starfoundry.Ui.Credits.ProjectCopyright), 14, Colors.White);
+        AddCreditsLine(box, Loc.T("credits.version", BuildInfo.Version), 13, Muted);
         AddCreditsLine(box, Loc.T("credits.assets"), 13, Muted);
         string data = FileAccess.FileExists("res://assets/credits.tsv") ? FileAccess.GetFileAsString("res://assets/credits.tsv") : "";
         var packs = Starfoundry.Ui.Credits.ParseDataFile(data);

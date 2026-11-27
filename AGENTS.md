@@ -21,3 +21,5 @@ dotnet test
 dotnet build game -c Debug
 ```
 Needs the .NET 8 SDK and, to run the game, Godot 4.7.2 (Mono). The simulation library must never reference Godot.
+
+Releases: the version is the `VERSION` file; `tools/release/build-windows.ps1` builds the exe, zip and installer, and `.github/workflows/release.yml` only drafts a release. Agents never tag, publish or sign a release: see [docs/release.md](docs/release.md) and [ADR 0048](docs/adr/0048-windows-release-pipeline.md).

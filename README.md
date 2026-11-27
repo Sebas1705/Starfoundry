@@ -11,7 +11,8 @@ This is an **original design**. Genre-level mechanics (mine, refine, belt, autom
 | Read | For |
 | --- | --- |
 | [docs/playtest.md](docs/playtest.md) | Run the game, what to try, and how the play log compares with the scripted player |
-| [docs/packaging.md](docs/packaging.md) | Build a standalone Windows release (export templates, `tools/package.ps1`) and how the game finds its content |
+| [docs/release.md](docs/release.md) | Build the Windows exe, zip and installer with one command, the release workflow, versioning, signing and how to cut a release |
+| [docs/packaging.md](docs/packaging.md) | How the exported game finds its content, what the export preset ships, saves and flags in an export |
 | [docs/ci.md](docs/ci.md) | What the CI workflow runs and how it picks a GitHub-hosted or self-hosted runner |
 | [docs/00-vision.md](docs/00-vision.md) | Pillars, audience, scope, non-goals |
 | [docs/specs/01-core-loop.md](docs/specs/01-core-loop.md) | The moment-to-moment and long-term loop |

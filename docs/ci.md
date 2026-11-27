@@ -25,3 +25,7 @@ The jobs `fast` and `slow` run on the owner's PC (a self-hosted Linux runner wit
 - Nothing in the job depends on the runner image: the .NET SDK comes from `actions/setup-dotnet`.
 
 The job log prints the chosen runner in the `Pick the runner` step.
+
+## Releases
+
+`.github/workflows/release.yml` is separate from `ci.yml` and not part of the `build-and-test` gate. It runs only on `workflow_dispatch` or a `vX.Y.Z` tag, always on a GitHub-hosted `windows-latest` runner (never the PC), and builds the exe, zip and installer; for tags it drafts a GitHub Release. See [release.md](release.md).
