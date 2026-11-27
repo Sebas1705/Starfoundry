@@ -52,6 +52,24 @@ public sealed partial class BeltNetwork
     /// <summary>The id of the cluster a field rock belongs to, -1 for none.</summary>
     public long DepositClusterId(int id) => GetDeposit(id).Cluster;
 
+    /// <summary>The packed key of the sector a field rock was generated in (the renderer batches the rocks of a sector).</summary>
+    public long DepositSectorKey(int id) => GetDeposit(id).CellKey;
+
+    /// <summary>Side of a sector in cells (0 without a rock field).</summary>
+    public int FieldSectorCells => _field?.SectorCells ?? 0;
+
+    /// <summary>The rock radius law in percent of the reference size: 250 in the clustered field, 100 in the uniform one (the size words and the model classes divide by it).</summary>
+    public int RockRadiusPercent => _clusters?.RadiusPercent ?? 100;
+
+    /// <summary>The cluster parents whose centre lies within a box of <paramref name="radiusCells"/> around a point in units, for the far glow and the map: empty without clusters.</summary>
+    public IReadOnlyList<ClusterParent> ClustersNear(long xUnits, long yUnits, long zUnits, int radiusCells)
+    {
+        if (_clusters is null || _field is null || Galaxy is null) return Array.Empty<ClusterParent>();
+        long cx = xUnits / Units.CellUnits, cy = yUnits / Units.CellUnits, cz = zUnits / Units.CellUnits;
+        return ClusterField.ParentsInBox(_field, _clusters, Galaxy.Seed, cx - radiusCells, cx + radiusCells, cy - radiusCells, cy + radiusCells, cz - radiusCells, cz + radiusCells,
+            Rules.LegacyResources ? 100 : Rules.ResourceDensityPercent);
+    }
+
     /// <summary>
     /// Extra reach in units a laser or a hand needs for the rock of a deposit: the rocks of the clustered field are big and solid, so a ship stops at their
     /// surface and the range is measured to it, not to the centre (0 for every other deposit and for the uniform field).

@@ -203,7 +203,7 @@ public class BlueprintStationTests
     [Fact]
     public void A_legacy_log_with_the_module_tool_replays_to_the_same_checksum()
     {
-        var rules = WorldRules.Default.WithLegacyBlueprint(true);
+        var rules = WorldRules.Default.WithLegacyBlueprint(true).WithLegacyRockClusters(true); // recorded before the clustered rock field
         var (w, st) = Make(rules);
         Fill(w);
         Assert.Equal(Reject.None, Run(w, new PlaceModuleIn(st, 0, 0, 1, ModuleKind.Reactor)));

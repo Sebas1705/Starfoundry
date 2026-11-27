@@ -91,7 +91,7 @@ public partial class Play
         int d = Net.DepositDensity(deposit);
         string vein = L(d < 60 ? "density.poor" : d <= 120 ? "density.normal" : "density.rich", d);
         if (!Net.DepositIsFieldRock(deposit)) return vein;
-        int size = Net.DepositRockScalePermille(deposit); // rocks of the infinite field vary in size (ADR 0040): the size word comes first
+        int size = Net.DepositRockScalePermille(deposit) * 100 / Net.RockRadiusPercent; // rocks of the infinite field vary in size (ADR 0040): the size word comes first; the clustered field draws them 2.5 times wider (ADR 0046), the words keep their classes
         return L(size < 700 ? "size.small" : size < 1100 ? "size.medium" : size < 1600 ? "size.large" : "size.huge") + ", " + vein;
     }
 
@@ -462,6 +462,7 @@ public partial class Play
         UpdateOutcome();
         if (_saveTest) SaveSelfTest();
         if (_stressMachines > 0) StressTick(dt);
+        if (_fieldPerf) FieldPerfTick(dt);
         if (!_demo)
         {
             _tips ??= new Tips(_content);
@@ -1903,7 +1904,7 @@ public partial class Play
             if (RayHitsSphere(origin, dir, new Vector3(pos.X, pos.Y, pos.Z), 1.5f * scale, out float t) && t < best)
             {
                 best = t;
-                _hover = new Hover(HoverKind.Deposit, d, L("tip.deposit", ItemName(Net.DepositItem(d)), Net.DepositRemaining(d), Net.DepositInitial(d), DensityText(d)));
+                _hover = new Hover(HoverKind.Deposit, d, L("tip.deposit", ItemName(Net.DepositItem(d)), Net.DepositRemaining(d), Net.DepositInitial(d), DensityText(d)) + ClusterLine(d));
             }
         }
 

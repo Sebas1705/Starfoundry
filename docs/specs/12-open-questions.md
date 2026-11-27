@@ -48,6 +48,11 @@ See [the spec](../superpowers/specs/2026-11-24-pilot-feedback-round-design.md).
 - A floating origin for the renderer: float positions lose precision hundreds of thousands of cells from home.
 - Whether a scanned rock should stay revealed after its sector is forgotten (today it must be scanned again).
 
+## Clustered rock fields (2026-11-27, ADR 0046)
+- Chosen for now, to tune with play: super-sectors of 800 cells, the study's core rates, 0.8 percent giants, radius 250 percent. The ore scale of a cluster against a late-game ore demand nobody has measured: one number, `unit_amount`.
+- Clusters are visible from afar as a glow before any scan (a design choice); a survey item or a discovery rule is the alternative.
+- Not done: a floating origin, a bias toward the galactic plane (clusters are a 3D volume, the home galaxy is flat), cluster markers on the map and the scanner readout beyond the tooltip and the scan toast.
+
 ## Resource fields, lighting and the route (2026-11-27, studies)
 See the [resource fields study](../superpowers/specs/2026-11-27-resource-fields-design.md), the [lighting study](../prototypes/lighting-study.md) and the [improvement route](../superpowers/specs/2026-11-27-improvement-route.md). All proposals.
 - Fields: the gap between clusters (800, 1,000 or 1,300 cells), the ore scale of a cluster, how rare giants are, the rock radius scale, a bias toward the galactic plane, and whether clusters are visible before a scan.
