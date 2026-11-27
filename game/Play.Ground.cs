@@ -59,11 +59,4 @@ public partial class Play
         if (toast is not null) ToastLogistics(toast, 3.0);
         _inventory?.Refresh();
     }
-
-    /// <summary>The look of a dropped stack: a small crate tinted by the item.</summary>
-    private static StandardMaterial3D CrateMaterial(int item)
-    {
-        var c = Color.FromHsv(item * 0.137f % 1f, 0.55f, 0.95f);
-        return new StandardMaterial3D { AlbedoColor = c, EmissionEnabled = true, Emission = c, EmissionEnergyMultiplier = 0.6f };
-    }
 }

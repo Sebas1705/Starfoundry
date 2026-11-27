@@ -22,7 +22,8 @@ public partial class Play
 
     private readonly List<MeshInstance3D> _tracers = new();
     private readonly List<(MeshInstance3D Node, float Life, float Max)> _sparks = new();
-    private readonly Dictionary<int, MeshInstance3D> _pickupNodes = new();
+    private readonly Dictionary<int, Node3D> _pickupNodes = new();
+    private readonly Dictionary<int, int> _pickupPieces = new();
     private StandardMaterial3D? _tracerMat, _sparkMat, _flashMat, _guideMat, _pickupMat;
     private MeshInstance3D? _guideBarrel, _guideLine;
     private float _kick;
@@ -309,26 +310,30 @@ public partial class Play
         foreach (var k in Net.Pickups())
         {
             seen.Add(k.Id);
-            if (!_pickupNodes.TryGetValue(k.Id, out var node))
+            int pieces = ItemPile.PiecesFor(k.Count);
+            if (!_pickupNodes.TryGetValue(k.Id, out var node) || _pickupPieces[k.Id] != pieces)
             {
-                node = k.Dropped
-                    ? new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(0.6f, 0.45f, 0.6f) }, MaterialOverride = CrateMaterial(k.Item), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off }
-                    : new MeshInstance3D { Mesh = new SphereMesh { Radius = 0.5f, Height = 1f, RadialSegments = 5, Rings = 3 }, MaterialOverride = _pickupMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+                node?.QueueFree();
+                // the pile is made of the item's own model (ItemPile); an item index the content does not know falls back to a crate
+                string itemId = k.Item >= 0 && k.Item < _content.Items.Count ? _content.Items[k.Item].Id : "";
+                node = ItemPile.Build(itemId, k.Id, k.Count);
                 AddChild(node);
                 _pickupNodes[k.Id] = node;
+                _pickupPieces[k.Id] = pieces;
             }
-            // Bigger for a bigger heap, smaller as it fades in the last ten seconds, turning slowly.
-            float size = 0.7f + Math.Min(0.9f, MathF.Sqrt(k.Count) * 0.08f);
+            // Smaller as it fades in the last ten seconds; a stack lying about turns by its id, a pickup from a rock turns slowly and bobs.
             float fade = Math.Clamp(k.Life / (10f * Units.TicksPerSecond), 0f, 1f);
-            node.Position = new Vector3(k.X, k.Y, k.Z) / CellUnits;
-            if (k.Dropped) { node.Scale = Vector3.One * (0.8f + Math.Min(0.6f, MathF.Sqrt(k.Count) * 0.05f)) * fade; node.Rotation = new Vector3(0f, k.Id * 0.7f, 0f); continue; }
-            node.Scale = Vector3.One * size * fade;
-            node.Rotation = new Vector3((float)_animTime * 0.9f + k.Id, (float)_animTime * 1.3f, 0f);
+            var at = new Vector3(k.X, k.Y, k.Z) / CellUnits;
+            node.Scale = Vector3.One * Math.Max(fade, 0.01f) * (k.Dropped ? 1f : 2.2f); // chunks loose in space are bigger so they can be seen from the cockpit
+            if (k.Dropped) { node.Position = at + Vector3.Down * 0.3f; node.Rotation = new Vector3(0f, k.Id * 0.7f, 0f); continue; }
+            node.Position = at + Vector3.Up * (0.1f * MathF.Sin((float)_animTime * 2f + k.Id));
+            node.Rotation = new Vector3(0f, (float)_animTime * 1.3f + k.Id, 0f);
         }
         foreach (int id in _pickupNodes.Keys.Where(id => !seen.Contains(id)).ToList())
         {
             _pickupNodes[id].QueueFree();
             _pickupNodes.Remove(id);
+            _pickupPieces.Remove(id);
         }
     }
 

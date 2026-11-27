@@ -108,6 +108,37 @@ public static class Materials
     public static StandardMaterial3D ItemMetal() => Cached("itemmetal", () =>
         Build(Set("struct", () => Gen.Structural(N(256), 3303), 2.0f), 0.5f, 0.55f, 0.6f, 0.6f));
 
+    /// <summary>Moulded plastic and composite at item scale (circuit boards, fibre rods, pods, crates): matte, no metal.</summary>
+    public static StandardMaterial3D ItemPlastic() => Cached("itemplastic", () =>
+        Build(Set("struct", () => Gen.Structural(N(256), 3303), 2.0f), 0.5f, 0.45f, 0.05f, 0.35f));
+
+    /// <summary>Clear glass and ice at item scale: the alpha comes from the vertex colour, the tint from the instance colour, smooth with a rim sheen.</summary>
+    public static StandardMaterial3D ItemGlass() => Cached("itemglass", () => new StandardMaterial3D
+    {
+        VertexColorUseAsAlbedo = true,
+        AlbedoColor = Colors.White,
+        Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+        Roughness = 0.12f,
+        Metallic = 0f,
+        MetallicSpecular = 1f,
+        RimEnabled = true,
+        Rim = 0.6f,
+        RimTint = 0.5f,
+        CullMode = BaseMaterial3D.CullModeEnum.Back,
+    });
+
+    /// <summary>A light that takes its colour from the instance tint (emission is multiplied by the albedo), for the cores of cells, flasks and rings.</summary>
+    public static StandardMaterial3D ItemGlow() => Cached("itemglow", () => new StandardMaterial3D
+    {
+        VertexColorUseAsAlbedo = true,
+        AlbedoColor = Colors.White,
+        Roughness = 0.4f,
+        EmissionEnabled = true,
+        Emission = Colors.White,
+        EmissionOperator = BaseMaterial3D.EmissionOperatorEnum.Multiply,
+        EmissionEnergyMultiplier = 2.2f,
+    });
+
     /// <summary>Burnt metal for nozzles, barrels and mine shells.</summary>
     public static StandardMaterial3D Burnt() => Cached("burnt", () =>
         Build(Set("burnt", () => Gen.Burnt(N(256), 4404), 2.5f), 1.5f, 0.75f, 0.8f, 0.9f));

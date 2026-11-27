@@ -53,6 +53,9 @@ public partial class Play
             Plan(2, () => { _inventory!.Open(ContainerRef.Hold); _inventory.SetFilter(ItemCategory.Ore); });
             Plan(4, () => _inventory!.SelectSlot(_inventory.FindSlot(ContainerRef.Person, _content.ItemIndex("core:iron_ore"))));
             Shot(size, "en", "hold");
+            Plan(2, InventoryShotTooltips);
+            Shot(size, "en", "tooltip");
+            Plan(2, () => _tooltipShotLayer?.QueueFree());
             Plan(2, () => { _inventory!.SetFilter(ItemCategory.All); if (InventoryShotMachine() is { } m) _inventory.Open(ContainerRef.MachineIn(m), m); });
             Shot(size, "en", "machine");
             Plan(2, () =>
@@ -63,6 +66,25 @@ public partial class Play
             Shot(size, "en", "bin");
         }
         Plan(2, () => GetTree().Quit());
+    }
+
+    private CanvasLayer? _tooltipShotLayer;
+
+    /// <summary>Puts the inventory tooltips of four items (each with its turning 3D view) on screen, the way the slots show them on hover.</summary>
+    private void InventoryShotTooltips()
+    {
+        _tooltipShotLayer?.QueueFree();
+        _tooltipShotLayer = new CanvasLayer { Layer = 90 };
+        var row = new HBoxContainer { Position = new Vector2(24, 120) };
+        row.AddThemeConstantOverride("separation", 16);
+        foreach (var id in new[] { "core:iron_ore", "core:circuit", "core:ice", "core:fuel_cell" })
+        {
+            var panel = new PanelContainer();
+            panel.AddChild(InventorySlot.TooltipFor(id, Loc.Name("item", id) + "\n100 / 200"));
+            row.AddChild(panel);
+        }
+        _tooltipShotLayer.AddChild(row);
+        AddChild(_tooltipShotLayer);
     }
 
     private bool _invAuditFed;

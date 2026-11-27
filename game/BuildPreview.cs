@@ -9,7 +9,7 @@ namespace Starfoundry.Game;
 /// <summary>
 /// A small turning 3D preview of the thing a build entry places (a machine or a module), for the detail pane of the build menu. It has its own
 /// world, shows one model at a time (each is built the first time it is asked for and kept), frames it from its bounds and turns it slowly.
-/// Belts and anything without a model get no preview: the pane keeps its big icon then.
+/// A belt shows a run of its own tiles carrying a few items; anything else without a model gets no preview and the pane keeps its big icon.
 /// </summary>
 public partial class BuildPreview : SubViewportContainer
 {
@@ -44,7 +44,7 @@ public partial class BuildPreview : SubViewportContainer
     }
 
     /// <summary>True when the entry has a model to show.</summary>
-    public static bool Has(BuildEntry e) => e.Kind is BuildEntryKind.Machine or BuildEntryKind.Module or BuildEntryKind.Station;
+    public static bool Has(BuildEntry e) => e.Kind is BuildEntryKind.Machine or BuildEntryKind.Module or BuildEntryKind.Station or BuildEntryKind.Belt;
 
     /// <summary>Shows the model of an entry (building it on first use); false when it has none.</summary>
     public bool Show(BuildEntry entry)
@@ -56,6 +56,7 @@ public partial class BuildPreview : SubViewportContainer
         {
             Node3D node = entry.Kind switch
             {
+                BuildEntryKind.Belt => BeltRun((int)entry.Tier),
                 BuildEntryKind.Machine => Models.Machine(entry.Id),
                 BuildEntryKind.Station => ModuleModels.Build(ModuleKind.Core, false),
                 _ => ModuleModels.Build(entry.Module!.Value, !ModuleKindIds.AllowedOn(StructureKind.Station, entry.Module.Value)),
@@ -77,6 +78,31 @@ public partial class BuildPreview : SubViewportContainer
         return true;
     }
 
+    private static readonly Color[] TierColors = { new(0.35f, 0.40f, 0.50f), new(0.20f, 0.55f, 0.60f), new(0.85f, 0.50f, 0.20f) };
+    private static readonly string[] RunItems = { "core:iron_ore", "core:iron_plate", "core:circuit", "core:titanium_ingot", "core:fuel_cell" };
+
+    /// <summary>Three belt tiles in a row (the entry's tier) carrying a few items, so a belt reads as a belt with its load, not as a flat icon.</summary>
+    private static Node3D BeltRun(int tier)
+    {
+        var root = new Node3D { Name = "BeltRun" };
+        var tiles = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true, Mesh = BeltModels.Tile(Math.Clamp(tier, 0, 2)), InstanceCount = 3 };
+        for (int i = 0; i < 3; i++)
+        {
+            tiles.SetInstanceTransform(i, new Transform3D(Basis.Identity, new Vector3(i - 1f, 0f, 0f)));
+            tiles.SetInstanceColor(i, TierColors[Math.Clamp(tier, 0, 2)]);
+        }
+        root.AddChild(new MultiMeshInstance3D { Multimesh = tiles });
+        for (int i = 0; i < 5; i++)
+        {
+            var (shape, tint) = ItemModels.StyleOf(RunItems[(i + tier) % RunItems.Length]);
+            var mm = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true, Mesh = ItemModels.Mesh(shape, ItemModels.VariantFor(tier, i)), InstanceCount = 1 };
+            mm.SetInstanceTransform(0, new Transform3D(Basis.Identity.Scaled(Vector3.One * ItemModels.BeltScale * 1.6f), new Vector3(-1.2f + i * 0.6f, 0.172f, 0f)));
+            mm.SetInstanceColor(0, tint);
+            root.AddChild(new MultiMeshInstance3D { Multimesh = mm });
+        }
+        return root;
+    }
+
     public void Clear() { _shown = null; foreach (var m in _models.Values) m.Node.Visible = false; }
 
     public override void _Process(double delta)
@@ -92,6 +118,12 @@ public partial class BuildPreview : SubViewportContainer
         if (node is MeshInstance3D { Mesh: not null } mi)
         {
             var box = t * mi.Mesh.GetAabb();
+            lo = box.Position;
+            hi = box.End;
+        }
+        if (node is MultiMeshInstance3D { Multimesh: { } mm })
+        {
+            var box = t * mm.GetAabb();
             lo = box.Position;
             hi = box.End;
         }

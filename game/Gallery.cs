@@ -79,6 +79,7 @@ public partial class Gallery : Node3D
         {
             case "machines": _focusPoint = new Vector3(0, 0, 0f); defDist = 9f; break;
             case "machines2": _focusPoint = new Vector3(0, 0, 0f); defDist = 9f; _page = 1; break;
+            case "items": _focusPoint = new Vector3(9.5f, 0f, 5.2f); defDist = 20f; break;
             case "belts": _focusPoint = new Vector3(2f, 0, 0f); defDist = 8f; break;
             case "modules": _focusPoint = new Vector3(32f, 1.5f, 8f); defDist = 75f; break;
             case "ship-demo": _focusPoint = new Vector3(4f, 2f, 20f); defDist = 40f; break;
@@ -107,6 +108,7 @@ public partial class Gallery : Node3D
         else if (focus == "rocks") BuildRockSizeGallery();
         else if (focus == "materials") BuildMaterialGallery();
         else if (focus == "belts") BuildBeltGallery();
+        else if (focus == "items") BuildItemGallery();
         else if (focus == "framing") BuildFramingGallery();
         else if (focus == "workbench") BuildWorkbenchGallery(Arg("--bench") ?? "plate", Arg("--wall") == "right", Enum.TryParse<ModuleKind>(Arg("--module"), true, out var mk) ? mk : ModuleKind.Hull);
         else BuildModels();
@@ -123,7 +125,7 @@ public partial class Gallery : Node3D
     private void BuildMaterialGallery()
     {
         var clock = System.Diagnostics.Stopwatch.StartNew();
-        var ore = BeltModels.ItemMaterial(BeltModels.Shape.Ore);
+        var ore = ItemModels.MaterialOf(ItemModels.Look.Ore);
         (string Name, StandardMaterial3D Mat, float Size, Color Tint)[] list =
         {
             ("hull (module)", Materials.Hull(), 4f, new Color(0.62f, 0.66f, 0.74f)),
@@ -169,6 +171,58 @@ public partial class Gallery : Node3D
         GD.Print($"materials: every texture set built and cached in {clock.ElapsedMilliseconds} ms");
     }
 
+    /// <summary>
+    /// --focus=items: every item of the content, one cell each: its three variants standing on the floor (large, to judge the silhouette and the material),
+    /// a little pile of twelve behind them and a short belt run in front carrying it at the size the game uses. Prints the triangles of every shape.
+    /// </summary>
+    private void BuildItemGallery()
+    {
+        string[] ids =
+        {
+            "core:iron_ore", "core:titanium_ore", "core:nickel_ore", "core:carbon", "core:quartz", "core:ice", "core:iron_ingot", "core:titanium_ingot",
+            "core:nickel_ingot", "core:silicon", "core:iron_plate", "core:titanium_plate", "core:nickel_plate", "core:titanium_alloy", "core:circuit",
+            "core:fuel_cell", "core:ammo", "core:hydrogen", "core:biomass", "core:science_engineering", "core:science_biology", "core:science_physics",
+            "core:carbon_fiber", "core:composite_plate", "core:coolant", "core:resonant_crystal", "core:focus_lens", "core:unknown_thing",
+        };
+        const int cols = 7;
+        var floor = new StandardMaterial3D { AlbedoColor = new Color(0.16f, 0.18f, 0.23f), Roughness = 0.9f };
+        for (int i = 0; i < ids.Length; i++)
+        {
+            float x = (i % cols) * 3.1f, z = (i / cols) * 3.4f;
+            var (shape, tint) = ItemModels.StyleOf(ids[i]);
+            AddChild(new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(2.9f, 0.04f, 3.2f) }, MaterialOverride = floor, Position = new Vector3(x, -0.02f, z) });
+            for (int v = 0; v < ItemModels.Variants; v++)
+            {
+                var mm = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true, Mesh = ItemModels.Mesh(shape, v), InstanceCount = 1 };
+                mm.SetInstanceTransform(0, new Transform3D(Basis.Identity.Scaled(Vector3.One * 0.8f), new Vector3(x - 0.95f + v * 0.95f, 0f, z - 0.95f)));
+                mm.SetInstanceColor(0, tint);
+                AddChild(new MultiMeshInstance3D { Multimesh = mm });
+            }
+            var pile = ItemPile.Build(shape, tint, i + 3, 6, ItemModels.GroundScale * 1.4f);
+            pile.Position = new Vector3(x - 0.55f, 0f, z + 0.1f);
+            AddChild(pile);
+            for (int k = 0; k < 4; k++)
+            {
+                var mm = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true, Mesh = ItemModels.Mesh(shape, ItemModels.VariantFor(0, i)), InstanceCount = 1 };
+                mm.SetInstanceTransform(0, new Transform3D(Basis.Identity.Scaled(Vector3.One * ItemModels.BeltScale), new Vector3(x + 0.1f + k * 0.35f, 0.172f, z + 1.15f)));
+                mm.SetInstanceColor(0, tint);
+                AddChild(new MultiMeshInstance3D { Multimesh = mm });
+            }
+            var tile = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true, Mesh = BeltModels.Tile(1), InstanceCount = 2 };
+            for (int k = 0; k < 2; k++) { tile.SetInstanceTransform(k, new Transform3D(Basis.Identity, new Vector3(x + 0.3f + k, 0f, z + 1.15f))); tile.SetInstanceColor(k, new Color(0.20f, 0.55f, 0.60f)); }
+            AddChild(new MultiMeshInstance3D { Multimesh = tile });
+            Label(ids[i]["core:".Length..], new Vector3(x, 0.02f, z + 1.55f));
+        }
+        int total = 0, worst = 0;
+        foreach (var sh in Enum.GetValues<ItemModels.Shape>())
+        {
+            var t = new int[ItemModels.Variants];
+            for (int v = 0; v < t.Length; v++) { t[v] = ItemModels.Triangles(sh, v); total += t[v]; worst = Math.Max(worst, t[v]); }
+            GD.Print($"ITEMS shape={sh} tris={string.Join("/", t)}");
+        }
+        GD.Print($"ITEMS shapes={ItemModels.ShapeCount} variants={ItemModels.Variants} meshes={ItemModels.Layers} totalTris={total} avgTris={total / ItemModels.Layers} worstTris={worst}");
+    }
+
     /// <summary>--focus=belts: three tiers of belt tiles with every item on them, a vertical run and the three end caps.</summary>
     private void BuildBeltGallery()
     {
@@ -194,15 +248,15 @@ public partial class Gallery : Node3D
                 Put(BeltModels.Tile(t), tiers[t], new Vector3(i, -0.46f, t * 1.3f));
             for (int i = 0; i < 11; i++)
             {
-                var (shape, tint) = BeltModels.StyleOf(ids[(t * 7 + i) % ids.Length]);
-                Put(BeltModels.Item(shape), tint, new Vector3(i + 0.5f, -0.46f + 0.172f, t * 1.3f), 0.27f);
+                var (shape, tint) = ItemModels.StyleOf(ids[(t * 7 + i) % ids.Length]);
+                Put(ItemModels.Mesh(shape, ItemModels.VariantFor(t, i)), tint, new Vector3(i + 0.5f, -0.46f + 0.172f, t * 1.3f), ItemModels.BeltScale);
             }
         }
         // the whole catalogue in a row along the back, at a larger scale so the silhouettes can be judged
         for (int i = 0; i < ids.Length; i++)
         {
-            var (shape, tint) = BeltModels.StyleOf(ids[i]);
-            Put(BeltModels.Item(shape), tint, new Vector3(i * 0.62f - 1f, -0.46f, -1.6f), 0.5f);
+            var (shape, tint) = ItemModels.StyleOf(ids[i]);
+            Put(ItemModels.Mesh(shape, i % ItemModels.Variants), tint, new Vector3(i * 0.62f - 1f, -0.46f, -1.6f), 0.5f);
         }
         Color[] caps = { new(1f, 0.78f, 0.2f), new(0.95f, 0.3f, 0.25f), new(0.35f, 0.95f, 0.55f) };
         for (int i = 0; i < 3; i++)
