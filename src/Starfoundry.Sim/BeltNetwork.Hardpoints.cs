@@ -59,8 +59,9 @@ public sealed partial class BeltNetwork
         var d = _deposits[deposit];
         long cu = Units.CellUnits, px = d.X * cu, py = d.Y * cu, pz = d.Z * cu;
         var result = new List<HardpointMount>();
+        long extra = MineReachExtraUnits(d); // a big rock of the clustered field is reached at its surface (ADR 0046)
         foreach (var m in MountsOf(_structures[p.ShipStructure], true))
-            if (InReach(m, px, py, pz, (long)m.RangeCells * cu)) result.Add(m);
+            if (InReach(m, px, py, pz, (long)m.RangeCells * cu + extra)) result.Add(m);
         return result;
     }
 

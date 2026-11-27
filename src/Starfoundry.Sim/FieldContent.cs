@@ -26,6 +26,9 @@ public sealed record FieldRules(
     int SectorCells, int LoadCells, int KeepCells, int ExclusionCells, int MarginCells, int RocksMin, int RocksMax, int MassMin, int MassMax, int MassBias,
     int DensityMin, int DensityMax, int UnitAmount, int StepTicks, int MaxLoaded, int WorldLimitCells, FieldItemDef[] Items)
 {
+    /// <summary>The clustered generator's numbers (ADR 0046), or null for content that keeps the uniform field only.</summary>
+    public ClusterRules? Clusters { get; init; }
+
     /// <summary>Two rocks of a sector keep at least this many cells between their surfaces.</summary>
     public const int GapCells = 3;
 
@@ -44,7 +47,7 @@ public sealed record FieldRules(
     internal static FieldRules Load(JsonElement f, Dictionary<string, int> itemIds)
     {
         ContentDb.RequireObjectInternal(f, "field", "sector_cells", "load_cells", "keep_cells", "exclusion_cells", "margin_cells", "rocks", "mass", "mass_bias", "density",
-            "unit_amount", "step_ticks", "max_loaded", "world_limit_cells", "items");
+            "unit_amount", "step_ticks", "max_loaded", "world_limit_cells", "items", "clusters");
         int sector = ContentDb.IntInternal(f, "sector_cells", "field", 40, 2000);
         int load = ContentDb.IntInternal(f, "load_cells", "field", 40, 4000);
         int keep = ContentDb.IntInternal(f, "keep_cells", "field", 40, 6000);
@@ -70,7 +73,10 @@ public sealed record FieldRules(
         return new FieldRules(sector, load, keep, ContentDb.IntInternal(f, "exclusion_cells", "field", 0, 4000), margin, rmin, rmax, mmin, mmax,
             ContentDb.IntInternal(f, "mass_bias", "field", 1, 8), dmin, dmax, ContentDb.IntInternal(f, "unit_amount", "field", 1, 100_000),
             ContentDb.IntInternal(f, "step_ticks", "field", 1, 600), ContentDb.IntInternal(f, "max_loaded", "field", 16, 100_000),
-            ContentDb.IntInternal(f, "world_limit_cells", "field", 20_000, 4_000_000), items.ToArray());
+            ContentDb.IntInternal(f, "world_limit_cells", "field", 20_000, 4_000_000), items.ToArray())
+        {
+            Clusters = f.TryGetProperty("clusters", out var clusters) ? ClusterRules.Load(clusters, sector, dmin, dmax) : null,
+        };
     }
 
     internal void MixInto(Action<long> mix)
@@ -80,5 +86,6 @@ public sealed record FieldRules(
         mix(DensityMin); mix(DensityMax); mix(UnitAmount); mix(StepTicks); mix(MaxLoaded); mix(WorldLimitCells);
         mix(Items.Length);
         foreach (var i in Items) { mix(i.Item); mix(i.Weight); mix(i.MinDistanceCells); }
+        Clusters?.MixInto(mix); // hashes only when the content has clusters (ADR 0046): the golden checksums use content without them
     }
 }

@@ -2225,7 +2225,7 @@
     "field": {
       "sector_cells": 200, "load_cells": 360, "keep_cells": 480, "exclusion_cells": 470, "margin_cells": 8,
       "rocks": [0, 5], "mass": [300, 8000], "mass_bias": 4, "density": [40, 180], "unit_amount": 60,
-      "step_ticks": 15, "max_loaded": 1500, "world_limit_cells": 4000000,
+      "step_ticks": 15, "max_loaded": 4000, "world_limit_cells": 4000000,
       "items": [
         { "item": "core:iron_ore", "weight": 40 },
         { "item": "core:carbon", "weight": 20 },
@@ -2233,7 +2233,16 @@
         { "item": "core:titanium_ore", "weight": 10, "min_distance_cells": 2500 },
         { "item": "core:nickel_ore", "weight": 8, "min_distance_cells": 3500 },
         { "item": "core:quartz", "weight": 6, "min_distance_cells": 5000 }
-      ]
+      ],
+      "clusters": {
+        "super_cells": 800, "parents": { "none_percent": 30, "one_percent": 50 },
+        "radius_base_cells": 80, "radius_per_richness_cells": 40, "richness_weights": [35, 30, 20, 10, 5], "core_rocks_per_sector": [24, 32, 44, 56, 70],
+        "shape_weights": [50, 30, 20],
+        "small_mass": [300, 1200], "medium_mass": [1200, 4000], "large_mass": [4000, 14000], "medium_permille": 280, "large_base_permille": 40, "large_per_richness_permille": 10,
+        "giant_mass": [14000, 120000], "giant_rate_permille": 8, "giant_margin_cells": 30, "giant_candidates": 2,
+        "radius_percent": 250, "density_base": 50, "density_per_richness": 25, "density_jitter": 20, "stray_density_max": 100, "dominant_ore_percent": 75,
+        "background_permille": 250, "margin_cells": 14, "max_rocks_per_sector": 80
+      }
     },
     "star_types": [
       { "id": "core:yellow_dwarf", "weight": 40, "richness_percent": 100, "asteroid_percent": 100, "hazard_percent": 100 },
