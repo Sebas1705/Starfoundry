@@ -1425,7 +1425,12 @@ public partial class Play
         if (ResearchOpen || BuildOpen || ComputerOpen) { toastCentre = (dock.Position.X - 12f) / 2f; toastWidth = Math.Min(toastWidth, dock.Position.X - 36f); } // the free left side of the view
         else toastWidth = Math.Min(toastWidth, Math.Max(300f, 2f * (keyLeft - 12f - size.X / 2f))); // not under the key panel
         // With the star map open the column narrows so it does not run under the map and its list on the right.
-        if (_mapOpen && Net.Galaxy is not null) toastWidth = Math.Min(toastWidth, Math.Max(300f, size.X - 784f));
+        // The list is as wide as its longest line (at least 380 px), so the column ends 8 px before wherever the list really starts.
+        if (_mapOpen && Net.Galaxy is not null)
+        {
+            float listLeft = size.X - Math.Max(380f, _mapList.GetCombinedMinimumSize().X + 12f);
+            toastWidth = Math.Min(toastWidth, Math.Max(300f, 2f * (listLeft - 8f - toastCentre)));
+        }
         _toastMax = toastWidth - 30f; // minus the category icon; each label shrinks to its own text up to this width
         _toastBox.CustomMinimumSize = new Vector2(toastWidth, 0);
         ResizeToastBox(toastWidth);
