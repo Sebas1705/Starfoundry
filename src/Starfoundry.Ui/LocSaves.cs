@@ -87,7 +87,7 @@ public static partial class Loc
         ["saves.status.nameEmpty"] = ("Escribe un nombre para el guardado.", "Type a name for the save."),
         ["saves.status.exists"] = ("Ya hay un guardado con ese nombre: elígelo y pulsa Sobrescribir.", "A save with that name exists: pick it and press Overwrite."),
         ["saves.status.migrated"] = ("Se importaron {0} guardados de una versión anterior; los originales están en la subcarpeta «legacy».", "Imported {0} saves from an earlier version; the originals are in the \"legacy\" subfolder."),
-        ["saves.hint"] = ("Flechas: elegir  -  Intro: cargar  -  Supr: borrar  -  F2: renombrar  -  Esc: volver", "Arrows: choose  -  Enter: load  -  Del: delete  -  F2: rename  -  Esc: back"),
+        ["saves.hint"] = ("Flechas: elegir  -  Intro o clic otra vez: cargar  -  Supr: borrar  -  F2: renombrar  -  Esc: volver", "Arrows: choose  -  Enter or click again: load  -  Del: delete  -  F2: rename  -  Esc: back"),
         ["saves.problem.content"] = ("Se hizo con otro contenido del juego y esta versión no puede reproducirla. El archivo se conserva intacto: ábrela con la versión que la creó o bórrala tú.", "It was made with other game content and this version cannot replay it. The file is kept untouched: open it with the version that made it, or delete it yourself."),
         ["saves.problem.scenario"] = ("Pertenece a un escenario que esta versión no tiene. El archivo se conserva intacto.", "It belongs to a scenario this version does not have. The file is kept untouched."),
         ["saves.problem.newer"] = ("La hizo una versión más nueva del juego. El archivo se conserva intacto: ábrela con esa versión.", "It was made by a newer version of the game. The file is kept untouched: open it with that version."),

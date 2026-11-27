@@ -36,8 +36,13 @@ public partial class Play
         SaveStore.UseFolder("user://saves-audit");
         SaveFixtures.Populate(SaveStore.Folder, _content, _scenarios, _gameId);
         _wantCapture = false;
+        await Frames(20);
+        byte[] real = SaveStore.CaptureThumbnail(GetViewport()); // the game view, as a save written now would keep it
+        string? realId = WriteSave(SaveKind.Manual, "A real screenshot", SaveReasons.Manual, silent: true);
+        GD.Print($"SAVESHOT screenshot={real.Length} bytes file={(realId is null ? 0 : new FileInfo(SaveStore.Folder.PathOf(realId)).Length)} bytes");
         OpenSaves(SavesReturn.Game);
         await Frames(40);
+        if (realId is not null) { _savesScreen?.SelectForTest(realId); await Frames(8); Shot("real"); }
         _savesScreen?.SelectForTest("base-with-a-very-long-name");
         await Frames(10);
         Shot("list");

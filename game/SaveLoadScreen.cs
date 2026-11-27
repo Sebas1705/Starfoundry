@@ -28,7 +28,7 @@ public partial class SaveLoadScreen : Control
     private SaveFilter _filter = SaveFilter.All;
     private SaveSort _sort = SaveSort.Newest;
     private bool _thisGameOnly;
-    private string? _selected;
+    private string? _selected, _picked; // _picked: the row the player chose (the first row is only pre-selected)
     private string _status = "";
     private Color _statusColor = UiTheme.Good;
 
@@ -281,6 +281,7 @@ public partial class SaveLoadScreen : Control
         if (status is not null) { _status = status; _statusColor = error ? UiTheme.Bad : UiTheme.Good; }
         if (select is not null) _selected = select;
         _all = _ctx.Folder.List();
+        _picked = null;
         var shown = SaveList.Apply(_all, _filter, _sort, _thisGameOnly ? _ctx.CurrentGameId : null);
         if (_selected is null || shown.All(e => e.Id != _selected)) _selected = shown.FirstOrDefault()?.Id;
         _subtitle.Text = Loc.T("saves.subtitle", _all.Count);
@@ -328,8 +329,7 @@ public partial class SaveLoadScreen : Control
         b.AddThemeStyleboxOverride("hover_pressed", UiTheme.Tile(selected: true, hover: true));
         b.AddThemeStyleboxOverride("focus", UiTheme.FocusRing());
         string id = e.Id;
-        b.Pressed += () => { if (_selected == id && ok && !InDialog) AskLoad(); else Select(id); };
-        b.GuiInput += ev => { if (ev is InputEventMouseButton { DoubleClick: true, ButtonIndex: MouseButton.Left } && ok) { Select(id); AskLoad(); } };
+        b.Pressed += () => { if (_picked == id && ok && !InDialog) AskLoad(); else { _picked = id; Select(id); } }; // the first press picks the row, a second one loads it
 
         var h = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
         h.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect, LayoutPresetMode.Minsize, 0);
