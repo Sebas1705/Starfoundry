@@ -145,7 +145,7 @@ public partial class Play
     /// <summary>Opens the computer on a tab, or switches to it when it is already open.</summary>
     private void OpenComputer(ComputerTab tab)
     {
-        if (_demo || PauseOpen || EndOpen || StoryOpen || _computerBar is null) return;
+        if (_demo || PauseOpen || SavesOpen || EndOpen || StoryOpen || _computerBar is null) return;
         if (!ComputerAvail.Has(tab))
         {
             Toast(Loc.T(ShipComputerTabs.WhyOff(tab, ComputerAvail)!), 4.0);

@@ -290,15 +290,15 @@ public partial class Play
         string note = "";
         if (victory)
         {
-            if (!story && _endShotPath is null) SaveGameToDisk("victory", silent: true);
+            if (!story && _endShotPath is null) WriteSave(SaveKind.Victory, "", SaveReasons.Victory, SaveNaming.VictoryId(_gameId), silent: true);
             if (nextLevel is not null)
                 choices.Add(new EndScreen.Choice(L("end.nextLevel"), () => StartScenarioFromEnd(nextLevel.Id, null, 0)));
             if (!story) choices.Add(new EndScreen.Choice(L("end.continue"), ContinueEndless));
-            choices.Add(new EndScreen.Choice(L("end.mainMenu"), () => { if (!story) SaveGameToDisk("autosave", silent: true); GoToMainMenu(); }));
+            choices.Add(new EndScreen.Choice(L("end.mainMenu"), () => { if (!story) Checkpoint(SaveReasons.Exit); GoToMainMenu(); }));
         }
         else
         {
-            string? last = Launch.NewestSave();
+            var last = LastCheckpoint(); // the newest save of this game that this build can replay, a quick save included
             note = L(last is null ? "end.defeat.noSave" : "end.defeat.note");
             choices.Add(new EndScreen.Choice(L("end.retry"), () => StartScenarioFromEnd(_scenario.Id, _scenario.PlayerRules ? Net.Rules : null, _galaxySeed)));
             choices.Add(new EndScreen.Choice(L("end.loadLast"), () => LoadLastAfterDefeat(), last is not null));

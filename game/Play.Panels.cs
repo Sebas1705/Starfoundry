@@ -31,15 +31,10 @@ public partial class Play
     /// </summary>
     private ulong ChooseSeed(string[] args)
     {
-        if (Launch.Mode == Launch.Intent.Continue && Launch.ContinueSave is { } slot && Godot.FileAccess.FileExists(SavePath(slot)))
+        if (Launch.Mode == Launch.Intent.Continue && Launch.ContinueSave is { } slot && SaveStore.Folder.Exists(slot))
         {
-            try
-            {
-                byte[] bytes = Godot.FileAccess.GetFileAsBytes(SavePath(slot));
-                ulong seed = SaveGame.Peek(new System.IO.MemoryStream(bytes)).GalaxySeed;
-                if (seed != 0) return seed;
-            }
-            catch (Exception e) { GD.PrintErr("SEED could not read the save header: " + e.Message); }
+            ulong seed = SaveStore.PeekInfo(slot)?.GalaxySeed ?? 0;
+            if (seed != 0) return seed;
         }
         if (args.FirstOrDefault(a => a.StartsWith("--seed="))?["--seed=".Length..] is { } text && ulong.TryParse(text, out ulong fixedSeed) && fixedSeed != 0) return fixedSeed;
         if (args.Any(LaunchFlags.IsScripted)) return ScriptedSeed;
@@ -63,15 +58,11 @@ public partial class Play
     private ScenarioPlan? ChooseScenario(string[] args)
     {
         if (_scenarios.All.Count == 0) return null;
-        if (Launch.Mode == Launch.Intent.Continue && Launch.ContinueSave is { } slot && Godot.FileAccess.FileExists(SavePath(slot)))
+        if (Launch.Mode == Launch.Intent.Continue && Launch.ContinueSave is { } slot && SaveStore.Folder.Exists(slot))
         {
-            try
-            {
-                var info = SaveGame.Peek(new System.IO.MemoryStream(Godot.FileAccess.GetFileAsBytes(SavePath(slot))));
-                if (info.ScenarioId is not null && _scenarios.Find(info.ScenarioId) is { } saved && info.GalaxySeed != 0)
-                    return new ScenarioPlan(saved, info.GalaxySeed, info.Rules ?? saved.Rules);
-            }
-            catch (Exception e) { GD.PrintErr("SCENARIO could not read the save header: " + e.Message); }
+            var info = SaveStore.PeekInfo(slot);
+            if (info is { ScenarioId: not null, GalaxySeed: not 0 } && _scenarios.Find(info.ScenarioId) is { } saved)
+                return new ScenarioPlan(saved, info.GalaxySeed, info.Rules ?? saved.Rules);
             return null;
         }
         string? id = null;

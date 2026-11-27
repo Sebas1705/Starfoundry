@@ -145,8 +145,10 @@ public partial class Play : Node3D
         _inventoryShotPath = args.FirstOrDefault(a => a.StartsWith("--inventory-shot="))?["--inventory-shot=".Length..];
         _cockpitShotPath = args.FirstOrDefault(a => a.StartsWith("--cockpit-shot="))?["--cockpit-shot=".Length..];
         _turnShotPath = args.FirstOrDefault(a => a.StartsWith("--turn-shot="))?["--turn-shot=".Length..];
-        // --continue=slot (quicksave, autosave, ...): continue that save, as the Continue button does; the galaxy comes from its header.
+        // --continue=id (a slot id of the saves folder, or quicksave): continue that save, as the Continue button does; the galaxy comes from its header.
         if (args.FirstOrDefault(a => a.StartsWith("--continue="))?["--continue=".Length..] is { Length: > 0 } cont) { Launch.Mode = Launch.Intent.Continue; Launch.ContinueSave = cont; }
+        SavesFolderSetup(args); // before anything reads a save: the player's folder or a throwaway one
+        if (Launch.ContinueSave is { } wanted) Launch.ContinueSave = SaveStore.ResolveContinue(wanted);
         _galaxySeed = ChooseSeed(args);
         string? st = args.FirstOrDefault(a => a.StartsWith("--stress="));
         _stressActive = args.Contains("--stress-active");
@@ -238,9 +240,11 @@ public partial class Play : Node3D
         if (Launch.Mode == Launch.Intent.Continue && Launch.ContinueSave is { } slot)
         {
             Launch.Mode = Launch.Intent.New;
-            LoadGameFromDisk(slot);
+            LoadSave(slot);
         }
         if (Launch.MenuShotPath is not null) _wantCapture = false;
+        if (args.Contains("--saves-check")) SavesCheckRun();
+        if (args.FirstOrDefault(a => a.StartsWith("--saves-shot="))?["--saves-shot=".Length..] is { Length: > 0 } savesShot) SavesShotRun(savesShot);
     }
 
     private bool _structuresOn;
@@ -903,6 +907,7 @@ void fragment() {
     private void SendJump()
     {
         if (_selectedSystem < 0) { Toast(L("toast.chooseSystem")); return; }
+        CheckpointBeforeJump();
         Send(new Jump(_selectedSystem));
     }
 

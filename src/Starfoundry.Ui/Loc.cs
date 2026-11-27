@@ -431,7 +431,6 @@ public static partial class Loc
         ["end.defeat.note"] = ("Tu autoguardado y guardado rápido siguen ahí: puedes volver a un punto anterior.", "Your autosave and quick save are still there: you can go back to an earlier point."),
         ["end.defeat.noSave"] = ("No hay ningún guardado: empieza una partida nueva.", "There is no save: start a new game."),
         ["end.victory.note"] = ("Partida guardada en la ranura «victoria». Puedes seguir jugando sin fin.", "Game saved in the \"victory\" slot. You can keep playing endlessly."),
-        ["menu.save.victory"] = ("victoria", "victory"),
 
         // ---- guided steps ----
         ["obj.title"] = ("PRIMEROS PASOS  {0}/{1}", "FIRST STEPS  {0}/{1}"),
@@ -648,8 +647,6 @@ public static partial class Loc
         ["menu.continue"] = ("Continuar", "Continue"),
         ["menu.continueInfo"] = ("{0} - tiempo de juego {1}", "{0} - play time {1}"),
         ["menu.noSave"] = ("No hay partida guardada", "No saved game"),
-        ["menu.save.quicksave"] = ("guardado rápido", "quick save"),
-        ["menu.save.autosave"] = ("autoguardado", "autosave"),
         ["menu.new"] = ("Nueva partida", "New game"),
         ["menu.settings"] = ("Ajustes", "Settings"),
         ["menu.controls"] = ("Controles", "Controls"),

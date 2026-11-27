@@ -81,6 +81,9 @@ public sealed record GameSettings
     /// <summary>Legacy: the goal-waves slider of older versions. It is still parsed and written so an old settings file round-trips, but no screen shows it and no game reads it: the difficulty preset or scenario (<c>WorldRules.GoalWaves</c>) decides the goal.</summary>
     public int GoalWaves { get; init; } = GoalSettings.DefaultWaves;
 
+    /// <summary>The id of the save slot used last (saved, loaded or continued), so Continue goes back to it (ADR 0047). Empty when none; an id that no longer exists is ignored by the menu.</summary>
+    public string LastSave { get; init; } = "";
+
     /// <summary>The player's key overrides (<c>bind.actionId=KEY1,KEY2</c> in the file), only for the actions that differ from the defaults. See <see cref="KeyBindingEditor"/>.</summary>
     public KeyOverrides Bindings { get; init; } = KeyOverrides.None;
 
@@ -103,6 +106,7 @@ public sealed record GameSettings
         AmbienceVolume = Math.Clamp(AmbienceVolume, 0, 100),
         UiVolume = Math.Clamp(UiVolume, 0, 100),
         GoalWaves = Math.Clamp(GoalWaves, GoalSettings.MinWaves, GoalSettings.MaxWaves),
+        LastSave = SaveNaming.IsValidId(LastSave) ? LastSave : "",
     };
 
     private static float Clamp(float v, float min, float max, float fallback) =>
@@ -137,6 +141,7 @@ public sealed record GameSettings
             new KeyValuePair<string, string>("graphics_quality", GraphicsQualities.Id(s.Graphics)),
             new KeyValuePair<string, string>("blender_cockpit", s.BlenderCockpit ? "true" : "false"),
             new KeyValuePair<string, string>("goal_waves", s.GoalWaves.ToString(CultureInfo.InvariantCulture)),
+            new KeyValuePair<string, string>("last_save", s.LastSave),
         }.Concat(new KeyBindingEditor(s.Bindings).ToPairs()).ToList();
     }
 
@@ -181,6 +186,7 @@ public sealed record GameSettings
                 case "low_textures" when bool.TryParse(value, out bool lt): s = s with { LowTextures = lt }; break;
                 case "graphics_quality" when GraphicsQualities.TryParse(value, out var gq): s = s with { Graphics = gq }; break;
                 case "blender_cockpit" when bool.TryParse(value, out bool bc): s = s with { BlenderCockpit = bc }; break;
+                case "last_save": s = s with { LastSave = value }; break;
                 case "goal_waves" when int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int gw): s = s with { GoalWaves = gw }; break;
             }
         }

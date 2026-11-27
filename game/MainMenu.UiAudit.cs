@@ -25,12 +25,17 @@ public partial class MainMenu
         if (args.FirstOrDefault(a => a.StartsWith("--audit-sizes="))?["--audit-sizes=".Length..] is { Length: > 0 } list) _auditSizes = list.Split(',');
         _auditShots = args.FirstOrDefault(a => a.StartsWith("--audit-shots="))?["--audit-shots=".Length..];
         var s = _auditSteps;
-        void Back() { if (_newGame is not null) CloseNewGame(); }
+        SaveFixtures.Populate(SaveStore.Folder, _content!, _catalog);
+        void Back() { if (_newGame is not null) CloseNewGame(); if (_saves is not null) CloseSaves(); }
         s.Add(("settle", () => { }));
         s.Add(("menu", () => { Back(); _menu.Open(MenuScreen.Page.Main); }));
         s.Add(("menu.settings", () => { Back(); _menu.Open(MenuScreen.Page.Settings); }));
         s.Add(("menu.credits", () => { Back(); _menu.OpenCredits(); }));
         s.Add(("menu.controls", () => { Back(); _menu.Open(MenuScreen.Page.Controls); }));
+        s.Add(("saves.menu", () => { Back(); OpenSaves(); }));
+        s.Add(("saves.menu.damaged", () => _saves?.SelectForTest("damaged-file")));
+        s.Add(("saves.menu.content", () => _saves?.SelectForTest("other-content")));
+        s.Add(("saves.menu.confirm.delete", () => { _saves?.SelectForTest("auto-2"); _saves?.AskDeleteForTest(); }));
         s.Add(("newgame.campaign", () => { Back(); OpenNewGame(NewGameScreen.Tab.Campaign); }));
         s.Add(("newgame.story", () => _newGame?.ShowTab(NewGameScreen.Tab.Story)));
         s.Add(("newgame.sandbox", () => _newGame?.ShowTab(NewGameScreen.Tab.Sandbox)));

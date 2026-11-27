@@ -56,15 +56,15 @@ public partial class Play
         var choices = new List<EndScreen.Choice>();
         if (victory)
         {
-            bool saved = SaveGameToDisk("victory", silent: true);
+            bool saved = WriteSave(SaveKind.Victory, "", SaveReasons.Victory, SaveNaming.VictoryId(_gameId), silent: true) is not null;
             note = saved ? L("end.victory.note") : "";
             choices.Add(new EndScreen.Choice(L("end.continue"), ContinueEndless));
-            choices.Add(new EndScreen.Choice(L("end.mainMenu"), () => { SaveGameToDisk("autosave", silent: true); GoToMainMenu(); }));
+            choices.Add(new EndScreen.Choice(L("end.mainMenu"), () => { Checkpoint(SaveReasons.Exit); GoToMainMenu(); }));
             choices.Add(new EndScreen.Choice(L("end.quit"), () => { FinishPlayLog(); GetTree().Quit(); }));
         }
         else
         {
-            string? last = Launch.NewestSave();
+            var last = LastCheckpoint(); // the newest save of this game that this build can replay, a quick save included
             note = L(last is null ? "end.defeat.noSave" : "end.defeat.note");
             choices.Add(new EndScreen.Choice(L("end.loadLast"), () => LoadLastAfterDefeat(), last is not null));
             choices.Add(new EndScreen.Choice(L("end.newGame"), NewGameFromEnd));
@@ -82,14 +82,6 @@ public partial class Play
         _wantCapture = true;
     }
 
-    private void LoadLastAfterDefeat()
-    {
-        string? last = Launch.NewestSave();
-        if (last is null || !LoadGameFromDisk(last)) return;
-        _endScreen?.Dismiss();
-        _paused = false;
-        _wantCapture = true;
-    }
 
     private void NewGameFromEnd()
     {
@@ -178,9 +170,6 @@ public partial class Play
         if (_endFrame == 80) Save(_endShotPath + ".defeat.png");
         if (_endFrame == 81)
         {
-            // The victory save made by the overlay is only a by-product of the picture: do not leave it in the player's folder.
-            string victory = ProjectSettings.GlobalizePath(SavePath("victory"));
-            if (System.IO.File.Exists(victory)) { GD.Print("SHOT victory save was written, removing it"); System.IO.File.Delete(victory); }
             GetTree().Quit();
         }
     }
