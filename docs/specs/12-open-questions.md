@@ -86,3 +86,10 @@ See [the design](../superpowers/specs/2026-11-28-physical-units-design.md) (step
 - The item lots (about 25 kg per item, hydrogen 2.5 kg, ammo 5 kg), the power unit (100 kW) and the walking speed (4 m/s).
 - Which real-physics changes to build (hold capacity by mass, acceleration from mass and thrust, kinetic collision damage) and in which order; whether balance may move.
 - An imperial display option: not in step 1.
+
+## World scale (2026-11-28)
+See [the design](../superpowers/specs/2026-11-28-world-scale-design.md) and [ADR 0053](../adr/0053-world-scale-realistic-spacing-with-a-cruise-drive.md). Stage 0 is decided; stages 1 and 2 are built next. All numbers are proposals. It replaces the first physical-units question above for the galaxy: the local scale stays, the spacing grows.
+- Whether planets and moons should ever offer something (ice, gas, a base) or stay nav targets and danger zones.
+- Whether a jump should need a gate structure (we propose none: the jump drive is the gate).
+- Whether system cruise at 10 Mm/s (3.3 percent of the speed of light) is acceptable fiction, or 3 Mm/s with a longer trip.
+- Whether the field limit of 600 km around each anchor and the 100 km cluster spacing feel right once flown.
