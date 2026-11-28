@@ -623,6 +623,7 @@ public partial class Play
     {
         var ed = _blueprint!;
         var s = ed.Session;
+        if (!ed.FloorOpenNow) ed.OpenFloor(s.Draft.Modules.First(kv => kv.Value == ModuleKind.Core).Key); // applying closed the plan: open the core's again
         var core = s.FloorModule!.Value;
         int large = _content.MachineIndex("core:large_smelter"), plus = _content.MachineIndex("core:reactor_core");
         Net.GrantResearch(_content.ResearchIndex("core:heavy_industry")); // the check world is a campaign one: the machines unlock with this research
@@ -643,7 +644,7 @@ public partial class Play
         s.PickPlanMachine(plus);
         ed.RunAction("bpRotate", 0);
         Check("footprint: with the Machine tool the key turns the next one", s.PlanTurn >= 0);
-        Check("footprint: a turned machine and the ghost have the same cells", s.Interior.FootprintProblem(FloorCell(core.Mx, core.Mz, 1, 1), plus, s.PlanTurn) is null);
+        Check("footprint: the plus fits on free floor and not across the module edge", s.Interior.FootprintProblem(FloorCell(core.Mx, core.Mz, 5, 0), plus, 0) is null && s.Interior.FootprintProblem(FloorCell(core.Mx, core.Mz, 0, 0), plus, 0) == PlanReasons.Footprint);
         s.SetPlanTool(PlanTool.Erase);
         ed.FloorClick(FloorCell(core.Mx, core.Mz, 4, 6));
         Check("footprint: erasing any covered cell removes the whole machine", s.Interior.Machines.Count == before && s.Interior.MachineAt(FloorCell(core.Mx, core.Mz, 5, 5)) is null);
