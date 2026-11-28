@@ -51,7 +51,7 @@ The engine layer never edits the simulation directly: it submits commands to `Si
 ## Saves
 - Versioned binary format (header, chunked sections, per-system deltas), compressed.
 - Migration functions per version bump; test fixtures for every released version.
-- Autosave every 5 minutes with 3 rotating backups; async write to avoid hitches.
+- Autosave every 5 minutes with 3 rotating backups; async write to avoid hitches. *(Built differently: saves are the replayed command log ([ADR 0016](../adr/0016-saves-are-the-command-log-replayed.md)) in checked slot files with checkpoints at key moments, six kept per game ([ADR 0049](../adr/0049-save-slots-checkpoints-and-slot-files.md)).)*
 - Human-readable JSON export for debugging.
 
 ## Networking

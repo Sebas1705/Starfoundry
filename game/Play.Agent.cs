@@ -94,6 +94,7 @@ public partial class Play
             computerTab = _computerTab?.ToString(),
             inventoryOpen = InventoryOpen,
             pauseOpen = PauseOpen,
+            savesOpen = SavesOpen,
         });
     }
 

@@ -71,3 +71,9 @@ See [the spec](../superpowers/specs/2026-11-27-hull-shapes-design.md) (proposal,
 - Which shapes come first, whether a shape changes price, hit points and mass, and whether it is gated by research.
 - Whether the sim learns the module turn that the editor's rotate tool only keeps on the client today.
 - Scale: a deposit rock is smaller than one module (8 cells) and a ship is 40 cells long and 5 : 1; a bigger rock radius, a lower module height or a wider starter footprint are sim-level choices listed in the visual pass.
+
+## Saves (2026-11-28)
+See [ADR 0049](../adr/0049-save-slots-checkpoints-and-slot-files.md) and [saves](../prototypes/saves.md). All proposals.
+- Checkpoints: how many are kept per game (6 now), the gap between event checkpoints (30 s) and the timer (5 minutes), whether a checkpoint should also be taken on arrival in a new system and before the first wave, and whether the player should be able to pin one so it never rotates (duplicating it does that today).
+- Whether the end screen should also list every save of the game (it only has the one button, Reload last checkpoint, and the full screen is under the pause menu).
+- Cloud saves and a share-a-save export; snapshots to shorten long loads once a game replays in more than a few seconds in Release.

@@ -9,7 +9,7 @@ namespace Starfoundry.Game;
 
 /// <summary>
 /// The scenario side of the player's files: the scenario catalog (<c>content/scenarios</c> next to <c>core.json</c>), the progress record
-/// (<c>user://progress.cfg</c>), the sandbox presets (<c>user://sandbox_presets.cfg</c>) and the goals sidecar of a save (<c>&lt;slot&gt;.goals</c>).
+/// (<c>user://progress.cfg</c>), the sandbox presets (<c>user://sandbox_presets.cfg</c>). The goals of a save travel inside its slot file (<see cref="SaveParts.Goals"/>).
 /// All parsing and the file formats are engine-free (<c>Starfoundry.Ui</c>); this class only reads and writes the files.
 /// </summary>
 public static class ScenarioStore
@@ -54,19 +54,6 @@ public static class ScenarioStore
     public static SandboxPresets Presets => _presets ??= SandboxPresets.Parse(ReadText(PresetsPath));
 
     public static void SavePresets() => WriteText(PresetsPath, Presets.Serialize());
-
-    // ---- goals sidecar -----------------------------------------------------------------------
-
-    public static string SidecarPath(string slot) => $"user://saves/{slot}.goals";
-
-    public static void WriteSidecar(string slot, ProgressSnapshot snapshot) => WriteText(SidecarPath(slot), ProgressSnapshotText.Serialize(snapshot));
-
-    /// <summary>The goals saved with a slot, or null when there is none, it is unreadable or it belongs to another save (a different tick).</summary>
-    public static ProgressSnapshot? ReadSidecar(string slot, long saveTick)
-    {
-        var snap = ProgressSnapshotText.Parse(ReadText(SidecarPath(slot)));
-        return snap is not null && snap.Tick == saveTick ? snap : null;
-    }
 
     // ---- files -------------------------------------------------------------------------------
 

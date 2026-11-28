@@ -74,6 +74,16 @@ public static class SettingsStore
         Changed?.Invoke();
     }
 
+    /// <summary>Remembers the save slot used last. Only this entry changes: nothing is applied and <see cref="Changed"/> is not raised.</summary>
+    public static void SetLastSave(string id)
+    {
+        EnsureLoaded();
+        var s = (_current! with { LastSave = id }).Clamped();
+        if (s == _current) return;
+        _current = s;
+        Save(s);
+    }
+
     /// <summary>The settings that reach the engine: language, master bus volume and the window mode.</summary>
     private static void Apply(GameSettings s)
     {
@@ -100,7 +110,7 @@ public static class Launch
     /// </summary>
     public static readonly bool Agent = Array.Exists(OS.GetCmdlineUserArgs(), a => a == "--agent");
 
-    /// <summary>The save to load when <see cref="Mode"/> is <see cref="Intent.Continue"/> ("quicksave" or "autosave").</summary>
+    /// <summary>The save to load when <see cref="Mode"/> is <see cref="Intent.Continue"/> (a slot id of the saves folder).</summary>
     public static string? ContinueSave;
 
     /// <summary>The scenario of a new game chosen on the New Game screen (null for the scripted runs and the legacy path).</summary>
@@ -132,16 +142,4 @@ public static class Launch
 
     /// <summary><c>--menu-shot=path</c>: the menu shot continues in the game scene, which saves the pause overlay shots.</summary>
     public static string? MenuShotPath;
-
-    public static string SavePath(string name) => $"user://saves/{name}.sfsave";
-
-    /// <summary>The newest existing save slot ("quicksave" or "autosave"), or null.</summary>
-    public static string? NewestSave()
-    {
-        return SaveSlots.Newest(name =>
-        {
-            string path = SavePath(name);
-            return Godot.FileAccess.FileExists(path) ? Godot.FileAccess.GetModifiedTime(path) : null;
-        });
-    }
 }

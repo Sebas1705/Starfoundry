@@ -63,7 +63,7 @@ What the player sees (game project, no simulation changes). `Play.Defence.cs` re
 ### Goal and end
 `GameOutcome.Evaluate(net, player, goal)` (engine-free, `src/Starfoundry.Ui`): Lost when the ship is lost in a structure world (older worlds never lose); Won when the waves cleared reach `GoalSettings.WavesToWin` (the setting `goal_waves`, 3 to 30, default 10) with the ship alive and a station of the player standing. Waves cleared are `WavesSpawned` while no enemy is alive and one less while a wave is being fought. Stats: play time, modules built (standing plus lost, minus the starter ship's five), stations founded and lost, waves, items mined by hand and by drones, modules and machines lost.
 
-The end screen (`EndScreen.cs`) pauses the simulation. Victory writes the `victory` save slot and offers Keep playing (endless, never shown again), Main menu and Quit. Defeat writes a play log line and keeps the autosave and quick save untouched: autosaving is skipped for a lost world, and the Main menu button there does not autosave. It offers Load last save (when one exists), New game and Main menu.
+The end screen (`EndScreen.cs`) pauses the simulation. Victory writes the game's victory save ([saves](saves.md)) and offers Keep playing (endless, never shown again), Main menu and Quit. Defeat writes a play log line and keeps the autosave and quick save untouched: autosaving is skipped for a lost world, and the Main menu button there does not autosave. It offers Load last save (when one exists), New game and Main menu.
 
 ### Checks
 - Tests: `GameOutcomeTests` (win, loss, wave in progress, station required, station lost, legacy worlds) and the `goal_waves` cases of `GameSettingsTests`.

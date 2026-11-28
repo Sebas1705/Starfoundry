@@ -43,6 +43,8 @@ public partial class MainMenu : Control
         }
 
         SettingsStore.EnsureLoaded();
+        // The audit lists made-up saves in a throwaway folder; a real start prepares the player's folder (stale temp files out, old single-file saves wrapped).
+        if (args.Contains("--ui-audit-menu")) SaveStore.UseFolder("user://saves-audit"); else SaveStore.Prepare();
         if (args.Contains("--ui-lang=es")) Loc.Lang = Language.Es;
         if (args.Contains("--ui-lang=en")) Loc.Lang = Language.En;
         _content = ContentSource.Load(args, out var contentLookup, out string? contentError);
@@ -63,9 +65,13 @@ public partial class MainMenu : Control
         BuildBackground();
 
         _menu = new MenuScreen("menu.title", dim: false);
-        string? save = Launch.NewestSave();
-        _menu.AddEntry(() => Loc.T("menu.continue"), () => { Launch.Mode = Launch.Intent.Continue; Launch.ContinueSave = save; StartGame(); },
-            () => save is not null, () => save is null ? Loc.T("menu.noSave") : SaveDetail(save));
+        // Continue goes back to the save used last (settings.cfg), else the newest one this build can replay; Load game lists them all.
+        var catalog = ScenarioStore.Catalog(_content, _contentPath);
+        _catalog = catalog;
+        SaveEntry? Target() => SaveStore.ContinueTarget(_content, catalog);
+        _menu.AddEntry(() => Loc.T("menu.continue"), () => { Launch.Mode = Launch.Intent.Continue; Launch.ContinueSave = Target()?.Id; StartGame(); },
+            () => Target() is not null, () => Target() is { } t ? SaveDetail(t) : Loc.T(SaveStore.Folder.List().Count == 0 ? "menu.noSave" : "menu.noLoadable"));
+        _menu.AddEntry(() => Loc.T("menu.load"), OpenSaves, () => SaveStore.Folder.List().Count > 0, () => SaveStore.Folder.List().Count > 0 ? Loc.T("menu.loadDetail", SaveStore.Folder.List().Count) : "");
         _menu.AddEntry(() => Loc.T("menu.new"), () => OpenNewGame());
         _menu.AddEntry(() => Loc.T("menu.settings"), () => _menu.Open(MenuScreen.Page.Settings));
         _menu.AddEntry(() => Loc.T("menu.controls"), () => _menu.Open(MenuScreen.Page.Controls));
@@ -73,6 +79,7 @@ public partial class MainMenu : Control
         _menu.AddEntry(() => Loc.T("menu.quit"), () => GetTree().Quit());
         _menu.SetAnchorsPreset(LayoutPreset.FullRect);
         AddChild(_menu);
+        if (SaveStore.Migrated is { Wrapped: > 0 } migrated) _menu.SetStatus(Loc.T("saves.status.migrated", migrated.Wrapped));
         if (args.Contains("--ui-audit-menu")) MenuAuditSetup(args);
     }
 
@@ -112,16 +119,41 @@ public partial class MainMenu : Control
         GetTree().ChangeSceneToFile(GameScene);
     }
 
-    /// <summary>"Quick save - play time 12:34" for the newest save, or an empty string when the file cannot be read.</summary>
-    private static string SaveDetail(string slot)
+    private ScenarioCatalog _catalog = ScenarioCatalog.Empty;
+    private SaveLoadScreen? _saves;
+
+    /// <summary>"Station north - played 12:34" for the save Continue goes to.</summary>
+    private static string SaveDetail(SaveEntry entry) =>
+        entry.Meta is { } m ? Loc.T("menu.continueInfo", SaveText.Title(m), SaveText.Clock(m.PlaySeconds)) : "";
+
+    private string? ScenarioNameOf(SaveMeta meta) => meta.ScenarioId is { } id && _catalog.Find(id) is { } s ? s.Name(Loc.Lang == Language.Es) : meta.ScenarioId;
+
+    /// <summary>Opens the Load game screen over the menu: every save, loadable ones with Load; a pick starts the game scene on it.</summary>
+    private void OpenSaves()
     {
-        try
+        if (_content is null || _saves is not null) return;
+        var content = _content;
+        var catalog = _catalog;
+        var ctx = new SaveLoadScreen.Context(SaveStore.Folder, ScenarioNameOf, m => SaveStore.Check(m, content, catalog), null, null);
+        var screen = _saves = new SaveLoadScreen(ctx);
+        screen.LoadRequested += id =>
         {
-            byte[] bytes = Godot.FileAccess.GetFileAsBytes(Launch.SavePath(slot));
-            var info = SaveGame.Peek(new MemoryStream(bytes));
-            return Loc.T("menu.continueInfo", Loc.T("menu.save." + slot), PlayLog.Format(info.Ticks / (double)Units.TicksPerSecond));
-        }
-        catch (Exception) { return ""; }
+            Launch.Mode = Launch.Intent.Continue;
+            Launch.ContinueSave = id;
+            StartGame();
+        };
+        screen.CloseRequested += CloseSaves;
+        _menu.Visible = false;
+        AddChild(screen);
+    }
+
+    private void CloseSaves()
+    {
+        if (_saves is null) return;
+        _saves.QueueFree();
+        _saves = null;
+        _menu.Visible = true;
+        _menu.Open(MenuScreen.Page.Main);
     }
 
     private void BuildBackground()

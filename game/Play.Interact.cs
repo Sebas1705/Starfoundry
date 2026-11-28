@@ -103,8 +103,8 @@ public partial class Play
             case "openMap": ToggleComputerTab(ComputerTab.Map); break;
             case "hudDetail": CycleHudDetail(); break;
             case "help": _helpOpen = !_helpOpen; break;
-            case "quickSave": SaveGameToDisk("quicksave", silent: false); break;
-            case "quickLoad": LoadGameFromDisk(); break;
+            case "quickSave": QuickSave(); break;
+            case "quickLoad": QuickLoad(); break;
             case "fullscreen":
                 SettingsStore.Set(SettingsStore.Current with { Fullscreen = DisplayServer.WindowGetMode() != DisplayServer.WindowMode.Fullscreen });
                 break;
@@ -163,7 +163,7 @@ public partial class Play
     {
         if (KeyBindingsPage.Capturing) return; // the rebinding page is waiting for a key
         if (e is not InputEventKey { Pressed: true, Echo: false, Keycode: Key.Tab } k || k.CtrlPressed || k.AltPressed || k.ShiftPressed) return;
-        if (_demo || PauseOpen || EndOpen || StoryOpen || BlueprintOpen) return;
+        if (_demo || PauseOpen || SavesOpen || EndOpen || StoryOpen || BlueprintOpen) return;
         GetViewport().SetInputAsHandled();
         ToggleComputer();
     }

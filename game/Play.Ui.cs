@@ -389,22 +389,23 @@ public partial class Play
         AddChild(layer);
         var menu = _pauseMenu = new MenuScreen("pause.title", dim: true) { Visible = false, InfoLine = () => L("pause.seed", _galaxySeed) };
         menu.AddEntry(() => L("pause.resume"), ClosePause);
+        menu.AddEntry(() => L("pause.saves"), () => OpenSaves(SavesReturn.Pause), () => !_demo && !_noSaves);
         menu.AddEntry(() => L("pause.save"), () =>
         {
-            bool ok = SaveGameToDisk("quicksave", silent: true);
+            bool ok = WriteSave(SaveKind.Quick, "", SaveReasons.QuickSave, silent: true) is not null;
             menu.SetStatus(ok ? L("pause.saved", PlayLog.Format(Net.Tick / (double)Units.TicksPerSecond)) : L("pause.saveFailed"));
             menu.Rebuild();
         });
         menu.AddEntry(() => L("pause.load"), () =>
         {
-            if (LoadGameFromDisk()) ClosePause();
+            if (LoadSave(SaveNaming.QuickId)) ClosePause();
             else menu.SetStatus(L("pause.loadFailed"));
-        }, () => Launch.NewestSave() is not null);
+        }, () => SaveStore.Folder.Exists(SaveNaming.QuickId));
         menu.AddEntry(() => L("menu.settings"), () => menu.Open(MenuScreen.Page.Settings));
         menu.AddEntry(() => L("menu.controls"), () => menu.Open(MenuScreen.Page.Controls));
         menu.AddEntry(() => L("pause.mainMenu"), () =>
         {
-            SaveGameToDisk("autosave", silent: true);
+            Checkpoint(SaveReasons.Exit);
             FinishPlayLog();
             Launch.MenuShotPath = null;
             GetTree().ChangeSceneToFile("res://MainMenu.tscn");
@@ -420,6 +421,7 @@ public partial class Play
     private void OpenPause()
     {
         if (_pauseMenu is null || PauseOpen) return;
+        _cleanThumb = _demo ? null : SaveStore.CaptureThumbnail(GetViewport()); // the game as it is before the overlay covers it: the screenshot of a save made from the pause menu
         _pausedBefore = _paused;
         _paused = true;
         _wantCapture = false;
@@ -430,6 +432,7 @@ public partial class Play
     private void ClosePause()
     {
         if (_pauseMenu is null) return;
+        _cleanThumb = null;
         _pauseMenu.Visible = false;
         _paused = _pausedBefore;
         _wantCapture = true;
@@ -458,7 +461,7 @@ public partial class Play
         UpdateCapture();
         _objectives.Update(Net, Player);
         UpdatePlayLog();
-        AutosaveTick();
+        CheckpointTick(dt);
         UpdateOutcome();
         if (_saveTest) SaveSelfTest();
         if (_stressMachines > 0) StressTick(dt);
@@ -781,115 +784,6 @@ public partial class Play
         sb.Append(L("hud.threat", th.Signature, rules.SignatureThreshold, state, ship)).Append('\n');
     }
 
-    // ---- saving and loading -------------------------------------------------------------------
-
-    private GameMode _gameMode = GameMode.Campaign;
-    private bool _threatsOn = true;
-    private double _lastAutosave;
-    private bool _saveTest;
-
-    private static string SavePath(string name) => $"user://saves/{name}.sfsave";
-
-    /// <summary>Writes the game (its command log) to <c>user://saves</c>. A save is small and loads by replaying it.</summary>
-    private bool SaveGameToDisk(string name, bool silent)
-    {
-        if (_demo) return false;
-        if (name == "autosave" && Net.StructureRules && Net.ShipLost(Player)) return false; // a lost world never replaces the autosave
-        try
-        {
-            DirAccess.MakeDirRecursiveAbsolute(ProjectSettings.GlobalizePath("user://saves"));
-            var ms = new System.IO.MemoryStream();
-            SaveGame.Write(ms, _world, _content, _gameMode, _galaxySeed, _threatsOn, Player, _stationRules, _structuresOn,
-                _scenario is not null || !Net.Rules.IsDefault ? Net.Rules : null, _scenario);
-            WriteSlotAtomically(name, ms.ToArray());
-            // The goals engine is recomputed from the world on load, so when each goal was done travels beside the save.
-            if (_progress is not null) ScenarioStore.WriteSidecar(name, _progress.Export(_world.Tick, _continueEndless));
-            if (!silent) Toast(L("toast.saved", PlayLog.Format(Net.Tick / (double)Units.TicksPerSecond)));
-            return true;
-        }
-        catch (Exception e)
-        {
-            GD.PrintErr("SAVE failed: " + e.Message);
-            Toast(L("toast.saveFailed", e.Message));
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Writes a slot without ever leaving it half-written: the bytes go to a temporary file first, the slot's previous contents are kept
-    /// (the autosave rotates to <c>autosave.prev</c>, other slots keep a <c>.bak</c>), then the temporary file is renamed over the slot.
-    /// </summary>
-    private static void WriteSlotAtomically(string name, byte[] bytes)
-    {
-        string tmp = SavePath(SaveSlots.TempName(name));
-        using (var f = Godot.FileAccess.Open(tmp, Godot.FileAccess.ModeFlags.Write))
-        {
-            if (f is null) throw new System.IO.IOException(Godot.FileAccess.GetOpenError().ToString());
-            f.StoreBuffer(bytes);
-        }
-        if (!Godot.FileAccess.FileExists(tmp) || Godot.FileAccess.GetFileAsBytes(tmp).Length != bytes.Length)
-            throw new System.IO.IOException("the temporary save file was not written completely");
-        string slot = SavePath(name);
-        string G(string p) => ProjectSettings.GlobalizePath(p);
-        if (Godot.FileAccess.FileExists(slot))
-        {
-            var copy = DirAccess.CopyAbsolute(G(slot), G(SavePath(SaveSlots.PreviousName(name))));
-            if (copy != Error.Ok) GD.PrintErr($"SAVE could not keep the previous {name}: {copy}");
-        }
-        var err = DirAccess.RenameAbsolute(G(tmp), G(slot));
-        if (err != Error.Ok)
-        {
-            DirAccess.RemoveAbsolute(G(slot)); // some platforms do not rename over an existing file
-            err = DirAccess.RenameAbsolute(G(tmp), G(slot));
-            if (err != Error.Ok) throw new System.IO.IOException(err.ToString());
-        }
-    }
-
-    /// <summary>Loads the newest of the quick save and the autosave (or the named slot) by replaying it; the game freezes for a second or two.</summary>
-    private bool LoadGameFromDisk(string? slot = null)
-    {
-        if (_demo) return false;
-        string? name = slot ?? Launch.NewestSave();
-        if (name is null || !Godot.FileAccess.FileExists(SavePath(name))) { Toast(L("toast.noSave")); return false; }
-        try
-        {
-            byte[] bytes = Godot.FileAccess.GetFileAsBytes(SavePath(name));
-            // A save of another galaxy cannot be loaded into this scene (its deposits and sky are built from the seed): reopen the scene on it.
-            var peek = SaveGame.Peek(new System.IO.MemoryStream(bytes));
-            if (peek.GalaxySeed != _galaxySeed || peek.ScenarioId != _scenario?.Id)
-            {
-                FinishPlayLog();
-                Launch.Mode = Launch.Intent.Continue;
-                Launch.ContinueSave = name;
-                Launch.MenuShotPath = null;
-                GetTree().CallDeferred(SceneTree.MethodName.ReloadCurrentScene);
-                return true;
-            }
-            var world = SaveGame.Read(new System.IO.MemoryStream(bytes), _content, out var info, _scenarios);
-            _world = world;
-            _loadedSnapshot = _scenario is null ? null : ScenarioStore.ReadSidecar(name, info.Ticks);
-            _gameMode = info.Mode;
-            _threatsOn = info.Threats;
-            // The save decides the rules, whatever the running game started with.
-            bool structures = info.Structures && _content.StarterShip is not null;
-            bool rules = info.StationRules && !structures; // structures win over the station rules
-            bool rulesChanged = _stationRules != rules || _structuresOn != structures;
-            _stationRules = rules;
-            _structuresOn = structures;
-            if (rulesChanged) RebuildPalette();
-            _stationView.Invalidate();
-            ResetAfterLoad();
-            Toast(L("toast.loaded", PlayLog.Format(info.Ticks / (double)Units.TicksPerSecond)));
-            return true;
-        }
-        catch (Exception e)
-        {
-            GD.PrintErr("LOAD failed: " + e.Message);
-            Toast(L("toast.loadFailed", L(SaveSlots.LoadFailureKey(e))));
-            return false;
-        }
-    }
-
     // ---- stress test ---------------------------------------------------------------------------
 
     private int _stressMachines;
@@ -960,13 +854,13 @@ public partial class Play
         {
             _saveTestChecksum = _world.Checksum();
             _saveTestTick = _world.Tick;
-            SaveGameToDisk("selftest", silent: true);
+            WriteSave(SaveKind.Manual, "selftest", SaveReasons.Manual, "selftest", silent: true);
         }
         if (_saveTestFrame == 100) ToggleRefinery(); // the world moves on after the save
         if (_saveTestFrame == 140)
         {
             bool changed = _world.Checksum() != _saveTestChecksum;
-            LoadGameFromDisk("selftest");
+            LoadSave("selftest");
             bool same = _world.Checksum() == _saveTestChecksum && _world.Tick == _saveTestTick;
             GD.Print($"SAVETEST changed_after_save={changed} loaded_matches_save={same} tick={_world.Tick}");
             GetTree().Quit();
@@ -1008,17 +902,6 @@ public partial class Play
             _playLog = new PlayLog(_content, _stationRules, _structuresOn);
             _playLog.Update(Net, Player); // what was already done is not news
         }
-    }
-
-    /// <summary>Every five minutes of real time a played game saves itself to the autosave slot.</summary>
-    private void AutosaveTick()
-    {
-        if (_demo || EndOpen || (Net.StructureRules && Net.ShipLost(Player))) return; // a lost world never replaces the autosave
-        double now = Time.GetTicksMsec() / 1000.0;
-        if (_lastAutosave == 0) { _lastAutosave = now; return; }
-        if (now - _lastAutosave < 300) return;
-        _lastAutosave = now;
-        SaveGameToDisk("autosave", silent: true);
     }
 
     // ---- play log -----------------------------------------------------------------------------
@@ -1425,7 +1308,12 @@ public partial class Play
         if (ResearchOpen || BuildOpen || ComputerOpen) { toastCentre = (dock.Position.X - 12f) / 2f; toastWidth = Math.Min(toastWidth, dock.Position.X - 36f); } // the free left side of the view
         else toastWidth = Math.Min(toastWidth, Math.Max(300f, 2f * (keyLeft - 12f - size.X / 2f))); // not under the key panel
         // With the star map open the column narrows so it does not run under the map and its list on the right.
-        if (_mapOpen && Net.Galaxy is not null) toastWidth = Math.Min(toastWidth, Math.Max(300f, size.X - 784f));
+        // The list is as wide as its longest line (at least 380 px), so the column ends 8 px before wherever the list really starts.
+        if (_mapOpen && Net.Galaxy is not null)
+        {
+            float listLeft = size.X - Math.Max(380f, _mapList.GetCombinedMinimumSize().X + 12f);
+            toastWidth = Math.Min(toastWidth, Math.Max(300f, 2f * (listLeft - 8f - toastCentre)));
+        }
         _toastMax = toastWidth - 30f; // minus the category icon; each label shrinks to its own text up to this width
         _toastBox.CustomMinimumSize = new Vector2(toastWidth, 0);
         ResizeToastBox(toastWidth);
@@ -1547,7 +1435,7 @@ public partial class Play
 
     public override void _UnhandledInput(InputEvent e)
     {
-        if (_demo || PauseOpen || EndOpen || StoryOpen) return;
+        if (_demo || PauseOpen || SavesOpen || EndOpen || StoryOpen) return;
         if (BlueprintOpen && e is not InputEventKey) return; // the editor reads its own mouse
 
         switch (e)
@@ -1667,7 +1555,7 @@ public partial class Play
     // ---- cursor capture ------------------------------------------------------------------------------------
 
     /// <summary>Panels that need the pointer: the help overlay, the research panel, the build menu and the star map.</summary>
-    private bool PanelOpen() => PauseOpen || EndOpen || StoryOpen || _helpOpen || ComputerOpen || ResearchOpen || BuildOpen || InventoryOpen || DesignerOpen || BlueprintOpen || BenchPanelOpen || MachinePanelOpen || (_mapOpen && Net.Galaxy is not null);
+    private bool PanelOpen() => PauseOpen || SavesOpen || EndOpen || StoryOpen || _helpOpen || ComputerOpen || ResearchOpen || BuildOpen || InventoryOpen || DesignerOpen || BlueprintOpen || BenchPanelOpen || MachinePanelOpen || (_mapOpen && Net.Galaxy is not null);
 
     /// <summary>Releases or captures the mouse so it matches what the player wants and what is on screen.</summary>
     private void UpdateCapture()

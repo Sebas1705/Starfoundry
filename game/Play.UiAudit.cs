@@ -27,6 +27,8 @@ public partial class Play
     {
         if (args.FirstOrDefault(a => a.StartsWith("--audit-sizes="))?["--audit-sizes=".Length..] is { Length: > 0 } list) _auditSizes = list.Split(',');
         _auditShots = args.FirstOrDefault(a => a.StartsWith("--audit-shots="))?["--audit-shots=".Length..];
+        SaveStore.UseFolder("user://saves-audit"); // made-up saves in a throwaway folder: the audit never reads or writes the player's
+        SaveFixtures.Populate(SaveStore.Folder, _content, _scenarios, _gameId);
         BuildAuditSteps();
         DisplayServer.WindowSetVsyncMode(DisplayServer.VSyncMode.Disabled); // a frame lasts what it costs, so the timing pass measures the work
     }
@@ -41,6 +43,7 @@ public partial class Play
         _blueprint?.Close();
         if (_pauseMenu is not null) _pauseMenu.Visible = false;
         _endScreen?.Dismiss();
+        FreeSaves();
         _storyDialog?.Hide();
         BuildMenu.StressSuffix = null;
         _helpOpen = false;
@@ -107,6 +110,21 @@ public partial class Play
             if (_inventory?.FindSlot(ContainerRef.Person, _content.ItemIndex("core:iron_ore")) is { } slot) _inventory.AskBinFor(slot);
         }));
         s.Add(("designer", () => { CloseAllPanels(); _designer?.Open(); }));
+        // The Save/Load screen (ADR 0049) on the fixture saves: the list with every kind of row, the detail of a damaged file, of other content, of a checkpoint,
+        // the filters, and each dialog (load, delete, rename). Opened from the game, so the save-as-new row and the Overwrite button are there.
+        s.Add(("saves.save", () => { CloseAllPanels(); OpenSaves(SavesReturn.Game); }));
+        s.Add(("saves.save.checkpoint", () => _savesScreen?.SelectForTest("auto-1")));
+        s.Add(("saves.save.damaged", () => _savesScreen?.SelectForTest("damaged-file")));
+        s.Add(("saves.save.content", () => _savesScreen?.SelectForTest("other-content")));
+        s.Add(("saves.save.future", () => _savesScreen?.SelectForTest("from-the-future")));
+        s.Add(("saves.save.long", () => _savesScreen?.SelectForTest("base-with-a-very-long-name")));
+        s.Add(("saves.save.mine", () => _savesScreen?.SetFilterForTest(SaveFilter.Mine, SaveSort.Name, false)));
+        s.Add(("saves.save.thisgame", () => _savesScreen?.SetFilterForTest(SaveFilter.Checkpoints, SaveSort.Oldest, true)));
+        s.Add(("saves.save.empty", () => _savesScreen?.SetFilterForTest(SaveFilter.Mine, SaveSort.Newest, true)));
+        s.Add(("saves.save.confirm.load", () => { _savesScreen?.SetFilterForTest(SaveFilter.All, SaveSort.Newest, false); _savesScreen?.SelectForTest("quick"); _savesScreen?.AskLoadForTest(); }));
+        s.Add(("saves.save.confirm.delete", () => { _savesScreen?.CloseDialogsForTest(); _savesScreen?.SelectForTest("damaged-file"); _savesScreen?.AskDeleteForTest(); }));
+        s.Add(("saves.save.rename", () => { _savesScreen?.CloseDialogsForTest(); _savesScreen?.SelectForTest("base-with-a-very-long-name"); _savesScreen?.AskRenameForTest(); }));
+        s.Add(("saves.load", () => { CloseAllPanels(); OpenSaves(SavesReturn.End); }));
         s.Add(("pause", () => { CloseAllPanels(); OpenPause(); }));
         s.Add(("pause.settings", () => { _pauseMenu?.Open(MenuScreen.Page.Settings); }));
         s.Add(("pause.controls", () => { _pauseMenu?.Open(MenuScreen.Page.Controls); }));
@@ -196,7 +214,7 @@ public partial class Play
         float frameMs = (float)(nowMs - _perfLastWall);
         _perfLastWall = nowMs;
         _wantCapture = false;
-        _paused = _paused && PauseOpen;
+        _paused = _paused && (PauseOpen || SavesOpen);
         // Per size: a step every 26 frames (setup on the second, audit on the 22nd, after the HUD fades have run).
         const int Period = 26;
         if (_auditSize >= _auditSizes.Length)
