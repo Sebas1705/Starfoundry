@@ -80,7 +80,29 @@ public sealed record ThreatRules(
 /// <param name="Signature">What the machine adds to its system's signature, which attracts waves.</param>
 public sealed record MachineDef(
     int Index, string Id, MachineRole Role, ItemStack[] Cost, bool SandboxOnly, int Hp = 100, int Signature = 0, TurretDef? Turret = null, RepairerDef? Repairer = null, UnloaderDef? Unloader = null,
-    int PowerUse = 0);
+    int PowerUse = 0, (int Dx, int Dz)[]? FootprintMask = null)
+{
+    /// <summary>The cells a machine of this type covers when turned <paramref name="turn"/> quarter turns, relative to its anchor (ADR 0050): the anchor itself first, then in row order. One cell for most machines.</summary>
+    public (int Dx, int Dz)[] Cells(int turn = 0)
+    {
+        var mask = FootprintMask ?? SingleCell;
+        int t = turn & 3;
+        if (t == 0) return mask;
+        var r = new (int, int)[mask.Length];
+        for (int i = 0; i < mask.Length; i++)
+        {
+            var (x, z) = mask[i];
+            for (int k = 0; k < t; k++) (x, z) = (-z, x); // a quarter turn about the vertical axis, the anchor staying where it is
+            r[i] = (x, z);
+        }
+        return r;
+    }
+
+    /// <summary>True when the machine covers more than one cell.</summary>
+    public bool IsMultiCell => FootprintMask is { Length: > 1 };
+
+    private static readonly (int Dx, int Dz)[] SingleCell = { (0, 0) };
+}
 
 /// <param name="TimeTicks">Crafting time in simulation ticks (converted once at load from seconds).</param>
 public sealed record RecipeDef(int Index, string Id, int Machine, ItemStack[] Inputs, ItemStack[] Outputs, int TimeTicks);
@@ -398,7 +420,7 @@ public sealed class ContentDb
             var machineIds = new Dictionary<string, int>();
             foreach (var e in Array(root, "machines"))
             {
-                RequireObject(e, "machine", "id", "role", "cost", "sandbox_only", "hp", "signature", "turret", "repairer", "unloader", "power_use");
+                RequireObject(e, "machine", "id", "role", "cost", "sandbox_only", "hp", "signature", "turret", "repairer", "unloader", "power_use", "footprint");
                 string id = Id(e, "machine");
                 if (!machineIds.TryAdd(id, machines.Count)) throw new InvalidDataException($"Duplicate machine '{id}'.");
                 if (!allIds.Add(id)) throw new InvalidDataException($"Id '{id}' is used twice across machines, recipes, belts and research.");
@@ -466,7 +488,13 @@ public sealed class ContentDb
                 }
                 else if (role == MachineRole.Unloader) throw new InvalidDataException($"Unloader '{id}' needs unloader data.");
                 int powerUse = e.TryGetProperty("power_use", out _) ? Int(e, "power_use", id, 0, 1000) : 0;
-                machines.Add(new MachineDef(machines.Count, id, role, cost, sandboxOnly, hp, signature, turretDef, repairerDef, unloaderDef, powerUse));
+                (int, int)[]? footprint = null;
+                if (e.TryGetProperty("footprint", out var fp))
+                {
+                    if (role is not (MachineRole.Crafter or MachineRole.Lab or MachineRole.Depot)) throw new InvalidDataException($"Machine '{id}': only crafters, labs and depots may cover more than one cell.");
+                    footprint = ParseFootprint(fp, id);
+                }
+                machines.Add(new MachineDef(machines.Count, id, role, cost, sandboxOnly, hp, signature, turretDef, repairerDef, unloaderDef, powerUse, footprint));
             }
 
             var recipes = new List<RecipeDef>();
@@ -958,6 +986,45 @@ public sealed class ContentDb
 
     /// <summary>Loads and validates a pre-built structure: modules face-connected, machines and belts inside modules that allow them,
     /// no two things in one cell, belts wired to machines they touch.</summary>
+    /// <summary>Largest side of a machine footprint, in cells (ADR 0050).</summary>
+    public const int MaxFootprintSide = 4;
+
+    /// <summary>
+    /// Reads a footprint mask (ADR 0050): an array of strings, one per row along +Z, one character per cell along +X, <c>X</c> filled and <c>.</c> empty, at most 4 by 4, connected, with
+    /// at least one filled cell. The result lists the cells relative to the anchor (the first filled cell in row order), the anchor first.
+    /// </summary>
+    internal static (int Dx, int Dz)[] ParseFootprint(JsonElement e, string id)
+    {
+        if (e.ValueKind != JsonValueKind.Array || e.GetArrayLength() is < 1 or > MaxFootprintSide) throw new InvalidDataException($"Machine '{id}' footprint must be 1 to {MaxFootprintSide} rows.");
+        var cells = new List<(int X, int Z)>();
+        int z = 0;
+        foreach (var row in e.EnumerateArray())
+        {
+            string? s = row.ValueKind == JsonValueKind.String ? row.GetString() : null;
+            if (s is null || s.Length is < 1 or > MaxFootprintSide) throw new InvalidDataException($"Machine '{id}' footprint rows must be 1 to {MaxFootprintSide} characters.");
+            for (int x = 0; x < s.Length; x++)
+            {
+                if (s[x] == 'X') cells.Add((x, z));
+                else if (s[x] != '.') throw new InvalidDataException($"Machine '{id}' footprint may only hold X and '.'.");
+            }
+            z++;
+        }
+        if (cells.Count == 0) throw new InvalidDataException($"Machine '{id}' footprint has no cell.");
+        var set = new HashSet<(int, int)>(cells.Select(c => (c.X, c.Z)));
+        var seen = new HashSet<(int, int)> { cells[0] };
+        var stack = new Stack<(int, int)>();
+        stack.Push((cells[0].X, cells[0].Z));
+        while (stack.Count > 0)
+        {
+            var (cx, cz) = stack.Pop();
+            foreach (var n in new[] { (cx + 1, cz), (cx - 1, cz), (cx, cz + 1), (cx, cz - 1) })
+                if (set.Contains(n) && seen.Add(n)) stack.Push(n);
+        }
+        if (seen.Count != cells.Count) throw new InvalidDataException($"Machine '{id}' footprint must be one connected piece.");
+        var (ax, az) = cells[0];
+        return cells.Select(c => (c.X - ax, c.Z - az)).ToArray();
+    }
+
     private static StructureTemplate LoadTemplate(JsonElement t, string owner, StructureContent kinds, List<MachineDef> machineDefs,
         List<RecipeDef> recipeDefs, Dictionary<string, BeltTier> beltIds, Dictionary<string, int> itemIds, bool floorBuilding)
     {

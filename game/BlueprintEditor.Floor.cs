@@ -111,7 +111,7 @@ public partial class BlueprintFloorCanvas : Control
         var d = _s.Interior;
         string? key = _s.PlanTool switch
         {
-            PlanTool.Machine when _s.PlanMachine >= 0 && d.MachineAt(cell) is null => d.PlaceProblem(cell, belt: false, _content.Machines[_s.PlanMachine].Role),
+            PlanTool.Machine when _s.PlanMachine >= 0 && d.MachineAt(cell) is null => d.FootprintProblem(cell, _s.PlanMachine, _s.PlanTurn),
             PlanTool.Belt => d.PlaceProblem(cell, belt: true),
             _ => null,
         };
@@ -162,17 +162,21 @@ public partial class BlueprintFloorCanvas : Control
         }
 
         // parts the draft removes stay visible as red ghosts
-        foreach (var m in diff.RemovedMachines) if (InModule((m.X, m.Y, m.Z))) DrawMachine(m, RectOf((m.X, m.Y, m.Z)), GhostState.Removed, 0.5f);
+        foreach (var m in diff.RemovedMachines) if (InModule((m.X, m.Y, m.Z))) DrawMachine(m, GhostState.Removed, 0.5f);
         foreach (var b in diff.RemovedBelts) DrawBelt(b, GhostState.Removed, 0.45f);
         foreach (var b in d.Belts) if (BeltInModule(b)) DrawBelt(b, diff.BeltState((b.X, b.Y, b.Z)), 1f);
-        foreach (var m in d.Machines) if (InModule((m.X, m.Y, m.Z))) DrawMachine(m, RectOf((m.X, m.Y, m.Z)), diff.MachineState((m.X, m.Y, m.Z)), 1f);
+        foreach (var m in d.Machines) if (InModule((m.X, m.Y, m.Z))) DrawMachine(m, diff.MachineState((m.X, m.Y, m.Z)), 1f);
 
         // belt ends that lead nowhere and starts nobody feeds
         var (dead, unfed) = d.BeltGaps();
         foreach (var c in dead) if (InModule(c)) DrawCircle(RectOf(c).GetCenter() + new Vector2(cs * 0.28f, 0), cs * 0.09f, UiTheme.Bad);
         foreach (var c in unfed) if (InModule(c)) DrawCircle(RectOf(c).GetCenter() - new Vector2(cs * 0.28f, 0), cs * 0.09f, UiTheme.Warn);
 
-        if (_s.PlanSelection is { } sel && InModule(sel)) DrawRect(RectOf(sel).Grow(-1f), UiTheme.Gold, false, 3f);
+        if (_s.PlanSelection is { } sel && InModule(sel))
+        {
+            if (d.MachineAt(sel) is { } selMachine) foreach (var c in d.CellsOf(selMachine)) DrawRect(RectOf(c).Grow(-1f), UiTheme.Gold, false, 3f);
+            else DrawRect(RectOf(sel).Grow(-1f), UiTheme.Gold, false, 3f);
+        }
 
         // the ghost under the pointer and the belt being dragged
         if (_dragFrom is { } from && _hover is { } to)
@@ -184,6 +188,15 @@ public partial class BlueprintFloorCanvas : Control
         else if (_hover is { } h)
         {
             string? why = Reason(h);
+            if (_s.PlanTool == PlanTool.Machine && _s.PlanMachine >= 0 && d.MachineAt(h) is null && _content.Machines[_s.PlanMachine].IsMultiCell)
+            {
+                // the footprint of the machine about to be placed, turned as it will be
+                foreach (var (fx, fz) in _content.Machines[_s.PlanMachine].Cells(_s.PlanTurn))
+                {
+                    var fc = (h.X + fx, h.Y, h.Z + fz);
+                    if (InModule(fc)) DrawRect(RectOf(fc).Grow(-3f), new Color(why is null ? UiTheme.Good : UiTheme.Bad, 0.35f));
+                }
+            }
             DrawRect(RectOf(h).Grow(-1f), why is null ? UiTheme.Good : UiTheme.Bad, false, 2f);
             if (why is not null) DrawLine(RectOf(h).Position + new Vector2(4, 4), RectOf(h).End - new Vector2(4, 4), UiTheme.Bad, 2f);
         }
@@ -193,13 +206,28 @@ public partial class BlueprintFloorCanvas : Control
 
     private bool BeltInModule(BlueprintBelt b) => InteriorDraft.BeltCells(b).Any(InModule);
 
-    private void DrawMachine(BlueprintMachine m, Rect2 rect, GhostState state, float alpha)
+    private void DrawMachine(BlueprintMachine m, GhostState state, float alpha)
     {
         var def = _content.Machines[m.Type];
         var colour = Tint(def.Role);
-        var inner = rect.Grow(-Cell * 0.08f);
-        DrawRect(inner, new Color(colour.R * 0.35f, colour.G * 0.35f, colour.B * 0.35f, alpha));
-        DrawRect(inner, new Color(Ghost(state, colour), alpha), false, state == GhostState.Unchanged ? 2f : 3f);
+        // every cell of the footprint (ADR 0050): a filled square each, joined by filling the gap towards a covered neighbour, so an L or a plus reads as one machine
+        var cells = def.Cells(m.Turn).Select(c => (m.X + c.Dx, m.Y, m.Z + c.Dz)).ToHashSet();
+        float pad = Cell * 0.08f;
+        foreach (var c in cells)
+        {
+            var r0 = RectOf(c);
+            var inner0 = r0.Grow(-pad);
+            DrawRect(inner0, new Color(colour.R * 0.35f, colour.G * 0.35f, colour.B * 0.35f, alpha));
+            if (cells.Contains((c.Item1 + 1, c.Item2, c.Item3))) DrawRect(new Rect2(inner0.End.X, inner0.Position.Y, pad * 2f, inner0.Size.Y), new Color(colour.R * 0.35f, colour.G * 0.35f, colour.B * 0.35f, alpha));
+            if (cells.Contains((c.Item1, c.Item2, c.Item3 + 1))) DrawRect(new Rect2(inner0.Position.X, inner0.End.Y, inner0.Size.X, pad * 2f), new Color(colour.R * 0.35f, colour.G * 0.35f, colour.B * 0.35f, alpha));
+            float w = state == GhostState.Unchanged ? 2f : 3f;
+            var edge = new Color(Ghost(state, colour), alpha);
+            if (!cells.Contains((c.Item1 - 1, c.Item2, c.Item3))) DrawLine(inner0.Position, inner0.Position + new Vector2(0, inner0.Size.Y), edge, w);
+            if (!cells.Contains((c.Item1 + 1, c.Item2, c.Item3))) DrawLine(inner0.Position + new Vector2(inner0.Size.X, 0), inner0.End, edge, w);
+            if (!cells.Contains((c.Item1, c.Item2, c.Item3 - 1))) DrawLine(inner0.Position, inner0.Position + new Vector2(inner0.Size.X, 0), edge, w);
+            if (!cells.Contains((c.Item1, c.Item2, c.Item3 + 1))) DrawLine(inner0.Position + new Vector2(0, inner0.Size.Y), inner0.End, edge, w);
+        }
+        var inner = RectOf((m.X, m.Y, m.Z)).Grow(-pad); // the icon and the recipe mark sit on the anchor cell
         var icon = Icons.Get(IconCatalog.ForMachine(def.Id), (int)Math.Max(16f, Cell * 0.55f));
         if (icon is not null)
         {
@@ -243,6 +271,7 @@ public partial class BlueprintEditor
     private readonly Dictionary<BeltTier, Button> _planTierButtons = new();
     private readonly List<(int Type, Button Button)> _planMachineButtons = new();
     private bool _floorShown;
+    private Button _planTurn = null!;
 
     private void BuildFloor()
     {
@@ -282,6 +311,8 @@ public partial class BlueprintEditor
         Tool(PlanTool.Machine, "tool:place", "bp.plan.machine");
         Tool(PlanTool.Belt, "belt:mk1", "bp.plan.belt");
         Tool(PlanTool.Erase, "tool:demolish", "bp.plan.erase");
+        _planTurn = IconButton("tool:rotate", Loc.T("bp.plan.turn") + " (" + Cap("bpRotate") + ")", () => { _discardArmed = false; Report(_s.TurnPlan()); }, "FloorTurn"); // ADR 0050
+        tools.AddChild(_planTurn);
         _planUndo = IconButton("tool:undo", Loc.T("bp.tool.undo") + " (" + Cap("bpUndo") + ")", () => Undo(), "FloorUndo");
         _planRedo = IconButton("tool:redo", Loc.T("bp.tool.redo") + " (" + Cap("bpRedo") + ")", () => Redo(), "FloorRedo");
         tools.AddChild(_planUndo); tools.AddChild(_planRedo);
@@ -314,7 +345,7 @@ public partial class BlueprintEditor
             b.AddThemeConstantOverride("icon_max_width", 22);
             b.AddThemeConstantOverride("h_separation", 6);
             b.Pressed += () => { _s.PickPlanMachine(t); _discardArmed = false; };
-            b.TooltipText = Loc.T("build.desc." + def.Id) + (def.Cost.Length > 0 ? "\n" + _stacks(def.Cost) : "");
+            b.TooltipText = Loc.T("build.desc." + def.Id) + (def.IsMultiCell ? "\n" + SizeText(def) : "") + (def.Cost.Length > 0 ? "\n" + _stacks(def.Cost) : "");
             row2.AddChild(b);
             var costs = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
             costs.AddThemeConstantOverride("separation", 4);
@@ -347,6 +378,13 @@ public partial class BlueprintEditor
         _planPanel.AddChild(_planClear);
         _floorPalette.AddChild(_planPanel);
         _palettePanel.AddChild(_floorPalette);
+    }
+
+    /// <summary>"2 x 3 cells": the bounding box of a footprint.</summary>
+    private static string SizeText(MachineDef def)
+    {
+        var cells = def.Cells(0);
+        return Loc.T("machine.size", cells.Max(c => c.Dx) - cells.Min(c => c.Dx) + 1, cells.Max(c => c.Dz) - cells.Min(c => c.Dz) + 1);
     }
 
     // ---- state -------------------------------------------------------------------------------------------------------
@@ -417,6 +455,8 @@ public partial class BlueprintEditor
         foreach (var (t, b) in _planToolButtons) b.SetPressedNoSignal(_s.PlanTool == t);
         foreach (var (t, b) in _planTierButtons) b.SetPressedNoSignal(_s.PlanTool == PlanTool.Belt && _s.PlanTier == t);
         foreach (var (type, b) in _planMachineButtons) b.SetPressedNoSignal(_s.PlanTool == PlanTool.Machine && _s.PlanMachine == type);
+        _planTurn.Disabled = !(_s.PlanTool == PlanTool.Machine && _s.PlanMachine >= 0 && _content.Machines[_s.PlanMachine].IsMultiCell)
+            && !(_s.PlanSelection is { } turnSel && _s.Interior.MachineAt(turnSel) is { } turnM && _content.Machines[turnM.Type].IsMultiCell);
         _planUndo.Disabled = !_s.Interior.CanUndo;
         _planRedo.Disabled = !_s.Interior.CanRedo;
         var sel = _s.PlanSelection is { } cell ? _s.Interior.MachineAt(cell) : null;
@@ -427,7 +467,7 @@ public partial class BlueprintEditor
             string name = mm.Recipe >= 0 ? Loc.T("recipe." + _content.Recipes[mm.Recipe].Id) : Loc.T("bp.plan.noRecipe");
             _planRecipe.Text = Loc.T("bp.plan.recipe", name);
             _planRecipe.Disabled = _s.RecipesOf(mm.Type).Count == 0;
-            _planSelTitle.SetFit(Loc.T("machine." + _content.Machines[mm.Type].Id));
+            _planSelTitle.SetFit(Loc.T("machine." + _content.Machines[mm.Type].Id) + (_content.Machines[mm.Type].IsMultiCell ? " (" + SizeText(_content.Machines[mm.Type]) + ")" : ""));
         }
         else _planSelTitle.SetFit(Loc.T("bp.plan.panel"));
         var free = new Rect2(_palettePanel.Position.X + _palettePanel.Size.X, _topBar.Position.Y + _topBar.Size.Y, _sidePanel.Position.X - (_palettePanel.Position.X + _palettePanel.Size.X), _footBar.Position.Y - (_topBar.Position.Y + _topBar.Size.Y));

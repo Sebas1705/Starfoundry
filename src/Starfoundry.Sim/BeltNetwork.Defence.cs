@@ -222,7 +222,7 @@ public sealed partial class BeltNetwork
         foreach (var m in _machines.ToArray())
         {
             if (m is null || m.Structure != structure || !Inside(m.X, m.Y, m.Z)) continue;
-            _destroyedMachines.Add(new DestroyedMachine(m.Id, m.X, m.Y, m.Z, m.Structure));
+            _destroyedMachines.Add(new DestroyedMachine(m.Id, m.X, m.Y, m.Z, m.Structure, m.Type, m.Turn));
             if (Content!.Machines[m.Type].Role == MachineRole.Wall) WallsLost++;
             else MachinesLost++;
             RemoveMachine(m.Id);

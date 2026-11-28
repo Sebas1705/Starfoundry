@@ -64,6 +64,7 @@ public static class IconCatalog
         Add("machine:core:hydrogen_cracker", "molecule", Hydrogen); Add("machine:core:engineering_bench", "bench", Engineering);
         Add("machine:core:physics_lab", "atom", Physics); Add("machine:core:greenhouse", "greenhouse", Biology);
         Add("machine:core:crystal_unloader", "port", Resonant);
+        Add("machine:core:large_smelter", "furnace", 0); Add("machine:core:long_assembler", "arm", 0); Add("machine:core:l_fabricator", "arm", Alloy); Add("machine:core:reactor_core", "reactor", Cell); // ADR 0050
 
         // Belts.
         Add("belt:mk1", "belt1", 0); Add("belt:mk2", "belt2", 0); Add("belt:mk3", "belt3", 0);
@@ -137,7 +138,7 @@ public static class IconCatalog
         ("automated_turrets", "turret"), ("cargo_expansion", "cargo"), ("algae_fuel", "drop"), ("closed_loop", "cycle"), ("medical_bay", "repairBay"),
         ("bio_sensors", "dish"), ("symbiotic_drones", "drone"), ("field_theory", "atom"), ("efficient_reactors", "reactor"), ("long_range_jump", "jump"),
         ("targeting_lasers", "laser"), ("quantum_sensors", "radar"), ("laser_focusing", "laser"), ("beam_collimator", "crosshair"),
-        ("composites", "plateStack"), ("cryogenics", "drop"), ("resonance", "crystal"),
+        ("composites", "plateStack"), ("cryogenics", "drop"), ("resonance", "crystal"), ("heavy_industry", "furnace"),
         ("ion_thrusters", "engine"), ("thrust_vectoring", "gauge"), ("plasma_drive", "bolt"),
     };
 

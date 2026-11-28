@@ -62,6 +62,7 @@ See the [resource fields study](../superpowers/specs/2026-11-27-resource-fields-
 
 ## Multi-cell machines, large modules and the small dock (2026-11-27)
 See [the design](../superpowers/specs/2026-11-27-multicell-and-large-modules-design.md) and [ADR 0047](../adr/0047-the-dock-is-a-small-collar-on-a-module-face.md) (stage 1, built).
+- Multi-cell machines (ADR 0050, built): the price, throughput and research cost of the four machines are proposals; whether turrets, walls and repair bays may get footprints; whether a footprint may cross a module seam.
 - Whether a collar may also sit on a roof or a floor (vertical docking), and whether a ship that docks from its nose needs a second collar variant.
 - Stage 2 and 3 are proposals: the machine footprint size limit (4 x 4), the price and throughput of the large machines, the span discount (0.85), which module kinds may be large, and the research node that gates them.
 

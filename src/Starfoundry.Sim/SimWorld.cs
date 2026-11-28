@@ -127,7 +127,7 @@ public sealed partial class SimWorld
         {
             if (!network.IsMachineAlive(id)) continue;
             var m = network.GetMachineInfo(id);
-            if (!CellsFor(m.Structure, create: true)!.TryAdd(Key(m.X, m.Y, m.Z), -(id + 1)))
+            if (!ClaimMachineCells(m.Structure, id, m.X, m.Y, m.Z, m.Type, m.Turn))
                 throw new ArgumentException($"Machine {id} overlaps something.", nameof(network));
         }
     }
@@ -156,7 +156,7 @@ public sealed partial class SimWorld
         Network.Step();
 
         // Machines destroyed by enemies leave their cells free.
-        foreach (var d in Network.TakeDestroyedMachines()) RemoveCell(d.Structure, Key(d.X, d.Y, d.Z));
+        foreach (var d in Network.TakeDestroyedMachines()) ReleaseMachineCells(d.Structure, d.X, d.Y, d.Z, d.Type, d.Turn);
         // So do belts that fell with a destroyed module or station.
         foreach (var d in Network.TakeDestroyedSegments())
             for (int k = 0; k < d.LengthCells; k++) RemoveCell(d.Structure, Key(d.OriginX + d.DirX * k, d.OriginY + d.DirY * k, d.OriginZ + d.DirZ * k));
@@ -234,7 +234,7 @@ public sealed partial class SimWorld
         {
             if (!Network.IsMachineAlive(id)) continue;
             var m = Network.GetMachineInfo(id);
-            if (!Of(m.Structure).TryAdd(Key(m.X, m.Y, m.Z), -(id + 1)))
+            if (!ClaimMachineCells(m.Structure, id, m.X, m.Y, m.Z, m.Type, m.Turn, Of(m.Structure)))
                 throw new InvalidOperationException($"Machine {id} overlaps a segment or machine.");
         }
 
@@ -414,7 +414,7 @@ public sealed partial class SimWorld
                 if (!Network.IsMachineAlive(id)) return Reject.UnknownMachine;
                 var m = Network.GetMachineInfo(id);
                 if (Campaign && !InBuildRange(player, m.Structure, m.X, m.Y, m.Z)) return Reject.OutOfRange;
-                RemoveCell(m.Structure, Key(m.X, m.Y, m.Z));
+                ReleaseMachineCells(m.Structure, m.X, m.Y, m.Z, m.Type, m.Turn);
                 Network.RemoveMachine(id);
                 if (Campaign) Network.Refund(player, Network.Content!.Machines[m.Type].Cost);
                 return Reject.None;
@@ -834,6 +834,7 @@ public sealed partial class SimWorld
         var recipe = CheckRecipe(p.Machine, p.Recipe);
         if (recipe != Reject.None) return recipe;
         if (Network.MachineCount >= MaxMachines) return Reject.TooManyMachines;
+        if (content.Machines[p.Machine].IsMultiCell) return Reject.NotAllowedHere; // ADR 0050: a machine of several cells is drawn on a station's floor plan
         if (!InBounds(p.X) || !InBounds(p.Y) || !InBounds(p.Z)) return Reject.OutOfBounds;
         if (Network.StructureRules) return Reject.OutsideStation; // the legacy world takes no building with structures on
         if (Campaign && (Network.IsMachineLocked(p.Machine) || (p.Recipe != -1 && Network.IsRecipeLocked(p.Recipe))))
@@ -943,6 +944,7 @@ public sealed partial class SimWorld
         var recipe = CheckRecipe(p.Type, p.Recipe);
         if (recipe != Reject.None) return recipe;
         if (Network.MachineCount >= MaxMachines) return Reject.TooManyMachines;
+        if (def.IsMultiCell) return Reject.NotAllowedHere; // ADR 0050: a machine of several cells is drawn on a station's floor plan
         if (!StructureGrid.InLocalBounds(p.X) || !StructureGrid.InLocalBounds(p.Y) || !StructureGrid.InLocalBounds(p.Z)) return Reject.OutOfBounds;
         if (Campaign && (Network.IsMachineLocked(p.Type) || (p.Recipe != -1 && Network.IsRecipeLocked(p.Recipe)))) return Reject.Locked;
         if (!StructureCellInRange(player, s!, p.X, p.Y, p.Z)) return Reject.OutOfRange;
@@ -1181,6 +1183,31 @@ public sealed partial class SimWorld
         if (_structCells.TryGetValue(structure, out var d)) return d;
         if (!create) return null;
         return _structCells[structure] = new Dictionary<long, int>();
+    }
+
+    /// <summary>The cells (local keys) a machine covers: its anchor and, for a footprint of several cells, the others turned by its quarter turns (ADR 0050).</summary>
+    private IEnumerable<long> MachineKeys(int x, int y, int z, int type, int turn)
+    {
+        var def = Network.Content!.Machines[type];
+        foreach (var (dx, dz) in def.Cells(turn)) yield return Key(x + dx, y, z + dz);
+    }
+
+    /// <summary>Puts the machine in the cell table, one entry per covered cell; false (nothing kept) when any is taken.</summary>
+    private bool ClaimMachineCells(int structure, int id, int x, int y, int z, int type, int turn, Dictionary<long, int>? cells = null)
+    {
+        cells ??= CellsFor(structure, create: true)!;
+        var added = new List<long>();
+        foreach (long k in MachineKeys(x, y, z, type, turn))
+        {
+            if (!cells.TryAdd(k, -(id + 1))) { foreach (long a in added) cells.Remove(a); return false; }
+            added.Add(k);
+        }
+        return true;
+    }
+
+    private void ReleaseMachineCells(int structure, int x, int y, int z, int type, int turn)
+    {
+        foreach (long k in MachineKeys(x, y, z, type, turn)) RemoveCell(structure, k);
     }
 
     private void RemoveCell(int structure, long key)

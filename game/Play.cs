@@ -752,7 +752,7 @@ void fragment() {
         foreach (int id in _machineIds)
         {
             var m = Net.GetMachineInfo(id);
-            var model = Models.Machine(_content.Machines[m.Type].Id);
+            var model = Models.Machine(_content.Machines[m.Type].Id, _content.Machines[m.Type].Cells(m.Turn)); // ADR 0050: the footprint, turned
             model.Position = CellCenter(m.X, m.Y, m.Z); // local to the structure's root
             GeoFor(m.Structure).Machines.AddChild(model);
             _machineModels[id] = model;

@@ -414,6 +414,53 @@
       "hp": 90,
       "signature": 2,
       "power_use": 12
+    },
+    {
+      "id": "core:large_smelter",
+      "footprint": ["XX", "XX"],
+      "cost": [
+        { "item": "core:iron_ingot", "count": 30 },
+        { "item": "core:iron_plate", "count": 20 }
+      ],
+      "hp": 220,
+      "signature": 3,
+      "power_use": 25
+    },
+    {
+      "id": "core:long_assembler",
+      "footprint": ["XXX"],
+      "cost": [
+        { "item": "core:iron_ingot", "count": 30 },
+        { "item": "core:iron_plate", "count": 20 }
+      ],
+      "hp": 180,
+      "signature": 3,
+      "power_use": 30
+    },
+    {
+      "id": "core:l_fabricator",
+      "footprint": ["X.", "X.", "XX"],
+      "cost": [
+        { "item": "core:iron_ingot", "count": 30 },
+        { "item": "core:iron_plate", "count": 40 },
+        { "item": "core:circuit", "count": 10 }
+      ],
+      "hp": 200,
+      "signature": 3,
+      "power_use": 30
+    },
+    {
+      "id": "core:reactor_core",
+      "footprint": [".X.", "XXX", ".X."],
+      "cost": [
+        { "item": "core:iron_plate", "count": 60 },
+        { "item": "core:iron_ingot", "count": 40 },
+        { "item": "core:circuit", "count": 20 },
+        { "item": "core:titanium_alloy", "count": 10 }
+      ],
+      "hp": 320,
+      "signature": 5,
+      "power_use": 45
     }
   ],
   "recipes": [
@@ -770,6 +817,90 @@
       "inputs": [{ "item": "core:resonant_crystal", "count": 1 }, { "item": "core:quartz", "count": 2 }],
       "outputs": [{ "item": "core:focus_lens", "count": 1 }],
       "time_s": 8
+    },
+    {
+      "id": "core:smelt_iron_bulk",
+      "machine": "core:large_smelter",
+      "inputs": [{ "item": "core:iron_ore", "count": 4 }],
+      "outputs": [{ "item": "core:iron_ingot", "count": 4 }],
+      "time_s": 2.5
+    },
+    {
+      "id": "core:smelt_titanium_bulk",
+      "machine": "core:large_smelter",
+      "inputs": [{ "item": "core:titanium_ore", "count": 4 }],
+      "outputs": [{ "item": "core:titanium_ingot", "count": 4 }],
+      "time_s": 10
+    },
+    {
+      "id": "core:smelt_nickel_bulk",
+      "machine": "core:large_smelter",
+      "inputs": [{ "item": "core:nickel_ore", "count": 4 }],
+      "outputs": [{ "item": "core:nickel_ingot", "count": 4 }],
+      "time_s": 10
+    },
+    {
+      "id": "core:smelt_silicon_bulk",
+      "machine": "core:large_smelter",
+      "inputs": [{ "item": "core:quartz", "count": 8 }],
+      "outputs": [{ "item": "core:silicon", "count": 4 }],
+      "time_s": 2.5
+    },
+    {
+      "id": "core:iron_plate_batch",
+      "machine": "core:long_assembler",
+      "inputs": [{ "item": "core:iron_ingot", "count": 6 }],
+      "outputs": [{ "item": "core:iron_plate", "count": 3 }],
+      "time_s": 4
+    },
+    {
+      "id": "core:titanium_plate_batch",
+      "machine": "core:long_assembler",
+      "inputs": [{ "item": "core:titanium_ingot", "count": 6 }],
+      "outputs": [{ "item": "core:titanium_plate", "count": 3 }],
+      "time_s": 6
+    },
+    {
+      "id": "core:nickel_plate_batch",
+      "machine": "core:long_assembler",
+      "inputs": [{ "item": "core:nickel_ingot", "count": 6 }],
+      "outputs": [{ "item": "core:nickel_plate", "count": 3 }],
+      "time_s": 6
+    },
+    {
+      "id": "core:make_circuit_batch",
+      "machine": "core:long_assembler",
+      "inputs": [{ "item": "core:silicon", "count": 3 }, { "item": "core:nickel_plate", "count": 3 }],
+      "outputs": [{ "item": "core:circuit", "count": 3 }],
+      "time_s": 14
+    },
+    {
+      "id": "core:make_alloy_batch",
+      "machine": "core:l_fabricator",
+      "inputs": [{ "item": "core:titanium_plate", "count": 2 }, { "item": "core:carbon", "count": 2 }],
+      "outputs": [{ "item": "core:titanium_alloy", "count": 2 }],
+      "time_s": 8.5
+    },
+    {
+      "id": "core:make_carbon_fiber_batch",
+      "machine": "core:l_fabricator",
+      "inputs": [{ "item": "core:carbon", "count": 6 }, { "item": "core:nickel_ingot", "count": 2 }],
+      "outputs": [{ "item": "core:carbon_fiber", "count": 4 }],
+      "time_s": 10
+    },
+    {
+      "id": "core:make_composite_plate_batch",
+      "machine": "core:l_fabricator",
+      "inputs": [{ "item": "core:carbon_fiber", "count": 4 }, { "item": "core:titanium_plate", "count": 2 }],
+      "outputs": [{ "item": "core:composite_plate", "count": 2 }],
+      "time_s": 10
+    },
+    {
+      "id": "core:make_fuel_cell_bulk",
+      "machine": "core:reactor_core",
+      "inputs": [{ "item": "core:hydrogen", "count": 8 }, { "item": "core:nickel_plate", "count": 3 }],
+      "outputs": [{ "item": "core:fuel_cell", "count": 5 }],
+      "time_s": 20
     }
   ],
   "belts": [
@@ -1381,6 +1512,12 @@
       "requires": ["core:sensors"],
       "unlocks": ["core:make_focus_lens", "core:crystal_unloader"],
       "bonuses": [{ "kind": "mining_rate", "percent": 20 }]
+    },
+    {
+      "id": "core:heavy_industry",
+      "cost": [{ "item": "core:iron_plate", "count": 400 }, { "item": "core:circuit", "count": 40 }, { "item": "core:titanium_plate", "count": 40 }],
+      "requires": ["core:electronics", "core:advanced_logistics"],
+      "unlocks": ["core:large_smelter", "core:long_assembler", "core:l_fabricator", "core:reactor_core", "core:smelt_iron_bulk", "core:smelt_titanium_bulk", "core:smelt_nickel_bulk", "core:smelt_silicon_bulk", "core:iron_plate_batch", "core:titanium_plate_batch", "core:nickel_plate_batch", "core:make_circuit_batch", "core:make_alloy_batch", "core:make_carbon_fiber_batch", "core:make_composite_plate_batch", "core:make_fuel_cell_bulk"]
     }
   ],
   "galaxy": {

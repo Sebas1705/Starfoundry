@@ -141,6 +141,7 @@ public partial class BlueprintEditor
             case "bpPlace": SetTool(BlueprintTool.Place); break;
             case "bpMove": SetTool(BlueprintTool.Move); break;
             case "bpRotate":
+                if (_s.FloorModule is not null) { Report(_s.TurnPlan()); break; } // the floor plan turns the machine (ADR 0050)
                 if (_s.Selection.Count > 0) _s.RotateSelection(); else SetTool(BlueprintTool.Rotate);
                 break;
             case "bpDelete":

@@ -1,7 +1,7 @@
 namespace Starfoundry.Sim;
 
 /// <summary>A one-cell machine of a station blueprint (ADR 0044): a content machine type with a recipe (-1 for none) at a local cell of the structure. Turrets, walls, unloaders, depots and crafters are all machines.</summary>
-public readonly record struct BlueprintMachine(int X, int Y, int Z, int Type, int Recipe);
+public readonly record struct BlueprintMachine(int X, int Y, int Z, int Type, int Recipe, int Turn = 0);
 
 /// <summary>A straight belt segment of a station blueprint: its first cell, direction, length in cells and tier.</summary>
 public readonly record struct BlueprintBelt(int X, int Y, int Z, Dir Dir, int Length, BeltTier Tier);
@@ -52,7 +52,7 @@ public sealed partial class BeltNetwork
             if (!IsMachineAlive(id)) continue;
             var m = GetMachineInfo(id);
             if (m.Structure != structure) continue;
-            machines.Add(new BlueprintMachine(m.X, m.Y, m.Z, m.Type, m.Recipe));
+            machines.Add(new BlueprintMachine(m.X, m.Y, m.Z, m.Type, m.Recipe, m.Turn));
             mids.Add(id);
         }
         for (int id = 0; id < SegmentIdLimit; id++)
@@ -78,7 +78,8 @@ public sealed partial class BeltNetwork
     private BlueprintLink[] ReadLinks(List<BlueprintMachine> machines, List<int> mids, List<BlueprintBelt> belts, List<int> sids)
     {
         var machineAt = new Dictionary<(int, int, int), int>();
-        for (int i = 0; i < machines.Count; i++) machineAt[(machines[i].X, machines[i].Y, machines[i].Z)] = i;
+        for (int i = 0; i < machines.Count; i++)
+            foreach (var (dx, dz) in Content!.Machines[machines[i].Type].Cells(machines[i].Turn)) machineAt[(machines[i].X + dx, machines[i].Y, machines[i].Z + dz)] = i; // every cell of a footprint (ADR 0050)
         var beltStartAt = new Dictionary<(int, int, int), int>();
         for (int i = 0; i < belts.Count; i++) beltStartAt[(belts[i].X, belts[i].Y, belts[i].Z)] = i;
         var links = new List<BlueprintLink>();
@@ -89,13 +90,15 @@ public sealed partial class BeltNetwork
             {
                 var c = (lx + dx, ly + dy, lz + dz);
                 if (beltStartAt.TryGetValue(c, out int j) && j != i && IsConnected(sids[i], sids[j])) links.Add(new BlueprintLink(BlueprintLinkKind.BeltToBelt, i, j));
-                if (machineAt.TryGetValue(c, out int m) && FeedsMachine(sids[i], mids[m])) links.Add(new BlueprintLink(BlueprintLinkKind.BeltToMachine, i, m));
+                if (machineAt.TryGetValue(c, out int m) && FeedsMachine(sids[i], mids[m]) && !links.Contains(new BlueprintLink(BlueprintLinkKind.BeltToMachine, i, m))) links.Add(new BlueprintLink(BlueprintLinkKind.BeltToMachine, i, m));
             }
         }
         for (int m = 0; m < machines.Count; m++)
-            foreach (var (dx, dy, dz) in Around)
-                if (beltStartAt.TryGetValue((machines[m].X + dx, machines[m].Y + dy, machines[m].Z + dz), out int b) && IsFedByMachine(sids[b], mids[m]))
-                    links.Add(new BlueprintLink(BlueprintLinkKind.MachineToBelt, m, b));
+            foreach (var (cx, cz) in Content!.Machines[machines[m].Type].Cells(machines[m].Turn))
+                foreach (var (dx, dy, dz) in Around)
+                    if (beltStartAt.TryGetValue((machines[m].X + cx + dx, machines[m].Y + dy, machines[m].Z + cz + dz), out int b) && IsFedByMachine(sids[b], mids[m])
+                        && !links.Contains(new BlueprintLink(BlueprintLinkKind.MachineToBelt, m, b)))
+                        links.Add(new BlueprintLink(BlueprintLinkKind.MachineToBelt, m, b));
         return links.ToArray();
     }
 
