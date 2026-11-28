@@ -35,7 +35,7 @@ public partial class Play
     private BodyBox[] _stationBodyVolumes = Array.Empty<BodyBox>();
     private bool _transferToast;
 
-    private static Vector3 Cells((long X, long Y, long Z) u) => new Vector3(u.X, u.Y, u.Z) / Units.CellUnits;
+    private static Vector3 Cells((long X, long Y, long Z) u) => View.Cells(u.X, u.Y, u.Z);
 
     /// <summary>Docked at a station right now (structure worlds only).</summary>
     private bool IsDockedNow => _structuresOn && Net.IsDocked(Player);
@@ -341,7 +341,7 @@ public partial class Play
                 _shotOutside = true;
                 {
                     var o = Net.GetStructure(ship);
-                    var at = new Vector3(o.OriginX, o.OriginY, o.OriginZ) / Units.CellUnits + new Vector3(0f, 1.5f, 6f);
+                    var at = View.Cells(o.OriginX, o.OriginY, o.OriginZ) + new Vector3(0f, 1.5f, 6f);
                     _shotCam = (at + new Vector3(8f, 11f, 26f), at);
                 }
                 break;

@@ -212,7 +212,7 @@ public partial class Play
         {
             if (Net.DepositRemaining(d) <= 0) continue;
             var q = Net.DepositPosition(d);
-            var v = new Vector3(q.X, q.Y, q.Z) - ship;
+            var v = View.FromCells(q.X, q.Y, q.Z) - ship;
             list.Add(new NavTarget(NavKind.Deposit, d, ItemName(Net.DepositItem(d)), v.Length(), NavFrame.TurnDegrees(V(v), shipCam),
                 Icons.ItemId(_content.Items[Net.DepositItem(d)].Id), d == _selectedDeposit, ShipLocal(v)));
         }
@@ -220,11 +220,11 @@ public partial class Play
         foreach (var en in Net.Enemies())
         {
             if (system >= 0 && en.System != system) continue;
-            enemies.Add(((new Vector3(en.X, en.Y, en.Z) / CellUnits - ship).LengthSquared(), en));
+            enemies.Add(((View.Cells(en.X, en.Y, en.Z) - ship).LengthSquared(), en));
         }
         foreach (var (_, e) in enemies.OrderBy(x => x.D2).Take(12))
         {
-            var v = new Vector3(e.X, e.Y, e.Z) / CellUnits - ship;
+            var v = View.Cells(e.X, e.Y, e.Z) - ship;
             list.Add(new NavTarget(NavKind.Enemy, e.Id, Loc.Name("enemy", _content.Enemies[e.Type].Id), v.Length(), NavFrame.TurnDegrees(V(v), shipCam), IconCatalog.ForEnemy(_content.Enemies[e.Type].Id), false, ShipLocal(v)));
         }
         if (_dockNear)
@@ -328,7 +328,7 @@ public partial class Play
         }
         if (current is { Kind: NavKind.Enemy or NavKind.Gate } || !Net.IsDeposit(_selectedDeposit) || !Net.IsDepositRevealed(_selectedDeposit)) { ToastLogistics(L("cp.nav.noPick")); return; }
         var q = Net.DepositPosition(_selectedDeposit);
-        var to = new Vector3(q.X, q.Y, q.Z) - ship;
+        var to = View.FromCells(q.X, q.Y, q.Z) - ship;
         float stop = PlayerRules.MineRangeCells * 0.6f;
         if (to.Length() <= stop) { ToastLogistics(L("toast.depositSelected", ItemName(Net.DepositItem(_selectedDeposit)))); return; }
         _waypoint = ship + to.Normalized() * (to.Length() - stop);

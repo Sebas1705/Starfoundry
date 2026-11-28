@@ -26,7 +26,6 @@ public partial class Play
         _arsenalWait++;
         bool Wait(int frames) { if (_arsenalWait < frames) return true; _arsenalWait = 0; _arsenalPhase++; return false; }
         int ship = ShipStruct;
-        long cu = Units.CellUnits;
         switch (_arsenalPhase)
         {
             case 0:
@@ -87,7 +86,7 @@ public partial class Play
                 _shotOutside = true;
                 {
                     var o = Net.GetStructure(ship);
-                    var at = new Vector3(o.OriginX, o.OriginY, o.OriginZ) / cu + new Vector3(4f, 3f, -4f);
+                    var at = View.Cells(o.OriginX, o.OriginY, o.OriginZ) + new Vector3(4f, 3f, -4f);
                     _shotCam = (at + new Vector3(14f, 6f, 16f), at);
                 }
                 break;

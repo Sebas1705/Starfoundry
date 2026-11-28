@@ -143,7 +143,7 @@ public partial class Play
         float bestD = float.MaxValue;
         foreach (var g in Net.Guns(Player))
         {
-            var at = new Vector3(g.X, g.Y, g.Z) / CellUnits;
+            var at = View.Cells(g.X, g.Y, g.Z);
             float d = (at - toward).LengthSquared();
             if (d < bestD) { bestD = d; best = at; }
         }
@@ -163,16 +163,16 @@ public partial class Play
             if (Net.DepositRemaining(i) <= 0 || !Net.IsDepositRevealed(i)) continue;
             var p = Net.DepositPosition(i);
             float radius = Math.Max(Net.DepositRockRadius(i), Net.DepositRadiusUnits(i)) / CellUnits;
-            Test(new Vector3(p.X, p.Y, p.Z), radius);
+            Test(View.FromCells(p.X, p.Y, p.Z), radius);
         }
-        foreach (var e in Net.Enemies()) Test(new Vector3(e.X, e.Y, e.Z) / CellUnits, FeelRules.EnemyHitRadiusUnits / CellUnits);
+        foreach (var e in Net.Enemies()) Test(View.Cells(e.X, e.Y, e.Z), FeelRules.EnemyHitRadiusUnits / CellUnits);
         int sys = Net.CurrentSystem(Player);
         if (Net.Galaxy is { } galaxy && sys >= 0 && galaxy.Obstacles.Count > 0)
             foreach (int i in galaxy.ObstaclesOf(sys))
             {
                 var o = Net.GetObstacle(i);
                 if (o.Gone || o.Behaviour == ObstacleBehaviour.Cloud) continue;
-                Test(new Vector3(o.X, o.Y, o.Z) / CellUnits, Net.ObstacleHitRadius(i, padded: false) / CellUnits);
+                Test(View.Cells(o.X, o.Y, o.Z), Net.ObstacleHitRadius(i, padded: false) / CellUnits);
             }
         return best;
     }
@@ -185,7 +185,7 @@ public partial class Play
         float bestDot = MathF.Cos(Mathf.DegToRad(5f));
         foreach (var e in Net.Enemies())
         {
-            var at = new Vector3(e.X, e.Y, e.Z) / CellUnits;
+            var at = View.Cells(e.X, e.Y, e.Z);
             var to = at - origin;
             float len = to.Length();
             if (len < 1f || len > range) continue;
@@ -202,7 +202,7 @@ public partial class Play
     {
         foreach (var hit in Net.Impacts)
         {
-            var at = new Vector3(hit.X, hit.Y, hit.Z) / CellUnits;
+            var at = View.Cells(hit.X, hit.Y, hit.Z);
             Spark(at, hit.Kind == ImpactKind.Enemy ? new Color(1f, 0.55f, 0.25f) : new Color(1f, 0.9f, 0.6f), hit.Destroyed ? 1.1f : 0.55f);
             _audio?.Play(hit.Kind is ImpactKind.Enemy ? Sfx.ModuleHit : Sfx.RockThud, at);
             if (hit.Destroyed && hit.Kind == ImpactKind.Debris) Explode(at, 1.6f, 0f);
@@ -223,7 +223,7 @@ public partial class Play
         foreach (var s in Net.Shots)
         {
             if (s.Kind != ShotKind.Ship) continue;
-            Spark(new Vector3(s.FromX, s.FromY, s.FromZ) / CellUnits, new Color(1f, 0.85f, 0.5f), 0.9f); // the muzzle flash
+            Spark(View.Cells(s.FromX, s.FromY, s.FromZ), new Color(1f, 0.85f, 0.5f), 0.9f); // the muzzle flash
             float recoil = Net.GunRecoil(Player) / 1000f;
             _kick = Math.Max(_kick, 0.35f + Math.Min(3.5f, recoil * 1.2f));
             _shake = MathF.Max(_shake, 0.04f + Math.Min(0.4f, recoil * 0.1f));
@@ -238,6 +238,7 @@ public partial class Play
         var mat = (StandardMaterial3D)_sparkMat.Duplicate();
         mat.AlbedoColor = colour;
         var node = new MeshInstance3D { Mesh = new SphereMesh { Radius = 0.5f, Height = 1f, RadialSegments = 8, Rings = 4 }, MaterialOverride = mat, Position = at, Scale = Vector3.One * size * 0.4f, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+        node.AddToGroup(View.WorldGroup); // placed once: a rebase shifts it
         AddChild(node);
         _sparks.Add((node, 0.28f, 0.28f));
     }
@@ -276,7 +277,7 @@ public partial class Play
                 _tracers.Add(n);
             }
             var q = list[i];
-            var pos = new Vector3(q.X, q.Y, q.Z) / CellUnits;
+            var pos = View.Cells(q.X, q.Y, q.Z);
             var vel = new Vector3(q.Vx, q.Vy, q.Vz) / CellUnits;
             if (vel.LengthSquared() < 1e-8f) { _tracers[i].Visible = false; continue; }
             // The streak ends at the projectile and trails the length of its last two ticks.
@@ -323,7 +324,7 @@ public partial class Play
             }
             // Smaller as it fades in the last ten seconds; a stack lying about turns by its id, a pickup from a rock turns slowly and bobs.
             float fade = Math.Clamp(k.Life / (10f * Units.TicksPerSecond), 0f, 1f);
-            var at = new Vector3(k.X, k.Y, k.Z) / CellUnits;
+            var at = View.Cells(k.X, k.Y, k.Z);
             node.Scale = Vector3.One * Math.Max(fade, 0.01f) * (k.Dropped ? 1f : 2.2f); // chunks loose in space are bigger so they can be seen from the cockpit
             if (k.Dropped) { node.Position = at + Vector3.Down * 0.3f; node.Rotation = new Vector3(0f, k.Id * 0.7f, 0f); continue; }
             node.Position = at + Vector3.Up * (0.1f * MathF.Sin((float)_animTime * 2f + k.Id));
@@ -367,8 +368,8 @@ public partial class Play
         {
             var lasers = Net.MiningLasers(Player);
             if (lasers.Count == 0) { _guideBarrel.Visible = _guideLine!.Visible = false; return; }
-            var m = lasers.OrderBy(l => (new Vector3(l.X, l.Y, l.Z) / CellUnits - target).LengthSquared()).First();
-            from = new Vector3(m.X, m.Y, m.Z) / CellUnits;
+            var m = lasers.OrderBy(l => (View.Cells(l.X, l.Y, l.Z) - target).LengthSquared()).First();
+            from = View.Cells(m.X, m.Y, m.Z);
         }
         var d = (target - from);
         if (d.LengthSquared() < 1f) { _guideBarrel.Visible = _guideLine!.Visible = false; return; }

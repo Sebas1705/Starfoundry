@@ -67,7 +67,7 @@ public partial class Play
                 int iron = _content.ItemIndex("core:iron_ore");
                 int dep = Enumerable.Range(0, Net.DepositCount)
                     .Where(d => Net.DepositItem(d) == iron && Net.IsDepositRevealed(d))
-                    .OrderBy(d => { var q = Net.DepositPosition(d); return (new Vector3(q.X, q.Y, q.Z) - ShipPosition(0f)).LengthSquared(); })
+                    .OrderBy(d => { var q = Net.DepositPosition(d); return (View.FromCells(q.X, q.Y, q.Z) - ShipPosition(0f)).LengthSquared(); })
                     .DefaultIfEmpty(-1).First();
                 if (dep < 0) { _shotPhase = 3; break; }
                 if (Net.InMineRange(Player, dep))
@@ -79,7 +79,7 @@ public partial class Play
                     break;
                 }
                 var q2 = Net.DepositPosition(dep);
-                var to = new Vector3(q2.X, q2.Y, q2.Z) - ShipPosition(0f);
+                var to = View.FromCells(q2.X, q2.Y, q2.Z) - ShipPosition(0f);
                 ShotThrust(ToThrust(to.Normalized()));
                 break;
             }

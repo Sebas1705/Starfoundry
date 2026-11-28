@@ -154,7 +154,7 @@ public partial class Play
         foreach (var en in Net.Enemies())
         {
             if (system >= 0 && en.System != system) continue;
-            float d2 = (new Vector3(en.X, en.Y, en.Z) / CellUnits - ship).LengthSquared();
+            float d2 = (View.Cells(en.X, en.Y, en.Z) - ship).LengthSquared();
             if (d2 < bestD2) { bestD2 = d2; best = en; }
         }
         distance = MathF.Sqrt(bestD2 == float.MaxValue ? 0f : bestD2);
@@ -207,7 +207,7 @@ public partial class Play
                 if (Net.IsDeposit(dep) && Net.IsDepositRevealed(dep) && Net.DepositRemaining(dep) > 0)
                 {
                     var q = Net.DepositPosition(dep);
-                    float dd = (new Vector3(q.X, q.Y, q.Z) - ship).Length();
+                    float dd = (View.FromCells(q.X, q.Y, q.Z) - ship).Length();
                     string item = ItemName(Net.DepositItem(dep));
                     _tgtRow.Visible = true;
                     string text = Net.LaserFiring(Player) && Net.InMineRange(Player, dep)

@@ -45,7 +45,7 @@ public partial class Play
         }
         EnsureLaserNodes();
         var d = Net.DepositPosition(dep);
-        var centre = new Vector3(d.X, d.Y, d.Z);
+        var centre = View.FromCells(d.X, d.Y, d.Z);
         var ship = ShipPosition(0f);
         // The beam leaves a little below and ahead of the camera and ends on the rock's surface, facing the ship.
         // From the cockpit the emitter sits low and to the right of the view, so the beam reads as a line running to the rock instead of a dot.

@@ -173,6 +173,7 @@ public partial class Play : Node3D
         _designerShotPath = args.FirstOrDefault(a => a.StartsWith("--designer-shot="))?["--designer-shot=".Length..];
         _laserShotPath = args.FirstOrDefault(a => a.StartsWith("--laser-shot="))?["--laser-shot=".Length..];
         BlueprintSetup(args);
+        ViewOriginCheckSetup(args);
         FeelShotSetup(args);
         ArsenalShotSetup(args);
         bool threats = !(args.Contains("--demo") || _exploreDemo) && _stressMachines == 0 && !((_structuresShot || _walkShot || _dockShot || _flightShot || _designerShotPath is not null || _laserShotPath is not null || BlueprintScripted || args.Any(a => a.StartsWith("--gun-shot=") || a.StartsWith("--arsenal-shot=") || a.StartsWith("--overflow-shot=") || a.StartsWith("--drop-shot="))) && !args.Contains("--threats") && _defenceShotPath is null && _endShotPath is null);
@@ -207,6 +208,7 @@ public partial class Play : Node3D
             _world = SimWorld.CreateGalaxy(_content, _gameMode, _galaxySeed, threats, _stationRules, _structuresOn);
         if (_structuresOn) { _yaw = MathF.PI; _pitch = -0.35f; _cursorY = DefaultLayer; } // face aft from the pilot seat
         _world.Network.EnsurePlayer(Player); // the ship starts at the origin, inside Home
+        ApplyViewOriginFlag(args); // --view-origin=x,y,z: the view (and the ship, when it has a structure) starts far from home; before the scene is built
         if (args.Contains("--structure-demo")) BuildStructureDemo(args);
         // For screenshots: finish every research that carries a bonus, so the upgrade line of the status panel shows.
         if (args.Contains("--grant-upgrades"))
@@ -255,7 +257,7 @@ public partial class Play : Node3D
     private int ShipStruct => _structuresOn ? Net.ShipStructure(Player) : -1;
 
     /// <summary>World origin of a structure in cells: the live root position (the ship's is interpolated per frame), 0 for structure 0.</summary>
-    private Vector3 StructOrigin(int s) => s == 0 ? Vector3.Zero : _stationView.StructureRoot(s)?.Position ?? StationView.OriginCells(Net, s);
+    private Vector3 StructOrigin(int s) => s == 0 ? View.FromCells(0f, 0f, 0f) : _stationView.StructureRoot(s)?.Position ?? StationView.OriginCells(Net, s);
 
     // ---- setup ---------------------------------------------------------------------------------
 
@@ -296,7 +298,7 @@ public partial class Play : Node3D
     /// </summary>
     private (int Mx, int My, int Mz)? ModuleUnderAim()
     {
-        var origin = AimOrigin();
+        var origin = AimInStruct(0).Origin; // the legacy grid keeps absolute cells: the aim ray in structure 0's frame
         var dir = AimDirection();
         var cell = CellUnderAim();
         (int Mx, int My, int Mz)? hit = cell is { } c ? StationGrid.ModuleOfCell(c.X, c.Y, c.Z) : null;
@@ -485,18 +487,18 @@ void fragment() {
         if (Net.HasFlightInertia && ShipStruct >= 0)
         {
             // Flight with inertia (ADR 0033): the ship keeps moving by its velocity (thousandths of a unit per tick), whatever the thrust says.
-            return new Vector3(p.X + p.VelX * alpha / 1000f, p.Y + p.VelY * alpha / 1000f, p.Z + p.VelZ * alpha / 1000f) / CellUnits;
+            return (View.Rel(p.X, p.Y, p.Z) + new Vector3(p.VelX * alpha / 1000f, p.VelY * alpha / 1000f, p.VelZ * alpha / 1000f)) / CellUnits; // relative to the view origin first, so the float keeps its precision far from home
         }
         // With structures the engines set the speed (a share of the base speed); without a ship structure it is the base speed.
         float engine = ShipStruct >= 0 ? Net.ShipSpeedUnitsPerTick(Player) / (float)PlayerRules.MoveUnitsPerTick : 1f;
         if ((p.ThrustX | p.ThrustY | p.ThrustZ) != 0)
         {
             float step = PlayerRules.MoveUnitsPerTick * engine * alpha / 1024f;
-            return new Vector3(p.X + p.ThrustX * step, p.Y + p.ThrustY * step, p.Z + p.ThrustZ * step) / CellUnits;
+            return (View.Rel(p.X, p.Y, p.Z) + new Vector3(p.ThrustX * step, p.ThrustY * step, p.ThrustZ * step)) / CellUnits;
         }
         int axes = Math.Abs(p.MoveX) + Math.Abs(p.MoveY) + Math.Abs(p.MoveZ);
         float speed = engine * axes switch { 0 => 0, 1 => PlayerRules.MoveUnitsPerTick, 2 => PlayerRules.MoveUnitsPerTickDiagonal2, _ => PlayerRules.MoveUnitsPerTickDiagonal3 };
-        return new Vector3(p.X + p.MoveX * speed * alpha, p.Y + p.MoveY * speed * alpha, p.Z + p.MoveZ * speed * alpha) / CellUnits;
+        return (View.Rel(p.X, p.Y, p.Z) + new Vector3(p.MoveX * speed * alpha, p.MoveY * speed * alpha, p.MoveZ * speed * alpha)) / CellUnits;
     }
 
     private static void SetLayers(Node node, uint layers)
@@ -571,7 +573,7 @@ void fragment() {
             if (Net.IsDeposit(_selectedDeposit) && Net.IsDepositRevealed(_selectedDeposit))
             {
                 var dp = Net.DepositPosition(_selectedDeposit);
-                var dep = new Vector3(dp.X, dp.Y, dp.Z);
+                var dep = View.FromCells(dp.X, dp.Y, dp.Z);
                 if ((dep - pos).LengthSquared() < 40f * 40f) focus = pos.Lerp(dep, 0.5f);
             }
             _overviewTarget = (_overviewTarget - focus).LengthSquared() > 100f * 100f ? focus : _overviewTarget.Lerp(focus, 1f - MathF.Exp(-6f * dt));
@@ -636,7 +638,7 @@ void fragment() {
         }
         _geos.Clear();
 
-        Node3D ParentOf(int structure) => structure == 0 ? this : _stationView.StructureRoot(structure) ?? this;
+        Node3D ParentOf(int structure) => RootOf(structure);
         Geo GeoFor(int structure)
         {
             if (_geos.TryGetValue(structure, out var g)) return g;
@@ -812,7 +814,7 @@ void fragment() {
                 Vector3 target = at;
                 foreach (var e in enemies)
                 {
-                    var p = new Vector3(e.X, e.Y, e.Z) / CellUnits;
+                    var p = View.Cells(e.X, e.Y, e.Z);
                     float d2 = (p - at).LengthSquared();
                     if (d2 < best) { best = d2; target = p; }
                 }
@@ -834,7 +836,8 @@ void fragment() {
         var (dx, dy, dz) = Net.DepositPosition(d);
         var n = new DepositView(_content.Items[Net.DepositItem(d)].Id, Net.DepositDensity(d), Net.DepositInitial(d), d, Net.DepositRockScalePermille(d));
         n.Refresh(Net.DepositRemaining(d));
-        n.Position = new Vector3(dx, dy, dz);
+        n.Position = View.FromCells(dx, dy, dz);
+        n.AddToGroup(View.WorldGroup); // placed once: a rebase shifts it (Play.RebaseView)
         AddChild(n);
         _depositNodes[d] = n;
         _depositSerials[d] = serial;
@@ -863,7 +866,7 @@ void fragment() {
         var ship = ShipPosition(0f);
         return Enumerable.Range(0, Net.DepositCount)
             .Where(d => Net.IsDepositRevealed(d) && Net.DepositRemaining(d) > 0)
-            .OrderBy(d => { var p = Net.DepositPosition(d); return (new Vector3(p.X, p.Y, p.Z) - ship).LengthSquared(); })
+            .OrderBy(d => { var p = Net.DepositPosition(d); return (View.FromCells(p.X, p.Y, p.Z) - ship).LengthSquared(); })
             .ThenBy(d => d)
             .ToList();
     }
@@ -924,7 +927,7 @@ void fragment() {
         var sys = g.Systems[s];
         int cur = Net.CurrentSystem(Player);
         var ship = ShipPosition(0f);
-        float dist = (new Vector3(sys.X, sys.Y, sys.Z) - ship).Length();
+        float dist = (View.FromCells(sys.X, sys.Y, sys.Z) - ship).Length();
         string status = Net.IsSystemVisited(s) ? L("map.visited") : L("map.known");
         string lane = cur >= 0 && g.HasLane(cur, s) ? L("map.lane") : "";
         string star = _content.World is { } wg && Net.IsSystemVisited(s) ? Loc.Name("star", wg.StarTypes[sys.Star].Id) : "";
@@ -1235,6 +1238,7 @@ void fragment() {
 
     public override void _Process(double delta)
     {
+        RebaseViewIfNeeded(); // between frames, before anything places a node: the view origin follows the ship (ADR 0053)
         float alpha = (float)Engine.GetPhysicsInterpolationFraction();
         UpdateAttitude((float)delta); // free flight: roll, the settle onto a port, the head back to the nose
         SyncAttitude(); // ADR 0030: the simulation learns the ship attitude
@@ -1288,6 +1292,7 @@ void fragment() {
         TurnShotFrame();
         DefenceShotFrame();
         ObstacleShotFrame();
+        ViewOriginCheckFrame(); // last: every node of the frame is placed, so the check sees what the renderer will draw
         if (_shotCountdown > 0 && --_shotCountdown == 0 && _shotPath != null)
             GetViewport().GetTexture().GetImage().SavePng(_shotPath);
         if (_finishCountdown > 0 && --_finishCountdown == 0)
@@ -1428,7 +1433,7 @@ void fragment() {
                 _enemyRoot.AddChild(node);
                 _enemyModels[i] = (e.Type, node);
             }
-            var pos = new Vector3(e.X, e.Y, e.Z) / CellUnits;
+            var pos = View.Cells(e.X, e.Y, e.Z);
             var toShip = shipPos - pos;
             if (new Vector2(toShip.X, toShip.Z).LengthSquared() > 0.01f)
                 node.Rotation = new Vector3(0, Mathf.LerpAngle(node.Rotation.Y, MathF.Atan2(-toShip.Z, toShip.X), 1f - MathF.Exp(-8f * dt)), 0);
@@ -1454,8 +1459,8 @@ void fragment() {
         foreach (var s in Net.Shots)
         {
             if (_fx.Count >= 40) return;
-            var from = new Vector3(s.FromX, s.FromY, s.FromZ) / CellUnits;
-            var to = new Vector3(s.ToX, s.ToY, s.ToZ) / CellUnits;
+            var from = View.Cells(s.FromX, s.FromY, s.FromZ);
+            var to = View.Cells(s.ToX, s.ToY, s.ToZ);
             float length = (to - from).Length();
             if (length < 0.01f) continue;
             var beam = new MeshInstance3D
@@ -1463,6 +1468,7 @@ void fragment() {
                 Mesh = new BoxMesh { Size = s.Kind == ShotKind.Enemy ? new Vector3(0.14f, 0.14f, length) : new Vector3(0.07f, 0.07f, length) }, // enemy beams are fat: they end in the module they hit
                 MaterialOverride = s.Kind == ShotKind.Turret ? _fxTurret : s.Kind == ShotKind.Ship ? _fxShip : _fxEnemy,
             };
+            beam.AddToGroup(View.WorldGroup); // placed once: a rebase shifts it
             AddChild(beam);
             beam.LookAtFromPosition((from + to) / 2f, to);
             _fx.Add((beam, 0.14f));

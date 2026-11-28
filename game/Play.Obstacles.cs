@@ -128,11 +128,12 @@ public partial class Play
             if (rockR <= 0) continue;
             var dep = Net.GetDepositInfo(i);
             if (!dep.Revealed || dep.Remaining <= 0) continue;
-            if (MathF.Abs(dep.X - at.X / (float)Units.CellUnits) > near || MathF.Abs(dep.Y - at.Y / (float)Units.CellUnits) > near || MathF.Abs(dep.Z - at.Z / (float)Units.CellUnits) > near) continue;
+            long cuL = Units.CellUnits; // whole-unit differences first: a float of an absolute cell value loses its fraction far from home
+            if (MathF.Abs((dep.X * cuL - at.X) / (float)cuL) > near || MathF.Abs((dep.Y * cuL - at.Y) / (float)cuL) > near || MathF.Abs((dep.Z * cuL - at.Z) / (float)cuL) > near) continue;
             float d = float.MaxValue;
             foreach (var c in centres)
             {
-                float dx = c.X / (float)Units.CellUnits - dep.X, dy = c.Y / (float)Units.CellUnits - dep.Y, dz = c.Z / (float)Units.CellUnits - dep.Z;
+                float dx = (c.X - dep.X * cuL) / (float)cuL, dy = (c.Y - dep.Y * cuL) / (float)cuL, dz = (c.Z - dep.Z * cuL) / (float)cuL;
                 d = MathF.Min(d, MathF.Sqrt(dx * dx + dy * dy + dz * dz) - 4f);
             }
             d -= rockR / (float)Units.CellUnits;
@@ -163,14 +164,14 @@ public partial class Play
             if (e.Deposit >= 0)
             {
                 var dp = Net.DepositPosition(e.Deposit);
-                at = new Vector3(dp.X, dp.Y, dp.Z);
+                at = View.FromCells(dp.X, dp.Y, dp.Z);
                 name = L("obstacle.depositRock", ItemName(Net.DepositItem(e.Deposit)));
             }
             else
             {
                 info = Net.GetObstacle(e.Obstacle);
                 name = world is null ? "" : Loc.Name("obstacle", world.Kinds[info.Kind].Id);
-                at = new Vector3(info.X, info.Y, info.Z) / CellUnits;
+                at = View.Cells(info.X, info.Y, info.Z);
             }
             switch (e.Kind)
             {

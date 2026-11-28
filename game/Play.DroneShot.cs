@@ -40,7 +40,7 @@ public partial class Play
                 }
                 int dep = Enumerable.Range(0, Net.DepositCount)
                     .Where(d => DepositUsable(d) && Net.DepositInDroneRange(ship, d))
-                    .OrderBy(d => { var q = Net.DepositPosition(d); return (new Vector3(q.X, q.Y, q.Z) - ShipPosition(0f)).LengthSquared(); })
+                    .OrderBy(d => { var q = Net.DepositPosition(d); return (View.FromCells(q.X, q.Y, q.Z) - ShipPosition(0f)).LengthSquared(); })
                     .DefaultIfEmpty(-1).First();
                 GD.Print($"DRONE SHOT bays={Net.DroneBays(ship)} deposit={dep}");
                 if (dep < 0) { GetTree().Quit(); return; }
@@ -57,7 +57,7 @@ public partial class Play
                     GD.Print($"DRONE SHOT status working={s.Working} rate={s.RatePerMinute} deposit={s.Deposit} power={s.PowerOk} flying={Starfoundry.Ui.DroneFormat.VisibleDrones(s)}");
                     var origin = _stationView.StructureRoot(ship)?.Position ?? Vector3.Zero;
                     var dp = Net.DepositPosition(s.Deposit);
-                    var target = new Vector3(dp.X, dp.Y, dp.Z);
+                    var target = View.FromCells(dp.X, dp.Y, dp.Z);
                     var bay = origin + (_droneFlockBay(ship) ?? new Vector3(4f, 2f, 4f));
                     var mid = bay.Lerp(target, 0.5f);
                     var side = (target - bay).Cross(Vector3.Up).Normalized();
@@ -74,7 +74,7 @@ public partial class Play
                 var s = Net.DroneStatus(ship);
                 var dp = Net.DepositPosition(s.Deposit);
                 var eye = ShipPosition(0f) + EyeLocal();
-                var to = new Vector3(dp.X, dp.Y, dp.Z) - eye;
+                var to = View.FromCells(dp.X, dp.Y, dp.Z) - eye;
                 _yaw = MathF.Atan2(-to.X, -to.Z);
                 _pitch = MathF.Asin(to.Y / to.Length());
                 _dsTick0 = _world.Tick;

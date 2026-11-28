@@ -268,8 +268,8 @@ void fragment() {
     {
         if (!_snaps.TryGetValue(e.Structure, out var s)) return null;
         // Structures are only translated, so the ship's position now is its snapshot plus at most a tick of flight: use the live origin when it exists.
-        var origin = new Vector3(s.X, s.Y, s.Z) / CellUnits;
-        if (Net.Structures().FirstOrDefault(st => st.Id == e.Structure) is { } live) origin = new Vector3(live.OriginX, live.OriginY, live.OriginZ) / CellUnits;
+        var origin = View.Cells(s.X, s.Y, s.Z);
+        if (Net.Structures().FirstOrDefault(st => st.Id == e.Structure) is { } live) origin = View.Cells(live.OriginX, live.OriginY, live.OriginZ);
         return origin + StationView.Centre(e.Mx, e.My, e.Mz);
     }
 
@@ -322,6 +322,7 @@ void fragment() {
         });
         b.Light = new OmniLight3D { OmniRange = size * 3.5f, LightColor = new Color(1f, 0.6f, 0.25f), LightEnergy = 5f, ShadowEnabled = false };
         b.Root.AddChild(b.Light);
+        b.Root.AddToGroup(View.WorldGroup); // placed once: a rebase shifts it (it waits while any burst lives, see Play.ViewOrigin.cs)
         AddChild(b.Root);
         _bursts.Add(b);
     }
@@ -332,7 +333,7 @@ void fragment() {
         var rng = new Random(structure * 7919 + _bursts.Count);
         if (_snaps.TryGetValue(structure, out var s))
         {
-            var origin = new Vector3(s.X, s.Y, s.Z) / CellUnits;
+            var origin = View.Cells(s.X, s.Y, s.Z);
             int n = 0;
             foreach (var m in s.Modules)
             {

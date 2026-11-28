@@ -223,6 +223,27 @@ void sky() {
     /// <summary>Tells the ambience where the ship is (world position); its frame-to-frame speed drives the motion streaks and the haze.</summary>
     public static void Track(Vector3 shipPosition) => _tracked = shipPosition;
 
+    private static Vector3 _lastPos;
+
+    /// <summary>
+    /// A rebase of the view origin (ADR 0053, Play.RebaseView) moved every world position by <paramref name="originShift"/> cells the other way. The ambience is camera relative (the sky,
+    /// the sun glare, the dust and the haze follow the camera and need nothing), but the speed of the ship is the step of its tracked position, so both stored positions shift too: no
+    /// velocity spike, no one-frame stop of the streaks. The streak specks are fixed in the world and wrap inside a box, so <see cref="DrawStreaks"/> adds the phase of the origin.
+    /// </summary>
+    public static void Rebase((long X, long Y, long Z) originShift)
+    {
+        var d = new Vector3(originShift.X, originShift.Y, originShift.Z);
+        _tracked -= d;
+        _lastPos -= d;
+    }
+
+    /// <summary>The view origin modulo the streak box, per axis: the lattice of specks stays where it was in the world when the origin moves by a multiple of 1,000 (not of 60). Zero at the origin.</summary>
+    private static Vector3 StreakPhase()
+    {
+        float P(long c) => (float)(((c % (2L * (long)StreakBox)) + 2L * (long)StreakBox) % (2L * (long)StreakBox));
+        return new Vector3(P(View.OriginX), P(View.OriginY), P(View.OriginZ));
+    }
+
     private static ulong _currentSeed = ulong.MaxValue;
 
     /// <summary>A stable seed for a system of a galaxy (so each system gets its own sky).</summary>
@@ -335,7 +356,7 @@ void sky() {
         }
         _streaks = BuildStreaks();
         root.AddChild(_streaks);
-        var lastPos = Vector3.Zero;
+        _lastPos = Vector3.Zero;
         bool hasLast = false;
         var velocity = Vector3.Zero;
         void Update()
@@ -345,15 +366,15 @@ void sky() {
             if (cam is null || _streaks is null || !GodotObject.IsInstanceValid(_streaks)) return;
             double dt = tree.Root.GetProcessDeltaTime();
             var p = _tracked;
-            if (hasLast && dt > 1e-4 && (p - lastPos).Length() < 120f * (float)dt) // a bigger step is a teleport (a jump, a respawn), not flight
+            if (hasLast && dt > 1e-4 && (p - _lastPos).Length() < 120f * (float)dt) // a bigger step is a teleport (a jump, a respawn), not flight
             {
                 // The velocity vector in the world, smoothed so a sudden start or stop eases in and the streaks never snap.
-                var v = (p - lastPos) / (float)dt;
+                var v = (p - _lastPos) / (float)dt;
                 velocity = velocity.Lerp(v, (float)Math.Min(1.0, dt * 8.0));
             }
             else if (hasLast) velocity = Vector3.Zero;
             if (ForcedVelocity is { } forced) velocity = forced; // scripted shots (--streak-shot)
-            lastPos = p;
+            _lastPos = p;
             hasLast = true;
             float speed = velocity.Length();
             float k = Mathf.Clamp((speed - StreakStartSpeed) / (StreakFullSpeed - StreakStartSpeed), 0f, 1f);
@@ -664,11 +685,12 @@ void fragment() {
         float half = StreakHalfWidth + StreakHalfWidthFast * Mathf.Clamp(speed / 24f, 0f, 1f);
         bool began = false; // a surface with no vertices is an engine error, so it is begun with the first quad
         float box = 2f * StreakBox;
+        var phase = StreakPhase();
         for (int i = 0; i < StreakCount; i++)
         {
             var seed = _streakSeeds[i];
             // The speck is fixed in the world: its offset from the camera wraps inside the box, so the field is endless and never moves with the ship.
-            var rel = new Vector3(Wrap(seed.X - cam.X, box), Wrap(seed.Y - cam.Y, box), Wrap(seed.Z - cam.Z, box)) - new Vector3(StreakBox, StreakBox, StreakBox);
+            var rel = new Vector3(Wrap(seed.X - cam.X - phase.X, box), Wrap(seed.Y - cam.Y - phase.Y, box), Wrap(seed.Z - cam.Z - phase.Z, box)) - new Vector3(StreakBox, StreakBox, StreakBox);
             float dist = rel.Length();
             if (dist < 2.5f) continue;
             // Fade at the edge of the box (a speck wraps there) and very close to the eye.

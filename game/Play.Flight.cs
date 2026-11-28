@@ -84,7 +84,7 @@ public partial class Play
 
     /// <summary>A structure's root transform: identity for the world, the live root otherwise (a station is only translated; the ship is turned).</summary>
     private Transform3D StructXform(int s) =>
-        s == 0 ? Transform3D.Identity : _stationView.StructureRoot(s)?.Transform ?? new Transform3D(Basis.Identity, StationView.OriginCells(Net, s));
+        s == 0 ? new Transform3D(Basis.Identity, World0.Position) : _stationView.StructureRoot(s)?.Transform ?? new Transform3D(Basis.Identity, StationView.OriginCells(Net, s));
 
     private Vector3 StructToWorld(int s, Vector3 local) => StructXform(s) * local;
 
