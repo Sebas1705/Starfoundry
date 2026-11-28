@@ -78,3 +78,10 @@ See [ADR 0049](../adr/0049-save-slots-checkpoints-and-slot-files.md) and [saves]
 - Checkpoints: how many are kept per game (6 now), the gap between event checkpoints (30 s) and the timer (5 minutes), whether a checkpoint should also be taken on arrival in a new system and before the first wave, and whether the player should be able to pin one so it never rotates (duplicating it does that today).
 - Whether the end screen should also list every save of the game (it only has the one button, Reload last checkpoint, and the full screen is under the pause menu).
 - Cloud saves and a share-a-save export; snapshots to shorten long loads once a game replays in more than a few seconds in Release.
+
+## Physical units (2026-11-28)
+See [the design](../superpowers/specs/2026-11-28-physical-units-design.md) (step 1, the display layer, is decided; step 2, real physics, is a proposal).
+- Whether 1 cell = 1 m and one linear scale for the galaxy (systems 1.8 km apart) stay, or the galaxy gets a strategic scale 1,000 times larger.
+- The item lots (about 25 kg per item, hydrogen 2.5 kg, ammo 5 kg), the power unit (100 kW) and the walking speed (4 m/s).
+- Which real-physics changes to build (hold capacity by mass, acceleration from mass and thrust, kinetic collision damage) and in which order; whether balance may move.
+- An imperial display option: not in step 1.
