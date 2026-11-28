@@ -41,12 +41,12 @@ public static partial class Loc
         ["hud.row.powerOk"] = ("Energía estable", "Power stable"),
         ["hud.row.modulesOk"] = ("Módulos intactos", "Modules sound"),
         ["hud.row.modulesDamaged"] = ("{0} de {1} módulos dañados", "{0} of {1} modules damaged"),
-        ["hud.row.shield"] = ("Escudo: absorbe {0} %", "Shield: absorbs {0} %"),
+        ["hud.row.shield"] = ("Escudo: absorbe {0} %", "Shield: absorbs {0} %"),
 
         // the target card
         ["hud.target.title"] = ("OBJETIVO", "TARGET"),
         ["hud.target.enemy"] = ("{0}  {1}", "{0}  {1}"),
-        ["hud.target.hull"] = ("casco {0} %", "hull {0} %"),
+        ["hud.target.hull"] = ("casco {0} %", "hull {0} %"),
         ["hud.target.closing"] = ("se acerca {0} m/s", "closing {0} m/s"),
         ["hud.target.opening"] = ("se aleja {0} m/s", "opening {0} m/s"),
         ["hud.target.steady"] = ("a distancia constante", "steady range"),

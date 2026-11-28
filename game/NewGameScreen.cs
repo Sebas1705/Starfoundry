@@ -294,7 +294,7 @@ public partial class NewGameScreen : Control
         _tabContent.AddChild(seedHolder);
     }
 
-    private static string Percent(int v) => v.ToString(Loc.Culture) + " %";
+    private static string Percent(int v) => v.ToString(Loc.Culture) + " %";
 
     // ---- story -----------------------------------------------------------------------------------
 

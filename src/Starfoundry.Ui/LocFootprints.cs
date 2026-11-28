@@ -9,7 +9,7 @@ public static partial class Loc
         ["machine.core:long_assembler"] = ("ensambladora larga", "long assembler"),
         ["machine.core:l_fabricator"] = ("fabricadora en L", "L fabricator"),
         ["machine.core:reactor_core"] = ("núcleo de reactor", "reactor core"),
-        ["build.desc.core:large_smelter"] = ("Fundición de 2 x 2 m: funde cuatro minerales de golpe, un 60 % más rápido que una fundición pequeña por metro de cinta.", "A 2 x 2 furnace: smelts four ores at once, 60 percent faster than a small smelter."),
+        ["build.desc.core:large_smelter"] = ("Fundición de 2 x 2 m: funde cuatro minerales de golpe, un 60 % más rápido que una fundición pequeña por metro de cinta.", "A 2 x 2 furnace: smelts four ores at once, 60 percent faster than a small smelter."),
         ["build.desc.core:long_assembler"] = ("Ensambladora de 1 x 3 m: trabaja por lotes de tres placas y deja una cinta recorrerla de lado a lado.", "A 1 x 3 assembler: works in batches of three plates and lets a belt run along it."),
         ["build.desc.core:l_fabricator"] = ("Fabricadora en forma de L de 4 casillas: aleaciones, fibra y placas compuestas por lotes; sus dos brazos admiten una cinta cada uno.", "A four-tile L-shaped fabricator: alloys, fibre and composite plate in batches; each arm takes a belt."),
         ["build.desc.core:reactor_core"] = ("Núcleo de 5 casillas en cruz: fabrica células de combustible por lotes con menos hidrógeno por célula que el craqueador.", "A five-tile plus-shaped core: makes fuel cells in batches with less hydrogen per fuel cell than the cracker."),

@@ -29,13 +29,13 @@ public partial class BlueprintEditor
 
     private const string HatchShader = @"shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_never;
-uniform vec4 colour : source_color = vec4(1.0, 0.15, 0.15, 0.9);
+uniform vec4 colour : source_color = vec4(1.0, 0.15, 0.15, 0.6);
 varying vec3 wpos;
 void vertex() { wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
 void fragment() {
-    float s = fract((wpos.x + wpos.y + wpos.z) * 0.45);
+    float s = fract((wpos.x + wpos.y + wpos.z) * 0.22);
     ALBEDO = colour.rgb;
-    ALPHA = s < 0.4 ? colour.a : 0.10;
+    ALPHA = s < 0.28 ? colour.a : 0.0;
 }";
 
     private static void EnsureMaterials()

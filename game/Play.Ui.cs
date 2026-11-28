@@ -74,6 +74,7 @@ public partial class Play
     private readonly IconRect[] _toastIcons = new IconRect[ToastQueue.MaxVisible];
     private readonly HBoxContainer[] _toastRows = new HBoxContainer[ToastQueue.MaxVisible];
     private MarkerLayer _markers = null!;
+    private bool _bottomTextCovered; // a centred panel overlaps the toasts or the hint line this frame
     private Button _btnDetails = null!;
     private Crosshair _crosshair = null!;
     private Button _btnMine = null!, _btnRefine = null!, _btnScan = null!, _btnMap = null!, _btnWeapons = null!, _btnResearch = null!;
@@ -226,7 +227,7 @@ public partial class Play
         BuildKeyPanel();
 
         _modeHint = new HintLabel { MouseFilter = Control.MouseFilterEnum.Ignore };
-        _modeHint.AddThemeColorOverride("font_color", new Color(0.85f, 0.92f, 1f));
+        _modeHint.AddThemeColorOverride("font_color", new Color(0.97f, 0.99f, 1f));
         _modeHint.AddThemeFontSizeOverride("font_size", 14);
         _modeHint.AddThemeColorOverride("font_outline_color", Colors.Black);
         _modeHint.AddThemeConstantOverride("outline_size", 5);
@@ -551,7 +552,9 @@ public partial class Play
     /// <summary>Markers for the selected deposit, the nearest enemy and the base (the nearest cluster of machines, else the anchor).</summary>
     private void UpdateMarkers(Vector2 size)
     {
-        _markers.Visible = !_demo && !Overview && Net.HasPlayer(Player) && MarkersWanted;
+        // The labels would draw over any open panel (workbench, machine, inventory, computer, build, research, pause, saves, plan editors, briefings, star map): they step aside while one is open.
+        bool centredPanel = PanelOpen();
+        _markers.Visible = !_demo && !Overview && Net.HasPlayer(Player) && MarkersWanted && !centredPanel;
         if (!_markers.Visible) return;
 
         var basis = _camera.GlobalTransform.Basis;
@@ -566,7 +569,7 @@ public partial class Play
         _markers.RightLimit = ResearchOpen || BuildOpen || ComputerOpen ? DockRect(size).Position.X - 6f : 0f;
         // Marker labels keep off the cards that carry text over the view (the full info card, the steps card, the star map and its list).
         _markers.KeepOut.Clear();
-        if (_detailsOpen) { foreach (var card in new Control[] { _statusPanel, _objectivesPanel }) if (card.Visible) _markers.KeepOut.Add(new Rect2(card.Position, card.Size).Grow(4f)); }
+        if (_detailsOpen || ComputerOpen) { foreach (var card in new Control[] { _statusPanel, _objectivesPanel }) if (card.Visible) _markers.KeepOut.Add(new Rect2(card.Position, card.Size).Grow(4f)); }
         else { foreach (var card in new Control[] { _statusPanel, _teleCard }) if (card.Visible && card.Modulate.A > 0.3f) _markers.KeepOut.Add(new Rect2(card.Position, card.Size).Grow(4f)); } // the ship card and the target card: a label never sits on text
         if (_mapOpen && _map.Visible) { _markers.KeepOut.Add(new Rect2(_map.Position, _map.Size).Grow(4f)); _markers.KeepOut.Add(new Rect2(_mapList.Position, _mapList.GetCombinedMinimumSize()).Grow(4f)); }
         var items = new List<MarkerLayer.Item>();
@@ -1346,6 +1349,15 @@ public partial class Play
             _toastBox.Position = new Vector2(toastCentre - toastWidth / 2f, _modeHint.Position.Y - 8 - _toastBox.Size.Y);
         }
         foreach (var r in _toastRows) if (r.Visible) r.Notification((int)Container.NotificationSortChildren);
+        // A centred panel (workbench, machine, inventory) that reaches the notification column or the hint line takes the space: they wait instead of drawing over it.
+        _bottomTextCovered = false;
+        foreach (Control? panel in new Control?[] { _benchPanel, _machinePanel, _inventory })
+        {
+            if (panel is not { Visible: true }) continue;
+            var pr = new Rect2(panel.Position, panel.Size).Grow(4f);
+            if (pr.Intersects(new Rect2(_toastBox.Position, _toastBox.Size)) || (_modeHint.Text.Length > 0 && pr.Intersects(new Rect2(_modeHint.Position, _modeHint.Size)))) _bottomTextCovered = true;
+        }
+        _toastBox.Visible = !_bottomTextCovered;
         _toastBox.Notification((int)Container.NotificationSortChildren);
         foreach (var r in _toastRows) if (r.Visible) r.Notification((int)Container.NotificationSortChildren); // the rows get their size from the column, their labels from the rows
         // lay the rows out now: the column was just resized and rows hidden, and the end-of-frame sort would leave them where they were for one frame

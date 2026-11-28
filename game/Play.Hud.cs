@@ -128,7 +128,7 @@ public partial class Play
         Fade(_targetPanel, true, _targetPanel.Visible);
         Fade(_tooltipPanel, true, _tooltipPanel.Visible, instantOut: true);
         // The build hint snaps; the one-line step and laser hints fade in and out like the cards.
-        if (building) { _hudFade[_modeHint] = 1f; _modeHint.Modulate = Colors.White; _modeHint.Visible = _modeHint.Text.Length > 0; }
-        else Fade(_modeHint, !_mapOpen && !ResearchOpen && !BuildOpen && !ComputerOpen && hud, _modeHint.Text.Length > 0);
+        if (building) { _hudFade[_modeHint] = 1f; _modeHint.Modulate = Colors.White; _modeHint.Visible = _modeHint.Text.Length > 0 && !_bottomTextCovered; }
+        else Fade(_modeHint, !_mapOpen && !ResearchOpen && !BuildOpen && !ComputerOpen && !_bottomTextCovered && hud, _modeHint.Text.Length > 0);
     }
 }

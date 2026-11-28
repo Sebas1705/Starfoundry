@@ -112,7 +112,7 @@ void fragment() {
         {
             int permille = Net.StructureHpFraction(ship);
             float f = permille / 1000f;
-            _integrityBox.Set("status:health", f, $"{permille / 10} %", HpColor(f), L("hud.integrity", permille / 10));
+            _integrityBox.Set("status:health", f, $"{permille / 10} %", HpColor(f), L("hud.integrity", permille / 10));
         }
 
         // The wave: a big countdown while the warning runs, the enemy count while it is fought.
