@@ -23,7 +23,22 @@ public partial class Play
 
     private bool StationSelected => _tool == ToolMode.Build && _palette[_selected].IsStation;
 
-    private Node3D RootOf(int structure) => structure == 0 ? this : _stationView.StructureRoot(structure) ?? this;
+    private Node3D RootOf(int structure) => structure == 0 ? World0 : _stationView.StructureRoot(structure) ?? this;
+
+    private Node3D? _world0;
+
+    /// <summary>
+    /// The frame of structure 0, the legacy world grid: machines, belts and items keep their absolute cell coordinates as local positions and this node sits at minus the view
+    /// origin, so the grid is drawn relative to the origin without touching a single child. It is placed again every frame and on every rebase, never shifted.
+    /// </summary>
+    private Node3D World0
+    {
+        get
+        {
+            if (_world0 is null) { _world0 = new Node3D { Name = "Structure0", Position = View.FromCells(0f, 0f, 0f) }; AddChild(_world0); }
+            return _world0;
+        }
+    }
 
     private static void Reparent(Node3D node, Node3D parent)
     {
@@ -46,6 +61,7 @@ public partial class Play
         var dir = AimDirection();
         if (!_structuresOn)
         {
+            origin = AimInStruct(0).Origin; // the legacy grid keeps absolute cells (structure 0's frame)
             if (MathF.Abs(dir.Y) < 1e-4f) return null;
             float t = (_cursorY - origin.Y) / dir.Y;
             if (t < AimMinCells || t > AimMaxCells) return null; // too close: the cell would fill the screen
@@ -407,11 +423,11 @@ public partial class Play
         var origin = AimOrigin();
         var dir = AimDirection();
         if (MathF.Abs(dir.Y) < 1e-4f) return null;
-        int planeY = (int)MathF.Round(ShipPosition(0f).Y);
-        float t = (planeY - origin.Y) / dir.Y;
+        int planeView = (int)MathF.Round(ShipPosition(0f).Y); // in view cells; the returned cell is a world cell
+        float t = (planeView - origin.Y) / dir.Y;
         if (t < AimMinCells || t > AimMaxCells) return null;
         var hit = origin + dir * t;
-        return ((int)MathF.Floor(hit.X) - StationGrid.ModuleX / 2, planeY, (int)MathF.Floor(hit.Z) - StationGrid.ModuleZ / 2);
+        return ((int)(MathF.Floor(hit.X) + View.OriginX) - StationGrid.ModuleX / 2, (int)(planeView + View.OriginY), (int)(MathF.Floor(hit.Z) + View.OriginZ) - StationGrid.ModuleZ / 2);
     }
 
     /// <summary>Why <see cref="FoundStation"/> would be refused at this world cell (the sim's checks), or null if it would succeed.</summary>
@@ -451,9 +467,9 @@ public partial class Play
             return;
         }
         _ghost.Visible = true;
-        Reparent(_ghost, this); // a station is founded in the world, not inside a structure
+        Reparent(_ghost, this); // a station is founded in the world (view space), not inside a structure
         _ghost.Scale = new Vector3(StationGrid.ModuleX, StationGrid.ModuleY, StationGrid.ModuleZ) * 0.99f;
-        _ghost.Position = new Vector3(f.X, f.Y, f.Z) + ModuleSize / 2f;
+        _ghost.Position = View.FromCells(f.X, f.Y, f.Z) + ModuleSize / 2f;
         string? problem = FoundProblem(f);
         _crosshair.Tint = problem is null ? Crosshair.Normal : Crosshair.Invalid;
         ((StandardMaterial3D)_ghost.MaterialOverride).AlbedoColor = problem is null ? new Color(0.4f, 1f, 0.5f, 0.22f) : new Color(1f, 0.3f, 0.25f, 0.22f);

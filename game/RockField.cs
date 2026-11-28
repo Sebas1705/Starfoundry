@@ -24,7 +24,8 @@ public sealed partial class RockField : Node3D
     {
         public long Key;
         public Node3D Root = null!;
-        public Vector3 Min;
+        public (long X, long Y, long Z) MinCells;
+        public Vector3 Min => View.FromCells(MinCells.X, MinCells.Y, MinCells.Z); // view space, from the world cells every time: nothing cached to shift
         public readonly HashSet<int> Ids = new();
         public bool Dirty = true, Near, Applied;
         public readonly List<MultiMeshInstance3D> NearNodes = new(), FarNodes = new();
@@ -82,6 +83,7 @@ public sealed partial class RockField : Node3D
         foreach (var (key, b) in _batches)
         {
             if (b.Ids.Count == 0) { _empty.Add(key); continue; }
+            b.Root.Position = b.Min; // placed again from the world cells every frame, so a rebase needs no shift here
             // distance from the camera to the sector box: the tier, and the order in which dirty sectors are rebuilt
             float dx = MathF.Max(MathF.Max(b.Min.X - camera.X, 0f), camera.X - (b.Min.X + sector));
             float dy = MathF.Max(MathF.Max(b.Min.Y - camera.Y, 0f), camera.Y - (b.Min.Y + sector));
@@ -113,7 +115,7 @@ public sealed partial class RockField : Node3D
         if (_batches.TryGetValue(key, out var b)) return b;
         var (cx, cy, cz) = SectorField.Unkey(key);
         int side = net.FieldSectorCells;
-        b = new Batch { Key = key, Min = new Vector3(cx * (float)side, cy * (float)side, cz * (float)side) };
+        b = new Batch { Key = key, MinCells = ((long)cx * side, (long)cy * side, (long)cz * side) };
         b.Root = new Node3D { Name = $"Sector{cx}_{cy}_{cz}", Position = b.Min };
         AddChild(b.Root);
         _batches[key] = b;
@@ -156,7 +158,7 @@ public sealed partial class RockField : Node3D
             var rng = new Models.Rng(h);
             var basis = Basis.FromEuler(new Vector3(rng.F() * Mathf.Tau, rng.F() * Mathf.Tau, rng.F() * Mathf.Tau))
                 .Scaled(Vector3.One * (scalePermille / 1000f) * new Vector3(0.9f + 0.2f * rng.F(), 0.9f + 0.2f * rng.F(), 0.9f + 0.2f * rng.F()));
-            var t = new Transform3D(basis, new Vector3(q.X, q.Y, q.Z) - b.Min);
+            var t = new Transform3D(basis, new Vector3(q.X - b.MinCells.X, q.Y - b.MinCells.Y, q.Z - b.MinCells.Z)); // whole cells relative to the sector: exact whatever the distance from the origin
             int item = net.DepositItem(d);
             (near.TryGetValue((item, cls, bucket, s.Level), out var nl) ? nl : near[(item, cls, bucket, s.Level)] = new()).Add((t, d));
             (far.TryGetValue((cls, item, bucket), out var fl) ? fl : far[(cls, item, bucket)] = new()).Add(t);

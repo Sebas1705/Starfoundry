@@ -72,7 +72,7 @@ public partial class Play
         if (_audio is null) return;
         foreach (var s in Net.Shots)
         {
-            var from = new Vector3(s.FromX, s.FromY, s.FromZ) / CellUnits;
+            var from = View.Cells(s.FromX, s.FromY, s.FromZ);
             _audio.Play(s.Kind == ShotKind.Enemy ? Sfx.EnemyShot : Sfx.TurretShot, from);
         }
         int myShip = _structuresOn ? Net.ShipStructure(Player) : -1;

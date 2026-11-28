@@ -84,7 +84,7 @@ public partial class Play
                     _shotOutside = true;
                     {
                         var o = Net.GetStructure(ship);
-                        var at = new Vector3(o.OriginX, o.OriginY, o.OriginZ) / cu + new Vector3(4f, 5f, -14f);
+                        var at = View.Cells(o.OriginX, o.OriginY, o.OriginZ) + new Vector3(4f, 5f, -14f);
                         _shotCam = (at + new Vector3(15f, 7f, 22f), at);
                     }
                     break;
@@ -128,7 +128,7 @@ public partial class Play
                 _shotOutside = true;
                 {
                     var p = Net.DepositPosition(_overflowDeposit);
-                    var at = new Vector3(p.X, p.Y, p.Z);
+                    var at = View.FromCells(p.X, p.Y, p.Z);
                     _shotCam = (at + new Vector3(-10f, 4f, 3f), at + new Vector3(0f, 0f, 3f));
                 }
                 break;

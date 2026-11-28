@@ -13,7 +13,6 @@ public partial class Play
 {
     private void DropShotFrame(Action<string> save)
     {
-        long cu = Units.CellUnits;
         switch (_feelPhase)
         {
             case 0:
@@ -35,7 +34,7 @@ public partial class Play
                 _shotOutside = true;
                 {
                     var k = Net.Pickups().First();
-                    var at = new Vector3(k.X, k.Y, k.Z) / cu;
+                    var at = View.Cells(k.X, k.Y, k.Z);
                     _shotCam = (at + new Vector3(5f, -1f, -7f), at);
                 }
                 _feelPhase = 2; _feelWait = 0;
@@ -45,7 +44,7 @@ public partial class Play
                 save(_dropShotPath + ".outside.png");
                 {
                     var k = Net.Pickups().First();
-                    var eye = AimOrigin() * cu;
+                    var eye = View.ToUnitsTrunc(AimOrigin());
                     Send(new PickUp(k.Id, true, (int)eye.X, (int)eye.Y, (int)eye.Z));
                 }
                 _feelPhase = 3; _feelWait = 0;

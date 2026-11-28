@@ -70,13 +70,13 @@ void fragment() {
         if (_clock >= RefreshSeconds)
         {
             _clock = 0;
-            long cu = Units.CellUnits;
-            _parents = net.ClustersNear((long)(camera.X * cu), (long)(camera.Y * cu), (long)(camera.Z * cu), (int)MaxDistance);
+            var units = View.ToUnitsTrunc(camera); // the camera is in view space: back to simulation units
+            _parents = net.ClustersNear(units.X, units.Y, units.Z, (int)MaxDistance);
         }
         foreach (var l in _layers.Values) l.Live.Clear();
         foreach (var p in _parents)
         {
-            var c = new Vector3(p.X, p.Y, p.Z);
+            var c = View.FromCells(p.X, p.Y, p.Z); // view space; the glow quads are rewritten from the camera every frame, so nothing here is shifted
             float dist = (c - camera).Length();
             float r = p.Radius * (p.Shape == 1 ? 0.8f : 1f);
             float inner = r * 0.6f + loadCells * 0.7f; // inside this the real rocks are loaded around you

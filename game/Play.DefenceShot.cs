@@ -34,7 +34,7 @@ public partial class Play
         Net.AddStructureModuleUnchecked(ship, 1, 0, 1, ModuleKind.Defence);
         var o = ShipPosition(0f);
         long cu = Units.CellUnits;
-        _dfStation = Net.CreateStructure(Player, StructureKind.Station, ((long)o.X + 40) * cu, (long)o.Y * cu, ((long)o.Z + 8) * cu);
+        _dfStation = Net.CreateStructure(Player, StructureKind.Station, ((long)o.X + 40 + View.OriginX) * cu, ((long)o.Y + View.OriginY) * cu, ((long)o.Z + 8 + View.OriginZ) * cu); // o is a view position
         foreach (var (x, z, k) in new[] { (0, 0, ModuleKind.Core), (1, 0, ModuleKind.Workshop), (0, 1, ModuleKind.Defence), (1, 1, ModuleKind.Hull) })
             Net.AddStructureModuleUnchecked(_dfStation, x, 0, z, k);
         Net.ScheduleWave(0);
@@ -63,8 +63,8 @@ public partial class Play
         var enemies = Net.Enemies();
         if (towardsEnemy && enemies.Count > 0)
         {
-            var e = enemies.OrderBy(en => (new Vector3(en.X, en.Y, en.Z) / CellUnits - at).LengthSquared()).First();
-            var d = new Vector3(e.X, e.Y, e.Z) / CellUnits - at;
+            var e = enemies.OrderBy(en => (View.Cells(en.X, en.Y, en.Z) - at).LengthSquared()).First();
+            var d = View.Cells(e.X, e.Y, e.Z) - at;
             d.Y = 0f;
             if (d.LengthSquared() > 1f) dir = d.Normalized();
         }

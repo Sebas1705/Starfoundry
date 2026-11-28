@@ -255,7 +255,7 @@ public sealed partial class ObstacleView : Node3D
     /// <summary>Moves the view to where the simulation has the obstacle and animates its lights.</summary>
     public void Refresh(ObstacleInfo info, float time, float dt)
     {
-        Position = new Vector3(info.X, info.Y, info.Z) / Units.CellUnits;
+        Position = View.Cells(info.X, info.Y, info.Z);
         bool armed = info.FuseTicks > 0;
         switch (_def.Behaviour)
         {

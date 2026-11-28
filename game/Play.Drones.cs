@@ -147,7 +147,7 @@ public partial class Play
             if (dep >= 0 && dep != _selectedDeposit && Net.IsDepositRevealed(dep))
             {
                 var p = Net.DepositPosition(dep);
-                add($"{ItemName(Net.DepositItem(dep))} - {L("mark.drones")}", new Color(1f, 0.72f, 0.2f), new Vector3(p.X, p.Y, p.Z), 6f);
+                add($"{ItemName(Net.DepositItem(dep))} - {L("mark.drones")}", new Color(1f, 0.72f, 0.2f), View.FromCells(p.X, p.Y, p.Z), 6f);
             }
         }
         if (_objectives.Current != Starfoundry.Ui.Objective.Automate) return;
@@ -161,12 +161,12 @@ public partial class Play
             {
                 if (!DepositUsable(d) || !Net.DepositInDroneRange(id, d)) continue;
                 var p = Net.DepositPosition(d);
-                float dist = (new Vector3(p.X, p.Y, p.Z) - eye).LengthSquared();
+                float dist = (View.FromCells(p.X, p.Y, p.Z) - eye).LengthSquared();
                 if (dist < bestD) { bestD = dist; best = d; }
             }
             if (best < 0) continue;
             var q = Net.DepositPosition(best);
-            add(L("mark.droneTarget"), new Color(1f, 0.72f, 0.2f), new Vector3(q.X, q.Y, q.Z), 6f);
+            add(L("mark.droneTarget"), new Color(1f, 0.72f, 0.2f), View.FromCells(q.X, q.Y, q.Z), 6f);
             break;
         }
     }
@@ -209,7 +209,7 @@ public partial class Play
             flock.Show(n);
 
             var dp = Net.DepositPosition(status.Deposit);
-            var target = new Vector3(dp.X, dp.Y, dp.Z);
+            var target = View.FromCells(dp.X, dp.Y, dp.Z);
             var first = root.Transform * flock.Bays[0];
 
             // the beam from the first bay to the deposit

@@ -39,9 +39,11 @@ public partial class Play
             .OrderBy(o => (double)o.X * o.X + (double)o.Z * o.Z).Select(o => o.Id).DefaultIfEmpty(-1).First();
     }
 
-    private void Teleport(Vector3 cells)
+    /// <summary>Puts the ship at a position given in view cells (relative to the view origin, like every node of the scene).</summary>
+    private void Teleport(Vector3 viewCells)
     {
         long cu = Units.CellUnits;
+        var cells = viewCells + View.OriginVector;
         Net.SetStructureOrigin(ShipStruct, (long)(cells.X * cu), (long)(cells.Y * cu), (long)(cells.Z * cu));
     }
 
@@ -96,7 +98,7 @@ public partial class Play
                     foreach (var key in s.Modules.Keys)
                     {
                         var (min, max) = Net.ModuleWorldBounds(s, key);
-                        var lo = new Vector3(min.X, min.Y, min.Z) / CellUnits; var hi = new Vector3(max.X, max.Y, max.Z) / CellUnits;
+                        var lo = View.Cells(min.X, min.Y, min.Z); var hi = View.Cells(max.X, max.Y, max.Z);
                         float dx = MathF.Max(MathF.Max(lo.X - w.X, 0f), w.X - hi.X), dy = MathF.Max(MathF.Max(lo.Y - w.Y, 0f), w.Y - hi.Y), dz = MathF.Max(MathF.Max(lo.Z - w.Z, 0f), w.Z - hi.Z);
                         best = MathF.Min(best, MathF.Sqrt(dx * dx + dy * dy + dz * dz));
                     }
@@ -116,7 +118,7 @@ public partial class Play
     private void SetUpObsScene()
     {
         _speed = 1;
-        Vector3 P(ObstacleInfo o) => new Vector3(o.X, o.Y, o.Z) / CellUnits;
+        Vector3 P(ObstacleInfo o) => View.Cells(o.X, o.Y, o.Z);
         switch (_obsScene)
         {
             case "rocks":
@@ -217,7 +219,7 @@ public partial class Play
             case "depositrock":
             {
                 var (dx, dy, dz) = Net.DepositPosition(DefaultDeposit());
-                var c = new Vector3(dx, dy, dz);
+                var c = View.FromCells(dx, dy, dz);
                 Teleport(c + new Vector3(-4f, 14f, -4f));
                 _shotCam = (c + new Vector3(-16f, 5f, 12f), c + new Vector3(0f, 2f, 0f));
                 _shotOutside = true;

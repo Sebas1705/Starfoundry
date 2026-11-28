@@ -31,7 +31,7 @@ public partial class Play
         {
             if (Net.DepositRemaining(d) <= 0) continue;
             var q = Net.DepositPosition(d);
-            var world = new Vector3(q.X, q.Y, q.Z);
+            var world = View.FromCells(q.X, q.Y, q.Z);
             var local = inv * world; // camera space: -Z is forward
             deposits.Add(new { id = d, item = _content.Items[Net.DepositItem(d)].Id, remaining = Net.DepositRemaining(d), dist = (world - _camera.GlobalPosition).Length(), cx = local.X, cy = local.Y, cz = local.Z, inRange = Net.InMineRange(Player, d) });
         }
@@ -47,14 +47,14 @@ public partial class Play
         {
             var ob = Net.GetObstacle(oi);
             if (_content.World is null || ob.Gone || _content.World.Kinds[ob.Kind].Behaviour != ObstacleBehaviour.Wreck) continue;
-            var wp = new Vector3(ob.X, ob.Y, ob.Z) / CellUnits; var wl = inv * wp;
+            var wp = View.Cells(ob.X, ob.Y, ob.Z); var wl = inv * wp;
             wreck = new { id = oi, cx = wl.X, cy = wl.Y, cz = wl.Z, dist = (wp - _camera.GlobalPosition).Length() };
             break;
         }
         foreach (var st in Net.Structures())
         {
             if (st.Kind != StructureKind.Station) continue;
-            var sp = new Vector3(st.OriginX, st.OriginY, st.OriginZ) / CellUnits; var sl = inv * sp;
+            var sp = View.Cells(st.OriginX, st.OriginY, st.OriginZ); var sl = inv * sp;
             station = new { id = st.Id, cx = sl.X, cy = sl.Y, cz = sl.Z, dist = (sp - _camera.GlobalPosition).Length() };
             break;
         }
@@ -105,7 +105,7 @@ public partial class Play
     public float AgentFace(int deposit)
     {
         var q = Net.DepositPosition(deposit);
-        var local = _camera.GlobalTransform.AffineInverse() * new Vector3(q.X, q.Y, q.Z);
+        var local = _camera.GlobalTransform.AffineInverse() * View.FromCells(q.X, q.Y, q.Z);
         float yaw = Mathf.Atan2(local.X, -local.Z), pitch = Mathf.Atan2(local.Y, Mathf.Sqrt(local.X * local.X + local.Z * local.Z));
         _shipQuat = FlightOrientation.Rotate(_shipQuat, pitch, yaw, 0f);
         return Mathf.RadToDeg(Mathf.Acos(Mathf.Clamp(-local.Normalized().Z, -1f, 1f)));
@@ -144,11 +144,11 @@ public partial class Play
             foreach (int oi in Net.Galaxy?.ObstaclesOf(Net.CurrentSystem(Player)) ?? Array.Empty<int>())
             {
                 var ob = Net.GetObstacle(oi);
-                if (!ob.Gone && _content.World is { } wg && wg.Kinds[ob.Kind].Behaviour == ObstacleBehaviour.Wreck) { target = new Vector3(ob.X, ob.Y, ob.Z) / CellUnits; break; }
+                if (!ob.Gone && _content.World is { } wg && wg.Kinds[ob.Kind].Behaviour == ObstacleBehaviour.Wreck) { target = View.Cells(ob.X, ob.Y, ob.Z); break; }
             }
         else
             foreach (var st in Net.Structures())
-                if (st.Kind == StructureKind.Station) { target = new Vector3(st.OriginX, st.OriginY, st.OriginZ) / CellUnits; break; }
+                if (st.Kind == StructureKind.Station) { target = View.Cells(st.OriginX, st.OriginY, st.OriginZ); break; }
         if (target is null) return -1f;
         var local = _camera.GlobalTransform.AffineInverse() * target.Value;
         float yaw = Mathf.Atan2(local.X, -local.Z), pitch = Mathf.Atan2(local.Y, Mathf.Sqrt(local.X * local.X + local.Z * local.Z));

@@ -81,11 +81,11 @@ public partial class Play
             _fieldPerfSpot = FindDensestCluster();
             var (x, y, z, _, _, _) = _fieldPerfSpot;
             int from = int.TryParse(System.Environment.GetCommandLineArgs().FirstOrDefault(a => a.StartsWith("--field-perf-from="))?["--field-perf-from=".Length..], out int fromCells) ? fromCells : 0; // --field-perf-from=N: N cells away from the centre, looking at it
-            Teleport(from > 0 ? new Vector3(x - from, y, z) : new Vector3(x, y, z));
+            Teleport(from > 0 ? View.FromCells(x - from, y, z) : View.FromCells(x, y, z));
             _world.Step(20 * 15);
             _world.Submit(Player, new Scan());
             _world.Step(2);
-            LookFromSeat(from > 0 ? new Vector3(x, y, z) : new Vector3(x + 60f, y, z - 60f));
+            LookFromSeat(from > 0 ? View.FromCells(x, y, z) : View.FromCells(x + 60, y, z - 60));
             DisplayServer.WindowSetVsyncMode(DisplayServer.VSyncMode.Disabled); // measure what the work costs, not the refresh rate
             return;
         }

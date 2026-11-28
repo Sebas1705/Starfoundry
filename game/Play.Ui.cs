@@ -592,7 +592,7 @@ public partial class Play
         if (Net.IsDeposit(_selectedDeposit) && Net.IsDepositRevealed(_selectedDeposit) && Net.DepositRemaining(_selectedDeposit) > 0)
         {
             var dp = Net.DepositPosition(_selectedDeposit);
-            Add($"{ItemName(Net.DepositItem(_selectedDeposit))} - {DensityText(_selectedDeposit)}{(DepositHasDrones(_selectedDeposit) ? " - " + L("mark.drones") : "")}", new Color(1f, 0.8f, 0.35f), new Vector3(dp.X, dp.Y, dp.Z), 6f, null, 2, Icons.ItemId(_content.Items[Net.DepositItem(_selectedDeposit)].Id));
+            Add($"{ItemName(Net.DepositItem(_selectedDeposit))} - {DensityText(_selectedDeposit)}{(DepositHasDrones(_selectedDeposit) ? " - " + L("mark.drones") : "")}", new Color(1f, 0.8f, 0.35f), View.FromCells(dp.X, dp.Y, dp.Z), 6f, null, 2, Icons.ItemId(_content.Items[Net.DepositItem(_selectedDeposit)].Id));
         }
 
         // Other deposits you know of nearby: a quiet mark each, the two nearest only (the chosen one above keeps its full label).
@@ -602,7 +602,7 @@ public partial class Play
             {
                 if (d == _selectedDeposit || Net.DepositRemaining(d) <= 0) continue;
                 var q = Net.DepositPosition(d);
-                var at = new Vector3(q.X, q.Y, q.Z);
+                var at = View.FromCells(q.X, q.Y, q.Z);
                 others.Add((d, (at - eye).LengthSquared(), at));
             }
             others.Sort((a, b) => a.D2.CompareTo(b.D2));
@@ -625,11 +625,11 @@ public partial class Play
         foreach (var en in Net.Enemies())
         {
             if (system >= 0 && en.System != system) continue;
-            threats.Add(((new Vector3(en.X, en.Y, en.Z) / CellUnits - eye).LengthSquared(), en));
+            threats.Add(((View.Cells(en.X, en.Y, en.Z) - eye).LengthSquared(), en));
         }
         threats.Sort((a, b) => a.D.CompareTo(b.D));
         foreach (var (_, e) in threats.Take(HudDetails.ThreatArrows(CurrentHudDetail)))
-            Add(Loc.Name("enemy", _content.Enemies[e.Type].Id), EnemyMarkerColor, new Vector3(e.X, e.Y, e.Z) / CellUnits, 3f, null, 3, IconCatalog.ForEnemy(_content.Enemies[e.Type].Id));
+            Add(Loc.Name("enemy", _content.Enemies[e.Type].Id), EnemyMarkerColor, View.Cells(e.X, e.Y, e.Z), 3f, null, 3, IconCatalog.ForEnemy(_content.Enemies[e.Type].Id));
 
         if (_structuresOn) { StructureMarkers((l, c, t, h) => Add(l, c, t, h, null, l == L("mark.station") ? 2 : 1)); _markers.Set(items); return; }
 
@@ -638,20 +638,20 @@ public partial class Play
         {
             if (!Net.IsMachineAlive(id)) continue;
             var m = Net.GetMachineInfo(id);
-            _baseTmp.Add(new Vec3(m.X + 0.5f, m.Y + 0.5f, m.Z + 0.5f));
+            _baseTmp.Add(new Vec3(m.X + 0.5f - View.OriginX, m.Y + 0.5f - View.OriginY, m.Z + 0.5f - View.OriginZ)); // legacy world cells, relative to the view origin like the ship and the camera
         }
         if (_stationRules && Net.ModuleCount(Player) > 0)
         {
             // The station: the centre of the module nearest the ship.
             _baseTmp.Clear();
-            foreach (var (mx, my, mz, _) in Net.Modules(Player)) _baseTmp.Add(V(StationView.Centre(mx, my, mz)));
+            foreach (var (mx, my, mz, _) in Net.Modules(Player)) _baseTmp.Add(V(StationView.Centre(mx, my, mz) - View.OriginVector));
             var nearestModule = Markers.NearestCluster(_baseTmp, V(ShipPosition(0f)), 0.01f);
             if (nearestModule is { } sm) Add(L("mark.station"), new Color(0.45f, 0.8f, 1f), new Vector3(sm.X, sm.Y, sm.Z), 10f, null, 2);
             _markers.Set(items);
             return;
         }
         var baseAt = Markers.NearestCluster(_baseTmp, V(ShipPosition(0f)), 14f);
-        if (baseAt is null && Net.Galaxy is { } galaxy && system >= 0) baseAt = new Vec3(galaxy.Systems[system].X, galaxy.Systems[system].Y, galaxy.Systems[system].Z);
+        if (baseAt is null && Net.Galaxy is { } galaxy && system >= 0) baseAt = new Vec3(galaxy.Systems[system].X - View.OriginX, galaxy.Systems[system].Y - View.OriginY, galaxy.Systems[system].Z - View.OriginZ);
         if (baseAt is { } b) Add(L("mark.base"), new Color(0.45f, 0.8f, 1f), new Vector3(b.X, b.Y, b.Z), 10f);
 
         _markers.Set(items);
@@ -731,7 +731,7 @@ public partial class Play
         else if (Net.IsDeposit(dep) && Net.IsDepositRevealed(dep))
         {
             var pos = Net.DepositPosition(dep);
-            float dist = (new Vector3(pos.X, pos.Y, pos.Z) - ShipPosition(0f)).Length();
+            float dist = (View.FromCells(pos.X, pos.Y, pos.Z) - ShipPosition(0f)).Length();
             depLine = L("hud.depositSelected", ItemName(Net.DepositItem(dep)), DepositAmount(dep), Physical.Dist(dist), DensityText(dep));
         }
         else depLine = L("hud.noDeposit");
@@ -1785,7 +1785,7 @@ public partial class Play
         // Then enemies (small and dangerous) and deposits, whichever is nearer along the ray.
         foreach (var en in Net.Enemies())
         {
-            var c = new Vector3(en.X, en.Y, en.Z) / CellUnits;
+            var c = View.Cells(en.X, en.Y, en.Z);
             if (RayHitsSphere(origin, dir, c, 0.7f, out float t) && t < best)
             {
                 best = t;
@@ -1795,7 +1795,7 @@ public partial class Play
         foreach (var k in Net.Pickups())
         {
             if (!k.Dropped) continue;
-            if (RayHitsSphere(origin, dir, new Vector3(k.X, k.Y, k.Z) / CellUnits, 0.7f, out float t) && t < best)
+            if (RayHitsSphere(origin, dir, View.Cells(k.X, k.Y, k.Z), 0.7f, out float t) && t < best)
             {
                 best = t;
                 _hover = new Hover(HoverKind.Stack, k.Id, L("tip.stack", k.Count, ItemName(k.Item), Physical.StackMass(_content.Items[k.Item].Id, k.Count, Loc.Culture)));
@@ -1806,7 +1806,7 @@ public partial class Play
             if (!Net.IsDepositRevealed(d) || Net.DepositRemaining(d) <= 0) continue;
             var pos = Net.DepositPosition(d);
             float scale = Net.DepositRockScalePermille(d) / 1000f;
-            if (RayHitsSphere(origin, dir, new Vector3(pos.X, pos.Y, pos.Z), 1.5f * scale, out float t) && t < best)
+            if (RayHitsSphere(origin, dir, View.FromCells(pos.X, pos.Y, pos.Z), 1.5f * scale, out float t) && t < best)
             {
                 best = t;
                 _hover = new Hover(HoverKind.Deposit, d, L("tip.deposit", ItemName(Net.DepositItem(d)), Net.DepositRemaining(d), Net.DepositInitial(d), DensityText(d)) + ClusterLine(d));

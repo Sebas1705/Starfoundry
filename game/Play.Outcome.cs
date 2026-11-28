@@ -141,7 +141,7 @@ public partial class Play
         if (ship < 0) return;
         var o = ShipPosition(0f);
         long cu = Units.CellUnits;
-        int st = Net.CreateStructure(Player, StructureKind.Station, ((long)o.X + 30) * cu, (long)o.Y * cu, (long)o.Z * cu);
+        int st = Net.CreateStructure(Player, StructureKind.Station, ((long)o.X + 30 + View.OriginX) * cu, ((long)o.Y + View.OriginY) * cu, ((long)o.Z + View.OriginZ) * cu); // o is a view position
         foreach (var (x, k) in new[] { (0, ModuleKind.Core), (1, ModuleKind.Workshop), (2, ModuleKind.Defence) }) Net.AddStructureModuleUnchecked(st, x, 0, 0, k);
         _world.Step(Units.TicksPerSecond * 60 * 17 + 23 * Units.TicksPerSecond); // some time on the clock
     }

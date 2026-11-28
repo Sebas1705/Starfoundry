@@ -82,7 +82,7 @@ public partial class Play
         foreach (var m in Net.LasersReaching(Player, deposit))
         {
             var (x, y, z) = Net.StructureToWorld(ship, (long)((m.Mx * StationGrid.ModuleX + tip.X) * cu), (long)((m.My * StationGrid.ModuleY + tip.Y) * cu), (long)((m.Mz * StationGrid.ModuleZ + tip.Z) * cu));
-            list.Add(new Vector3((float)x / cu, (float)y / cu, (float)z / cu));
+            list.Add(View.Cells(x, y, z));
         }
         return list;
     }
@@ -178,7 +178,7 @@ public partial class Play
                     _shotOutside = true;
                     {
                         var o = Net.GetStructure(ship);
-                        var at = new Vector3(o.OriginX, o.OriginY, o.OriginZ) / cu + new Vector3(4f, 3f, 8f);
+                        var at = View.Cells(o.OriginX, o.OriginY, o.OriginZ) + new Vector3(4f, 3f, 8f);
                         _shotCam = (at + new Vector3(26f, 14f, -26f), at);
                     }
                     break;
@@ -214,7 +214,7 @@ public partial class Play
                 _shotOutside = true;
                 {
                     var o = Net.GetStructure(ship);
-                    var at = new Vector3(o.OriginX, o.OriginY, o.OriginZ) / cu + new Vector3(8f, 3f, -12f);
+                    var at = View.Cells(o.OriginX, o.OriginY, o.OriginZ) + new Vector3(8f, 3f, -12f);
                     _shotCam = (at + new Vector3(16f, 7f, 10f), at);
                 }
                 break;

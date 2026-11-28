@@ -120,11 +120,11 @@ public partial class Play
         {
             if (Net.DepositItem(d) != ice || !Net.IsDepositRevealed(d) || Net.DepositRemaining(d) <= 0) continue;
             var p = Net.DepositPosition(d);
-            float dist = (new Vector3(p.X, p.Y, p.Z) - ship).LengthSquared();
+            float dist = (View.FromCells(p.X, p.Y, p.Z) - ship).LengthSquared();
             if (dist < bestD) { bestD = dist; best = d; }
         }
         if (best < 0) return;
         var q = Net.DepositPosition(best);
-        add(L("mark.ice"), new Color(0.55f, 0.9f, 1f), new Vector3(q.X, q.Y, q.Z), 6f);
+        add(L("mark.ice"), new Color(0.55f, 0.9f, 1f), View.FromCells(q.X, q.Y, q.Z), 6f);
     }
 }

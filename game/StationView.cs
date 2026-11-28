@@ -65,8 +65,13 @@ void fragment() {
             },
             Visible = false,
         };
-        AddChild(_coreMarker);
+        _legacy = new Node3D { Name = "LegacyGrid" };
+        AddChild(_legacy);
+        _legacy.AddChild(_coreMarker);
     }
+
+    /// <summary>Holds the legacy single-grid overlay (frames, floor plates, layer plates, core marker), which keeps absolute cell coordinates; the node sits at minus the view origin, set again in every <see cref="Sync"/>.</summary>
+    private Node3D _legacy = null!;
 
     /// <summary>The modules currently drawn, with the core flag (for the HUD marker).</summary>
     public IReadOnlyList<(int Mx, int My, int Mz)> Modules => _modules;
@@ -87,6 +92,7 @@ void fragment() {
             Rebuild(net, player);
             _layerY = int.MinValue;
         }
+        _legacy.Position = View.FromCells(0f, 0f, 0f);
         if (layerY != _layerY) { _layerY = layerY; PlaceLayers(); }
     }
 
@@ -130,12 +136,12 @@ void fragment() {
 
     private readonly Dictionary<int, float> _thrustLevel = new();
 
-    /// <summary>Position of a structure's origin corner in game cells.</summary>
+    /// <summary>Position of a structure's origin corner in view cells (world cells minus the view origin).</summary>
     public static Vector3 OriginCells(BeltNetwork net, int id)
     {
         var (x, y, z) = net.WorldCentre(id, 0, 0, 0);
-        float half = Units.CellUnits / 2f;
-        return new Vector3((x - half) / Units.CellUnits, (y - half) / Units.CellUnits, (z - half) / Units.CellUnits);
+        long half = Units.CellUnits / 2;
+        return View.Cells(x - half, y - half, z - half); // view space: the root of a structure is placed relative to the view origin
     }
 
     /// <summary>Keeps one root Node3D per structure at its world origin and one model per module, by kind. Cheap per frame: modules are rebuilt only when the structure version changes.</summary>
@@ -519,9 +525,9 @@ void fragment() {
         _frames = Make(new BoxMesh { Size = Vector3.One }, list.Count * 12, edgeBuf, _edgeMaterial);
         _floors = Make(new PlaneMesh { Size = Vector2.One }, list.Count, floorBuf, _gridMaterial);
         _layers = Make(new PlaneMesh { Size = Vector2.One }, list.Count, new float[list.Count * FloatsPerInstance], _layerMaterial);
-        AddChild(_frames);
-        AddChild(_floors);
-        AddChild(_layers);
+        _legacy.AddChild(_frames);
+        _legacy.AddChild(_floors);
+        _legacy.AddChild(_layers);
     }
 
     /// <summary>A faint grid plate at the build layer inside each module (hidden where it would coincide with the floor plate).</summary>
