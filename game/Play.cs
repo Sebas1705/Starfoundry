@@ -173,6 +173,7 @@ public partial class Play : Node3D
         _designerShotPath = args.FirstOrDefault(a => a.StartsWith("--designer-shot="))?["--designer-shot=".Length..];
         _laserShotPath = args.FirstOrDefault(a => a.StartsWith("--laser-shot="))?["--laser-shot=".Length..];
         BlueprintSetup(args);
+        ViewOriginCheckSetup(args);
         FeelShotSetup(args);
         ArsenalShotSetup(args);
         bool threats = !(args.Contains("--demo") || _exploreDemo) && _stressMachines == 0 && !((_structuresShot || _walkShot || _dockShot || _flightShot || _designerShotPath is not null || _laserShotPath is not null || BlueprintScripted || args.Any(a => a.StartsWith("--gun-shot=") || a.StartsWith("--arsenal-shot=") || a.StartsWith("--overflow-shot=") || a.StartsWith("--drop-shot="))) && !args.Contains("--threats") && _defenceShotPath is null && _endShotPath is null);
@@ -207,6 +208,7 @@ public partial class Play : Node3D
             _world = SimWorld.CreateGalaxy(_content, _gameMode, _galaxySeed, threats, _stationRules, _structuresOn);
         if (_structuresOn) { _yaw = MathF.PI; _pitch = -0.35f; _cursorY = DefaultLayer; } // face aft from the pilot seat
         _world.Network.EnsurePlayer(Player); // the ship starts at the origin, inside Home
+        ApplyViewOriginFlag(args); // --view-origin=x,y,z: the view (and the ship, when it has a structure) starts far from home; before the scene is built
         if (args.Contains("--structure-demo")) BuildStructureDemo(args);
         // For screenshots: finish every research that carries a bonus, so the upgrade line of the status panel shows.
         if (args.Contains("--grant-upgrades"))
@@ -1236,6 +1238,7 @@ void fragment() {
 
     public override void _Process(double delta)
     {
+        RebaseViewIfNeeded(); // between frames, before anything places a node: the view origin follows the ship (ADR 0053)
         float alpha = (float)Engine.GetPhysicsInterpolationFraction();
         UpdateAttitude((float)delta); // free flight: roll, the settle onto a port, the head back to the nose
         SyncAttitude(); // ADR 0030: the simulation learns the ship attitude
@@ -1289,6 +1292,7 @@ void fragment() {
         TurnShotFrame();
         DefenceShotFrame();
         ObstacleShotFrame();
+        ViewOriginCheckFrame(); // last: every node of the frame is placed, so the check sees what the renderer will draw
         if (_shotCountdown > 0 && --_shotCountdown == 0 && _shotPath != null)
             GetViewport().GetTexture().GetImage().SavePng(_shotPath);
         if (_finishCountdown > 0 && --_finishCountdown == 0)

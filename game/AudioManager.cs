@@ -71,6 +71,7 @@ public partial class AudioManager : Node
         for (int i = 0; i < Pool3DSize; i++)
         {
             _pool3D[i] = new AudioStreamPlayer3D { UnitSize = 12f, MaxDistance = 220f, AttenuationFilterCutoffHz = 9000f };
+            _pool3D[i].AddToGroup(View.WorldGroup); // a one-shot is placed once, in view space: a rebase of the view origin shifts it (ADR 0053; the hums are moved every frame)
             AddChild(_pool3D[i]);
         }
         for (int i = 0; i < HumSlots; i++)
