@@ -4,7 +4,7 @@
 // Game args after the phase go after `--agent`, e.g. `--scenario=06_salvage_run` (skips the menu).
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
-import { mkdirSync, openSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, openSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const [entry, godot, project, outDir, phase, ...gameArgs] = process.argv.slice(2);
@@ -83,7 +83,13 @@ async function startGame(extra = []) {
   const att = tool('run_project', { projectPath: project, attach: true });
   await sleep(500);
   const logFd = openSync(join(outDir, 'game.log'), 'w');
-  game = spawn(godot, ['--headless', '--path', project, '--', '--agent', '--ui-lang=en', ...extra, ...gameArgs], { windowsHide: true, stdio: ['ignore', logFd, logFd] });
+  // SF_WINDOWED=1 opens ONE short window on the primary monitor (position 100,100; SF_RES=WxH, default 1280x720) for screenshots. The owner's rule: one window
+  // at a time, guarded by the lock file %TEMP%\sf-window.lock (wait up to 3 minutes for it), and closed as soon as the phase ends.
+  const windowed = process.env.SF_WINDOWED === '1';
+  if (windowed) await takeWindowLock();
+  const lang = process.env.SF_LANG ?? 'en';
+  const head = windowed ? ['--windowed', '--position', '100,100', '--resolution', process.env.SF_RES ?? '1280x720'] : ['--headless'];
+  game = spawn(windowed ? godot.replace('_console', '') : godot, [...head, '--path', project, '--', '--agent', `--ui-lang=${lang}`, ...extra, ...gameArgs], { windowsHide: !windowed, stdio: ['ignore', logFd, logFd] }); // the GUI exe in a window: the console exe would add a console window
   await att;
   await sleep(2500);
   log('WINDOWS:', winCheck());
@@ -97,6 +103,14 @@ async function newCampaign(seed = '42') {
   await click('StartButton'); await sleep(6000);
 }
 let game;
+const lockPath = join(process.env.TEMP ?? '.', 'sf-window.lock');
+let haveLock = false;
+async function takeWindowLock() {
+  for (let i = 0; i < 90 && existsSync(lockPath); i++) await sleep(2000);
+  if (existsSync(lockPath)) throw new Error('sf-window.lock is still held after 3 minutes');
+  writeFileSync(lockPath, `sf-playthrough ${process.pid} ${new Date().toISOString()}`); haveLock = true;
+}
+function releaseWindowLock() { if (haveLock) { try { unlinkSync(lockPath); } catch { /* already gone */ } haveLock = false; } }
 // Every Godot / node process we own must have no window (MainWindowHandle = 0).
 import { execFileSync } from 'node:child_process';
 const winCheck = () => { try { return String(execFileSync('powershell', ['-NoProfile', '-Command', "Get-Process | Where-Object { $_.ProcessName -like 'Godot*' } | ForEach-Object { $_.ProcessName + ':MainWindowHandle=' + $_.MainWindowHandle }"], { windowsHide: true })).trim().split(String.fromCharCode(10)).join(' ; '); } catch (e) { return 'check failed ' + e.message; } };
@@ -395,6 +409,99 @@ return 1`); await sleep(500);
     s = await state(); check('4.undocked', s.docked === false, `docked=${s.docked}`);
     const errs = errors(); check('4.no-errors-in-log', errs.length === 0, JSON.stringify(errs).slice(0, 400));
   },
+  // A first-time-player tour for the simulated playtest study: every screen a new campaign shows in its first minutes, with the visible texts of each recorded
+  // (tour.json in the out dir) and, with SF_WINDOWED=1, a screenshot of each (primary monitor, one short window, see startGame).
+  async tour() {
+    const rec = [];
+    const windowed = process.env.SF_WINDOWED === '1';
+    const note = async name => { const t = await texts('.'); rec.push({ name, texts: t }); writeFileSync(join(outDir, 'tour.json'), JSON.stringify(rec, null, 1)); log(`TEXTS ${name} (${t.length}): ` + JSON.stringify(t).slice(0, 1400)); };
+    const snap = async name => { await note(name); if (!windowed) return; await sleep(400); const p = await shot(name); if (typeof p === 'string' && existsSync(p)) copyFileSync(p, join(outDir, name + '.png')); };
+    await startGame();
+    await snap('01-main-menu');
+    const ng = (await ui()).find(e => /^(new game|nueva partida)$/i.test(e.text ?? '')); await click(ng.name ?? ng.path); await sleep(500);
+    await snap('02-new-game-story-tab');
+    await click('TabCampaign'); await sleep(400); await snap('03-new-game-campaign-tab');
+    await input({ type: 'click_element', element: 'SeedField' }, { type: 'text', text: process.env.SF_SEED ?? '20261121' });
+    await click('StartButton'); await sleep(5000);
+    let s = await state();
+    log('start state', JSON.stringify({ seated: s.seated, tick: s.tick, paused: s.paused, scenario: s.scenario, hold: s.hold }));
+    await snap('04-campaign-start-seated');
+    await sleep(15000); await snap('05-after-15s');
+    await keyDown('W'); await sleep(2500); await keyUp('W'); await snap('06-flying');
+    await key('K'); await sleep(1200); await snap('07-scan');
+    // fly to the nearest iron deposit, mine for a while
+    s = await state(); const iron = s.deposits.filter(d => d.item === 'core:iron_ore').sort((a, b) => a.dist - b.dist)[0];
+    await key('1'); await sleep(300);
+    for (let i = 0; i < 40; i++) {
+      await aimAt(iron.id, 3); s = await state(); const d = s.deposits.find(x => x.id === iron.id);
+      if (d.inRange) break;
+      await keyDown('W'); await sleep(d.dist > 40 ? 2500 : 900); await keyUp('W'); await sleep(300);
+    }
+    await keyDown('S'); await sleep(1500); await keyUp('S');
+    await aimAt(iron.id, 1.5);
+    await mouseButton(true); await sleep(6000); await snap('08-mining'); await mouseButton(false);
+    await keyDown('Alt'); await sleep(300);
+    for (let i = 0; i < 8; i++) { await script(FIND + 'return play.call("AgentFaceBench")'); await sleep(250); }
+    await snap('09-bench-look'); await key('F'); await sleep(900); await snap('10-bench-panel');
+    await keyUp('Alt'); await key('Escape'); await sleep(600);
+    s = await state(); if (s.pauseOpen) { await key('Escape'); await sleep(400); }
+    await key('Tab'); await sleep(900);
+    for (const t of ['Map', 'Research', 'Inventory', 'Build', 'Info', 'Systems', 'Settings']) { await click('Tab' + t).catch(() => {}); await sleep(700); await snap('11-computer-' + t.toLowerCase()); }
+    await key('Tab'); await sleep(500);
+    await key('B'); await sleep(700); await snap('12-build-menu');
+    for (const tb of ['Logistics', 'Production', 'Defence', 'Structure']) { const b = (await ui()).find(e => e.text === tb); if (b) { await click(b.name ?? b.path); await sleep(500); await snap('13-build-' + tb.toLowerCase()); } }
+    await key('Escape'); await sleep(500);
+    s = await state(); if (s.computerOpen) { await key('Tab'); await sleep(400); }
+    await key('F'); await sleep(1200); await snap('14-stood-up');
+    await key('Escape'); await sleep(800); await snap('15-pause-menu');
+    log('errors:', JSON.stringify(errors()));
+  },
+  // The station tour (run with `--scenario=sandbox_station` after the phase name): dock, the ship computer's docked tabs, the blueprint editor, its floor plan, and the
+  // designer. Same recording as `tour` (texts always, screenshots with SF_WINDOWED=1).
+  async tour2() {
+    const rec = [];
+    const windowed = process.env.SF_WINDOWED === '1';
+    const note = async name => { const t = await texts('.'); rec.push({ name, texts: t }); writeFileSync(join(outDir, 'tour2.json'), JSON.stringify(rec, null, 1)); log(`TEXTS ${name} (${t.length}): ` + JSON.stringify(t).slice(0, 1200)); };
+    const snap = async name => { await note(name); if (!windowed) return; await sleep(400); const p = await shot(name); if (typeof p === 'string' && existsSync(p)) copyFileSync(p, join(outDir, name + '.png')); };
+    await startGame(); await sleep(4000);
+    let s = await state();
+    await snap('21-station-scenario-start');
+    for (let i = 0; i < 80 && !s.dockNear; i++) {
+      await script(FIND + 'return play.call("AgentFacePoint", "station")'); await keyDown('W'); await sleep(300); s = await state();
+      if (s.station && s.station.dist < 14) { await keyUp('W'); await keyDown('S'); await sleep(500); await keyUp('S'); }
+    }
+    await keyUp('W'); await sleep(1500); s = await state();
+    await snap('22-near-dock-port');
+    for (let i = 0; i < 12 && !s.docked; i++) { await key('F'); await sleep(2500); s = await state(); }
+    log('docked', s.docked);
+    await sleep(1500); await snap('23-docked');
+    await key('Tab'); await sleep(900);
+    for (const t of ['Designer', 'Build', 'Inventory']) { await click('Tab' + t).catch(() => {}); await sleep(900); await snap('24-docked-computer-' + t.toLowerCase()); }
+    await key('Tab'); await sleep(500);
+    await script(FIND + `return play.call("AgentOpenStationBlueprint", ${s.station.id})`); await sleep(1800);
+    await snap('25-blueprint-editor');
+    const bp = async op => String(unwrap(await script(FIND + `return play.call("AgentBlueprint", "${op}")`)));
+    log('place:', (await bp('place')).slice(0, 200)); await sleep(600); await snap('26-blueprint-placed');
+    log('floor:', (await bp('floor')).slice(0, 200)); await sleep(900); await snap('27-floor-plan');
+    log('back:', (await bp('back')).slice(0, 200)); await sleep(500);
+    log('apply:', (await bp('apply')).slice(0, 200)); await sleep(2000); await snap('28-after-apply');
+    log('errors:', JSON.stringify(errors()));
+  },
+  // Story level 01 from the menu: briefing, first goals; sandbox: build menu with free build.
+  async tour3() {
+    const rec = [];
+    const windowed = process.env.SF_WINDOWED === '1';
+    const note = async name => { const t = await texts('.'); rec.push({ name, texts: t }); writeFileSync(join(outDir, 'tour3.json'), JSON.stringify(rec, null, 1)); log(`TEXTS ${name} (${t.length}): ` + JSON.stringify(t).slice(0, 1500)); };
+    const snap = async name => { await note(name); if (!windowed) return; await sleep(400); const p = await shot(name); if (typeof p === 'string' && existsSync(p)) copyFileSync(p, join(outDir, name + '.png')); };
+    await startGame();
+    const ng = (await ui()).find(e => /^(new game|nueva partida)$/i.test(e.text ?? '')); await click(ng.name ?? ng.path); await sleep(500);
+    await click('TabStory'); await sleep(500); await snap('31-story-list');
+    await click('Level_01_first_light'); await sleep(400); await snap('32-story-level-card');
+    await click('StartButton'); await sleep(6000); await snap('33-story-briefing');
+    await key('Enter'); await sleep(1200); await snap('34-story-after-briefing');
+    await key('Tab'); await sleep(800); await click('TabInfo').catch(() => {}); await sleep(800); await snap('35-story-goals-info'); await key('Tab'); await sleep(400);
+    log('errors:', JSON.stringify(errors()));
+  },
   async explore() {
     await startGame();
     log('menu:', (await ui()).filter(e => e.text).map(e => `${e.name}=${e.text}`).join(' | '));
@@ -413,4 +520,4 @@ try {
   await phases[phase]();
   log(`phase ${phase} done in ${secs()} s`);
 } catch (e) { log('PHASE FAILED:', e.message); process.exitCode = 1; }
-finally { try { await tool('stop_project', {}); } catch { /* ignore */ } try { game?.kill(); } catch { /* already gone */ } srv.kill(); }
+finally { try { await tool('stop_project', {}); } catch { /* ignore */ } try { game?.kill(); } catch { /* already gone */ } srv.kill(); releaseWindowLock(); }

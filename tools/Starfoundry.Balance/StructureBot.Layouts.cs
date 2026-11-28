@@ -409,6 +409,7 @@ public sealed partial class StructureBot
     {
         int type = Machine(machine);
         int r = recipe is null ? -1 : Recipe(recipe);
+        if (NoTurrets && machine == "core:turret") return -1; // a "never builds turrets" player (telemetry fuzzing)
         if (!Need(_c.Machines[type].Cost, machine)) return -1;
         EnsureRange(st, x, y, z);
         // ADR 0044: in a new world a station's machines, belts, turrets and walls reach it through its blueprint (its interior plus the new part).

@@ -116,12 +116,13 @@ public static partial class Loc
         ["bp.walk.nothing"] = ("No hay ningún módulo donde entrar", "There is no module to step into"),
 
         ["bp.applied"] = ("Diseño aplicado: la nave tiene {0} módulos", "Design applied: the ship has {0} modules"),
+        ["bp.applied.station"] = ("Diseño aplicado: la estación tiene {0} módulos", "Design applied: the station has {0} modules"),
         ["bp.discard"] = ("Pulsa Esc otra vez para descartar el borrador", "Press Esc again to discard the draft"),
 
         // status and legend
-        ["bp.status.unchanged"] = ("Sin cambios: el plano es la nave actual", "No changes: the plan is the ship as it is"),
+        ["bp.status.unchanged"] = ("Sin cambios: el plano es lo que ya está construido", "No changes: the plan is what is built now"),
         ["bp.status.changes"] = ("{0} nuevos, {1} quitados, {2} movidos", "{0} new, {1} removed, {2} moved"),
-        ["bp.legend"] = ("Verde: nuevo. Rojo: se quita. Amarillo: se mueve. Rayado rojo: no válido. Debajo ves la nave real.", "Green: new. Red: removed. Yellow: moved. Red hatch: invalid. The real ship stays visible underneath."),
+        ["bp.legend"] = ("Verde: nuevo. Rojo: se quita. Amarillo: se mueve. Rayado rojo: no válido. Debajo ves lo construido.", "Green: new. Red: removed. Yellow: moved. Red hatch: invalid. What is built now stays visible underneath."),
         ["bp.hint"] = ("Clic: usa la herramienta. Clic derecho y arrastrar: orbitar. Rueda: zoom. Botón central y arrastrar: desplazar.", "Click: use the tool. Right-drag: orbit. Wheel: zoom. Middle-drag: pan."),
         ["bp.selected"] = ("{0} seleccionados", "{0} selected"),
         ["bp.nothingSelected"] = ("Nada seleccionado", "Nothing selected"),

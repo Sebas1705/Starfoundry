@@ -28,8 +28,8 @@
   },
   "story": [
     { "trigger": "start",
-      "text_es": "Buenos días. Cabina sellada, motores calientes y nada hostil en el radar. Vuela al yacimiento de hierro y empieza a minar: mantén la tecla de minar cerca de él.",
-      "text_en": "Good morning. Cockpit sealed, engines warm, nothing hostile on the scope. Fly to the iron deposit and start mining: hold the mine key near it." },
+      "text_es": "Buenos días. Cabina sellada, motores calientes y nada hostil en el radar. Vuela al yacimiento de hierro y empieza a minar: mantén el clic izquierdo con el láser fuera, cerca de él.",
+      "text_en": "Good morning. Cockpit sealed, engines warm, nothing hostile on the scope. Fly to the iron deposit and start mining: hold the left click with the laser out, close to it." },
     { "trigger": "goal:mine_iron",
       "text_es": "Ahí van 60 de mineral. Pulsa F en el banco de trabajo: pon en cola la fundición de lingotes y, después, el prensado en placas. Ocho segundos por pieza, de una en una: despacio, pero sin que lo vigiles.",
       "text_en": "That is 60 ore. Press F at the workbench: queue the smelting into ingots and then the pressing into plates. Eight seconds a piece, one at a time: slow, but it needs no watching." },

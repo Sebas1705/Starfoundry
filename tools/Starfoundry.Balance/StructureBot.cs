@@ -167,6 +167,7 @@ public sealed partial class StructureBot
     /// <summary>Lets <paramref name="seconds"/> of game time pass, running the maintenance step every second.</summary>
     private void Wait(double seconds)
     {
+        _telemetry?.Account(_mode, seconds);
         int ticksLeft = (int)Math.Round(seconds * Tps);
         while (ticksLeft > 0)
         {
@@ -180,26 +181,38 @@ public sealed partial class StructureBot
     /// <summary>Waits until the condition holds (checked every second). Returns false after <paramref name="maxSeconds"/>.</summary>
     private bool WaitUntil(Func<bool> condition, int maxSeconds)
     {
-        for (int i = 0; i < maxSeconds; i++)
+        var before = _mode;
+        _mode = WaitMode.Waiting;
+        try
         {
-            if (condition()) return true;
-            Wait(1);
+            for (int i = 0; i < maxSeconds; i++)
+            {
+                if (condition()) return true;
+                Wait(1);
+            }
+            return condition();
         }
-        return condition();
+        finally { _mode = before; }
     }
 
     private CommandResult Cmd(Command c)
     {
         _w.Submit(0, c);
         _w.Step();
-        return _w.LastResults.Last();
+        var result = _w.LastResults.Last();
+        if (!result.Ok) _telemetry?.Reject(result.Reject.ToString());
+        return result;
     }
 
     /// <summary>A command that costs the player a moment: the game clock moves on afterwards.</summary>
     private CommandResult Act(Command c)
     {
         var r = Cmd(c);
-        Wait(ActionDelaySeconds);
+        var before = _mode;
+        _mode = WaitMode.Acting;
+        try { Wait(ActionDelaySeconds); }
+        finally { _mode = before; }
+        MaybeAfk();
         return r;
     }
 
@@ -226,6 +239,7 @@ public sealed partial class StructureBot
     private void EverySecond()
     {
         Record();
+        SampleTelemetry();
         if (Trace is not null && NowSeconds % 60 == 0) StatusLine();
         var outcome = _progress is null ? GameOutcome.Evaluate(Net, 0, new GoalSettings(GoalWaves)) : ScenarioOutcome();
         if (outcome.Kind == OutcomeKind.Won && !_seen.Contains(VictoryMilestone))
@@ -251,7 +265,7 @@ public sealed partial class StructureBot
         }
         if (outcome.Kind == OutcomeKind.Won && !ContinueAfterVictory) throw new GameEnded("Won");
         if (NowSeconds >= _maxSeconds) throw new GameEnded("time limit");
-        if (_inMaintenance) return;
+        if (_inMaintenance || AfkNow()) return;
         _inMaintenance = true;
         try { Maintain(); }
         finally { _inMaintenance = false; }
@@ -406,6 +420,12 @@ public sealed partial class StructureBot
         catch (GameEnded e)
         {
             _report.End = e.Message;
+        }
+        catch (ArgumentOutOfRangeException e) when (NoTurrets && e.Message.StartsWith("No such structure"))
+        {
+            // The fuzzed player (no turrets) lost the station and the scripted plan has nothing left to build on.
+            Stuck("the station was destroyed and the plan cannot continue");
+            _report.End = "the station was destroyed";
         }
         _report.Seconds = Now;
         _report.WavesSurvived = GameOutcome.WavesSurvived(Net);

@@ -84,7 +84,7 @@ public partial class Play
             else
             {
                 _blueprint!.Reload();
-                Toast(L("bp.applied", Net.GetStructure(_blueprintStation >= 0 ? _blueprintStation : Net.ShipStructure(Player)).Modules.Count), 4.0);
+                Toast(L(_blueprintStation >= 0 ? "bp.applied.station" : "bp.applied", Net.GetStructure(_blueprintStation >= 0 ? _blueprintStation : Net.ShipStructure(Player)).Modules.Count), 4.0);
                 AudioManager.PlayUi(Sfx.UiClick);
             }
         }

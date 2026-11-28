@@ -90,7 +90,7 @@ public sealed class ObjectiveTracker
     private static readonly Objective[] StructuresOrder =
     {
         Objective.Fly, Objective.Mine, Objective.Refine, Objective.FoundStation, Objective.FabBay, Objective.WatchFactory, Objective.Dock, Objective.MakeFuel, Objective.AddModule,
-        Objective.Research, Objective.Scan, Objective.Defend, Objective.Salvage, Objective.Automate, Objective.Upgrade, Objective.Expand,
+        Objective.Defend, Objective.Research, Objective.Scan, Objective.Salvage, Objective.Automate, Objective.Upgrade, Objective.Expand,
     };
 
     /// <summary>Modules of the starter ship; a player with more than this has added some.</summary>
