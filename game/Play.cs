@@ -970,6 +970,7 @@ void fragment() {
         {
             AudioResult(r);
             if (r.Command is DesignerApply or ApplyBlueprint) { _designerRejected = !r.Ok; if (!r.Ok) ToastLogistics(Why(r.Reject)); continue; } // the designer panel says "applied" only when it was
+            if (r.Command is SetCruise cr) { ToastLogistics(r.Ok ? L(cr.On ? "toast.cruise.on" : "toast.cruise.off") : L(r.Reject == Reject.Locked ? "toast.cruise.locked" : Net.Scale is null ? "toast.cruise.none" : r.Reject == Reject.NotAllowedHere ? "toast.cruise.zone" : "toast.reject.unknown")); if (!r.Ok) _cruiseUserOff = true; continue; }
             if (r.Command is DockAt or Undock or TransferItems) { DockResult(r); continue; }
             if (r.Command is MoveItems or SetFeedSource or SortInventory) { InventoryResult(r); continue; }
             if (r.Command is DropItems or PickUp) { GroundResult(r); continue; }

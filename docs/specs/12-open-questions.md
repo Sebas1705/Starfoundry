@@ -88,7 +88,7 @@ See [the design](../superpowers/specs/2026-11-28-physical-units-design.md) (step
 - An imperial display option: not in step 1.
 
 ## World scale (2026-11-28)
-See [the design](../superpowers/specs/2026-11-28-world-scale-design.md) and [ADR 0053](../adr/0053-world-scale-realistic-spacing-with-a-cruise-drive.md). Stage 0 is decided; stages 1 and 2 are built next. All numbers are proposals. It replaces the first physical-units question above for the galaxy: the local scale stays, the spacing grows.
+See [the design](../superpowers/specs/2026-11-28-world-scale-design.md) and [ADR 0053](../adr/0053-world-scale-realistic-spacing-with-a-cruise-drive.md). Stages 0 and 1 and a first slice of stage 2 (distances, the cruise drive, nav in km) are built; the rest of stage 2 (bubbles, planets, light years, rock sizes, the `long` refactor) is deferred. The other numbers are proposals. It replaces the first physical-units question above for the galaxy: the local scale stays, the spacing grows.
 - Whether planets and moons should ever offer something (ice, gas, a base) or stay nav targets and danger zones.
 - Whether a jump should need a gate structure (we propose none: the jump drive is the gate).
 - Whether system cruise at 10 Mm/s (3.3 percent of the speed of light) is acceptable fiction, or 3 Mm/s with a longer trip.

@@ -226,7 +226,7 @@ public class LargeModuleTests
             using var ms = new MemoryStream();
             CommandCodec.WriteLog(ms, new List<LoggedCommand> { new LoggedCommand(5, 0, c) }, C.Hash, GameMode.Campaign, Seed, threats: false, structures: true);
             var log = ms.ToArray();
-            Assert.Equal(29, log[4]);
+            Assert.Equal(30, log[4]);
             CommandCodec.ReadLog(new MemoryStream(log), out _, out _, out _, out _, out _, out _, out var rules);
             Assert.False(rules.LegacyLargeModules);
             var old = (byte[])log.Clone();

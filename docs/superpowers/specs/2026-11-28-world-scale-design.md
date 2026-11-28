@@ -1,6 +1,6 @@
 # World scale: realistic distances, compressed travel time (design)
 
-Status: **decided (stage 0 of 3); stage 1 (floating origin) and stage 2 (the world scale itself) are built in separate pull requests** (2026-11-28). Everything marked *measured* was read from the code or the content today; *proposal* is our choice; *TBD* is unknown. Nothing here is copied from another game.
+Status: **decided; stage 0 (this design), stage 1 (floating origin) and a first slice of stage 2 (the distances, the cruise drive and nav in km, see the ADR section "Stage 2 slice") are built; the remaining stage 2 items are deferred** (2026-11-28). Everything marked *measured* was read from the code or the content today; *proposal* is our choice; *TBD* is unknown. Nothing here is copied from another game.
 
 The owner's request, delegated to us: "set the equivalence of the cells as you see fit, but make the **distances** more realistic". The [physical units design](2026-11-28-physical-units-design.md) fixed **1 cell = 1 m** for everything the player touches (ships, modules, doors, bodies, tools) and showed that the *spacing* is the part that is off: systems 1.8 km apart, rock fields in 200 m sectors and 800 m super-sectors, rocks 3 to 24 m, scan and nav ranges in hundreds of metres. That document rejected option P9 (the whole world 1,000 times larger) for its cost. This one chooses a different way to the same goal.
 

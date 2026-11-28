@@ -131,6 +131,7 @@ public sealed partial class BeltNetwork
         if (current == target || !galaxy.HasLane(current, target)) throw new InvalidOperationException("There is no lane to that system.");
         if (!_known[target]) throw new InvalidOperationException("The system is not known yet.");
         p.Boost = false; // no boosting through a jump charge
+        p.Cruise = false;
         p.JumpTarget = target;
         p.JumpRemaining = ExplorationRules.JumpChargeTicks;
         p.ClearMotion(); // the ship is frozen while it charges: velocity zeroed (ADR 0033)

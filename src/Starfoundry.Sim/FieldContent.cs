@@ -29,6 +29,9 @@ public sealed record FieldRules(
     /// <summary>The clustered generator's numbers (ADR 0046), or null for content that keeps the uniform field only.</summary>
     public ClusterRules? Clusters { get; init; }
 
+    /// <summary>Rocks exist only within this many cells of a system anchor (the world scale, ADR 0053); 0 means no bound. Not content: the world scale sets it.</summary>
+    public int AnchorRadiusCells { get; init; }
+
     /// <summary>Two rocks of a sector keep at least this many cells between their surfaces.</summary>
     public const int GapCells = 3;
 

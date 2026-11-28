@@ -52,6 +52,27 @@ public partial class Play
     }
 
     /// <summary>The flight assist key and the button on the flight display: damp the rotation when the pilot stops turning, or let the ship keep spinning.</summary>
+    private bool _cruiseUserOff;
+    private bool _cruiseWas;
+
+    /// <summary>The cruise key (X, ADR 0053): engages or releases the cruise drive; the world answers with a toast when it cannot (inside a zone, not researched).</summary>
+    private void ToggleCruise()
+    {
+        if (Standing || !Net.HasPlayer(Player)) return;
+        bool on = !Net.IsCruising(Player);
+        _cruiseUserOff = !on;
+        Send(new SetCruise(on));
+    }
+
+    /// <summary>Says so when the governor or a brownout dropped the cruise drive (the pilot did not ask for it).</summary>
+    private void WatchCruise()
+    {
+        bool now = Net.HasPlayer(Player) && Net.IsCruising(Player);
+        if (_cruiseWas && !now && !_cruiseUserOff) ToastLogistics(L("toast.cruise.dropped"));
+        if (now) _cruiseUserOff = false;
+        _cruiseWas = now;
+    }
+
     private void ToggleFlightAssist()
     {
         bool next = !FlightAssistOn;

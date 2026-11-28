@@ -29,7 +29,7 @@ public class AntennaCannonTests
     }
 
     private static SimWorld World(ContentDb content, WorldRules? rules = null) =>
-        SimWorld.CreateGalaxy(content, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: rules);
+        SimWorld.CreateGalaxy(content, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: (rules ?? new WorldRules()).WithLegacyWorldScale(true)); // these tests predate the world scale (ADR 0053)
 
     /// <summary>A powered ship with the given antennas beside its reactor (x = 5, 6, ...), one step run so the power state is real.</summary>
     private static SimWorld Ship(WorldRules? rules, params ModuleKind[] antennas)
@@ -199,7 +199,7 @@ public class AntennaCannonTests
         using var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, recorded.Log, NoShip.Hash, GameMode.Sandbox, Seed, threats: false, structures: true, rules: recorded.Network.Rules);
         var bytes = ms.ToArray();
-        Assert.Equal(29, bytes[4]);
+        Assert.Equal(30, bytes[4]);
         for (byte version = 17; version <= 22; version++)
         {
             var old = (byte[])bytes.Clone();

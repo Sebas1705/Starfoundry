@@ -248,6 +248,10 @@ public sealed partial class BeltNetwork
             tx = p.MoveX * k; ty = p.MoveY * k; tz = p.MoveZ * k;
         }
 
+        long full = FullSpeedMilli(s, percent);
+        bool pushing = false;
+        if (p.Cruise) CruiseTarget(p, s, full, ref tx, ref ty, ref tz, out pushing); // ADR 0053: the cruise drive sets the target speed, the governor limits it
+
         long dx = tx - p.VelX, dy = ty - p.VelY, dz = tz - p.VelZ;
         long d2 = dx * dx + dy * dy + dz * dz;
         if (d2 != 0)
@@ -256,8 +260,12 @@ public sealed partial class BeltNetwork
             long t2 = tx * tx + ty * ty + tz * tz, dot = tx * p.VelX + ty * p.VelY + tz * p.VelZ;
             bool braking = t2 < v2 || dot < 0;
             long rate = braking ? BrakeRate(s, percent) : AccelRate(s, percent);
-            long full = FullSpeedMilli(s, percent);
             if (braking && v2 > full * full) rate = Math.Max(rate, IntMath.ISqrt(v2) / (2L * WorldGen!.BrakeTicks)); // over the engine speed (a boost that ended, a cloud): shed it faster
+            if (_scale is { } sc)
+            {
+                if (pushing && !braking) rate = Math.Max(rate, sc.Cruise.AccelMilli); // the spin-up of the cruise drive
+                if (braking && v2 > full * full) rate = Math.Max(rate, sc.Cruise.BrakeMilli); // the braking of the drive: from cruise speed to rest in a few seconds
+            }
             if (d2 <= rate * rate) { p.VelX = (int)tx; p.VelY = (int)ty; p.VelZ = (int)tz; }
             else
             {
@@ -265,6 +273,8 @@ public sealed partial class BeltNetwork
                 p.VelX += (int)(dx * rate / len); p.VelY += (int)(dy * rate / len); p.VelZ += (int)(dz * rate / len);
             }
         }
+
+        CruiseCap(p, full);
 
         static int Advance(int velocity, ref int rem)
         {

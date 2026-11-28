@@ -65,7 +65,7 @@ public static class SectorField
             {
                 long x = minX + rng.Next(0, span), y = minY + rng.Next(0, span), z = minZ + rng.Next(0, span);
                 if (Math.Abs(x) > limit || Math.Abs(y) > limit || Math.Abs(z) > limit) break;
-                if (NearAnchor(systems, x, y, z, excl2)) continue;
+                if (NearAnchor(systems, x, y, z, excl2) || SectorField.BeyondAnchors(f, systems, x, y, z)) continue;
                 bool clear = true;
                 for (int j = first; j < into.Count; j++)
                 {
@@ -81,6 +81,19 @@ public static class SectorField
                 break;
             }
         }
+    }
+
+    /// <summary>True when the field is bounded (<see cref="FieldRules.AnchorRadiusCells"/>) and the point is farther than that from every system anchor: no rock exists there (ADR 0053).</summary>
+    public static bool BeyondAnchors(FieldRules f, IReadOnlyList<StarSystem> systems, long x, long y, long z)
+    {
+        if (f.AnchorRadiusCells <= 0) return false;
+        long r2 = (long)f.AnchorRadiusCells * f.AnchorRadiusCells;
+        for (int i = 0; i < systems.Count; i++)
+        {
+            long dx = x - systems[i].X, dy = y - systems[i].Y, dz = z - systems[i].Z;
+            if (dx * dx + dy * dy + dz * dz <= r2) return false;
+        }
+        return true;
     }
 
     private static bool NearAnchor(IReadOnlyList<StarSystem> systems, long x, long y, long z, long excl2)

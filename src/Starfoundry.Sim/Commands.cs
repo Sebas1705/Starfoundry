@@ -86,6 +86,14 @@ public sealed record FireLaser(bool Firing) : Command;
 /// Rejected with <see cref="Reject.NotAllowedHere"/> when the content has no boost. Boost is switched off by a jump, a lost ship and the end of the world.</summary>
 public sealed record SetBoost(bool On) : Command;
 
+/// <summary>
+/// Engages (true) or releases (false) the cruise drive of the commanding player's ship (ADR 0053, stage 2 slice): while engaged and allowed by the approach governor, the ship's
+/// target speed is the cruise speed. Rejected with <see cref="Reject.NotAllowedHere"/> in a world without the world scale (<see cref="WorldRules.LegacyWorldScale"/> or content without
+/// <c>world.scale</c>), <see cref="Reject.Locked"/> without the research in the campaign, <see cref="Reject.Docked"/> while docked and <see cref="Reject.Busy"/> while a jump charges; also <see cref="Reject.NotAllowedHere"/> inside a zone (a system or near a rock cluster) and in a ship without flight inertia.
+/// Engaging cancels a mining order. Cruise is switched off by a jump, a lost ship and the end of the world.
+/// </summary>
+public sealed record SetCruise(bool On) : Command;
+
 /// <summary>Sets what the commanding player's ship micro-refinery works on (-1 for nothing).</summary>
 public sealed record SetShipRecipe(int Recipe) : Command;
 

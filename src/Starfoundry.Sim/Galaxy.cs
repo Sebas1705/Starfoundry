@@ -97,14 +97,14 @@ public sealed class Galaxy
     private static readonly string[] Starts = { "Ka", "Vel", "Or", "Tha", "Mi", "Sor", "Ni", "Bra", "Ze", "Lu", "Ar", "Cae" };
     private static readonly string[] Ends = { "ron", "tis", "dax", "lume", "vara", "phex", "nor", "sia", "kai", "reth" };
 
-    /// <summary>Generates the galaxy for a seed. Pure and deterministic: the same content and seed give the same galaxy everywhere. <paramref name="resourceDensityPercent"/> above 100 adds extra deposits (ADR 0036) after the base ones.</summary>
-    public static Galaxy Generate(ContentDb content, ulong seed, bool legacy = false, int resourceDensityPercent = 100)
+    /// <summary>Generates the galaxy for a seed. Pure and deterministic: the same content and seed give the same galaxy everywhere. <paramref name="resourceDensityPercent"/> above 100 adds extra deposits (ADR 0036) after the base ones. <paramref name="legacyScale"/> keeps the old system spacing for content with a world scale (ADR 0053).</summary>
+    public static Galaxy Generate(ContentDb content, ulong seed, bool legacy = false, int resourceDensityPercent = 100, bool legacyScale = false)
     {
         var rules = content.Galaxy ?? throw new InvalidOperationException("The content defines no galaxy.");
         // The wide generator (ADR 0028) runs only for content that defines a 'world' section and worlds that are not legacy
         // (WorldRules.LegacyGalaxy, set for logs older than version 10); everything else generates as it always did.
         var wide = legacy ? null : content.World;
-        if (wide is not null) rules = rules with { SpacingCells = wide.SpacingCells, SystemRadiusCells = wide.SystemRadiusCells };
+        if (wide is not null) rules = rules with { SpacingCells = !legacyScale && wide.Scale is { } scale ? scale.SpacingCells : wide.SpacingCells, SystemRadiusCells = wide.SystemRadiusCells }; // the world scale puts the systems about 100 km apart (ADR 0053)
         var rng = new SplitMix64(seed ^ 0xA5A5_5A5A_1234_8765UL);
         int n = rules.SystemCount;
 

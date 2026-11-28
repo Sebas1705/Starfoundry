@@ -14,7 +14,7 @@ public class FieldTests
     private static readonly FieldRules F = C.World!.Field!;
 
     private static SimWorld World(WorldRules? rules = null, ulong seed = Seed, ContentDb? content = null) =>
-        SimWorld.CreateGalaxy(content ?? C, GameMode.Sandbox, seed, threats: false, stationRules: false, structures: true, rules: (rules ?? WorldRules.Default).WithLegacyRockClusters(true)); // these tests are about the uniform field of ADR 0040; ClusterFieldTests covers ADR 0046
+        SimWorld.CreateGalaxy(content ?? C, GameMode.Sandbox, seed, threats: false, stationRules: false, structures: true, rules: (rules ?? WorldRules.Default).WithLegacyRockClusters(true).WithLegacyWorldScale(true)); // these tests are about the uniform field of ADR 0040; ClusterFieldTests covers ADR 0046
 
     /// <summary>Puts the pilot at a point (cells) and runs one streaming pass.</summary>
     private static void Go(SimWorld w, long x, long y, long z)
@@ -412,7 +412,7 @@ public class FieldTests
             Assert.False(replay.Network.HasRockField);
         }
         var current = CommandCodec.ReadLog(new MemoryStream(bytes), out _, out _, out _, out _, out _, out _, out var cur);
-        Assert.Equal(29, bytes[4]);
+        Assert.Equal(30, bytes[4]);
         Assert.True(cur.LegacyField); // this log was written for a legacy-field world, so its header says so
         var fresh = new MemoryStream();
         CommandCodec.WriteLog(fresh, new List<LoggedCommand>(), C.Hash, GameMode.Sandbox, Seed, structures: true);
@@ -444,7 +444,7 @@ public class FieldTests
     {
         var b = World(new WorldRules().WithLegacyField(true));
         var plain = SimWorld.CreateGalaxy(TestContent.CoreFloor, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true);
-        var legacyRules = SimWorld.CreateGalaxy(TestContent.CoreFloor, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: new WorldRules().WithLegacyField(true));
+        var legacyRules = SimWorld.CreateGalaxy(TestContent.CoreFloor, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: new WorldRules().WithLegacyField(true).WithLegacyWorldScale(true));
         Assert.Equal(legacyRules.Checksum(), b.Checksum());
         Assert.Equal(0, b.Network.DepositCount - b.Network.Galaxy!.Deposits.Count);
         Assert.Equal(0, plain.Network.FieldLoadedRocks); // before the first streaming pass

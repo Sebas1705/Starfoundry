@@ -31,6 +31,10 @@ public sealed partial class BeltNetwork
     public int FieldRememberedRocks => _fieldMemory.Count;
 
     private ClusterRules? _clusters;
+    private WorldScaleRules? _scale;
+
+    /// <summary>The world scale of this world (ADR 0053, stage 2 slice): null for content without a scale block, a legacy world and a world that is not wide.</summary>
+    public WorldScaleRules? Scale => _scale;
 
     /// <summary>True when the rocks of this world come from the clustered generator (ADR 0046): a rock field, content with clusters and no <see cref="WorldRules.LegacyRockClusters"/>.</summary>
     public bool HasRockClusters => _clusters is not null;
@@ -38,7 +42,22 @@ public sealed partial class BeltNetwork
     private void InitField()
     {
         _field = Galaxy is { Wide: true } && !Rules.LegacyField ? Content?.World?.Field : null;
+        _scale = _field is not null && !Rules.LegacyWorldScale ? Content?.World?.Scale : null;
+        if (_scale is not null && _field is not null) _field = _scale.Apply(_field);
         _clusters = _field is not null && !Rules.LegacyRockClusters ? _field.Clusters : null;
+    }
+
+    /// <summary>True when a bounded field (ADR 0053) cannot hold a rock of this cluster: its centre is farther from every system anchor than the field radius plus the cluster's own reach.</summary>
+    private bool ParentBeyondField(in ClusterParent p)
+    {
+        if (_field is not { AnchorRadiusCells: > 0 } f || Galaxy is null) return false;
+        long r = (long)f.AnchorRadiusCells + p.Radius, r2 = r * r;
+        foreach (var s in Galaxy.Systems)
+        {
+            long dx = p.X - s.X, dy = p.Y - s.Y, dz = p.Z - s.Z;
+            if (dx * dx + dy * dy + dz * dz <= r2) return false;
+        }
+        return true;
     }
 
     /// <summary>The cluster a field rock belongs to, or null for a stray, an ordinary deposit and the uniform field (ADR 0046).</summary>
@@ -66,8 +85,12 @@ public sealed partial class BeltNetwork
     {
         if (_clusters is null || _field is null || Galaxy is null) return Array.Empty<ClusterParent>();
         long cx = xUnits / Units.CellUnits, cy = yUnits / Units.CellUnits, cz = zUnits / Units.CellUnits;
-        return ClusterField.ParentsInBox(_field, _clusters, Galaxy.Seed, cx - radiusCells, cx + radiusCells, cy - radiusCells, cy + radiusCells, cz - radiusCells, cz + radiusCells,
+        var all = ClusterField.ParentsInBox(_field, _clusters, Galaxy.Seed, cx - radiusCells, cx + radiusCells, cy - radiusCells, cy + radiusCells, cz - radiusCells, cz + radiusCells,
             Rules.LegacyResources ? 100 : Rules.ResourceDensityPercent);
+        if (_field.AnchorRadiusCells <= 0) return all;
+        var kept = new List<ClusterParent>(all.Count); // a bounded field (ADR 0053) has no clusters in the far void
+        foreach (var p in all) if (!ParentBeyondField(p)) kept.Add(p);
+        return kept;
     }
 
     /// <summary>
@@ -224,6 +247,7 @@ public sealed partial class BeltNetwork
     {
         _field = other._field;
         _clusters = other._clusters;
+        _scale = other._scale;
         _fieldSerial = other._fieldSerial;
         _fieldLoaded = other._fieldLoaded;
         _fieldCells.Clear();

@@ -1,6 +1,6 @@
 # 0053. World scale: realistic spacing with a cruise drive, a floating origin in the view, log version 30
 
-- Status: proposed
+- Status: accepted (stage 0, stage 1 and the stage 2 slice below; the rest of stage 2 is deferred)
 - Date: 2026-11-28
 - Area: simulation, content, client
 - Builds on: [ADR 0007](0007-galaxy-as-regions-of-one-space-with-deterministic-generation.md) (regions of one space), [ADR 0033](0033-flight-inertia-solid-deposits-and-hit-volumes.md) (flight governor), [ADR 0040](0040-infinite-rock-field-generated-on-demand.md) and [ADR 0046](0046-clustered-rock-fields-with-voids-size-classes-and-giants.md) (the rock field), [ADR 0052](0052-physical-units-are-a-display-layer-one-cell-is-one-metre.md) (1 cell = 1 m)
@@ -30,3 +30,17 @@ ADR 0052 fixes 1 cell = 1 m for everything the player touches and shows that dis
 - **Light-year distances in one frame**: 4 ly is the whole `long` range at 1/240 m.
 - **Faster thrusters instead of a drive**: no safe way to cross rocks at km/s; the governor is the drive.
 - **Double-precision Godot build**: not available in the Mono templates; the floating origin is cheaper and is needed by the double build as well.
+
+## Stage 2 slice (built)
+The owner approved a first slice of stage 2: the distances and the drive between systems and rock clusters. It is behind `WorldRules.LegacyWorldScale` (third flags byte, bit 5, value 32) and log version 30, and the content hash moves only when the `world.scale` block is present.
+- **Content**: `world.scale` in `content/core.json`: systems 100 km apart, cluster super-sector 100 km, no background rocks, ore distance thresholds times 50 (125, 175 and 250 km), a rock field only within 600 km of a system anchor, nav range 150 km (37,500 percent of the 400 m base) and the `cruise` block (3 km/s, about 12 s spin-up, about 6 s braking, drop-out below 960 units per tick, zone margin of 2 sectors). The research `core:cruise_drive` (needs electronics and the jump drive) unlocks the ability.
+- **Command**: `SetCruise(bool On)`, log tag 73, refused in logs older than version 30. Outside a world with `world.scale` or without flight inertia it is `NotAllowedHere`; `Locked` in the campaign without the research; `Docked`, `Busy` (a jump is charging), `NoCockpitOrEngine` as for the boost; `NotAllowedHere` inside a zone. Releasing is always accepted.
+- **Governor** (position only, integer): the allowed speed is the lesser of the cruise speed and `ISqrt(2 * 0.7 * brake * distance to the edge of the nearest zone)`. A zone is a system (its 320 m radius) or a cluster (its reach plus 2 field sectors). Cruise drops out when the allowed speed is under the drop-out speed or the power is short. A speed above both the engines and the allowed speed is shed at the braking rate, so no flight reaches a zone fast.
+- **Display**: nav and HUD in km and km/s (the units layer already scales); the nav list shows clusters in range (computed from the seed, not hashed); the local scan keeps its 80 and 300 m. The cruise key is `N` in flight.
+
+Deviations from the sections above, to be revisited with the rest of stage 2:
+- The governor is isotropic and position-only (the time-to-contact variant with the ship's velocity is deferred), a single level of research and a boolean command.
+- Planets, structures and obstacles are not zones yet, and rock size, sector size and cluster size are unchanged (so a cluster at this spacing is the same few kilometres across, not 6 to 14 km).
+- There is no system bubble, no light-year display, no system cruise and no `long` refactor: positions stay `int` units and the field is bounded to 600 km, which fits.
+- Measured: a cluster 75 km away is reached in about 36 s at cruise (about 13 minutes at boost speed of 96 m/s).
+- Bots: Relaxed, Normal and Hard on seeds 20261121, 20261120 and 777 are within 6 s of the legacy-scale runs (the bots do not cruise and never leave the working area); every run is inside its band.

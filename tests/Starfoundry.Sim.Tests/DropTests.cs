@@ -156,7 +156,7 @@ public class DropTests
         using var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, log, C.Hash, GameMode.Sandbox, 1UL, threats: false, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(29, bytes[4]);
+        Assert.Equal(30, bytes[4]);
         Assert.Equal(drop, CommandCodec.ReadLog(new MemoryStream(bytes))[0].Command);
         bytes[4] = 18;
         Assert.Throws<InvalidDataException>(() => CommandCodec.ReadLog(new MemoryStream(bytes)));

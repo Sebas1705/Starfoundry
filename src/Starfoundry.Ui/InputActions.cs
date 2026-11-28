@@ -55,6 +55,7 @@ public static class InputActions
         new("move", new[] { "W", "A", "S", "D" }, Body, HelpGroup.Ship, "tool:walk"),
         new("climb", new[] { "Space", "C" }, Fly | Tool, HelpGroup.Ship, "tool:boost"),
         new("boost", new[] { "Shift" }, Fly, HelpGroup.Ship, "tool:boost"),
+        new("cruise", new[] { "N" }, Fly, HelpGroup.Ship, "tool:boost"), // the cruise drive (ADR 0053)
         new("run", new[] { "Shift" }, Walk, HelpGroup.Ship, "tool:run"),
         new("look", new[] { "Alt" }, Fly, HelpGroup.Ship, "tool:look"),
         new("roll", new[] { "Q", "E" }, Fly, HelpGroup.Ship, "tool:rotate"),
