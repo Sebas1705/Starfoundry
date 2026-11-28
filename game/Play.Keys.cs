@@ -118,6 +118,8 @@ public partial class Play
             AutomationBlocked = AutomationBlocked,
             FlightAssist = FlightAssistOn,
             HasTurnInertia = UsesDynamics,
+            HasCruise = Net.Scale is not null && Net.HasFlightInertia,
+            Cruising = Net.IsCruising(Player),
             CanWalk = CanWalk,
             Standing = Standing,
             NearSeat = Standing && BodyMotion.InSeatReach(Sys(_body), Sys(SeatPosition)),

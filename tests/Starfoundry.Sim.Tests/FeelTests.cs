@@ -17,7 +17,7 @@ public class FeelTests
     private static readonly int Carbon = C.ItemIndex("core:carbon");
 
     private static SimWorld World(WorldRules? rules = null, bool threats = false, ContentDb? content = null) =>
-        SimWorld.CreateGalaxy(content ?? C, GameMode.Sandbox, Seed, threats, stationRules: false, structures: true, rules: rules);
+        SimWorld.CreateGalaxy(content ?? C, GameMode.Sandbox, Seed, threats, stationRules: false, structures: true, rules: (rules ?? new WorldRules()).WithLegacyWorldScale(true)); // these tests predate the world scale (ADR 0053)
 
     private static Reject Run(SimWorld w, Command c)
     {
@@ -98,7 +98,7 @@ public class FeelTests
         using var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, log, C.Hash, GameMode.Sandbox, Seed, threats: false, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(29, bytes[4]);
+        Assert.Equal(30, bytes[4]);
         var back = CommandCodec.ReadLog(new MemoryStream(bytes));
         Assert.Equal(new SetAim(10, -700, 512), back[0].Command);
         Assert.Equal(new SetAim(0, 0, -1024), ((Batch)back[1].Command).Commands[0]);
@@ -664,7 +664,7 @@ public class FeelTests
     {
         var old = World(WorldRules.Normal.WithLegacyResources(true));
         var oldDensity100 = World(new WorldRules { ResourceDensityPercent = 100 }.WithLegacyResources(true));
-        var baseGalaxy = Galaxy.Generate(C, Seed);
+        var baseGalaxy = Galaxy.Generate(C, Seed, legacyScale: true);
         Assert.Equal(baseGalaxy.Deposits.Count, old.Network.DepositCount);
         Assert.Equal(old.Checksum(), oldDensity100.Checksum());            // the flag ignores the density, and both hash as default rules
         Assert.True(old.Network.Rules.HashesAsDefault);

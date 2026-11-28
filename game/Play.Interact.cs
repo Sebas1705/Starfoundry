@@ -111,6 +111,7 @@ public partial class Play
             case "cancel": CancelKey(); break;
             case "interact": InteractKey(); break;
             case "assist": ToggleFlightAssist(); break;
+            case "cruise": ToggleCruise(); break;
             case "scan": Send(new Scan()); break;
             case "weaponNext": ArsenalStep(1); break;
             case "weaponPick":

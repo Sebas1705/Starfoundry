@@ -137,6 +137,10 @@ public sealed record KeyState
     public bool FlightAssist { get; init; } = true;
     /// <summary>The ship has rotation dynamics (the inertia setting is not off), so the flight assist matters.</summary>
     public bool HasTurnInertia { get; init; }
+    /// <summary>The world has the cruise drive and the ship can use it (ADR 0053): the key panel offers X.</summary>
+    public bool HasCruise { get; init; }
+    /// <summary>The cruise drive is engaged.</summary>
+    public bool Cruising { get; init; }
     /// <summary>How much the HUD shows (H cycles it).</summary>
     public HudDetail HudDetail { get; init; } = HudDetail.Standard;
 
@@ -220,7 +224,7 @@ public static class KeyHints
     public const int MaxRowsFlying = 8, MaxRowsBuild = 10;
 
     /// <summary>Which rows give way first when a context has more rows than fit (the first listed goes first); never an alert or a lit row.</summary>
-    private static readonly string[] DropOrder = { "fireGuns", "mineFire", "hudDetail", "assist", "scan", "roll", "run", "dockGuide", "stationFirst" };
+    private static readonly string[] DropOrder = { "fireGuns", "mineFire", "hudDetail", "assist", "cruise", "scan", "roll", "run", "dockGuide", "stationFirst" };
 
     private sealed record Context(HintContext Id, Func<KeyState, bool> When, string TitleKey, Func<KeyState, object[]> TitleArgs, Func<KeyState, IEnumerable<KeyRow>> Rows, bool ThreatGroup);
 
@@ -361,6 +365,7 @@ public static class KeyHints
             yield return s.ScanReady ? Act("scan", "scan", "scan") : Off("scan", "scan", "scan", "key.why.scanWait");
             yield return Tell("roll", "roll", "roll"); // free flight: roll the ship about its own axis
             if (s.HasTurnInertia) yield return Act("assist", "assist", s.FlightAssist ? "assistOn" : "assistOff", Lit(!s.FlightAssist)); // flight assist: damp the rotation, or let it run free
+            if (s.HasCruise) yield return Act("cruise", "cruise", "cruise", Lit(s.Cruising)); // the cruise drive: X engages or releases it
         }
         yield return HudRow(s);
         yield return Act("help", "help", "help");

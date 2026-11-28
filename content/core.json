@@ -1525,6 +1525,13 @@
       "requires": ["core:heavy_industry"],
       "unlocks": [],
       "abilities": ["large_modules"]
+    },
+    {
+      "id": "core:cruise_drive",
+      "cost": [{ "item": "core:iron_plate", "count": 300 }, { "item": "core:circuit", "count": 30 }, { "item": "core:titanium_plate", "count": 30 }],
+      "requires": ["core:electronics", "core:jump_drive"],
+      "unlocks": [],
+      "abilities": ["cruise"]
     }
   ],
   "galaxy": {
@@ -2366,6 +2373,10 @@
     "collision": { "safe_speed_units": 10, "reference_speed_units": 48, "cooldown_ticks": 60, "hull_pad_units": 120, "deposits_solid": true, "deposit_damage": 6, "deposit_hit_percent": 150 },
     "flight": { "accel_ticks": 36, "brake_ticks": 18 },
     "salvage": { "range_cells": 12, "ticks": 60 },
+    "scale": {
+      "spacing_cells": 100000, "super_cells": 100000, "background_permille": 0, "ore_distance_percent": 5000, "field_radius_cells": 600000, "nav_range_percent": 37500,
+      "cruise": { "speed_units_per_tick": 24000, "spin_up_ticks": 360, "brake_ticks": 180, "drop_units_per_tick": 960, "zone_sectors": 2 }
+    },
     "field": {
       "sector_cells": 200, "load_cells": 360, "keep_cells": 480, "exclusion_cells": 470, "margin_cells": 8,
       "rocks": [0, 5], "mass": [300, 8000], "mass_bias": 4, "density": [40, 180], "unit_amount": 60,

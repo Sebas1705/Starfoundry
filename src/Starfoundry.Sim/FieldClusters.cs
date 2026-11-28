@@ -285,7 +285,7 @@ public static class ClusterField
                     lam += w;
                     if (w > bestW) { bestW = w; best = p; }
                 }
-                if (accRoll >= lam || bestW < 0 || Math.Abs(x) > limit || Math.Abs(y) > limit || Math.Abs(z) > limit || NearAnchor(systems, x, y, z, excl2)) continue;
+                if (accRoll >= lam || bestW < 0 || Math.Abs(x) > limit || Math.Abs(y) > limit || Math.Abs(z) > limit || NearAnchor(systems, x, y, z, excl2) || SectorField.BeyondAnchors(f, systems, x, y, z)) continue;
                 int mass = c.GiantMass.Min + (int)((long)(c.GiantMass.Max - c.GiantMass.Min) * massRoll * massRoll / 1_000_000);
                 int dens = Math.Clamp(c.DensityBase + c.DensityPerRichness * best.Richness + densRoll % (2 * c.DensityJitter + 1) - c.DensityJitter, f.DensityMin, f.DensityMax);
                 int radius = c.RadiusOf(mass);
@@ -312,7 +312,7 @@ public static class ClusterField
                 if (w > bestW) { bestW = w; best = p; any = true; }
             }
             if (accRoll >= lam) continue;
-            if (Math.Abs(x) > limit || Math.Abs(y) > limit || Math.Abs(z) > limit || NearAnchor(systems, x, y, z, excl2)) continue;
+            if (Math.Abs(x) > limit || Math.Abs(y) > limit || Math.Abs(z) > limit || NearAnchor(systems, x, y, z, excl2) || SectorField.BeyondAnchors(f, systems, x, y, z)) continue;
             bool inCluster = any && bestW > (long)c.BackgroundPermille * densityPercent / 200;
             int rich = inCluster ? best.Richness : 0;
             int largeShare = c.LargeBasePermille + c.LargePerRichnessPermille * rich;

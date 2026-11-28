@@ -115,6 +115,8 @@ public enum NavKind
     Enemy,
     Port,
     Gate,
+    /// <summary>A rock cluster in the nav range (ADR 0053): a contact computed from the seed, not scanned.</summary>
+    Cluster,
 }
 
 /// <summary>One row of the navigation list. <see cref="Id"/> is the game's id of the thing (a deposit or a system) or -1.</summary>

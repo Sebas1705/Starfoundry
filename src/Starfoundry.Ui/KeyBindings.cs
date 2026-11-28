@@ -60,7 +60,7 @@ public static class KeyRules
     /// <summary>Actions that may be left without a key (Clear). The rest are needed to fly, walk, build or use the computer.</summary>
     public static readonly IReadOnlySet<string> OptionalActions = new HashSet<string>
     {
-        "look", "assist", "scan", "unload", "load", "weaponNext", "rotate", "recipe", "kind", "openBuild", "openInventory", "openMap",
+        "look", "assist", "cruise", "scan", "unload", "load", "weaponNext", "rotate", "recipe", "kind", "openBuild", "openInventory", "openMap",
         "mapReset", "hudDetail", "quickSave", "quickLoad", "fullscreen",
     };
 

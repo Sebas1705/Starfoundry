@@ -15,14 +15,14 @@ public static class CommandCodec
         TagStartMining = 16, TagStopMining = 17, TagSetShipRecipe = 18, TagSetResearch = 19,
         TagLinkDeposit = 20, TagUnlinkDeposit = 21, TagSetMovement = 22, TagScan = 23, TagJump = 24, TagSetWeapons = 25, TagRepair = 26, TagSetThrust = 27, TagPlaceModule = 28, TagRemoveModule = 29,
         TagPlaceMachineIn = 30, TagPlaceSegmentIn = 31, TagPlaceModuleIn = 32, TagRemoveModuleIn = 33, TagFoundStation = 34, TagAssignDrones = 35, TagDumpItems = 36, TagFireLaser = 37, TagSetBoost = 38, TagDockAt = 39, TagUndock = 40, TagTransferItems = 41, TagSetAttitude = 42, TagDesignerApply = 46, TagSetAim = 59,
-        TagMoveItems = 56, TagSetFeedSource = 57, TagSortInventory = 58, TagDropItems = 60, TagPickUp = 61, TagQueueBench = 63, TagClearBench = 64, TagApplyBlueprint = 65, TagApplyBlueprintInterior = 66, TagDesignerApplyPieces = 67, TagApplyBlueprintPieces = 68, TagApplyBlueprintPiecesInterior = 69, TagApplyBlueprintExt = 70, TagApplyBlueprintSpans = 71, TagDesignerApplySpans = 72;
+        TagMoveItems = 56, TagSetFeedSource = 57, TagSortInventory = 58, TagDropItems = 60, TagPickUp = 61, TagQueueBench = 63, TagClearBench = 64, TagApplyBlueprint = 65, TagApplyBlueprintInterior = 66, TagDesignerApplyPieces = 67, TagApplyBlueprintPieces = 68, TagApplyBlueprintPiecesInterior = 69, TagApplyBlueprintExt = 70, TagApplyBlueprintSpans = 71, TagDesignerApplySpans = 72, TagSetCruise = 73;
 
     private static readonly byte[] Magic = Encoding.ASCII.GetBytes("SFCL");
 
     /// <summary>Version 2 added the content hash to the header, version 3 the game mode, version 4 the galaxy seed, version 5 the threat flag.</summary>
     /// Version 6 added the station-rules flag (bit 1); the structures flag (bit 2) uses a bit that version 6 left free,
     /// so logs written before it simply read as structures off and the version stays 6.
-    private const byte LogVersion = 29;
+    private const byte LogVersion = 30;
     /// <summary>The newest command log version this build writes and reads (the save screen compares a save's version with it).</summary>
     public static int CurrentLogVersion => LogVersion;
     /// Version 7 added the world rules block (flags bit 3, written only for non-default rules). Version 8 added the scenario id (flags bit 4).
@@ -34,6 +34,7 @@ public static class CommandCodec
     /// Version 17 added the SetAim command (tag 59) and ADR 0036: free fire with projectiles and recoil, hold overflow, regrowing deposits and the resource density rule. Logs of versions 5 to 16 read with <see cref="WorldRules.LegacyFeel"/> and <see cref="WorldRules.LegacyResources"/> on, so they replay as recorded; the reader refuses SetAim in them.
     /// Version 19 added dropping items and picking them up by hand (ADR 0038): the DropItems and PickUp commands (tags 60 and 61). The reader refuses them in logs of versions 5 to 18; the world rules do not change.
     /// Version 23 added the antenna variants (short and long range sensors, the comms antenna) and the heavy cannon (ADR 0042): scanner and navigation reach from fitted antennas, stacking with diminishing returns, and a slow heavy gun volley. It adds no command. Logs of versions 5 to 22 read with <see cref="WorldRules.LegacyArms"/> on, so they replay as recorded. (Version 22 belongs to the dock module.)
+    /// Version 30 added the world scale slice (ADR 0053): systems and rock clusters far apart, the ore farther out, a bounded field, and the cruise drive: the SetCruise command (tag 73). Logs of versions 5 to 29 read with <see cref="WorldRules.LegacyWorldScale"/> on, so they replay as recorded; the reader refuses tag 73 in them.
     /// Version 29 added large modules (ADR 0051): a design or blueprint may carry spans, squares of 2 or 3 module cells of one kind with a joined floor, written with tags 71 (the blueprint: a flags byte for the interior, the collars and the machine turns, then the parts) and 72 (the ship design). Logs of versions 5 to 28 read with <see cref="WorldRules.LegacyLargeModules"/> on, so they replay as recorded; the reader refuses tags 71 and 72 in them.
     /// Version 28 added multi-cell machines (ADR 0050): a machine of a station floor plan has a footprint of several cells and a turn. A blueprint with a turned machine is written with the extended tag 70 (a flags byte, then the usual parts, and a turn byte per machine); every other blueprint keeps its tag. Logs of versions 5 to 27 read with <see cref="WorldRules.LegacyFootprints"/> on, so they replay as recorded; the reader refuses tag 70 in them.
     /// Version 27 added the small dock (ADR 0047): a ship or station docks through a docking collar, a small piece on a face of an ordinary module, instead of a dock module. DesignerApply and ApplyBlueprint may carry the collars (tags 67 to 69; tags 46, 65 and 66 keep the collars that still have a host). Logs of versions 5 to 26 read with <see cref="WorldRules.LegacyDockPieces"/> on, so they replay as recorded; the reader refuses tags 67 to 69 in them.
@@ -169,7 +170,7 @@ public static class CommandCodec
                 or ConnectToMachine or ConnectFromMachine or DisconnectMachine
                 or StartMining or StopMining or SetShipRecipe or SetResearch or LinkDeposit or UnlinkDeposit or SetMovement or SetThrust
                 or Scan or Jump or SetWeapons or Repair or PlaceModule or RemoveModule
-                or PlaceMachineIn or PlaceSegmentIn or PlaceModuleIn or RemoveModuleIn or FoundStation or AssignDrones or DumpItems or FireLaser or SetBoost or DockAt or Undock or TransferItems or SetAim:
+                or PlaceMachineIn or PlaceSegmentIn or PlaceModuleIn or RemoveModuleIn or FoundStation or AssignDrones or DumpItems or FireLaser or SetBoost or DockAt or Undock or TransferItems or SetAim or SetCruise:
                 return true;
             case MoveItems mv:
                 return Encodable(mv.From) && Encodable(mv.To);
@@ -284,6 +285,9 @@ public static class CommandCodec
                 break;
             case SetBoost sb:
                 w.Write(TagSetBoost); w.Write(sb.On);
+                break;
+            case SetCruise sc:
+                w.Write(TagSetCruise); w.Write(sc.On);
                 break;
             case FireLaser fl:
                 w.Write(TagFireLaser); w.Write(fl.Firing);
@@ -497,6 +501,7 @@ public static class CommandCodec
             case TagDumpItems: return new DumpItems(r.ReadInt32(), r.ReadInt32());
             case TagFireLaser: return new FireLaser(r.ReadBoolean());
             case TagSetBoost: return new SetBoost(r.ReadBoolean());
+            case TagSetCruise: return new SetCruise(r.ReadBoolean());
             case TagDockAt:
             {
                 int station = r.ReadInt32(), mx = r.ReadInt32(), my = r.ReadInt32(), mz = r.ReadInt32();
@@ -747,6 +752,7 @@ public static class CommandCodec
         if (version < 24) rules = rules.WithLegacyBlueprint(true); // and before stations were edited in the blueprint editor (ADR 0043)
         if (version < 25) rules = rules.WithLegacyInterior(true); // and before the station floor plan (ADR 0044)
         if (version < 26) rules = rules.WithLegacyRockClusters(true); // and before the clustered rock field (ADR 0046)
+        if (version < 30) rules = rules.WithLegacyWorldScale(true); // and before the world scale and the cruise drive (ADR 0053)
         if (version < 29) rules = rules.WithLegacyLargeModules(true); // and before large modules (ADR 0051)
         if (version < 28) rules = rules.WithLegacyFootprints(true); // and before multi-cell machines (ADR 0050)
         if (version < 27) rules = rules.WithLegacyDockPieces(true); // and before the small dock piece (ADR 0047)
@@ -778,6 +784,7 @@ public static class CommandCodec
             if (version < 14 && HasDesigner(command)) throw new InvalidDataException("A log older than version 14 cannot hold a DesignerApply command.");
             if (version < 17 && HasAim(command)) throw new InvalidDataException("A log older than version 17 cannot hold a SetAim command.");
             if (version < 18 && HasInventoryCommand(command)) throw new InvalidDataException("A log older than version 18 cannot hold an inventory command.");
+            if (version < 30 && HasCruise(command)) throw new InvalidDataException("A log older than version 30 cannot hold a SetCruise command.");
             if (version < 29 && HasSpans(command)) throw new InvalidDataException("A log older than version 29 cannot hold large modules.");
             if (version < 28 && HasTurnedMachine(command)) throw new InvalidDataException("A log older than version 28 cannot hold a turned machine in a blueprint.");
             if (version < 27 && HasDockPieces(command)) throw new InvalidDataException("A log older than version 27 cannot hold docking collars in a design or blueprint.");
@@ -790,6 +797,7 @@ public static class CommandCodec
         return log;
     }
 
+    private static bool HasCruise(Command c) => c is SetCruise || (c is Batch b && b.Commands.Any(HasCruise));
     private static bool HasSpans(Command c) => c is DesignerApply { Spans: not null } or ApplyBlueprint { Spans: not null } || (c is Batch b && b.Commands.Any(HasSpans));
     private static bool HasTurnedMachine(Command c) => c is ApplyBlueprint { Interior: { } i } && i.Machines.Any(m => m.Turn != 0) || (c is Batch b && b.Commands.Any(HasTurnedMachine));
     private static bool HasInteriorBlueprint(Command c) => c is ApplyBlueprint { Interior: not null } || (c is Batch b && b.Commands.Any(HasInteriorBlueprint));

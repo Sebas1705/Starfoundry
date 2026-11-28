@@ -60,8 +60,10 @@ public partial class Play
         if (_structuresOn && ShipStruct >= 0 && Net.ObstacleCount > 0 && system >= 0 && !_paused) text = HazardText(system);
         if (text != _hazardText) { _hazardText = text; _hazardLabel!.Text = text; }
         _hazardLabel!.Visible = text.Length > 0 && !(_detailsOpen || PanelOpen()); // the open info cards and the computer fill the top of the view and would be run over
-        _boostLabel!.Visible = Net.IsBoosting(Player);
-        if (_boostLabel.Visible) _boostLabel.Text = L("hud.boost");
+        WatchCruise();
+        bool cruising = Net.IsCruising(Player);
+        _boostLabel!.Visible = cruising || Net.IsBoosting(Player);
+        if (_boostLabel.Visible) _boostLabel.Text = cruising ? L("hud.cruise") + "  " + Metric.Speed(Physical.MetresPerSecond(_speedCps), Loc.Culture) : L("hud.boost");
         _shake = MathF.Max(0f, _shake - dt * 2.5f);
     }
 

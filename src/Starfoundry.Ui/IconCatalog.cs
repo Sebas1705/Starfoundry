@@ -139,7 +139,7 @@ public static class IconCatalog
         ("bio_sensors", "dish"), ("symbiotic_drones", "drone"), ("field_theory", "atom"), ("efficient_reactors", "reactor"), ("long_range_jump", "jump"),
         ("targeting_lasers", "laser"), ("quantum_sensors", "radar"), ("laser_focusing", "laser"), ("beam_collimator", "crosshair"),
         ("composites", "plateStack"), ("cryogenics", "drop"), ("resonance", "crystal"), ("heavy_industry", "furnace"), ("large_structures", "hull"),
-        ("ion_thrusters", "engine"), ("thrust_vectoring", "gauge"), ("plasma_drive", "bolt"),
+        ("ion_thrusters", "engine"), ("thrust_vectoring", "gauge"), ("plasma_drive", "bolt"), ("cruise_drive", "engine"),
     };
 
     /// <summary>Every registered id, for the gallery and the tests.</summary>
@@ -212,7 +212,7 @@ public static class IconCatalog
         "start" => "tool:start", "stock" => "tool:stock", "tab" => "tool:tab", "undock" => "tool:undock", "unload" => "tool:unload",
         "inventory" => "tool:inventory", "invDrag" => "tool:pick", "invQuick" => "tool:quick", "invKeys" => "tool:pick", "invClose" => "tool:close",
         "walk" => "tool:walk", "weapons" => "tool:weapons", "designer" => "tool:designer", "fireGuns" => "tool:fireGuns",
-        "console" => "tool:look", "assist" => "tool:assist", "hudDetail" => "tool:info", "interact" => "tool:seat", "computer" => "tool:computer", "tabs" => "tool:tab", "press" => "tool:pick", "leave" => "tool:close", "nav" => "tool:pick",
+        "console" => "tool:look", "assist" => "tool:assist", "cruise" => "tool:boost", "hudDetail" => "tool:info", "interact" => "tool:seat", "computer" => "tool:computer", "tabs" => "tool:tab", "press" => "tool:pick", "leave" => "tool:close", "nav" => "tool:pick",
         _ => null,
     };
 

@@ -99,6 +99,7 @@ public static partial class Loc
         foreach (var (key, value) in StationTable) Table[key] = value;
         foreach (var (key, value) in SavesTable) Table[key] = value;
         foreach (var (key, value) in FootprintsTable) Table[key] = value;
+        foreach (var (key, value) in ScaleTable) Table[key] = value;
         AddIconStrings();
         foreach (var (key, value) in CockpitTable) Table[key] = value;
         // the camel-case forms of the names (the game looks modules up both ways, as for droneBay)

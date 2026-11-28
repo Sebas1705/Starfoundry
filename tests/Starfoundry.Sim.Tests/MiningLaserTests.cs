@@ -152,7 +152,7 @@ public class MiningLaserTests
         var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, log, C.Hash, GameMode.Sandbox, Seed, structures: true);
         byte[] bytes = ms.ToArray();
-        Assert.Equal(29, bytes[4]);
+        Assert.Equal(30, bytes[4]);
         var back = CommandCodec.ReadLog(new MemoryStream(bytes));
         Assert.Equal(3, back.Count);
         Assert.Equal(log[1].Command, back[1].Command);

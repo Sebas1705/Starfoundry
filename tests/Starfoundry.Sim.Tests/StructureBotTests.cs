@@ -145,7 +145,7 @@ public class StructureBotTests
         var r = new StructureBot(TestContent.CoreFloor, Seed, threats: false, rules: new WorldRules { DepositRichnessPercent = 250 }) { ContinueAfterVictory = true }.Run(150 * 60); // 250: the laser and the drones are 2.5 times faster (ADR 0036), so the same ore is gone in 2.5 times less time
         _out.WriteLine(r.Format());
         // The electronics branch (silicon, circuits, shields, sensors, Mk2 power) is only part of the science mode (see the next test).
-        var planned = TestContent.CoreFloor.Research.Where(n => n.Field == ResearchField.Basic && !n.Id.StartsWith("core:silicon_") && n.Id is not ("core:electronics" or "core:shielding" or "core:sensors" or "core:advanced_power" or "core:ion_thrusters" or "core:thrust_vectoring" or "core:composites" or "core:cryogenics" or "core:resonance" or "core:heavy_industry" or "core:large_structures")).ToList();
+        var planned = TestContent.CoreFloor.Research.Where(n => n.Field == ResearchField.Basic && !n.Id.StartsWith("core:silicon_") && n.Id is not ("core:electronics" or "core:shielding" or "core:sensors" or "core:advanced_power" or "core:ion_thrusters" or "core:thrust_vectoring" or "core:composites" or "core:cryogenics" or "core:resonance" or "core:heavy_industry" or "core:large_structures" or "core:cruise_drive")).ToList();
         foreach (var node in planned)
             Assert.True(r.Has("Researched " + node.Id.Replace("core:", "")), $"'{node.Id}' was never researched");
         double last = planned.Max(n => Min(r, "Researched " + n.Id.Replace("core:", "")));

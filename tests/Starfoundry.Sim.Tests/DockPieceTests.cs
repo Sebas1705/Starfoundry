@@ -312,7 +312,7 @@ public class DockPieceTests
             using var ms = new MemoryStream();
             CommandCodec.WriteLog(ms, new List<LoggedCommand> { new LoggedCommand(5, 0, c) }, C.Hash, GameMode.Campaign, Seed, threats: false, structures: true);
             var bytes = ms.ToArray();
-            Assert.Equal(29, bytes[4]);
+            Assert.Equal(30, bytes[4]);
             var read = CommandCodec.ReadLog(new MemoryStream(bytes), out _, out _, out _, out _, out _, out _, out var rules);
             Assert.False(rules.LegacyDockPieces);
             Assert.Equivalent(c, read.Single().Command, strict: true);

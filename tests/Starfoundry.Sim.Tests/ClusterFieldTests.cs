@@ -13,10 +13,10 @@ public class ClusterFieldTests
     private static readonly ContentDb C = TestContent.CoreFloor;
     private static readonly FieldRules F = C.World!.Field!;
     private static readonly ClusterRules K = F.Clusters!;
-    private static readonly Galaxy G = Galaxy.Generate(C, Seed);
+    private static readonly Galaxy G = Galaxy.Generate(C, Seed, legacyScale: true); // these tests are about the field as generated before the world scale (ADR 0053); WorldScaleTests covers the new one
 
     private static SimWorld World(WorldRules? rules = null) =>
-        SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: rules);
+        SimWorld.CreateGalaxy(C, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: (rules ?? new WorldRules()).WithLegacyWorldScale(true));
 
     private static List<FieldRock> Sector(int cx, int cy, int cz, int density = 100, ulong seed = Seed)
     {
@@ -304,7 +304,7 @@ public class ClusterFieldTests
         var root = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "content", "core.json")))!.AsObject();
         root["world"]!["field"]!["max_loaded"] = 40;
         var small = ContentDb.FromJson(root.ToJsonString());
-        var w = SimWorld.CreateGalaxy(small, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true);
+        var w = SimWorld.CreateGalaxy(small, GameMode.Sandbox, Seed, threats: false, stationRules: false, structures: true, rules: new WorldRules().WithLegacyWorldScale(true));
         var n = w.Network;
         Go(w, p.X, p.Y, p.Z);
         Assert.InRange(n.FieldLoadedRocks, 1, 40);
@@ -383,7 +383,7 @@ public class ClusterFieldTests
         using var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, recorded.Log, C.Hash, GameMode.Sandbox, Seed, threats: false, structures: true, rules: recorded.Network.Rules);
         var bytes = ms.ToArray();
-        Assert.Equal(29, bytes[4]);
+        Assert.Equal(30, bytes[4]);
         for (byte version = 21; version <= 25; version++)
         {
             var old = (byte[])bytes.Clone();

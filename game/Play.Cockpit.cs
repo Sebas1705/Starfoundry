@@ -216,6 +216,15 @@ public partial class Play
             list.Add(new NavTarget(NavKind.Deposit, d, ItemName(Net.DepositItem(d)), v.Length(), NavFrame.TurnDegrees(V(v), shipCam),
                 Icons.ItemId(_content.Items[Net.DepositItem(d)].Id), d == _selectedDeposit, ShipLocal(v)));
         }
+        if (Net.Scale is not null) // ADR 0053: the clusters within the nav range, known from the seed
+        {
+            var units = View.ToUnitsTrunc(ship);
+            foreach (var p in Net.ClustersNear(units.X, units.Y, units.Z, (int)Math.Min(Net.NavRangeCells(0), 2_000_000L)))
+            {
+                var v = View.FromCells(p.X, p.Y, p.Z) - ship;
+                list.Add(new NavTarget(NavKind.Cluster, unchecked((int)p.Id), ClusterName(p), v.Length(), NavFrame.TurnDegrees(V(v), shipCam), Icons.ItemId(_content.Items[p.Item].Id), false, ShipLocal(v)));
+            }
+        }
         var enemies = new List<(float D2, EnemyInfo E)>();
         foreach (var en in Net.Enemies())
         {
@@ -326,7 +335,7 @@ public partial class Play
             if (toPort.Length() > stopPort) _waypoint = ship + toPort.Normalized() * (toPort.Length() - stopPort);
             return;
         }
-        if (current is { Kind: NavKind.Enemy or NavKind.Gate } || !Net.IsDeposit(_selectedDeposit) || !Net.IsDepositRevealed(_selectedDeposit)) { ToastLogistics(L("cp.nav.noPick")); return; }
+        if (current is { Kind: NavKind.Enemy or NavKind.Gate or NavKind.Cluster } || !Net.IsDeposit(_selectedDeposit) || !Net.IsDepositRevealed(_selectedDeposit)) { ToastLogistics(L("cp.nav.noPick")); return; }
         var q = Net.DepositPosition(_selectedDeposit);
         var to = View.FromCells(q.X, q.Y, q.Z) - ship;
         float stop = PlayerRules.MineRangeCells * 0.6f;

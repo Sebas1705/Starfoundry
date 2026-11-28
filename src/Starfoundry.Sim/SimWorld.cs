@@ -79,7 +79,7 @@ public sealed partial class SimWorld
     {
         rules ??= WorldRules.Default;
         if (rules.Validate(content) is { } problem) throw new ArgumentException("Invalid world rules: " + problem, nameof(rules));
-        var galaxy = Galaxy.Generate(content, seed, legacy: rules.LegacyGalaxy || !structures, resourceDensityPercent: rules.LegacyResources ? 100 : rules.ResourceDensityPercent); // the wide galaxy is for structure worlds (ADR 0028)
+        var galaxy = Galaxy.Generate(content, seed, legacy: rules.LegacyGalaxy || !structures, resourceDensityPercent: rules.LegacyResources ? 100 : rules.ResourceDensityPercent, legacyScale: rules.LegacyWorldScale); // the wide galaxy is for structure worlds (ADR 0028)
         var net = new BeltNetwork(content, mode, threats, stationRules, structures, rules);
         foreach (var d in galaxy.Deposits)
             net.AddDeposit(d.Item, Math.Max(1, WorldRules.Scale(d.Amount, rules.DepositRichnessPercent)), d.X, d.Y, d.Z, revealed: d.System == 0, density: d.Density);
@@ -505,6 +505,17 @@ public sealed partial class SimWorld
             case SetBoost sb:
                 if (Network.Content?.World is null) return Reject.NotAllowedHere;
                 Network.SetBoost(player, sb.On);
+                return Reject.None;
+
+            case SetCruise sc:
+                if (Network.Scale is null || !Network.HasFlightInertia) return Reject.NotAllowedHere;
+                if (!sc.On) { Network.SetCruise(player, false); return Reject.None; } // releasing is always allowed
+                if (Campaign && !Network.HasAbility(Ability.Cruise)) return Reject.Locked;
+                if (Network.IsDocked(player)) return Reject.Docked;
+                if (Network.JumpRemaining(player) > 0) return Reject.Busy;
+                if (!Network.CanFly(player)) return Reject.NoCockpitOrEngine;
+                if (!Network.CanCruise(player)) return Reject.NotAllowedHere; // inside a system or near a rock cluster: the governor leaves no room for the drive
+                Network.SetCruise(player, true);
                 return Reject.None;
 
             case SetAttitude sa:

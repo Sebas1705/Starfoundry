@@ -10,6 +10,8 @@ First public build: no version has been released yet (`VERSION` is 0.1.0). The l
 
 ### Added
 
+- World scale slice (ADR 0053): systems and rock clusters kilometres apart (100 km), ore farther out, a bounded rock field, a 150 km nav range with cluster contacts, and the cruise drive (`N`, 3 km/s, research `cruise_drive`) with a governor that brakes it before any system or cluster; behind `LegacyWorldScale` and log version 30.
+
 - Windows release pipeline: a one-command local build (`tools/release/build-windows.ps1`), a portable zip, an Inno Setup installer, SHA-256 checksums and a manual or tag-triggered GitHub Actions release workflow that only drafts a release ([ADR 0048](docs/adr/0048-windows-release-pipeline.md)).
 - Application icon, product version in the main menu, the Credits page and the window title.
 - Clustered rock fields with voids, size classes and giant rocks, drawn with batched meshes ([ADR 0046](docs/adr/0046-clustered-rock-fields-with-voids-size-classes-and-giants.md)).

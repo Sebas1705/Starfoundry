@@ -58,6 +58,7 @@ public partial class CockpitScreenView : Control
     private static readonly Color Cyan = new(0.45f, 0.82f, 1f);
     private static readonly Color Amber = new(1f, 0.78f, 0.35f);
     private static readonly Color Green = new(0.45f, 0.95f, 0.6f);
+    private static readonly Color Violet = new(0.78f, 0.62f, 1f);
     private static readonly Color Red = new(1f, 0.4f, 0.35f);
 
     public CockpitScreenView(CockpitScreen screen, CockpitPages pages, Vector2I size)

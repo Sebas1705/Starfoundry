@@ -30,6 +30,7 @@ public sealed partial class BeltNetwork
         long bonus = 0;
         if (_players.TryGetValue(player, out var p) && _structures.TryGetValue(p.ShipStructure, out var s) && Content?.Structures is { } kinds)
             bonus = ShieldSensorRules.Stack(PoweredAntennas(s).Select(k => (long)kinds.NavRangeCells(k)));
-        return ShieldSensorRules.NavBaseRangeCells + bonus;
+        long range = ShieldSensorRules.NavBaseRangeCells + bonus;
+        return _scale is { } sc ? range * sc.NavRangePercent / 100 : range; // the world scale widens the display: 400 m becomes 150 km (ADR 0053)
     }
 }

@@ -134,6 +134,9 @@ internal sealed partial class Player
     /// <summary>Boost is on (ADR 0028): the engines run at the content's boost percent. Mixed only when set.</summary>
     public bool Boost;
 
+    /// <summary>The cruise drive is engaged (ADR 0053, stage 2 slice). Mixed only when set.</summary>
+    public bool Cruise;
+
     /// <summary>How far the ship moved during the last tick, in units per axis. Derived each tick before it is used; never saved.</summary>
     public int StepDx, StepDy, StepDz;
 
@@ -158,6 +161,7 @@ internal sealed partial class Player
     public void ClearMotion()
     {
         MoveX = MoveY = MoveZ = 0;
+        Cruise = false; // the drive goes with the motion: a docking, a jump, a lost ship, a hit that stops the ship
         ClearThrust();
         ClearVelocity();
     }
@@ -195,7 +199,7 @@ internal sealed partial class Player
     {
         var c = new Player(Id, Hold.Length)
         {
-            HoldTotal = HoldTotal, MiningDeposit = MiningDeposit, MineProgress = MineProgress, LaserReleased = LaserReleased, LaserCredit = LaserCredit, Boost = Boost,
+            HoldTotal = HoldTotal, MiningDeposit = MiningDeposit, MineProgress = MineProgress, LaserReleased = LaserReleased, LaserCredit = LaserCredit, Boost = Boost, Cruise = Cruise,
             ShipRecipe = ShipRecipe, ShipCrafting = ShipCrafting, ShipRemaining = ShipRemaining, ShipReserved = ShipReserved,
             X = X, Y = Y, Z = Z, MoveX = MoveX, MoveY = MoveY, MoveZ = MoveZ,
             ThrustX = ThrustX, ThrustY = ThrustY, ThrustZ = ThrustZ, ThrustRemX = ThrustRemX, ThrustRemY = ThrustRemY, ThrustRemZ = ThrustRemZ,
@@ -366,7 +370,8 @@ public sealed partial class BeltNetwork
         if ((uint)item >= (uint)content.Items.Count) throw new ArgumentOutOfRangeException(nameof(item));
         if (amount < 1) throw new ArgumentOutOfRangeException(nameof(amount));
         if (density < DepositRules.MinDensity || density > DepositRules.MaxDensity) throw new ArgumentOutOfRangeException(nameof(density));
-        if (Math.Abs(x) > SimWorld.MaxCoord || Math.Abs(y) > SimWorld.MaxCoord || Math.Abs(z) > SimWorld.MaxCoord)
+        int maxCoord = Math.Max(SimWorld.MaxCoord, content.World?.Field?.WorldLimitCells ?? 0); // a wide world places its systems far beyond the finite cube (ADR 0053)
+        if (Math.Abs(x) > maxCoord || Math.Abs(y) > maxCoord || Math.Abs(z) > maxCoord)
             throw new ArgumentOutOfRangeException(nameof(x), "The deposit is outside the world.");
         int id = _deposits.Count;
         _deposits.Add(new Deposit(id, item, amount, x, y, z) { Revealed = revealed, Density = density });
@@ -1005,6 +1010,7 @@ public sealed partial class BeltNetwork
             if (p.LaserReleased) mix(-91); // mixed only when set and when non-zero: worlds that never touch the laser trigger hash as before
             if (p.LaserCredit != 0) mix(p.LaserCredit);
             if (p.Boost) mix(-93);
+            if (p.Cruise) mix(-94); // mixed only when set: worlds without the cruise drive hash as before
             if (p.HasVelocity || (p.VelRemX | p.VelRemY | p.VelRemZ) != 0) { mix(-3303); mix(p.VelX); mix(p.VelY); mix(p.VelZ); mix(p.VelRemX); mix(p.VelRemY); mix(p.VelRemZ); } // worlds without inertia hash as before
             mix(p.ShipRecipe); mix(p.ShipCrafting ? 1 : 0); mix(p.ShipRemaining); mix(p.ShipReserved);
             if (p.BenchQueue.Count > 0) { mix(-4404); foreach (int q in p.BenchQueue) mix(q); } // mixed only when not empty: worlds without the queue hash as before

@@ -71,6 +71,8 @@ if (args.Contains("--structures"))
     if (args.Contains("--legacy-field")) rules = rules.WithLegacyField(true);
     // --legacy-clusters keeps the infinite field but with the uniform scatter of ADR 0040 instead of the clusters of ADR 0046.
     if (args.Contains("--legacy-clusters")) rules = rules.WithLegacyRockClusters(true);
+    // --legacy-world-scale plays the small world (systems a few kilometres apart, the ore close by, no cruise drive) as before ADR 0053 stage 2: the baseline to compare the world scale against.
+    if (args.Contains("--legacy-world-scale")) rules = rules.WithLegacyWorldScale(true);
     // --telemetry prints a per-minute table and the time budget (simulated playtest study); --no-turrets and --afk=SECONDS[/EVERY] play a careless player.
     var telemetry = args.Contains("--telemetry") ? new BotTelemetry() : null;
     int afk = 0, afkEvery = 600;
