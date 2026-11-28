@@ -222,6 +222,8 @@ public partial class BlueprintEditor : Control
     }
 
     /// <summary>Fills the palette with the kinds the structure being edited may hold (a ship's catalogue, or a station's).</summary>
+    private readonly List<(ModuleKind Kind, int Size, Button Button)> _largePalette = new();
+
     private void FillPalette()
     {
         foreach (var c in _paletteList.GetChildren()) { _paletteList.RemoveChild(c); c.QueueFree(); }
@@ -259,6 +261,22 @@ public partial class BlueprintEditor : Control
             _paletteList.AddChild(row);
             _palette.Add((k, b));
         }
+        // ADR 0051: the large modules, under the single kinds: one tile per kind and size
+        _largePalette.Clear();
+        foreach (var kind in _s.Draft.Catalogue(_content))
+            for (int size = 2; size <= _s.Draft.MaxSpan(kind); size++)
+            {
+                var k = kind; int n = size;
+                var b = new Button { Name = $"PaletteLarge_{k}_{n}", ToggleMode = true, ExpandIcon = false, FocusMode = FocusModeEnum.All, SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 36), Text = Loc.T("bp.large.size", KindName(k), n), Alignment = HorizontalAlignment.Left };
+                UiTheme.StyleButton(b);
+                b.AddThemeFontSizeOverride("font_size", 13);
+                b.Icon = Icons.Get(IconCatalog.ForModule(k), 22);
+                b.AddThemeConstantOverride("icon_max_width", 22);
+                b.Pressed += () => PickKind(k, n);
+                b.TooltipText = Loc.T("bp.tool.large.hint") + (_content.Structures is { } sc2 && sc2.ModuleCost(k).Length > 0 ? "\n" + _stacks(sc2.ModuleCost(k).Select(c => new ItemStack(c.Item, c.Count * n * n * ModuleKindIds.SpanPricePercent / 100)).ToArray()) : "");
+                _paletteList.AddChild(b);
+                _largePalette.Add((k, n, b));
+            }
     }
 
     private PanelContainer SideSection(string name, string titleKey, string titleIcon, out VBoxContainer body, float ratio)
@@ -367,7 +385,7 @@ public partial class BlueprintEditor : Control
 
     public void SetTool(BlueprintTool tool) { _s.SetTool(tool); _discardArmed = false; }
 
-    public void PickKind(ModuleKind kind) { _s.PickKind(kind); _discardArmed = false; }
+    public void PickKind(ModuleKind kind, int size = 1) { _s.PickKind(kind, size); _discardArmed = false; }
 
     public void SetView(PlanView view)
     {

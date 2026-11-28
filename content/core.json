@@ -1518,6 +1518,13 @@
       "cost": [{ "item": "core:iron_plate", "count": 400 }, { "item": "core:circuit", "count": 40 }, { "item": "core:titanium_plate", "count": 40 }],
       "requires": ["core:electronics", "core:advanced_logistics"],
       "unlocks": ["core:large_smelter", "core:long_assembler", "core:l_fabricator", "core:reactor_core", "core:smelt_iron_bulk", "core:smelt_titanium_bulk", "core:smelt_nickel_bulk", "core:smelt_silicon_bulk", "core:iron_plate_batch", "core:titanium_plate_batch", "core:nickel_plate_batch", "core:make_circuit_batch", "core:make_alloy_batch", "core:make_carbon_fiber_batch", "core:make_composite_plate_batch", "core:make_fuel_cell_bulk"]
+    },
+    {
+      "id": "core:large_structures",
+      "cost": [{ "item": "core:iron_plate", "count": 500 }, { "item": "core:circuit", "count": 60 }, { "item": "core:titanium_plate", "count": 60 }],
+      "requires": ["core:heavy_industry"],
+      "unlocks": [],
+      "abilities": ["large_modules"]
     }
   ],
   "galaxy": {

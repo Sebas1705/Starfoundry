@@ -21,17 +21,17 @@ public sealed partial class SimWorld
     /// Checks a ship design for the player without changing anything: the same verdict <see cref="DesignerApply"/> would give, with the cost. The design
     /// is the ship's whole module list. It needs the ship docked at one of the player's stations that has a shipyard.
     /// </summary>
-    public DesignReport CheckDesign(int player, IReadOnlyList<DesignModule> modules, DockPieceSpec[]? pieces = null) => DesignCore(player, modules, apply: false, pieces);
+    public DesignReport CheckDesign(int player, IReadOnlyList<DesignModule> modules, DockPieceSpec[]? pieces = null, DesignSpan[]? spans = null) => DesignCore(player, modules, apply: false, pieces, spans);
 
     private Reject DesignerApplyCore(int player, DesignerApply d)
     {
         if (d.Modules is null) return Reject.InvalidArgument;
-        return DesignCore(player, d.Modules, apply: true, d.DockPieces).Reject;
+        return DesignCore(player, d.Modules, apply: true, d.DockPieces, d.Spans).Reject;
     }
 
     private static DesignReport Fail(Reject r) => new(r, NoStacks, NoStacks, 0, 0, 0);
 
-    private DesignReport DesignCore(int player, IReadOnlyList<DesignModule> modules, bool apply, DockPieceSpec[]? pieces = null)
+    private DesignReport DesignCore(int player, IReadOnlyList<DesignModule> modules, bool apply, DockPieceSpec[]? pieces = null, DesignSpan[]? spans = null)
     {
         if (!Network.StructureRules) return Fail(Reject.NotAllowedHere);
         if (Network.Content?.Structures is not { } kinds) return Fail(Reject.NoContent);
@@ -55,6 +55,8 @@ public sealed partial class SimWorld
         }
         var pieceVerdict = PlanDockPieces(ship, next, pieces, requireOne: true, out var piecePlan);
         if (pieceVerdict != Reject.None) return Fail(pieceVerdict);
+        var spanVerdict = PlanSpans(ship, next, spans, out var spanPlan);
+        if (spanVerdict != Reject.None) return Fail(spanVerdict);
 
         var old = ship.Modules;
         var removed = new List<(int Mx, int My, int Mz)>();
@@ -97,7 +99,9 @@ public sealed partial class SimWorld
         if (Network.HoldCapacityOfKinds(next.Values) < Network.HoldLoadOf(player)) return Fail(Reject.NoRoom);
         if (Network.DesignOverlaps(ship, next.Keys)) return Fail(Reject.Overlap);
 
-        var (addedByKind, cost, refund, moved, affordable) = PriceDesign(player, station, kinds, old, removed, added, ExtraWithPieces(piecePlan, null));
+        var extra = ExtraWithPieces(piecePlan, null);
+        PriceSpans(spanPlan, added, kinds, extra);
+        var (addedByKind, cost, refund, moved, affordable) = PriceDesign(player, station, kinds, old, removed, added, extra);
         if (!affordable) return new DesignReport(Reject.NotEnoughItems, cost, refund, added.Count, removed.Count, moved);
         var report = new DesignReport(Reject.None, cost, refund, added.Count, removed.Count, moved);
         if (!apply) return report;
@@ -105,6 +109,7 @@ public sealed partial class SimWorld
         if (cost.Length > 0) Network.PayDesign(player, station, cost);
         Network.ApplyDesign(shipId, removed, added);
         if (Network.DockPieceRules) Network.SetDockPieces(shipId, piecePlan.Next);
+        if (Network.SpanRules) Network.SetSpans(shipId, spanPlan.Next);
         if (refund.Length > 0) Network.Refund(player, refund);
         foreach (var (kind, n) in addedByKind)
             for (int i = 0; i < n; i++) Network.CountModuleBuilt(kind); // a module that only moved was not built again

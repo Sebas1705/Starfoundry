@@ -15,14 +15,14 @@ public static class CommandCodec
         TagStartMining = 16, TagStopMining = 17, TagSetShipRecipe = 18, TagSetResearch = 19,
         TagLinkDeposit = 20, TagUnlinkDeposit = 21, TagSetMovement = 22, TagScan = 23, TagJump = 24, TagSetWeapons = 25, TagRepair = 26, TagSetThrust = 27, TagPlaceModule = 28, TagRemoveModule = 29,
         TagPlaceMachineIn = 30, TagPlaceSegmentIn = 31, TagPlaceModuleIn = 32, TagRemoveModuleIn = 33, TagFoundStation = 34, TagAssignDrones = 35, TagDumpItems = 36, TagFireLaser = 37, TagSetBoost = 38, TagDockAt = 39, TagUndock = 40, TagTransferItems = 41, TagSetAttitude = 42, TagDesignerApply = 46, TagSetAim = 59,
-        TagMoveItems = 56, TagSetFeedSource = 57, TagSortInventory = 58, TagDropItems = 60, TagPickUp = 61, TagQueueBench = 63, TagClearBench = 64, TagApplyBlueprint = 65, TagApplyBlueprintInterior = 66, TagDesignerApplyPieces = 67, TagApplyBlueprintPieces = 68, TagApplyBlueprintPiecesInterior = 69, TagApplyBlueprintExt = 70;
+        TagMoveItems = 56, TagSetFeedSource = 57, TagSortInventory = 58, TagDropItems = 60, TagPickUp = 61, TagQueueBench = 63, TagClearBench = 64, TagApplyBlueprint = 65, TagApplyBlueprintInterior = 66, TagDesignerApplyPieces = 67, TagApplyBlueprintPieces = 68, TagApplyBlueprintPiecesInterior = 69, TagApplyBlueprintExt = 70, TagApplyBlueprintSpans = 71, TagDesignerApplySpans = 72;
 
     private static readonly byte[] Magic = Encoding.ASCII.GetBytes("SFCL");
 
     /// <summary>Version 2 added the content hash to the header, version 3 the game mode, version 4 the galaxy seed, version 5 the threat flag.</summary>
     /// Version 6 added the station-rules flag (bit 1); the structures flag (bit 2) uses a bit that version 6 left free,
     /// so logs written before it simply read as structures off and the version stays 6.
-    private const byte LogVersion = 28;
+    private const byte LogVersion = 29;
     /// <summary>The newest command log version this build writes and reads (the save screen compares a save's version with it).</summary>
     public static int CurrentLogVersion => LogVersion;
     /// Version 7 added the world rules block (flags bit 3, written only for non-default rules). Version 8 added the scenario id (flags bit 4).
@@ -34,6 +34,7 @@ public static class CommandCodec
     /// Version 17 added the SetAim command (tag 59) and ADR 0036: free fire with projectiles and recoil, hold overflow, regrowing deposits and the resource density rule. Logs of versions 5 to 16 read with <see cref="WorldRules.LegacyFeel"/> and <see cref="WorldRules.LegacyResources"/> on, so they replay as recorded; the reader refuses SetAim in them.
     /// Version 19 added dropping items and picking them up by hand (ADR 0038): the DropItems and PickUp commands (tags 60 and 61). The reader refuses them in logs of versions 5 to 18; the world rules do not change.
     /// Version 23 added the antenna variants (short and long range sensors, the comms antenna) and the heavy cannon (ADR 0042): scanner and navigation reach from fitted antennas, stacking with diminishing returns, and a slow heavy gun volley. It adds no command. Logs of versions 5 to 22 read with <see cref="WorldRules.LegacyArms"/> on, so they replay as recorded. (Version 22 belongs to the dock module.)
+    /// Version 29 added large modules (ADR 0051): a design or blueprint may carry spans, squares of 2 or 3 module cells of one kind with a joined floor, written with tags 71 (the blueprint: a flags byte for the interior, the collars and the machine turns, then the parts) and 72 (the ship design). Logs of versions 5 to 28 read with <see cref="WorldRules.LegacyLargeModules"/> on, so they replay as recorded; the reader refuses tags 71 and 72 in them.
     /// Version 28 added multi-cell machines (ADR 0050): a machine of a station floor plan has a footprint of several cells and a turn. A blueprint with a turned machine is written with the extended tag 70 (a flags byte, then the usual parts, and a turn byte per machine); every other blueprint keeps its tag. Logs of versions 5 to 27 read with <see cref="WorldRules.LegacyFootprints"/> on, so they replay as recorded; the reader refuses tag 70 in them.
     /// Version 27 added the small dock (ADR 0047): a ship or station docks through a docking collar, a small piece on a face of an ordinary module, instead of a dock module. DesignerApply and ApplyBlueprint may carry the collars (tags 67 to 69; tags 46, 65 and 66 keep the collars that still have a host). Logs of versions 5 to 26 read with <see cref="WorldRules.LegacyDockPieces"/> on, so they replay as recorded; the reader refuses tags 67 to 69 in them.
     /// Version 26 added the clustered rock field (ADR 0046): rocks come in clusters, belts and shells with voids between them, in size classes with rare giants, instead of the uniform scatter of ADR 0040. It adds no command. Logs of versions 5 to 25 read with <see cref="WorldRules.LegacyRockClusters"/> on, so they replay as recorded.
@@ -57,6 +58,75 @@ public static class CommandCodec
     /// within limits. <see cref="SimWorld.Submit"/> refuses anything else, since it could never be logged.
     /// </summary>
     public static bool IsWellFormed(Command? command) => IsWellFormed(command, 1);
+
+    private static bool SpansWellFormed(DesignSpan[]? spans) => spans is null || (spans.Length <= DesignerRules.MaxSpans && spans.All(s => s.Size is 2 or 3));
+
+    private static void WriteSpans(BinaryWriter w, DesignSpan[] spans)
+    {
+        w.Write(spans.Length);
+        foreach (var s in spans) { w.Write(s.Mx); w.Write(s.My); w.Write(s.Mz); w.Write((byte)s.Size); }
+    }
+
+    private static DesignSpan[] ReadSpans(BinaryReader r)
+    {
+        int n = r.ReadInt32();
+        if (n < 0 || n > DesignerRules.MaxSpans) throw new InvalidDataException($"Large module count {n} out of range.");
+        var spans = new DesignSpan[n];
+        for (int i = 0; i < n; i++)
+        {
+            int mx = r.ReadInt32(), my = r.ReadInt32(), mz = r.ReadInt32();
+            byte size = r.ReadByte();
+            if (size is not (2 or 3)) throw new InvalidDataException("Bad large module size.");
+            spans[i] = new DesignSpan(mx, my, mz, size);
+        }
+        return spans;
+    }
+
+    private static void WriteInterior(BinaryWriter w, BlueprintInterior part, bool turns)
+    {
+        w.Write(part.Machines.Length);
+        foreach (var m in part.Machines) { w.Write(m.X); w.Write(m.Y); w.Write(m.Z); w.Write(m.Type); w.Write(m.Recipe); if (turns) w.Write((byte)m.Turn); }
+        w.Write(part.Belts.Length);
+        foreach (var b in part.Belts) { w.Write(b.X); w.Write(b.Y); w.Write(b.Z); w.Write((byte)b.Dir); w.Write(b.Length); w.Write((byte)b.Tier); }
+        w.Write(part.Links.Length);
+        foreach (var l in part.Links) { w.Write((byte)l.Kind); w.Write(l.From); w.Write(l.To); }
+    }
+
+    private static BlueprintInterior ReadInterior(BinaryReader r, bool turns)
+    {
+        int nm = r.ReadInt32();
+        if (nm < 0 || nm > BlueprintInterior.MaxParts) throw new InvalidDataException($"Blueprint machine count {nm} out of range.");
+        var machines = new BlueprintMachine[nm];
+        for (int i = 0; i < nm; i++)
+        {
+            int mx = r.ReadInt32(), my = r.ReadInt32(), mz = r.ReadInt32(), mt = r.ReadInt32(), mr = r.ReadInt32();
+            int turn = turns ? r.ReadByte() : 0;
+            if (turn > 3) throw new InvalidDataException("Bad machine turn in a blueprint.");
+            machines[i] = new BlueprintMachine(mx, my, mz, mt, mr, turn);
+        }
+        int nb = r.ReadInt32();
+        if (nb < 0 || nb + nm > BlueprintInterior.MaxParts) throw new InvalidDataException($"Blueprint belt count {nb} out of range.");
+        var belts = new BlueprintBelt[nb];
+        for (int i = 0; i < nb; i++)
+        {
+            int bx = r.ReadInt32(), by = r.ReadInt32(), bz = r.ReadInt32();
+            byte dir = r.ReadByte();
+            int len = r.ReadInt32();
+            byte tier = r.ReadByte();
+            if (!Dirs.IsValid((Dir)dir) || !Enum.IsDefined((BeltTier)tier)) throw new InvalidDataException("Bad belt in a blueprint.");
+            belts[i] = new BlueprintBelt(bx, by, bz, (Dir)dir, len, (BeltTier)tier);
+        }
+        int nl = r.ReadInt32();
+        if (nl < 0 || nl > BlueprintInterior.MaxLinks) throw new InvalidDataException($"Blueprint link count {nl} out of range.");
+        var links = new BlueprintLink[nl];
+        for (int i = 0; i < nl; i++)
+        {
+            byte kind = r.ReadByte();
+            if (!Enum.IsDefined((BlueprintLinkKind)kind)) throw new InvalidDataException("Bad link in a blueprint.");
+            links[i] = new BlueprintLink((BlueprintLinkKind)kind, r.ReadInt32(), r.ReadInt32());
+        }
+        return new BlueprintInterior(machines, belts, links);
+    }
 
     private static bool PiecesWellFormed(DockPieceSpec[]? pieces) => pieces is null || (pieces.Length <= DockRules.MaxPieces && pieces.All(p => DockRules.IsPortFace(p.Face)));
 
@@ -118,9 +188,9 @@ public static class CommandCodec
             case SetAttitude sa:
                 return FitsShort(sa.W) && FitsShort(sa.X) && FitsShort(sa.Y) && FitsShort(sa.Z);
             case DesignerApply da:
-                return da.Modules is not null && da.Modules.Length <= DesignerRules.MaxModules && PiecesWellFormed(da.DockPieces);
+                return da.Modules is not null && da.Modules.Length <= DesignerRules.MaxModules && PiecesWellFormed(da.DockPieces) && SpansWellFormed(da.Spans);
             case ApplyBlueprint ab:
-                return ab.Modules is not null && ab.Modules.Length <= DesignerRules.MaxStationModules && PiecesWellFormed(ab.DockPieces)
+                return ab.Modules is not null && ab.Modules.Length <= DesignerRules.MaxStationModules && PiecesWellFormed(ab.DockPieces) && SpansWellFormed(ab.Spans)
                     && (ab.Interior is null || (ab.Interior.IsWellFormed && ab.Interior.Machines.All(m => m.Recipe >= -1 && (uint)m.Turn <= 3) && ab.Interior.Belts.All(b => Dirs.IsValid(b.Dir) && Enum.IsDefined(b.Tier))
                         && ab.Interior.Links.All(l => Enum.IsDefined(l.Kind))));
             default:
@@ -300,6 +370,22 @@ public static class CommandCodec
             case SortInventory:
                 w.Write(TagSortInventory);
                 break;
+            case DesignerApply { Spans: { } dsp } da2:
+                w.Write(TagDesignerApplySpans); w.Write((byte)(da2.DockPieces is null ? 0 : 2)); w.Write(da2.Modules.Length);
+                foreach (var m in da2.Modules) { w.Write(m.Mx); w.Write(m.My); w.Write(m.Mz); w.Write((byte)m.Kind); }
+                if (da2.DockPieces is { } dp2) WritePieces(w, dp2);
+                WriteSpans(w, dsp);
+                break;
+            case ApplyBlueprint { Spans: { } bsp } ab2:
+            {
+                bool turns2 = ab2.Interior is { } tv2 && tv2.Machines.Any(m => m.Turn != 0);
+                w.Write(TagApplyBlueprintSpans); w.Write((byte)((ab2.Interior is null ? 0 : 1) | (ab2.DockPieces is null ? 0 : 2) | (turns2 ? 8 : 0))); w.Write(ab2.Structure); w.Write(ab2.Modules.Length);
+                foreach (var m in ab2.Modules) { w.Write(m.Mx); w.Write(m.My); w.Write(m.Mz); w.Write((byte)m.Kind); }
+                if (ab2.DockPieces is { } abp2) WritePieces(w, abp2);
+                WriteSpans(w, bsp);
+                if (ab2.Interior is { } part2) WriteInterior(w, part2, turns2);
+                break;
+            }
             case DesignerApply da:
                 w.Write(da.DockPieces is null ? TagDesignerApply : TagDesignerApplyPieces); w.Write(da.Modules.Length);
                 foreach (var m in da.Modules) { w.Write(m.Mx); w.Write(m.My); w.Write(m.Mz); w.Write((byte)m.Kind); }
@@ -427,6 +513,30 @@ public static class CommandCodec
                 var modules = new DesignModule[n];
                 for (int i = 0; i < n; i++) modules[i] = new DesignModule(r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), (ModuleKind)r.ReadByte());
                 return new DesignerApply(modules, tag == TagDesignerApplyPieces ? ReadPieces(r) : null);
+            }
+            case TagDesignerApplySpans:
+            {
+                byte f = r.ReadByte();
+                if ((f & ~2) != 0) throw new InvalidDataException("Unknown design flags.");
+                int n = r.ReadInt32();
+                if (n < 0 || n > DesignerRules.MaxModules) throw new InvalidDataException($"Design size {n} out of range.");
+                var modules = new DesignModule[n];
+                for (int i = 0; i < n; i++) modules[i] = new DesignModule(r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), (ModuleKind)r.ReadByte());
+                var dpieces = (f & 2) != 0 ? ReadPieces(r) : null;
+                return new DesignerApply(modules, dpieces, ReadSpans(r));
+            }
+            case TagApplyBlueprintSpans:
+            {
+                byte f = r.ReadByte();
+                if ((f & ~11) != 0) throw new InvalidDataException("Unknown blueprint flags.");
+                int structure = r.ReadInt32(), n = r.ReadInt32();
+                if (n < 0 || n > DesignerRules.MaxStationModules) throw new InvalidDataException($"Blueprint size {n} out of range.");
+                var modules = new DesignModule[n];
+                for (int i = 0; i < n; i++) modules[i] = new DesignModule(r.ReadInt32(), r.ReadInt32(), r.ReadInt32(), (ModuleKind)r.ReadByte());
+                var bpieces = (f & 2) != 0 ? ReadPieces(r) : null;
+                var bspans = ReadSpans(r);
+                var interior = (f & 1) != 0 ? ReadInterior(r, (f & 8) != 0) : null;
+                return new ApplyBlueprint(structure, modules, interior, bpieces, bspans);
             }
             case TagApplyBlueprint or TagApplyBlueprintInterior or TagApplyBlueprintPieces or TagApplyBlueprintPiecesInterior or TagApplyBlueprintExt:
             {
@@ -637,6 +747,7 @@ public static class CommandCodec
         if (version < 24) rules = rules.WithLegacyBlueprint(true); // and before stations were edited in the blueprint editor (ADR 0043)
         if (version < 25) rules = rules.WithLegacyInterior(true); // and before the station floor plan (ADR 0044)
         if (version < 26) rules = rules.WithLegacyRockClusters(true); // and before the clustered rock field (ADR 0046)
+        if (version < 29) rules = rules.WithLegacyLargeModules(true); // and before large modules (ADR 0051)
         if (version < 28) rules = rules.WithLegacyFootprints(true); // and before multi-cell machines (ADR 0050)
         if (version < 27) rules = rules.WithLegacyDockPieces(true); // and before the small dock piece (ADR 0047)
         scenarioId = null;
@@ -667,6 +778,7 @@ public static class CommandCodec
             if (version < 14 && HasDesigner(command)) throw new InvalidDataException("A log older than version 14 cannot hold a DesignerApply command.");
             if (version < 17 && HasAim(command)) throw new InvalidDataException("A log older than version 17 cannot hold a SetAim command.");
             if (version < 18 && HasInventoryCommand(command)) throw new InvalidDataException("A log older than version 18 cannot hold an inventory command.");
+            if (version < 29 && HasSpans(command)) throw new InvalidDataException("A log older than version 29 cannot hold large modules.");
             if (version < 28 && HasTurnedMachine(command)) throw new InvalidDataException("A log older than version 28 cannot hold a turned machine in a blueprint.");
             if (version < 27 && HasDockPieces(command)) throw new InvalidDataException("A log older than version 27 cannot hold docking collars in a design or blueprint.");
             if (version < 25 && HasInteriorBlueprint(command)) throw new InvalidDataException("A log older than version 25 cannot hold a station interior blueprint.");
@@ -678,6 +790,7 @@ public static class CommandCodec
         return log;
     }
 
+    private static bool HasSpans(Command c) => c is DesignerApply { Spans: not null } or ApplyBlueprint { Spans: not null } || (c is Batch b && b.Commands.Any(HasSpans));
     private static bool HasTurnedMachine(Command c) => c is ApplyBlueprint { Interior: { } i } && i.Machines.Any(m => m.Turn != 0) || (c is Batch b && b.Commands.Any(HasTurnedMachine));
     private static bool HasInteriorBlueprint(Command c) => c is ApplyBlueprint { Interior: not null } || (c is Batch b && b.Commands.Any(HasInteriorBlueprint));
     private static bool HasDockPieces(Command c) => c is DesignerApply { DockPieces: not null } or ApplyBlueprint { DockPieces: not null } || (c is Batch b && b.Commands.Any(HasDockPieces));

@@ -193,6 +193,9 @@ public enum Ability
 
     /// <summary>Placing mark 2 reactor modules.</summary>
     ReactorMk2 = 4,
+
+    /// <summary>Building large modules: 2 x 2 or 3 x 3 spans of one kind with a joined floor (ADR 0051).</summary>
+    LargeModules = 5,
 }
 
 /// <param name="Requires">Research nodes that must be finished first.</param>
@@ -604,6 +607,7 @@ public sealed class ContentDb
                                 "shield" => Ability.Shield,
                                 "sensor" => Ability.Sensor,
                                 "reactor_mk2" => Ability.ReactorMk2,
+                                "large_modules" => Ability.LargeModules,
                                 _ => throw new InvalidDataException($"Research '{id}' lists an unknown ability."),
                             };
                             if (ua.Contains(ability)) throw new InvalidDataException($"Research '{id}' lists an ability twice.");

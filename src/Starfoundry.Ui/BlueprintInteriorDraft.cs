@@ -31,6 +31,7 @@ public sealed class InteriorDraft
     private BlueprintInterior _original = BlueprintInterior.Empty;
     private Func<(int Mx, int My, int Mz), ModuleKind?> _moduleAt = _ => null;
     private bool _freeBuilding;
+    private Func<(int Mx, int My, int Mz), (int Mx, int My, int Mz), bool> _sameFloor = (a, b) => a == b;
 
     private sealed record Snapshot(BlueprintMachine[] Machines, BlueprintBelt[] Belts, DraftLink[] Links);
 
@@ -48,7 +49,7 @@ public sealed class InteriorDraft
     public event Action? Changed;
 
     /// <summary>The kind of the (draft) module that stands at a module key, so the ghost rules follow the module edits made in the same session.</summary>
-    public void SetModules(Func<(int Mx, int My, int Mz), ModuleKind?> moduleAt, bool freeBuilding) { _moduleAt = moduleAt; _freeBuilding = freeBuilding; }
+    public void SetModules(Func<(int Mx, int My, int Mz), ModuleKind?> moduleAt, bool freeBuilding, Func<(int Mx, int My, int Mz), (int Mx, int My, int Mz), bool>? sameFloor = null) { _moduleAt = moduleAt; _freeBuilding = freeBuilding; _sameFloor = sameFloor ?? ((a, b) => a == b); }
 
     // ---- loading and the plain state ---------------------------------------------------------------------------
 
@@ -251,7 +252,7 @@ public sealed class InteriorDraft
         foreach (var (dx, dz) in def.Cells(turn))
         {
             var c = (X: cell.X + dx, Y: cell.Y, Z: cell.Z + dz);
-            if (StructureGrid.InLocalBounds(c.X) && StructureGrid.InLocalBounds(c.Z) && StationGrid.ModuleOfCell(c.X, c.Y, c.Z) != anchorModule) return PlanReasons.Footprint;
+            if (StructureGrid.InLocalBounds(c.X) && StructureGrid.InLocalBounds(c.Z) && !_sameFloor(anchorModule, StationGrid.ModuleOfCell(c.X, c.Y, c.Z))) return PlanReasons.Footprint; // one module, or the joined floor of one large module (ADR 0051)
             if (ignore is { } ig && CellsOf(ig).Contains(c))
             {
                 // the machine being turned does not block itself, but a belt on the cell still does

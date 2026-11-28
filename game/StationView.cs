@@ -98,6 +98,7 @@ void fragment() {
         public readonly Dictionary<(int Mx, int My, int Mz), (ModuleKind Kind, Node3D Node)> Modules = new();
         public readonly Dictionary<(int Mx, int My, int Mz), int> Masks = new();
         public readonly Dictionary<(int Mx, int My, int Mz, int Face), Node3D> Collars = new(); // ADR 0047: the docking collars, drawn on top of their host modules
+        public readonly Dictionary<(int Mx, int My, int Mz, int Size), Node3D> Spans = new(); // ADR 0051: the frames of the large modules
     }
 
     private readonly Dictionary<int, StructRoot> _structs = new();
@@ -178,6 +179,18 @@ void fragment() {
                 sr.Root.AddChild(node);
                 sr.Modules[key] = (kind, node);
                 sr.Masks[key] = mask;
+            }
+            // ADR 0051: a large module is framed round its whole square, so it reads as one hall
+            var wantSpans = net.SpanRules ? net.Spans(st.Id).Where(sp => st.Modules.ContainsKey((sp.Mx, sp.My, sp.Mz))).Select(sp => (sp.Mx, sp.My, sp.Mz, sp.Size)).ToHashSet() : new HashSet<(int, int, int, int)>();
+            foreach (var key in sr.Spans.Keys.ToList())
+                if (!wantSpans.Contains(key)) { sr.Spans[key].QueueFree(); sr.Spans.Remove(key); }
+            foreach (var key in wantSpans)
+            {
+                if (sr.Spans.ContainsKey(key)) continue;
+                var frame = ModuleModels.SpanFrame(key.Item4, ship);
+                frame.Position = new Vector3(key.Item1 * StationGrid.ModuleX, key.Item2 * StationGrid.ModuleY, key.Item3 * StationGrid.ModuleZ);
+                sr.Root.AddChild(frame);
+                sr.Spans[key] = frame;
             }
             // ADR 0047: the docking collars are small pieces on a module face; they follow the structure's own set (a removed host takes its collar with it).
             var want = net.DockPieceRules ? net.DockPieces(st.Id).Where(p => st.Modules.ContainsKey((p.Mx, p.My, p.Mz))).Select(p => (p.Mx, p.My, p.Mz, (int)p.Face)).ToHashSet() : new HashSet<(int, int, int, int)>();

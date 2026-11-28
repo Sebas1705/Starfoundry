@@ -58,7 +58,9 @@ As built: research `core:heavy_industry` unlocks the four machines; the tag-70 f
 ### 4.3 Tests (stage 2)
 Determinism (same log, same checksum, clone, replay); legacy replay of every older log (golden-checksum idiom: the frozen `core_pre0031.json` fixture); preview equals apply for random floor plans with footprints and turns (300); every refusal; belts feeding and leaving at every covered cell; demolish and refund; the mask parser (connected, size, default); `--blueprint-check` extended with a large smelter placed, turned and demolished.
 
-## 5. Stage 3: large modules and the first big factory (branch `feature/large-modules`, log version 29, ADR 0051)
+## 5. Stage 3: large modules and the first big factory (branch `feature/large-modules`, log version 29, [ADR 0051](../../adr/0051-large-modules-are-spans-of-ordinary-cells-with-a-joined-floor.md); built)
+
+As built: the spans travel in tags 71 (blueprint) and 72 (ship design) instead of bit 3 of tag 70; the research is `core:large_structures`; the models keep their doorways between the cells of a span and a girder frame is drawn round the whole square; no template or scenario uses spans yet.
 
 ### 5.1 Model: a span groups ordinary cells
 - A **large module** is `n x n` ordinary module cells of **one kind** in one layer (`n` = 2 or 3) grouped by a **span** `(anchor, n)` in `Structure.Spans`. Every covered cell stays an entry of `ModuleMap`, so the hit volumes, connectivity, ports, collars, hull points and power are per cell exactly as today; the span adds only **identity** (these cells are one unit) and a **joined floor**: the floor plan of the span is one 16 x 16 (n = 2) or 24 x 24 (n = 3) cell area whose internal seams have no wall, so machines, belts and footprints may cross an internal seam (the one exception to the stage 2 rule), and a machine at the seam works as in a single bay.

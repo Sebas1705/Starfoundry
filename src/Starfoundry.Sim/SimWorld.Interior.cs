@@ -16,7 +16,7 @@ public sealed partial class SimWorld
 
     private static bool Touching((int X, int Y, int Z) a, (int X, int Y, int Z) b) => Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y) + Math.Abs(a.Z - b.Z) == 1;
 
-    private Reject PlanInterior(int player, int structure, Structure s, SortedDictionary<(int Mx, int My, int Mz), ModuleKind> next, BlueprintInterior it, bool dockedHere, out InteriorPlan? planOut)
+    private Reject PlanInterior(int player, int structure, Structure s, SortedDictionary<(int Mx, int My, int Mz), ModuleKind> next, BlueprintInterior it, bool dockedHere, SpanPlan spans, out InteriorPlan? planOut)
     {
         planOut = null;
         var content = Network.Content!;
@@ -60,7 +60,9 @@ public sealed partial class SimWorld
             {
                 int cx = m.X + dx, cz = m.Z + dz;
                 if (!StructureGrid.InLocalBounds(cx) || !StructureGrid.InLocalBounds(cz)) return Reject.OutOfBounds;
-                if (StationGrid.ModuleOfCell(cx, m.Y, cz) != anchorModule) return Reject.FootprintBlocked; // a footprint stays inside one module's floor
+                var cellModule = StationGrid.ModuleOfCell(cx, m.Y, cz);
+                if (!spans.SameFloor(anchorModule, cellModule)) return Reject.FootprintBlocked; // a footprint stays on one floor: one module, or the joined floor of one large module (ADR 0051)
+                if (!next.ContainsKey(cellModule)) return Reject.FootprintBlocked;
                 if (!occupied.Add((cx, m.Y, cz))) return Reject.Overlap;
             }
             if (kept)

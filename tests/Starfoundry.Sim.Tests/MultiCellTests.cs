@@ -306,7 +306,7 @@ public class MultiCellTests
         Assert.Equal(69, TagOf(new ApplyBlueprint(3, mods, plain, pieces)));
         using var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, new List<LoggedCommand> { new LoggedCommand(1, 0, new ApplyBlueprint(3, mods, withTurn)) }, C.Hash, GameMode.Campaign, Seed, threats: false, structures: true);
-        Assert.Equal(28, ms.ToArray()[4]);
+        Assert.Equal(29, ms.ToArray()[4]);
         Assert.True(CommandCodec.IsWellFormed(new ApplyBlueprint(3, mods, withTurn)));
         Assert.False(CommandCodec.IsWellFormed(new ApplyBlueprint(3, mods, I(new[] { M(2, 2, Large, -1, 4) }))));
         Assert.False(CommandCodec.IsWellFormed(new ApplyBlueprint(3, mods, I(new[] { M(2, 2, Large, -1, -1) }))));
@@ -320,7 +320,7 @@ public class MultiCellTests
         using var ms = new MemoryStream();
         CommandCodec.WriteLog(ms, w.Log, C.Hash, GameMode.Campaign, Seed, threats: false, structures: true, rules: w.Network.Rules);
         var bytes = ms.ToArray();
-        Assert.Equal(28, bytes[4]);
+        Assert.Equal(29, bytes[4]);
         var old = (byte[])bytes.Clone();
         old[4] = 27;
         var log = CommandCodec.ReadLog(new MemoryStream(old), out _, out _, out _, out _, out _, out _, out var rules);

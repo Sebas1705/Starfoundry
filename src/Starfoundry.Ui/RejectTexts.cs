@@ -75,6 +75,7 @@ public static class RejectTexts
         Reject.LastDockModule => "toast.reject.lastDockModule",
         Reject.BadDockPiece => "toast.reject.badDockPiece",
         Reject.FootprintBlocked => "toast.reject.footprintBlocked",
+        Reject.BadSpan => "toast.reject.badSpan",
         _ => null,
     };
 }

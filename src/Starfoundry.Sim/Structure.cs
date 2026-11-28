@@ -50,6 +50,17 @@ public static class ModuleKindIds
         AllowedOn(structure, kind) && !(stationFirst && structure == StructureKind.Ship && kind == ModuleKind.Workshop);
 
     /// <summary>The ability research must unlock before this kind can be placed in a campaign world, or null when it is free.</summary>
+    /// <summary>
+    /// The side, in module cells, of the biggest span (large module, ADR 0051) a structure of this kind may hold of a module kind: 1 means the kind stays single. Stations take big bays,
+    /// holds and hulls; ships only a hold and a hull (a ship holds no automation, ADR 0039); cores, cockpits, engines, hardpoints, antennas, shields and docks stay single.
+    /// </summary>
+    public static int MaxSpan(StructureKind structure, ModuleKind kind) => structure == StructureKind.Station
+        ? kind switch { ModuleKind.Workshop or ModuleKind.Cargo or ModuleKind.Hull => 3, ModuleKind.Reactor or ModuleKind.Defence or ModuleKind.DroneBay => 2, _ => 1 }
+        : kind switch { ModuleKind.Cargo or ModuleKind.Hull => 2, _ => 1 };
+
+    /// <summary>Percent of its price a module costs when it is built as part of a span (ADR 0051).</summary>
+    public const int SpanPricePercent = 85;
+
     public static Ability? RequiredAbility(ModuleKind kind) => kind switch
     {
         ModuleKind.DroneBay => Ability.DroneBay,
@@ -156,6 +167,9 @@ public sealed partial class Structure
     /// <summary>ADR 0047: the docking collars of this structure, small pieces attached to a horizontal face of a module (host module, face as a <see cref="Dir"/> value), sorted for determinism. Empty in worlds with dock modules; mixed into the checksum only when not empty.</summary>
     internal SortedSet<(int Mx, int My, int Mz, int Face)> DockPieceSet { get; private set; } = new();
 
+    /// <summary>ADR 0051: the large modules of this structure, each a square of Size x Size module cells whose lowest corner is (Mx, My, Mz); the cells stay ordinary entries of the module map. Empty unless a span was built; hashed only when not empty.</summary>
+    internal SortedSet<(int Mx, int My, int Mz, int Size)> SpanSet { get; private set; } = new();
+
     /// <summary>Stations only: the items kept in the station's stock by item index, or null while it never held anything. See ADR 0029.</summary>
     internal int[]? Stock;
 
@@ -182,6 +196,7 @@ public sealed partial class Structure
         c.Attitude = Attitude; c.DockedTo = DockedTo; c.DockShipModule = DockShipModule; c.DockStationModule = DockStationModule;
         c.DockShipFace = DockShipFace; c.DockStationFace = DockStationFace;
         foreach (var dp in DockPieceSet) c.DockPieceSet.Add(dp);
+        foreach (var sp in SpanSet) c.SpanSet.Add(sp);
         c.Stock = Stock is null ? null : (int[])Stock.Clone();
         CloneReactorFuelInto(c);
         return c;
