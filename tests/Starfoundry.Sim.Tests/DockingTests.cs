@@ -617,7 +617,7 @@ public class DockingTests
         Assert.Equal("interact", KeyIds(nearAssist)[0]);
         Assert.Equal("key.dockAssist", Starfoundry.Ui.KeyHints.For(nearAssist).Last().Rows[0].LabelKey);
         var guide = Starfoundry.Ui.KeyHints.For(near).Last().Rows.Single(r => r.Id == "dockGuide");
-        Assert.Equal(new object[] { 14, 60 }, guide.LabelArgs);
+        Assert.Equal(new object[] { "14 m", 60 }, guide.LabelArgs);
         Assert.Equal(Starfoundry.Ui.KeyRowState.Info, guide.State);
         Assert.Equal("key.dock", Starfoundry.Ui.KeyHints.For(near with { DockReady = true, Interact = Starfoundry.Ui.HintInteract.Dock }).Last().Rows[0].LabelKey);
         var assisting = Starfoundry.Ui.KeyHints.For(near with { DockAssisting = true, Interact = Starfoundry.Ui.HintInteract.DockCancel }).Last().Rows[0];

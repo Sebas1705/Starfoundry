@@ -69,7 +69,7 @@ public static class PowerFormat
         long left = TimeLeftTicks(status, burnIntervalTicks);
         return left <= 0
             ? Loc.T("hud.power.noFuel")
-            : Loc.T("hud.power.fuel", status.HydrogenInHold, Clock(left));
+            : Loc.T("hud.power.fuel", status.HydrogenInHold, Physical.StackMass("core:hydrogen", status.HydrogenInHold, Loc.Culture), Clock(left));
     }
 }
 

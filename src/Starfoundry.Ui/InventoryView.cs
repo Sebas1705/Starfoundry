@@ -93,7 +93,19 @@ public static class InventoryView
         sb.Append(Capitalise(Loc.Name("item", id)));
         if (count > 0) sb.Append("  x").Append(count.ToString(Loc.Culture));
         sb.Append('\n').Append(Loc.T("inv.tip.stack", stackSize.ToString(Loc.Culture), Loc.T(CategoryKey(CategoryOf(id)))));
-        if (item == content.FuelItem) sb.Append('\n').Append(Loc.T("inv.tip.fuel", PowerFormat.Clock(burnIntervalTicks)));
+        var phys = Physical.Table.Of(id);
+        sb.Append('\n').Append(Loc.T("inv.tip.mass", Metric.Mass(phys.Kg, Loc.Culture), Metric.Volume(phys.VolumeM3, Loc.Culture)));
+        if (count > 0) sb.Append('\n').Append(Loc.T("inv.tip.stackMass", Metric.Mass(phys.Kg * count, Loc.Culture)));
+        if (item == content.FuelItem)
+        {
+            sb.Append('\n').Append(Loc.T("inv.tip.fuel", PowerFormat.Clock(burnIntervalTicks)));
+            int output = content.Structures?.PowerOutput(ModuleKind.Reactor) ?? 0;
+            if (output > 0)
+            {
+                double joules = Physical.Watts(output) * burnIntervalTicks / Units.TicksPerSecond;
+                sb.Append('\n').Append(Loc.T("inv.tip.energy", Metric.Energy(joules, Loc.Culture), Metric.EnergyKwh(joules, Loc.Culture)));
+            }
+        }
         else if (item == content.FuelCellItem) sb.Append('\n').Append(Loc.T("inv.tip.fuel", PowerFormat.Clock((long)burnIntervalTicks * PowerRules.FuelCellBurnIntervals)));
         var uses = UsedFor(content, item, 4);
         if (uses.Count > 0) sb.Append('\n').Append(Loc.T("inv.tip.usedFor", string.Join(", ", uses)));

@@ -117,11 +117,11 @@ public partial class Play
         bool show = !_demo && !Overview && Net.HasPlayer(Player);
         _velMarkers.Visible = show && Piloting && MarkersWanted; // the cockpit-only and minimal modes leave the velocity markers to the flight display
         if (!show) return;
-        string cur = _speedCps.ToString("F1", Loc.Culture), top = _topCps.ToString("F1", Loc.Culture);
+        string cur = Metric.Number(Physical.MetresPerSecond(_speedCps), Loc.Culture), top = Metric.Number(Physical.MetresPerSecond(_topCps), Loc.Culture);
         _flightSpeed.SetText("status:speed", L("hud.flightSpeedOf", cur, top), UiTheme.Text, Icons.Name("status:speed"));
         _speedGauge.Set(_speedCps / _topCps, _targetShown / _topCps, Net.IsBoosting(Player));
         float accelCps2 = Net.ShipAccelMilli(Player) * (float)Units.TicksPerSecond * Units.TicksPerSecond / (1000f * Units.CellUnits);
-        _speedGauge.TooltipText = L("hud.flightGaugeTip", _targetCps.ToString("F1", Loc.Culture), accelCps2.ToString("F1", Loc.Culture));
+        _speedGauge.TooltipText = L("hud.flightGaugeTip", Metric.Number(Physical.MetresPerSecond(_targetCps), Loc.Culture), Metric.Acceleration(Physical.Metres(accelCps2), Loc.Culture));
 
         // Prograde and retrograde: where the velocity points on the screen (not drawn when still or when the point is behind the camera).
         float speed = _velCps.Length();

@@ -140,7 +140,7 @@ public partial class Play
         int maxHull = Net.ThreatActive ? Net.ShipMaxHull : 0;
         int holdUsed = Net.HoldTotal(Player), holdCap = Net.HoldCapacity(Player);
         snap.Flight = new FlightDisplayData(_speedCps, top, thrust, boosting, canBoost, _targetShown, Net.ThreatActive ? p.Hull : 0, maxHull,
-            st.Production, st.Demand, st.SatisfactionPermille, st.HydrogenInHold, fuelLeft, holdUsed, holdCap);
+            st.Production, st.Demand, st.SatisfactionPermille, st.HydrogenInHold, fuelLeft, holdUsed, holdCap, HoldMassKg());
         snap.HasReactor = reactor;
         snap.TurnRates = _turn.OmegaDegrees;
         snap.TurnRateMax = _turnStats.RateDegPerSecond;

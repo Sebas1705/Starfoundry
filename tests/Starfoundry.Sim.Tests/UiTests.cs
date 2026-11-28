@@ -95,10 +95,10 @@ public class UiTests
         try
         {
             Loc.Lang = Language.Es;
-            Assert.Equal("Bodega 3/10", Loc.T("hud.hold", 3, 10));
+            Assert.Equal("Bodega 3/10  -  carga 75 kg (capacidad aprox. 250 kg)", Loc.T("hud.hold", 3, 10, "75 kg", "250 kg"));
             Assert.Equal("1,5", string.Format(Loc.Culture, "{0}", 1.5));
             Loc.Lang = Language.En;
-            Assert.Equal("Hold 3/10", Loc.T("hud.hold", 3, 10));
+            Assert.Equal("Hold 3/10  -  cargo 75 kg (capacity about 250 kg)", Loc.T("hud.hold", 3, 10, "75 kg", "250 kg"));
             Assert.Equal(Language.Es, Loc.FromLocale("es_ES"));
             Assert.Equal(Language.En, Loc.FromLocale("fr"));
             Assert.Equal(Language.En, Loc.FromLocale(null));

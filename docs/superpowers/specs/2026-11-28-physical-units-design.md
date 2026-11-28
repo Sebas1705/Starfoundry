@@ -89,7 +89,7 @@ The owner asked that the game use **real simulated measures**: distances in metr
 | Rock `Mass` (thousandths of the reference rock) | relative | **rock mass in t** = sphere volume x 2,700 kg/m3, with radius = 1.3 m x cube root (mass / 1000) | derived, display only |
 | Module mass (`ship_handling.json` `mass`) | relative, core 3.0 | t | x 25 t |
 | Ship mass (`ShipHandling.MassOf`) | relative | t | x 25 t |
-| `RecoilReferenceMass` (8 modules) | modules | t | 8 x 25 t = 200 t nominal ship |
+| `RecoilReferenceMass` (8 modules) | modules | t | 8 x 25 t = 200 t nominal ship (the 7-module reference ship of `ship_handling.json` is 172.5 t) |
 | Turret `ammo_cap`, repairer `item_cap`, depot cap (`DepotItemCap` = 24) | items | items and kg | x mass per item |
 | Hit points, damage, `shield_percent`, `hp` | points | **unchanged** (game points) | none |
 
@@ -121,7 +121,7 @@ Everything in sections 3.1 to 3.4 above. The conversion happens in one engine-fr
 | Id | Change | Needs | Effort | Legacy replay | Balance impact and bands |
 | --- | --- | --- | --- | --- | --- |
 | P1 | **Hold capacity by mass (t) and volume (m3)** instead of an item count; the bag too | `WorldRules.LegacyHoldCount` (third flags byte, next free bit), content fields `mass_kg` per item and `hold_capacity_kg` per module (hashed only when present), log version | **L** | flag on for logs up to v29, byte-identical | **High**: hydrogen (2.5 kg) and ammo (5 kg) pack 5 to 10 times denser than ore (30 kg). Mitigation: capacity is 25 kg times the old count, so ore-heavy loads barely change; run the three bands (Relaxed 44-50, Normal 48-53, Hard 51-56 on seeds 20261121 / 20261120 / 777) before and after; expect hydrogen logistics to ease |
-| P2 | **Acceleration from thrust and real mass** (F = ma; engines in kN, module masses in content, speed limit kept as a flight-assist governor) | `LegacyMassFlight` flag, content `mass_kg` on every module kind and `thrust_kn` on engines (hashed when present), log version | **M** | on for old logs | Calibrate so the 200 t starter ship with one engine keeps 5 m/s2: starter times do not move; heavier ships accelerate slower (a new constraint). Bands move only if the bot's late ships are heavy: re-measure |
+| P2 | **Acceleration from thrust and real mass** (F = ma; engines in kN, module masses in content, speed limit kept as a flight-assist governor) | `LegacyMassFlight` flag, content `mass_kg` on every module kind and `thrust_kn` on engines (hashed when present), log version | **M** | on for old logs | Calibrate so the 172 t reference ship with one engine keeps 5 m/s2: starter times do not move; heavier ships accelerate slower (a new constraint). Bands move only if the bot's late ships are heavy: re-measure |
 | P3 | **Drag-free Newtonian flight** (no governor: velocity persists, a flight computer is optional) | `LegacyFlightAssist`, new controls and HUD | **L** | on for old logs | Large: every flight system and the bot's pathing; **not recommended** before P2 is lived with |
 | P4 | **Fuel for the engines by mass** (propellant, Tsiolkovsky delta-v) | engines burn hydrogen per N s; `LegacyFreeThrust` | **L** | on | Very high: a new logistics loop, bots must refuel; **not recommended** |
 | P5 | **Collision damage from kinetic energy** (1/2 m v2 with real masses) | `LegacyCollisionDamage` | **M** | on | Medium: today's damage is a function of speed only |
@@ -173,7 +173,7 @@ Reactor Mk1: 10 MW, 1 hydrogen per 30 s = 300 MJ per item = 120 MJ/kg x 2.5 kg: 
 
 ## 6. Mass table of modules
 
-`ship_handling.json` already holds one relative mass per module kind (core 3.0, hull 0.8, ...) for the turn rate. **Unit: 1.0 = 25 t**, so a hull module (256 m3 shell) is 20 t (78 kg/m3 of volume, a light pressure hull) and the starter ship (core, cockpit, engine, reactor, cargo and fittings, about 8 modules) is about **200 t**. No new numbers: `Module mass t = ship_handling mass x 25`.
+`ship_handling.json` already holds one relative mass per module kind (core 3.0, hull 0.8, ...) for the turn rate. **Unit: 1.0 = 25 t**, so a hull module (256 m3 shell) is 20 t (78 kg/m3 of volume, a light pressure hull) and the starter ship (the 7-module reference ship of `ship_handling.json`: cockpit, hull, cargo, reactor, engine, laser and gun) is **172.5 t***measured*. No new numbers: `Module mass t = ship_handling mass x 25`.
 
 | Module | Relative | Mass | | Module | Relative | Mass |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -221,3 +221,10 @@ The *loaded* ship mass in step 1 is **structure + cargo** (items x lot kg): the 
 - The machine energy is not closed (section 5, "Energy closure"); the text must not call it physical.
 - No measurement of the bot bands was needed for step 1 (no sim change); P1 and P2 each need a full re-measure on the three seeds and the three presets.
 - Other agents are changing machine footprints (log v28) and module spans (v29); step 2 must re-fetch before it takes a number.
+
+## 11. Step 1 as built (2026-11-28)
+- **Code**: `Starfoundry.Ui.Metric` (the formatters and `Quantity`), `Starfoundry.Ui.Physical` and `PhysicalTable` (the conversions and the client-side table), `content/physical_units.json`, read by `ClientContent` beside `ship_handling.json` (also in the release pack check and the test output). [ADR 0052](../../adr/0052-physical-units-are-a-display-layer-one-cell-is-one-metre.md).
+- **Wired**: HUD (flight speed and gauge tip, target distance and closing speed, deposit lines with the mass left, hazard line, markers, hold tooltip with cargo mass, power and fuel lines with the hydrogen mass), cockpit displays (nav distance with unit, rings, power pair, hold mass), star map list and gate markers, inventory tooltips (mass, volume, stack mass, hydrogen energy), world stack tooltip, build menu (module mass, kW and MW), machine panel (throughput in kg/min or t/h), machine inspector (power draw), blueprint editor stats (mass, length, top speed, acceleration, power balance, nominal cargo mass), ship designer line, docking guide, laser and drone hints, module purposes and tips. About 65 Loc strings changed in both languages; the grid square is now a *tile* (es *casilla*).
+- **Decided while building**: the acceleration row shows m/s2 only (the g figure is in the speed gauge tooltip); the hold of a design is shown as items and nominal mass ("400 (about 10 t)"); the stats panel gained a *Length* row; a deposit shows the items left and their mass ("1950 (58 t)"); the nav screen draws the number and the unit apart ("1.2" and "km").
+- **Not done**: an imperial toggle (decision 9.5), the enemy speeds (unit unverified), kN of thrust (step 2), a volume readout of the hold (items have a volume in the table and the tooltip, the hold total does not use it), ore of a rock in tonnes on the rock tooltip.
+- **Verified**: `dotnet test` (fast tier and full), `--blueprint-check` in es and en with eight `units:` checks, the text-fit audit in es and en at four sizes. **Not verified**: the look of the new units in a hand-played session (no screenshots were taken), the audio, other monitors.

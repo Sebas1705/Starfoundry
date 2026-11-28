@@ -95,6 +95,13 @@ public partial class Play
         return L(size < 700 ? "size.small" : size < 1100 ? "size.medium" : size < 1600 ? "size.large" : "size.huge") + ", " + vein;
     }
 
+    /// <summary>What is left in a deposit as text: the item count and its mass, "1950 (58 t)" (ADR 0052).</summary>
+    private string DepositAmount(int deposit)
+    {
+        int left = Net.DepositRemaining(deposit);
+        return $"{left} ({Physical.StackMass(_content.Items[Net.DepositItem(deposit)].Id, left, Loc.Culture)})";
+    }
+
     private string ItemName(int item) => Loc.Name("item", _content.Items[item].Id);
 
     private string MachineName(int type) => Loc.Name("machine", _content.Machines[type].Id);
@@ -578,7 +585,7 @@ public partial class Play
             if (_keyPanel.Visible && keys.HasPoint(new Vector2(p.X, p.Y))) p = p with { Y = keys.Position.Y - 6f };
             // Off screen the arrow also says how many degrees to turn (the same whichever way up the ship is).
             string turn = p.OnScreen ? "" : $"  {NavFrame.TurnDegrees(V(target - eye), cam):F0}°";
-            string dist = distanceText ?? L("mark.dist", p.Distance.ToString("F0", Loc.Culture));
+            string dist = distanceText ?? L("mark.dist", Physical.Dist(p.Distance));
             if (p.Visible && (color == EnemyMarkerColor || ShipHudContext)) items.Add(new MarkerLayer.Item($"{label}  {dist}{turn}", color, p, color == EnemyMarkerColor ? 3 : priority, icon ?? MarkerIcon(label), $"{dist}{turn}"));
         }
 
@@ -609,7 +616,7 @@ public partial class Play
             var to = gal.Systems[_selectedSystem];
             var dir = NavFrame.DirectionTo(new Vec3(from.X, from.Y, from.Z), new Vec3(to.X, to.Y, to.Z));
             float mapDistance = new Vector3(to.X - from.X, to.Y - from.Y, to.Z - from.Z).Length();
-            Add(L("mark.gate", to.Name), new Color(1f, 0.55f, 0.25f), eye + new Vector3(dir.X, dir.Y, dir.Z) * 900f, 4f, L("mark.gateDist", mapDistance.ToString("F0", Loc.Culture)), 2, "status:gate");
+            Add(L("mark.gate", to.Name), new Color(1f, 0.55f, 0.25f), eye + new Vector3(dir.X, dir.Y, dir.Z) * 900f, 4f, L("mark.gateDist", Physical.Dist(mapDistance)), 2, "status:gate");
         }
 
         int system = Net.CurrentSystem(Player);
@@ -650,18 +657,27 @@ public partial class Play
         _markers.Set(items);
     }
 
+    /// <summary>The mass of everything in the player's hold in kilograms (ADR 0052).</summary>
+    private double HoldMassKg()
+    {
+        double kg = 0.0;
+        foreach (var item in _content.Items) kg += Physical.Kg(item.Id, Net.HoldCount(Player, item.Index));
+        return kg;
+    }
+
     private void UpdateHold()
     {
         int total = Net.HoldTotal(Player), cap = Net.HoldCapacity(Player);
         bool full = total >= cap;
         var held = new List<(string Icon, int Count)>();
+        double holdKg = 0.0;
         foreach (var item in _content.Items)
         {
             int n = Net.HoldCount(Player, item.Index);
-            if (n > 0) held.Add((Icons.ItemId(item.Id), n));
+            if (n > 0) { held.Add((Icons.ItemId(item.Id), n)); holdKg += Physical.Kg(item.Id, n); }
         }
         var (holdNote, holdTip) = HoldNote(total, cap);
-        _holdItems.Set(total, cap, full, HudFormat.Band(cap - total, cap) == HealthBand.Critical, held, holdNote, holdTip);
+        _holdItems.Set(total, cap, full, HudFormat.Band(cap - total, cap) == HealthBand.Critical, held, holdNote, holdTip, holdKg);
 
         // Said when it fills and again every 25 s while it stays full: a full hold silently stops mining and depots.
         double now = Time.GetTicksMsec() / 1000.0;
@@ -707,7 +723,7 @@ public partial class Play
         {
             int d = Net.MiningDeposit(Player);
             bool inRange = Net.InMineRange(Player, d);
-            depLine = inRange ? L("hud.mining", ItemName(Net.DepositItem(d)), Net.DepositRemaining(d), DensityText(d))
+            depLine = inRange ? L("hud.mining", ItemName(Net.DepositItem(d)), DepositAmount(d), DensityText(d))
                               : L("hud.miningOut", ItemName(Net.DepositItem(d)));
             if (inRange && p.Hull >= 0 && Net.HoldTotal(Player) >= Net.HoldCapacity(Player)) depLine = L("hud.miningFull");
             else if (inRange && MiningPausedByLimit) depLine = L("hud.miningPaused");
@@ -716,7 +732,7 @@ public partial class Play
         {
             var pos = Net.DepositPosition(dep);
             float dist = (new Vector3(pos.X, pos.Y, pos.Z) - ShipPosition(0f)).Length();
-            depLine = L("hud.depositSelected", ItemName(Net.DepositItem(dep)), Net.DepositRemaining(dep), dist.ToString("F0", Loc.Culture), DensityText(dep));
+            depLine = L("hud.depositSelected", ItemName(Net.DepositItem(dep)), DepositAmount(dep), Physical.Dist(dist), DensityText(dep));
         }
         else depLine = L("hud.noDeposit");
         sb.Append(depLine).Append('\n');
@@ -1782,7 +1798,7 @@ public partial class Play
             if (RayHitsSphere(origin, dir, new Vector3(k.X, k.Y, k.Z) / CellUnits, 0.7f, out float t) && t < best)
             {
                 best = t;
-                _hover = new Hover(HoverKind.Stack, k.Id, L("tip.stack", k.Count, ItemName(k.Item)));
+                _hover = new Hover(HoverKind.Stack, k.Id, L("tip.stack", k.Count, ItemName(k.Item), Physical.StackMass(_content.Items[k.Item].Id, k.Count, Loc.Culture)));
             }
         }
         for (int d = 0; d < Net.DepositCount; d++)
@@ -1882,6 +1898,7 @@ public partial class Play
         var sb = new StringBuilder();
         sb.Append(MachineStatus(m)).Append('\n');
         sb.Append(L("tip.hp", m.Hp, Net.MaxHp(m.Type))).Append('\n');
+        if (NeedsPower(m.Type)) sb.Append(L("insp.draw", Physical.Pow(_content.Machines[m.Type].PowerUse, Loc.Culture))).Append('\n'); // ADR 0052
         if (NeedsPower(m.Type) && SatisfactionOf(m.Structure) is > 0 and < PowerRules.FullSatisfaction)
             sb.Append(L("insp.power", PowerFormat.Percent(SatisfactionOf(m.Structure)))).Append('\n');
         if (m.Recipe >= 0)

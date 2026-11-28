@@ -91,7 +91,7 @@ public partial class HoldStrip : HBoxContainer
     /// Shows the hold. <paramref name="note"/> is a short line after the total (the forecast and the income, empty when there is none); the numbers count up or
     /// down instead of jumping, and nothing is touched when nothing changed.
     /// </summary>
-    public void Set(int used, int capacity, bool full, bool nearlyFull, IReadOnlyList<(string Icon, int Count)> items, string note = "", string noteTip = "")
+    public void Set(int used, int capacity, bool full, bool nearlyFull, IReadOnlyList<(string Icon, int Count)> items, string note = "", string noteTip = "", double contentKg = 0.0)
     {
         var colour = full ? UiTheme.Bad : nearlyFull ? UiTheme.Warn : UiTheme.Good;
         _bar.Set(capacity <= 0 ? 0f : used / (float)capacity, colour);
@@ -100,7 +100,7 @@ public partial class HoldStrip : HBoxContainer
         SetProcess(!UiFx.Instant && _usedTween.Value != used);
         ShowTotal();
         if (_full != full || !_colourInit) { _colourInit = true; _full = full; _total.AddThemeColorOverride("font_color", full ? UiTheme.Bad : UiTheme.Text); }
-        string tip = Loc.T("hud.hold", used, capacity);
+        string tip = Loc.T("hud.hold", used, capacity, Metric.Mass(contentKg, Loc.Culture), Metric.Mass(Physical.NominalKg(capacity), Loc.Culture));
         if (TooltipText != tip) TooltipText = tip;
         _icon.Set("status:cargo", colour);
 

@@ -44,7 +44,7 @@ public class PowerFormatTests
         {
             Loc.Lang = Language.En;
             Assert.Equal("Hydrogen 0  -  no fuel", PowerFormat.FuelLine(S(0, 0, 0, 0)));
-            Assert.Equal("Hydrogen 20  -  fuel 10:00", PowerFormat.FuelLine(S(1000, 20, 0)));
+            Assert.Equal("Hydrogen 20 (50 kg)  -  fuel 10:00", PowerFormat.FuelLine(S(1000, 20, 0)));
             Loc.Lang = Language.Es;
             Assert.Contains("sin combustible", PowerFormat.FuelLine(S(0, 0, 0, 0)));
         }

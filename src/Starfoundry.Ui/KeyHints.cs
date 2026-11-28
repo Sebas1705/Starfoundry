@@ -384,7 +384,7 @@ public static class KeyHints
     private static IEnumerable<KeyRow> DockRows(KeyState s)
     {
         if (s.Dock == DockHint.Near)
-            yield return new KeyRow("dockGuide", Array.Empty<string>(), "key.dockGuide", s.DockSpeedPercent > 100 && s.DockDistanceCells <= Starfoundry.Sim.DockRules.RangeCells + 8 ? KeyRowState.Alert : KeyRowState.Info, null, null, new object[] { s.DockDistanceCells, s.DockSpeedPercent });
+            yield return new KeyRow("dockGuide", Array.Empty<string>(), "key.dockGuide", s.DockSpeedPercent > 100 && s.DockDistanceCells <= Starfoundry.Sim.DockRules.RangeCells + 8 ? KeyRowState.Alert : KeyRowState.Info, null, null, new object[] { Physical.Dist(s.DockDistanceCells, Loc.Culture), s.DockSpeedPercent });
         else if (s.Dock == DockHint.Docked)
         {
             yield return Act("unload", "unload", "unload");

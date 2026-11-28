@@ -928,7 +928,7 @@ void fragment() {
         string status = Net.IsSystemVisited(s) ? L("map.visited") : L("map.known");
         string lane = cur >= 0 && g.HasLane(cur, s) ? L("map.lane") : "";
         string star = _content.World is { } wg && Net.IsSystemVisited(s) ? Loc.Name("star", wg.StarTypes[sys.Star].Id) : "";
-        return $"{(s == _selectedSystem ? ">" : " ")}{(s == cur ? "*" : " ")} {sys.Name,-8} {Loc.Name("arch", _content.Archetypes[sys.Archetype].Id),-15} {star,-14} {dist.ToString("F0", Loc.Culture),4} {status,-8} {lane}";
+        return $"{(s == _selectedSystem ? ">" : " ")}{(s == cur ? "*" : " ")} {sys.Name,-8} {Loc.Name("arch", _content.Archetypes[sys.Archetype].Id),-15} {star,-13} {Physical.Dist(dist).Replace(" ", ""),5} {status,-8} {lane}";
     }
 
     private void UpdateMap()

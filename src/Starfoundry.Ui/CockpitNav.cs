@@ -155,8 +155,11 @@ public static class NavPage
         return rows.FirstOrDefault(r => r.Selected) ?? rows.FirstOrDefault();
     }
 
-    /// <summary>The distance as shown in the big number: whole cells, "1.2k" from a thousand, "--" with no target.</summary>
-    public static string BigDistance(NavTarget? t, IFormatProvider culture) => t is null ? "--" : CockpitMath.Distance(t.Distance, culture);
+    /// <summary>The number of the big distance ("47", "1.5"; "--" with no target); the unit comes from <see cref="BigDistanceUnit"/>.</summary>
+    public static string BigDistance(NavTarget? t, IFormatProvider culture) => t is null ? "--" : Metric.Parts(CockpitMath.Distance(t.Distance, culture)).Number;
+
+    /// <summary>The unit of the big distance ("m", "km"), empty with no target.</summary>
+    public static string BigDistanceUnit(NavTarget? t, IFormatProvider culture) => t is null ? "" : Metric.Parts(CockpitMath.Distance(t.Distance, culture)).Unit;
 
     /// <summary>
     /// The fonts of the three big values of the page (target name, distance, speed), in texture pixels, for a texture <paramref name="textureWidth"/> pixels

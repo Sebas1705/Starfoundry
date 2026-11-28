@@ -294,7 +294,7 @@ public partial class CockpitScreenView : Control
         if (f.MaxHull > 0) GaugeLine(16, y, colW - 4, "status:hull", Loc.T("cp.hull"), f.HullFraction, BandColor(f.HullFraction), $"{f.Hull}/{f.MaxHull}");
         else GaugeLine(16, y, colW - 4, "status:hull", Loc.T("cp.hull"), 1f, UiTheme.Good, "OK");
         y += step;
-        if (s.HasReactor || f.PowerProduction > 0) GaugeLine(16, y, colW - 4, "status:power", Loc.T("cp.power"), f.PowerFraction, PowerColor(f.PowerPermille), $"{f.PowerProduction}/{f.PowerDemand}");
+        if (s.HasReactor || f.PowerProduction > 0) GaugeLine(16, y, colW - 4, "status:power", Loc.T("cp.power"), f.PowerFraction, PowerColor(f.PowerPermille), Metric.PowerPair(Physical.Watts(f.PowerProduction), Physical.Watts(f.PowerDemand), Loc.Culture));
         else GaugeLine(16, y, colW - 4, "status:power", Loc.T("cp.power"), 0f, UiTheme.Bad, Loc.T("cp.noPower"));
         y += step;
         string fuel = f.FuelTicksLeft > 0 ? $"{f.Hydrogen}  {PowerFormat.Clock(f.FuelTicksLeft)}" : f.Hydrogen > 0 ? $"{f.Hydrogen}" : "0";
@@ -453,7 +453,7 @@ public partial class CockpitScreenView : Control
         Txt(Loc.T("cp.nav.dist"), x, yy, 12, UiTheme.Muted);
         Txt(dist, x, yy + 12f, numFont, c, num: true);
         float dW = Measure(dist, numFont, true);
-        Txt(Loc.T("cp.unit.cells"), x + Math.Min(dW + 6f, colW - 40f), yy + 12f + numFont * 0.62f, 13, UiTheme.Muted);
+        Txt(NavPage.BigDistanceUnit(t, Loc.Culture), x + Math.Min(dW + 6f, colW - 40f), yy + 12f + numFont * 0.62f, 13, UiTheme.Muted);
         float sx = sideBySide ? x + colW : x;
         float sy = sideBySide ? yy : yy + 12f + numFont * 1.2f + 4f;
         Txt(Loc.T("cp.speed"), sx, sy, 12, UiTheme.Muted);
@@ -670,7 +670,7 @@ public partial class CockpitScreenView : Control
                 Txt(Fit(routeLabel, lf, lr.Size.X - 8f), lr.Position.X + 5f, lr.Position.Y + 2f, lf, UiTheme.Gold);
             }
         }
-        else if (s.MapTargets.Count == 0) Txt(Fit(s.NavReachCells == long.MaxValue ? Loc.T("cp.nav.none") : string.Format(Loc.T("cp.nav.noneReach"), s.NavReachCells), 13, r.Size.X - 16f), r.Position.X + 8f, r.End.Y - 24f, 13, UiTheme.Dim);
+        else if (s.MapTargets.Count == 0) Txt(Fit(s.NavReachCells == long.MaxValue ? Loc.T("cp.nav.none") : string.Format(Loc.T("cp.nav.noneReach"), Physical.Dist(s.NavReachCells, Loc.Culture)), 13, r.Size.X - 16f), r.Position.X + 8f, r.End.Y - 24f, 13, UiTheme.Dim);
         if (detailed)
         {
             // zoom buttons and the hint
@@ -693,13 +693,13 @@ public partial class CockpitScreenView : Control
         if (f.MaxHull > 0) GaugeLine(14, y, w, "status:hull", Loc.T("cp.hull"), f.HullFraction, BandColor(f.HullFraction), $"{f.Hull}/{f.MaxHull}");
         else GaugeLine(14, y, w, "status:hull", Loc.T("cp.hull"), 1f, UiTheme.Good, "OK");
         y += 30;
-        if (s.HasReactor || f.PowerProduction > 0) GaugeLine(14, y, w, "status:power", Loc.T("cp.power"), f.PowerFraction, PowerColor(f.PowerPermille), $"{f.PowerProduction}/{f.PowerDemand}");
+        if (s.HasReactor || f.PowerProduction > 0) GaugeLine(14, y, w, "status:power", Loc.T("cp.power"), f.PowerFraction, PowerColor(f.PowerPermille), Metric.PowerPair(Physical.Watts(f.PowerProduction), Physical.Watts(f.PowerDemand), Loc.Culture));
         else GaugeLine(14, y, w, "status:power", Loc.T("cp.power"), 0f, UiTheme.Bad, Loc.T("cp.noPower"));
         y += 30;
         string fuel = f.FuelTicksLeft > 0 ? $"{f.Hydrogen}  {PowerFormat.Clock(f.FuelTicksLeft)}" : f.Hydrogen > 0 ? $"{f.Hydrogen}" : "0";
         GaugeLine(14, y, w, "item:core:hydrogen", Loc.T("cp.fuel"), f.FuelLow ? 0.15f : 0.85f, f.FuelLow ? UiTheme.Warn : UiTheme.Good, fuel);
         y += 30;
-        GaugeLine(14, y, w, "status:cargo", Loc.T("cp.hold"), f.HoldFraction, f.HoldFraction > 0.95f ? UiTheme.Warn : accent, $"{f.HoldUsed}/{f.HoldCapacity}");
+        GaugeLine(14, y, w, "status:cargo", Loc.T("cp.hold"), f.HoldFraction, f.HoldFraction > 0.95f ? UiTheme.Warn : accent, $"{f.HoldUsed}/{f.HoldCapacity}  {Metric.Mass(f.HoldKg, Loc.Culture)}");
         y += 38;
 
         // the modules as a row of cells: sound green, damaged red

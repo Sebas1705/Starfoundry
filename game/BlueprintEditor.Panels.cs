@@ -189,8 +189,8 @@ public partial class BlueprintEditor
             bool negativePower = r.LabelKey == "bp.stat.power" && r.After < 0;
             row.AddChild(Cell(r.Text(Loc.Culture), negativePower ? Bad : Colors.White, UiTheme.Body, HorizontalAlignment.Right, "Value"));
             row.AddChild(Cell(r.DeltaText(Loc.Culture), good > 0 ? Good : good < 0 ? Bad : Muted, UiTheme.Small, HorizontalAlignment.Right, "Delta"));
-            ((Label)row.GetChild(2)).CustomMinimumSize = new Vector2(48, 0);
-            ((Label)row.GetChild(3)).CustomMinimumSize = new Vector2(46, 0);
+            ((Label)row.GetChild(2)).CustomMinimumSize = new Vector2(84, 0); // "400 (≈10 t)", "9,5 MW" (ADR 0052)
+            ((Label)row.GetChild(3)).CustomMinimumSize = new Vector2(52, 0);
             _statsList.AddChild(row);
         }
     }

@@ -146,8 +146,8 @@ public sealed class BlueprintSession
         InteriorChange = station ? InteriorDiff.Compute(Interior.Original, Interior.ToInterior()) : InteriorDiff.Empty;
         Report = station ? w.CheckBlueprint(_player, StructureId, Draft.ToModules(), InteriorCarried(), Draft.PiecesCarried(), Draft.SpansCarried()) : Draft.Check(w, _player);
         var bonuses = Bonuses();
-        Stats = ShipStats.Compute(Draft.Modules.Values, _content, _handling, bonuses);
-        StatsBefore = ShipStats.Compute(Draft.Original.Values, _content, _handling, bonuses);
+        Stats = ShipStats.Compute(Draft.Modules, _content, _handling, bonuses);
+        StatsBefore = ShipStats.Compute(Draft.Original, _content, _handling, bonuses);
         if (station)
         {
             Stats = Stats with { PowerUse = Stats.PowerUse + Interior.PowerUse() };

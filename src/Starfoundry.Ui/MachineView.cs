@@ -38,6 +38,10 @@ public static class MachineView
     public static double CurrentPerMinute(MachineRun run, int outputCount, int timeTicks, int satisfactionPermille) =>
         run == MachineRun.Running ? NominalPerMinute(outputCount, timeTicks) * Math.Clamp(satisfactionPermille, 0, PowerRules.FullSatisfaction) / PowerRules.FullSatisfaction : 0;
 
+    /// <summary>The mass a recipe turns out per second at full power, in kilograms, from its outputs (content id and count) and its time (ADR 0052).</summary>
+    public static double OutputKgPerSecond(IEnumerable<(string ItemId, int Count)> outputs, int timeTicks) =>
+        timeTicks <= 0 ? 0 : outputs.Sum(o => Physical.Kg(o.ItemId, o.Count)) * Units.TicksPerSecond / timeTicks;
+
     /// <summary>The "N per minute" number, one decimal below ten and none above.</summary>
     public static string PerMinuteText(double perMinute) =>
         perMinute >= 10 ? Math.Round(perMinute).ToString("0", Loc.Culture) : perMinute.ToString("0.#", Loc.Culture);
