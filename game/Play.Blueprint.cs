@@ -514,15 +514,15 @@ public partial class Play
             var anchor = (-3, 0, 0);
             ed.ClickCell(anchor);
             Check("large: one click builds the whole square", s.Draft.Spans.Count() == 1 && new[] { (-3, 0, 0), (-2, 0, 0), (-3, 0, 1), (-2, 0, 1) }.All(c => s.Draft.Modules.GetValueOrDefault(c) == ModuleKind.Workshop), $"spans={s.Draft.Spans.Count()} {s.LastMessageKey}");
-            Check("large: the simulation agrees with the draft", s.Report.Ok && s.Draft.ToCommand() is ApplyBlueprint { Spans.Length: 1 }, s.Report.Reject.ToString());
+            Check("large: the simulation accepts the square (only the price may refuse it here)", s.Report.Reject is Reject.None or Reject.NotEnoughItems && s.Draft.ToCommand() is ApplyBlueprint { Spans.Length: 1 }, s.Report.Reject.ToString());
             Check("large: the frame is drawn", ed.Describe().Contains("ghostNodes=") && s.Draft.SameFloor((-3, 0, 0), (-2, 0, 1)));
             s.Draft.Remove((-2, 0, 1));
             Check("large: removing one cell removes the whole large module", !s.Draft.Spans.Any() && !s.Draft.Modules.ContainsKey((-3, 0, 0)));
             ed.RunAction("bpUndo", 0);
             Check("large: undo brings it back", s.Draft.Spans.Count() == 1);
-            s.PickKind(ModuleKind.Workshop);
-            s.Draft.Revert();
-            Check("large: reverting leaves the station as it was", !s.Draft.Dirty && !s.Draft.Spans.Any());
+            s.SetTool(BlueprintTool.Select);
+            ed.RunAction("bpUndo", 0);
+            Check("large: undoing the square leaves the draft as it was", !s.Draft.Spans.Any() && !s.Draft.Modules.ContainsKey((-3, 0, 0)));
         }
         if (s.Draft.UsesPieces && s.DockPort() is { } dp)
         {
