@@ -8,7 +8,7 @@ namespace Starfoundry.Game;
 /// </summary>
 public partial class HintLabel : Label
 {
-    private static readonly StyleBoxFlat Pill = UiTheme.Box(new Color(0.03f, 0.05f, 0.09f, 0.72f), new Color(0.45f, 0.58f, 0.82f, 0.22f), 9, 0f);
+    private static readonly StyleBoxFlat Pill = UiTheme.Box(new Color(0.02f, 0.04f, 0.08f, 0.9f), new Color(0.45f, 0.58f, 0.82f, 0.35f), 9, 0f);
     private string _drawn = "";
     private Vector2 _drawnSize;
 

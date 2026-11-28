@@ -113,12 +113,26 @@ public partial class Play
         var size = GetViewport().GetVisibleRect().Size;
         var bar = _arsenalBar.PreferredSize();
         _arsenalBar.Size = bar;
-        var pos = new Vector2((size.X - bar.X) / 2f, size.Y - bar.Y - 8f);
+        // The bar sits at the bottom centre, between the hold strip (left) and the key panel (right). When the slots do not fit in that gap
+        // (a small window with many weapons) the bar shrinks and slides into it instead of running over either panel.
+        float gapL = 12f, gapR = size.X - 12f;
         foreach (var other in new Control?[] { _toolbar, _keyPanel })
         {
             if (other is null || !other.Visible || other.Modulate.A < 0.05f) continue;
             var o = new Rect2(other.Position, other.Size * other.Scale);
-            if (new Rect2(pos, bar).Grow(6f).Intersects(o)) pos.Y = Math.Min(pos.Y, o.Position.Y - bar.Y - 8f); // never over the hold strip or the key panel
+            if (o.End.Y < size.Y - bar.Y - 16f) continue; // ends above the bar's row
+            if (o.GetCenter().X < size.X / 2f) gapL = Math.Max(gapL, o.End.X + 12f);
+            else gapR = Math.Min(gapR, o.Position.X - 12f);
+        }
+        float fit = Math.Clamp((gapR - gapL) / Math.Max(1f, bar.X), 0.5f, 1f);
+        _arsenalBar.Scale = new Vector2(fit, fit);
+        var drawn = bar * fit;
+        var pos = new Vector2(Math.Clamp((size.X - drawn.X) / 2f, gapL, Math.Max(gapL, gapR - drawn.X)), size.Y - drawn.Y - 8f);
+        foreach (var other in new Control?[] { _toolbar, _keyPanel })
+        {
+            if (other is null || !other.Visible || other.Modulate.A < 0.05f) continue;
+            var o = new Rect2(other.Position, other.Size * other.Scale);
+            if (new Rect2(pos, drawn).Grow(6f).Intersects(o)) pos.Y = Math.Min(pos.Y, o.Position.Y - drawn.Y - 8f); // last resort: never over the hold strip or the key panel
         }
         _arsenalBar.Position = pos;
         _arsenalTop = size.Y - (size.Y - pos.Y + 4f) * alpha;

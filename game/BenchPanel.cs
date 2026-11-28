@@ -275,7 +275,7 @@ public partial class BenchPanel : PanelContainer
         float progress = cur is null ? 0f : BenchView.Progress(info.ShipCrafting, info.ShipRemaining, BenchView.CraftTicks(cur, sf));
         SetText(_progressLabel, cur is null ? Loc.T("bench.panel.idle") : Loc.T("bench.panel.inProgress", Loc.T("bench." + cur.Id)));
         _bar.Set(progress, state is BenchState.WaitingInputs or BenchState.NoRoom ? UiTheme.Warn : UiTheme.Good);
-        SetText(_status, cur is null ? "" : Loc.T(BenchView.StateKey(state)) + (info.ShipCrafting ? " " + (int)MathF.Round(progress * 100f) + " %" : ""));
+        SetText(_status, cur is null ? "" : Loc.T(BenchView.StateKey(state)) + (info.ShipCrafting ? " " + (int)MathF.Round(progress * 100f) + " %" : ""));
         _status.AddThemeColorOverride("font_color", state is BenchState.WaitingInputs or BenchState.NoRoom ? UiTheme.Warn : UiTheme.Muted);
 
         SetText(_inLabel, Loc.T("bench.panel.inSlot"));

@@ -184,7 +184,7 @@ public static partial class Loc
         ["bp.val.power"] = ("Déficit de energía: faltan {0}", "Power deficit: {0} short"),
         ["bp.val.view"] = ("{0} módulos tapan la vista desde la cabina", "{0} modules block the view from the cockpit"),
         ["bp.val.noLaser"] = ("Sin láser de minería: la nave no podrá minar", "No mining laser: the ship will not be able to mine"),
-        ["bp.val.turn"] = ("La nave gira un {0} % más lenta que ahora", "The ship turns {0} percent slower than now"),
+        ["bp.val.turn"] = ("La nave gira un {0} % más lenta que ahora", "The ship turns {0} percent slower than now"),
         ["bp.val.unchanged"] = ("Sin cambios", "No changes"),
         ["bp.val.valid"] = ("El diseño es válido", "The design is valid"),
         ["bp.val.errors"] = ("{0} errores", "{0} errors"),
