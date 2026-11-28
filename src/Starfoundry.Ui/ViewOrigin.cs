@@ -50,6 +50,9 @@ public sealed class ViewOrigin
     /// <summary>The inverse of <see cref="ToView(long, long)"/>: a view coordinate back to simulation units, rounded to the nearest unit.</summary>
     public static long ToUnits(float view, long originCells) => (long)MathF.Round(view * Sim.Units.CellUnits) + originCells * Sim.Units.CellUnits;
 
+    /// <summary>Like <see cref="ToUnits(float, long)"/> but truncating the view part toward zero, as the old <c>(int)(v * CellUnits)</c> casts of the aim code did (so the view at origin 0 sends the same command values as before).</summary>
+    public static long ToUnitsTrunc(float view, long originCells) => (long)(view * Sim.Units.CellUnits) + originCells * Sim.Units.CellUnits;
+
     public long ToUnitsX(float view) => ToUnits(view, Cells.X);
     public long ToUnitsY(float view) => ToUnits(view, Cells.Y);
     public long ToUnitsZ(float view) => ToUnits(view, Cells.Z);
