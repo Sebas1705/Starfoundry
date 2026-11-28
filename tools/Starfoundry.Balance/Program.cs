@@ -71,8 +71,18 @@ if (args.Contains("--structures"))
     if (args.Contains("--legacy-field")) rules = rules.WithLegacyField(true);
     // --legacy-clusters keeps the infinite field but with the uniform scatter of ADR 0040 instead of the clusters of ADR 0046.
     if (args.Contains("--legacy-clusters")) rules = rules.WithLegacyRockClusters(true);
+    // --telemetry prints a per-minute table and the time budget (simulated playtest study); --no-turrets and --afk=SECONDS[/EVERY] play a careless player.
+    var telemetry = args.Contains("--telemetry") ? new BotTelemetry() : null;
+    int afk = 0, afkEvery = 600;
+    if (Value("--afk") is { } afkText)
+    {
+        var parts = afkText.Split('/');
+        afk = int.Parse(parts[0]);
+        if (parts.Length > 1) afkEvery = int.Parse(parts[1]);
+    }
     var bot = new StructureBot(content, sSeed, threats: !args.Contains("--no-threats"), rules: rules)
     {
+        Telemetry = telemetry, NoTurrets = args.Contains("--no-turrets"), AfkSeconds = afk, AfkEverySeconds = afkEvery,
         ActionDelaySeconds = args.Any(a => a.StartsWith("--delay=")) ? delay : 6,
         Trace = args.Contains("--trace") ? Console.Out : null,
         ContinueAfterVictory = args.Contains("--continue") || args.Contains("--science"),
@@ -81,6 +91,7 @@ if (args.Contains("--structures"))
     var sReport = bot.Run(sMinutes * 60);
     Console.WriteLine($"Structure campaign run: seed {sSeed}, difficulty {difficulty}, goal {bot.GoalWaves} waves, action delay {bot.ActionDelaySeconds} s\n");
     Console.WriteLine(sReport.Format());
+    if (telemetry is not null) Console.WriteLine(Environment.NewLine + telemetry.Format(StructureBot.FlightSeconds));
     return sReport.Outcome == Starfoundry.Ui.OutcomeKind.Won ? 0 : 2;
 }
 int observe = 0, turrets = 1, walls = 0, bays = 0, upgrades = 0;
