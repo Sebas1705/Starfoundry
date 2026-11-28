@@ -55,6 +55,7 @@ One decision per file, `NNNN-slug.md`. An accepted ADR is never rewritten; add a
 | [0051](0051-large-modules-are-spans-of-ordinary-cells-with-a-joined-floor.md) | Large modules are spans (2 x 2, 3 x 3) of ordinary cells with a joined floor: tags 71 and 72, price discount, research gate, `LegacyLargeModules`, log version 29 | proposed | 2026-11-29 |
 | [0036](0036-free-fire-recoil-hold-overflow-and-resource-density.md) | Guns fire along an aim with projectiles and recoil, a full hold overflows into ore pickups, the galaxy holds more resources; log version 17 | proposed | 2026-11-24 |
 | [0035](0035-personal-inventory-container-moves-and-reactor-fuel-slots.md) | A personal inventory of 24 slots, one MoveItems command for every pair of containers (bag, hold, station stock, reactor fuel slot, machine buffers, bin), a feed-source setting per reactor and SortInventory; log version 18, legacy-gated, hashed only when used | proposed | 2026-11-24 |
+| [0053](0053-world-scale-realistic-spacing-with-a-cruise-drive.md) | World scale: realistic spacing (rocks 33 m to 1.6 km, clusters 100 km apart, bubbles of 1.5 Gm, light-year jumps) with a cruise drive and a time-to-contact governor, a floating origin in the view; `LegacyWorldScale`, log version 30 | proposed | 2026-11-28 |
 
 ## Template
 ```markdown
