@@ -407,8 +407,8 @@ public partial class BuildMenu : Control
         var costNodes = _dCost.GetChildren().OfType<IconCount>().Where(c => c != _dPower).ToList();
         for (int i = 0; i < costNodes.Count && i < items.Count; i++) costNodes[i].SetCost(items[i].Icon, items[i].Need, items[i].Have);
         if (items.Count == 0 && v.Cost.Length > 0) { /* free: the text says so */ }
-        if (entry.PowerUse > 0) { _dPower.SetText("status:power", "-" + entry.PowerUse, UiTheme.Warn, v.Power); _dPower.Visible = true; }
-        else if (entry.PowerOutput > 0) { _dPower.SetText("status:power", "+" + entry.PowerOutput, UiTheme.Good, v.Power); _dPower.Visible = true; }
+        if (entry.PowerUse > 0) { _dPower.SetText("status:power", "-" + Physical.Pow(entry.PowerUse, Loc.Culture), UiTheme.Warn, v.Power); _dPower.Visible = true; }
+        else if (entry.PowerOutput > 0) { _dPower.SetText("status:power", "+" + Physical.Pow(entry.PowerOutput, Loc.Culture), UiTheme.Good, v.Power); _dPower.Visible = true; }
         else _dPower.Visible = false;
         _dCost.Visible = items.Count > 0 || _dPower.Visible;
 

@@ -148,6 +148,22 @@ public partial class Play
 
     private bool BlueprintScripted => _blueprintShotPath is not null || _blueprintCheckOn;
 
+    /// <summary>ADR 0052: the stats panel speaks metres, tonnes and megawatts, and no text of the interface still says cells for a distance (both languages).</summary>
+    private void UnitsChecks(BlueprintSession s)
+    {
+        var rows = s.StatRows().ToDictionary(r => r.LabelKey);
+        var cult = Loc.Culture;
+        if (rows.TryGetValue("bp.stat.mass", out var mass)) Check("units: the mass is in tonnes", mass.Text(cult).EndsWith(" t") || mass.Text(cult).EndsWith(" kt"), mass.Text(cult));
+        if (rows.TryGetValue("bp.stat.length", out var length)) Check("units: the length is in metres", length.Text(cult).EndsWith(" m"), length.Text(cult));
+        if (rows.TryGetValue("bp.stat.thrust", out var speed)) Check("units: the top speed is in m/s", speed.Text(cult).EndsWith(" m/s"), speed.Text(cult));
+        if (rows.TryGetValue("bp.stat.accel", out var accel)) Check("units: the acceleration is in m/s2", accel.Text(cult).EndsWith("m/s²"), accel.Text(cult));
+        if (rows.TryGetValue("bp.stat.power", out var power)) Check("units: the power balance is in kW or MW", power.Text(cult).EndsWith(" kW") || power.Text(cult).EndsWith(" MW") || power.Text(cult).EndsWith(" W"), power.Text(cult));
+        if (rows.TryGetValue("bp.stat.cargo", out var cargo)) Check("units: the cargo shows the nominal mass", cargo.Text(cult).Contains("≈"), cargo.Text(cult));
+        Check("units: the decimal separator follows the language", Metric.Length(1500, cult) == (Loc.Lang == Language.Es ? "1,5 km" : "1.5 km"), Metric.Length(1500, cult));
+        int cellWords = Loc.All.Count(p => System.Text.RegularExpressions.Regex.IsMatch(Loc.Lang == Language.Es ? p.Value.Es : p.Value.En, Loc.Lang == Language.Es ? @"\b\d+ celdas?\b|celdas/s" : @"\b\d+ cells?\b|cells/s"));
+        Check("units: no text counts distances in cells", cellWords == 0, $"{cellWords} texts");
+    }
+
     private void Check(string name, bool ok, string detail = "")
     {
         if (ok) _bpPass++; else _bpFail++;
@@ -376,6 +392,7 @@ public partial class Play
         Check("cost panel lists the items", !s.Cost.Pays || s.Cost.Lines.Count > 0 && d.Contains($"costRows={(s.Cost.Lines.Count * 4) + 4}"), d);
         Check("the draft can be applied", s.CanApply && !s.Validation.HasErrors);
         Check("stats follow the draft", s.Stats.Lasers == s.StatsBefore.Lasers + 1 && s.Stats.PowerOutput == s.StatsBefore.PowerOutput && s.Stats.Mass > s.StatsBefore.Mass);
+        UnitsChecks(s); // ADR 0052
 
         // a module cut off from the rest: an error, red hatch, Apply blocked; clicking the entry frames it
         ed.PickKind(ModuleKind.Hull);

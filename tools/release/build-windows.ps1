@@ -194,7 +194,7 @@ Write-Step 'Checking the pack'
 $files = @(& (Join-Path $PSScriptRoot 'Get-PckFiles.ps1') -Pck $pck)
 $paths = $files | ForEach-Object { $_.Path -replace '^res://', '' }
 # Imported resources (fonts, models, scenes) appear as <name>.import plus converted data under .godot/imported, scenes as <name>.remap.
-$required = 'content/core.json', 'content/ship_handling.json', 'content/cockpit_layouts.json', 'content/scenarios/campaign.json', 'assets/credits.tsv',
+$required = 'content/core.json', 'content/ship_handling.json', 'content/cockpit_layouts.json', 'content/physical_units.json', 'content/scenarios/campaign.json', 'assets/credits.tsv',
     'assets/fonts/inter/Inter-Variable.ttf.import', 'assets/fonts/rajdhani/Rajdhani-SemiBold.ttf.import', 'assets/fonts/jetbrains-mono/JetBrainsMono-Regular.ttf.import',
     'assets/fonts/inter/OFL.txt', 'assets/fonts/rajdhani/OFL.txt', 'assets/fonts/jetbrains-mono/OFL.txt', 'assets/models/ship.glb.import', 'MainMenu.tscn.remap', 'Play.tscn.remap'
 $missing = $required | Where-Object { $paths -notcontains $_ }

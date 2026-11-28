@@ -160,5 +160,5 @@ public static class BuildCatalog
 
     /// <summary>The power line ("uses 10", "makes 100"), or an empty string when the entry has no power at all.</summary>
     public static string PowerText(BuildEntry e) =>
-        e.PowerOutput > 0 ? Loc.T("build.powerMakes", e.PowerOutput) : e.PowerUse > 0 ? Loc.T("build.powerUses", e.PowerUse) : "";
+        e.PowerOutput > 0 ? Loc.T("build.powerMakes", Physical.Pow(e.PowerOutput, Loc.Culture)) : e.PowerUse > 0 ? Loc.T("build.powerUses", Physical.Pow(e.PowerUse, Loc.Culture)) : "";
 }

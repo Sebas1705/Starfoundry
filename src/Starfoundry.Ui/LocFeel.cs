@@ -25,7 +25,7 @@ public static partial class Loc
         // hold overflow
         ["toast.dropped"] = ("Tirado al suelo: {0} x {1}", "Dropped on the ground: {0} x {1}"),
         ["toast.pickedUp"] = ("Recogido: {0} x {1}", "Picked up: {0} x {1}"),
-        ["tip.stack"] = ("{0} x {1}\nF para recoger", "{0} x {1}\nF to pick up"),
+        ["tip.stack"] = ("{0} x {1} ({2})\nF para recoger", "{0} x {1} ({2})\nF to pick up"),
         ["key.pickup"] = ("Recoger", "Pick up"),
         ["toast.holdOverflow"] = ("Bodega llena: el sobrante flota junto a la roca. Acércate para recogerlo cuando haya sitio.", "Hold full: the surplus floats beside the rock. Fly close to collect it when there is room."),
         ["toast.pickupCollected"] = ("Recogido: {0}", "Picked up: {0}"),

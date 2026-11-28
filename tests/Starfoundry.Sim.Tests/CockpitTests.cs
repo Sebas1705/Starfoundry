@@ -329,9 +329,10 @@ public class CockpitTests
         Assert.Equal("3,5", CockpitMath.Speed(3.5f, es));
         Assert.Equal("120", CockpitMath.Speed(120.4f, en));
         Assert.Equal("0.0", CockpitMath.Speed(float.NaN, en));
-        Assert.Equal("42", CockpitMath.Distance(41.6f, en));
-        Assert.Equal("1.2k", CockpitMath.Distance(1234f, en));
-        Assert.Equal("0", CockpitMath.Distance(-5f, en));
+        Assert.Equal("42 m", CockpitMath.Distance(41.6f, en));
+        Assert.Equal("1.2 km", CockpitMath.Distance(1234f, en));
+        Assert.Equal("0 m", CockpitMath.Distance(-5f, en));
+        Assert.Equal("1,2 km", CockpitMath.Distance(1234f, es));
     }
 
     [Fact]

@@ -146,7 +146,7 @@ public sealed class BlueprintValidation
             if (unfed.Count > 0) Add(ValidationSeverity.Warning, "beltStart", "bp.val.beltStart", unfed.Select(c => StationGrid.ModuleOfCell(c.X, c.Y, c.Z)).Distinct().ToList(), unfed.Count);
         }
         if (after.PowerBalance < 0)
-            Add(ValidationSeverity.Warning, "power", "bp.val.power", mods.Where(kv => ModuleKindIds.IsReactor(kv.Value)).Select(kv => (kv.Key.Mx, kv.Key.My, kv.Key.Mz)).ToList(), -after.PowerBalance);
+            Add(ValidationSeverity.Warning, "power", "bp.val.power", mods.Where(kv => ModuleKindIds.IsReactor(kv.Value)).Select(kv => (kv.Key.Mx, kv.Key.My, kv.Key.Mz)).ToList(), Physical.Pow(-after.PowerBalance, Loc.Culture));
         if (!station)
         {
         // Only what the draft adds: the starter ship's own gun deck over the cockpit is a known, glazed case that would warn forever.

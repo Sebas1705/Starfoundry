@@ -288,9 +288,11 @@ public partial class MachinePanel : PanelContainer
             int outCount = recipe.Outputs.Sum(o => o.Count);
             double nominal = MachineView.NominalPerMinute(outCount, recipe.TimeTicks);
             double now = MachineView.CurrentPerMinute(run, outCount, recipe.TimeTicks, sat);
+            double kgPerSecond = MachineView.OutputKgPerSecond(recipe.Outputs.Select(o => (_content.Items[o.Item].Id, o.Count)), recipe.TimeTicks);
+            string mass = Metric.MassFlow(kgPerSecond * (run == MachineRun.Running ? now : nominal) / Math.Max(0.0001, nominal), Loc.Culture);
             SetText(_rate, run == MachineRun.Running && sat < PowerRules.FullSatisfaction
-                ? Loc.T("machine.panel.perMinuteNow", MachineView.PerMinuteText(now), MachineView.PerMinuteText(nominal))
-                : Loc.T("machine.panel.perMinute", MachineView.PerMinuteText(run == MachineRun.Running ? now : nominal)));
+                ? Loc.T("machine.panel.perMinuteNow", MachineView.PerMinuteText(now), MachineView.PerMinuteText(nominal)) + " (" + mass + ")"
+                : Loc.T("machine.panel.perMinute", MachineView.PerMinuteText(run == MachineRun.Running ? now : nominal)) + " (" + mass + ")");
         }
 
         SetText(_recipesHead, options.Count == 0 ? Loc.T("machine.panel.noRecipes") : Loc.T("machine.panel.recipes"));

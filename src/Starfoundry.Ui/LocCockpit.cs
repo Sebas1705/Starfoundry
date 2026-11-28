@@ -13,7 +13,7 @@ public static partial class Loc
 
         // flight page
         ["cp.speed"] = ("VELOCIDAD", "SPEED"),
-        ["cp.unit"] = ("celdas/s", "cells/s"),
+        ["cp.unit"] = ("m/s", "m/s"),
         ["cp.thrust"] = ("EMPUJE", "THRUST"),
         ["cp.boost"] = ("IMPULSO", "BOOST"),
         ["cp.hull"] = ("CASCO", "HULL"),
@@ -32,7 +32,7 @@ public static partial class Loc
         // nav page
         ["cp.nav.targets"] = ("OBJETIVOS", "TARGETS"),
         ["cp.nav.none"] = ("Nada a la vista. K escanea.", "Nothing in range. K scans."),
-        ["cp.nav.noneReach"] = ("Nada a la vista (alcance {0} celdas). K escanea.", "Nothing in range ({0} cells). K scans."),
+        ["cp.nav.noneReach"] = ("Nada a la vista (alcance {0}). K escanea.", "Nothing in range ({0}). K scans."),
         ["cp.nav.auto"] = ("PILOTO AUTO", "AUTOPILOT"),
         ["cp.nav.autoOn"] = ("PILOTO AUTO: EN CURSO", "AUTOPILOT: ENGAGED"),
         ["cp.nav.dockAssist"] = ("APROXIMACIÓN", "DOCK ASSIST"),
@@ -43,7 +43,7 @@ public static partial class Loc
         ["cp.nav.port"] = ("Puerto", "Port"),
         ["cp.nav.enemy"] = ("Hostil", "Hostile"),
         ["cp.nav.noPick"] = ("Elige un yacimiento o un puerto", "Pick a deposit or a port"),
-        ["cp.unit.cells"] = ("celdas", "cells"),
+        ["cp.unit.cells"] = ("m", "m"),
         ["cp.nav.dist"] = ("DISTANCIA", "DISTANCE"),
         ["cp.nav.noTarget"] = ("SIN OBJETIVO", "NO TARGET"),
         ["cp.nav.autoRange"] = ("AUTO", "AUTO"),

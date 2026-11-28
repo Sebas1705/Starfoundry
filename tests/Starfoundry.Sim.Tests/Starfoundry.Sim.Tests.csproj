@@ -24,6 +24,7 @@
     <None Include="..\..\content\core.json" Link="content\core.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\content\ship_handling.json" Link="content\ship_handling.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\content\cockpit_layouts.json" Link="content\cockpit_layouts.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\content\physical_units.json" Link="content\physical_units.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="legacy\core_pre0031.json" Link="content\legacy\core_pre0031.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\content\scenarios\*.json" Link="content\scenarios\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

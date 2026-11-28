@@ -116,7 +116,7 @@ public partial class Play
                 if (o.FuseTicks > 0) return L("hazard.armed", Cap(Loc.Name("obstacle", def.Id)), (o.FuseTicks / (float)Units.TicksPerSecond).ToString("F1", Loc.Culture));
                 d -= def.TriggerCells; // inside the trigger range counts as touching
             }
-            if (d < HazardWarnCells && d < bestScore) { bestScore = d; best = L("hazard.near", Cap(Loc.Name("obstacle", def.Id)), MathF.Max(0f, MathF.Round(d)).ToString("F0", Loc.Culture)); }
+            if (d < HazardWarnCells && d < bestScore) { bestScore = d; best = L("hazard.near", Cap(Loc.Name("obstacle", def.Id)), Physical.Dist(MathF.Max(0f, MathF.Round(d)))); }
         }
         // The rocks of veins and of the field are solid too (ADR 0033, 0040) and are what a ship meets first near home: warn about them like any rock.
         // Only revealed rocks are solid in the simulation, and only those within reach of the ship are looked at.
@@ -136,7 +136,7 @@ public partial class Play
                 d = MathF.Min(d, MathF.Sqrt(dx * dx + dy * dy + dz * dz) - 4f);
             }
             d -= rockR / (float)Units.CellUnits;
-            if (d < HazardWarnCells && d < bestScore) { bestScore = d; best = L("hazard.near", L("obstacle.depositRock", ItemName(dep.Item)), MathF.Max(0f, MathF.Round(d)).ToString("F0", Loc.Culture)); }
+            if (d < HazardWarnCells && d < bestScore) { bestScore = d; best = L("hazard.near", L("obstacle.depositRock", ItemName(dep.Item)), Physical.Dist(MathF.Max(0f, MathF.Round(d)))); }
         }
         // Rocks only matter when you are heading for them fast enough to hurt: below the safe speed a bump is harmless.
         if (best.Length > 0 && bestScore > 14f)
@@ -180,7 +180,7 @@ public partial class Play
                     _vigAlpha = MathF.Max(_vigAlpha, Math.Clamp(0.2f + e.Damage / 200f, 0f, 0.8f));
                     _shake = MathF.Max(_shake, Math.Clamp(0.25f + e.Damage / 100f, 0f, 1.2f));
                     _audio?.Play(Sfx.RockThud, at);
-                    ToastThreat(L("toast.collision", e.Damage, ImpactModuleName(e.Structure), (e.Speed * (float)Units.TicksPerSecond / Units.CellUnits).ToString("F1", Loc.Culture)), 4.0);
+                    ToastThreat(L("toast.collision", e.Damage, ImpactModuleName(e.Structure), Metric.Speed(Physical.MetresPerSecondOfUnitsPerTick(e.Speed), Loc.Culture)), 4.0);
                     break;
                 case ObstacleEventKind.Bump:
                     if (e.Structure != myShip) break;

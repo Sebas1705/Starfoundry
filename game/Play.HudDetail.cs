@@ -184,12 +184,12 @@ public partial class Play
                 _closing.Update(dist, step);
                 string name = Loc.Name("enemy", def.Id);
                 _tgtRow.Visible = true;
-                _tgtRow.SetText(IconCatalog.ForEnemy(def.Id), L("hud.target.enemy", name, dist.ToString("F0", Loc.Culture)), EnemyMarkerColor, name);
+                _tgtRow.SetText(IconCatalog.ForEnemy(def.Id), L("hud.target.enemy", name, Physical.Dist(dist)), EnemyMarkerColor, name);
                 if (rows.HasFlag(HudRow.ClosingSpeed))
                 {
                     float c = _closing.Value;
                     _tgtClose.Visible = true;
-                    string text = MathF.Abs(c) < 0.3f ? L("hud.target.steady") : c > 0f ? L("hud.target.closing", c.ToString("F1", Loc.Culture)) : L("hud.target.opening", (-c).ToString("F1", Loc.Culture));
+                    string text = MathF.Abs(c) < 0.3f ? L("hud.target.steady") : c > 0f ? L("hud.target.closing", Metric.Number(Physical.MetresPerSecond(c), Loc.Culture)) : L("hud.target.opening", Metric.Number(Physical.MetresPerSecond(-c), Loc.Culture));
                     _tgtClose.SetText("status:speed", text, c > 0.3f ? WornColor : UiTheme.Muted);
                 }
                 if (rows.HasFlag(HudRow.TargetHull))
@@ -211,8 +211,8 @@ public partial class Play
                     string item = ItemName(Net.DepositItem(dep));
                     _tgtRow.Visible = true;
                     string text = Net.LaserFiring(Player) && Net.InMineRange(Player, dep)
-                        ? L("hud.target.mining", item, Net.DepositRemaining(dep))
-                        : L("hud.target.deposit", item, Net.DepositRemaining(dep), dd.ToString("F0", Loc.Culture));
+                        ? L("hud.target.mining", item, DepositAmount(dep))
+                        : L("hud.target.deposit", item, DepositAmount(dep), Physical.Dist(dd));
                     _tgtRow.SetText(Icons.ItemId(_content.Items[Net.DepositItem(dep)].Id), text, UiTheme.Gold, DensityText(dep));
                     any = true;
                 }

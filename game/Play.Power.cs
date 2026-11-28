@@ -54,9 +54,9 @@ public partial class Play
         var colour = BandColor(band);
         bool reactor = HasReactor(ship);
         bool powered = reactor || st.Production > 0;
-        _powerRow.Set("status:power", st.SatisfactionPermille / 1000f, powered ? $"{st.Production}/{st.Demand}" : "-",
+        _powerRow.Set("status:power", st.SatisfactionPermille / 1000f, powered ? Metric.PowerPair(Physical.Watts(st.Production), Physical.Watts(st.Demand), Loc.Culture) : "-",
             powered ? colour : BadColor,
-            powered ? L("hud.power", st.Production, st.Demand, PowerFormat.Percent(st.SatisfactionPermille)) : L("hud.power.noReactor"));
+            powered ? L("hud.power", Physical.Pow(st.Production, Loc.Culture), Physical.Pow(st.Demand, Loc.Culture), PowerFormat.Percent(st.SatisfactionPermille)) : L("hud.power.noReactor"));
         var vital = VitalRows;
         _powerRow.Visible = vital.HasFlag(HudRow.PowerGauge) || band != PowerBand.Full || !powered; // the minimal level shows the gauge only when power is short
         _fuelRow.Visible = vital.HasFlag(HudRow.FuelTime);
@@ -104,7 +104,7 @@ public partial class Play
     {
         var st = Net.PowerStatus(structure);
         if (!HasReactor(structure)) return $"{name}: {L("hud.power.noReactor")}";
-        return L("hud.power.station", name, st.Production, st.Demand, PowerFormat.Percent(st.SatisfactionPermille), PowerFormat.FuelLine(st, BurnInterval));
+        return L("hud.power.station", name, Physical.Pow(st.Production, Loc.Culture), Physical.Pow(st.Demand, Loc.Culture), PowerFormat.Percent(st.SatisfactionPermille), PowerFormat.FuelLine(st, BurnInterval));
     }
 
     /// <summary>While the guided step is making hydrogen: a marker on the nearest known ice deposit.</summary>

@@ -641,7 +641,7 @@ public class FlightFeelTests
             Assert.True(Starfoundry.Ui.Loc.Has(key), key);
             var (es, en) = Starfoundry.Ui.Loc.All.First(p => p.Key == key).Value;
             Assert.False(string.IsNullOrWhiteSpace(es) || string.IsNullOrWhiteSpace(en), key);
-            Assert.NotEqual(es, en);
+            if (key != "hud.flightSpeedOf") Assert.NotEqual(es, en); // the speed pair reads the same in both languages: "{0} / {1} m/s"
         }
         Assert.Equal("toast.reject.overlapsDeposit", Starfoundry.Ui.RejectTexts.Key(Reject.OverlapsDeposit));
     }

@@ -383,7 +383,10 @@ public class NavScreenTests
     {
         Assert.Equal("--", NavPage.BigDistance(null, System.Globalization.CultureInfo.InvariantCulture));
         Assert.Equal("47", NavPage.BigDistance(Row(NavKind.Deposit, 1, 47.2f), System.Globalization.CultureInfo.InvariantCulture));
-        Assert.Equal("1.5k", NavPage.BigDistance(Row(NavKind.Gate, 1, 1500f), System.Globalization.CultureInfo.InvariantCulture));
+        Assert.Equal("m", NavPage.BigDistanceUnit(Row(NavKind.Deposit, 1, 47.2f), System.Globalization.CultureInfo.InvariantCulture));
+        Assert.Equal("1.5", NavPage.BigDistance(Row(NavKind.Gate, 1, 1500f), System.Globalization.CultureInfo.InvariantCulture));
+        Assert.Equal("km", NavPage.BigDistanceUnit(Row(NavKind.Gate, 1, 1500f), System.Globalization.CultureInfo.InvariantCulture));
+        Assert.Equal("", NavPage.BigDistanceUnit(null, System.Globalization.CultureInfo.InvariantCulture));
     }
 
     [Fact]

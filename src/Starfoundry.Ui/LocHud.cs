@@ -45,12 +45,12 @@ public static partial class Loc
 
         // the target card
         ["hud.target.title"] = ("OBJETIVO", "TARGET"),
-        ["hud.target.enemy"] = ("{0}  {1} celdas", "{0}  {1} cells"),
+        ["hud.target.enemy"] = ("{0}  {1}", "{0}  {1}"),
         ["hud.target.hull"] = ("casco {0} %", "hull {0} %"),
-        ["hud.target.closing"] = ("se acerca {0} celdas/s", "closing {0} cells/s"),
-        ["hud.target.opening"] = ("se aleja {0} celdas/s", "opening {0} cells/s"),
+        ["hud.target.closing"] = ("se acerca {0} m/s", "closing {0} m/s"),
+        ["hud.target.opening"] = ("se aleja {0} m/s", "opening {0} m/s"),
         ["hud.target.steady"] = ("a distancia constante", "steady range"),
-        ["hud.target.deposit"] = ("{0}: {1} · {2} celdas", "{0}: {1} · {2} cells"),
+        ["hud.target.deposit"] = ("{0}: {1} · {2}", "{0}: {1} · {2}"),
         ["hud.target.mining"] = ("minando {0}: quedan {1}", "mining {0}: {1} left"),
         ["hud.weapons.laser"] = ("Láser", "Laser"),
         ["hud.weapons.guns"] = ("Cañones", "Guns"),

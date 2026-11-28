@@ -93,9 +93,11 @@ public static class ClientContent
     private static string? _loadedFor;
     private static ShipHandling _handling = ShipHandling.Default;
     private static CockpitLayouts _layouts = CockpitLayouts.Default;
+    private static PhysicalTable _physical = PhysicalTable.Default;
 
     public static ShipHandling Handling => _handling;
     public static CockpitLayouts Layouts => _layouts;
+    public static PhysicalTable PhysicalUnits => _physical;
 
     /// <summary>Reads the sibling files of the content file at <paramref name="corePath"/> (once per path).</summary>
     public static void Load(string? corePath)
@@ -106,6 +108,8 @@ public static class ClientContent
         string dir = slash >= 0 ? corePath[..slash] : ".";
         _handling = Read(dir + "/ship_handling.json", ShipHandling.FromJson, ShipHandling.Default);
         _layouts = Read(dir + "/cockpit_layouts.json", CockpitLayouts.FromJson, CockpitLayouts.Default);
+        _physical = Read(dir + "/physical_units.json", PhysicalTable.FromJson, PhysicalTable.Default);
+        Starfoundry.Ui.Physical.Table = _physical;
     }
 
     private static T Read<T>(string path, Func<string, T> parse, T fallback)

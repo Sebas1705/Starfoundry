@@ -189,6 +189,7 @@ public partial class Play
         int index = PaletteIndexOf(e);
         string key = index >= 0 && (index < DirectKeys || _palette[index].IsStation || (_palette[index].IsModule && e.Kind != BuildEntryKind.Module)) ? KeyLabel(index) : "";
         string role = e.Kind == BuildEntryKind.Machine ? L("tip.role." + _content.Machines[e.Machine].Role.ToString().ToLowerInvariant()) : L(e.RoleKey);
+        if (e.Kind == BuildEntryKind.Module && e.Module is { } moduleKind) role += "  -  " + L("build.mass", Metric.Mass(Physical.ModuleKg(ClientContent.Handling, moduleKind), Loc.Culture)); // ADR 0052
         bool blocked = EntryBlockedNow(e); // ADR 0039
         string status = blocked ? (AutomationBlocked ? L("build.stationFirst") : L("build.useBlueprint")) : st.Locked
             ? (st.UnlockedBy >= 0 ? L("build.locked", Loc.Name("research", _content.Research[st.UnlockedBy].Id)) : L("build.lockedNoNode"))

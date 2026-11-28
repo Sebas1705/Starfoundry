@@ -358,8 +358,8 @@ public partial class ShipDesigner : Control
         _weapons.Text = Loc.T("designer.weapons", lasers, lp, guns, gp);
         if (_editor.Flight(_content, net.Network.BonusPercent(BonusKind.EngineSpeed), net.Network.BonusPercent(BonusKind.EngineAccel)) is { } fl)
             _weapons.Text += "\n" + (fl.SecondsToTop > 0
-                ? Loc.T("designer.flight", fl.Engines, fl.TopCellsPerSecond.ToString("F1", Loc.Culture), fl.SecondsToTop.ToString("F1", Loc.Culture))
-                : Loc.T("designer.flightPlain", fl.Engines, fl.TopCellsPerSecond.ToString("F1", Loc.Culture)));
+                ? Loc.T("designer.flight", fl.Engines, Metric.Number(Physical.MetresPerSecond(fl.TopCellsPerSecond), Loc.Culture), fl.SecondsToTop.ToString("F1", Loc.Culture))
+                : Loc.T("designer.flightPlain", fl.Engines, Metric.Number(Physical.MetresPerSecond(fl.TopCellsPerSecond), Loc.Culture)));
 
         // the verdict and the price
         var report = _editor.Check(net, _player);

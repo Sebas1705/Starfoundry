@@ -196,19 +196,11 @@ public static class CockpitMath
     /// <summary>The state colour of a gauge from its fraction: good, worn below a third... the same bands as the HUD bars.</summary>
     public static HealthBand Band(float fraction) => HudFormat.Band((int)MathF.Round(Math.Clamp(fraction, 0f, 1f) * 1000f), 1000);
 
-    /// <summary>The speed as shown: one decimal below 100, whole above, never negative, no "-0.0".</summary>
-    public static string Speed(float cellsPerSecond, IFormatProvider culture)
-    {
-        float v = float.IsFinite(cellsPerSecond) ? Math.Max(0f, cellsPerSecond) : 0f;
-        return v < 99.95f ? v.ToString("F1", culture) : v.ToString("F0", culture);
-    }
+    /// <summary>The speed number as shown (the unit "m/s" is drawn beside it): a speed in cells per second is metres per second (ADR 0052); two significant digits below 100, whole above, never negative, no "-0.0".</summary>
+    public static string Speed(float cellsPerSecond, IFormatProvider culture) => Metric.Number(Physical.MetresPerSecond(float.IsFinite(cellsPerSecond) ? cellsPerSecond : 0f), culture);
 
-    /// <summary>A distance in cells as shown on the nav list: whole cells, "1.2k" from a thousand.</summary>
-    public static string Distance(float cells, IFormatProvider culture)
-    {
-        float v = float.IsFinite(cells) ? Math.Max(0f, cells) : 0f;
-        return v < 1000f ? v.ToString("F0", culture) : (v / 1000f).ToString("F1", culture) + "k";
-    }
+    /// <summary>A distance in cells as shown on the nav list, with its unit and SI scaling: "42 m", "1.2 km".</summary>
+    public static string Distance(float cells, IFormatProvider culture) => Metric.Length(Physical.Metres(float.IsFinite(cells) ? cells : 0f), culture);
 
 
     /// <summary>How bright the screens are for a power satisfaction in per mille: full at 1000 and over, dimming towards 0.45 at nothing, and 0.2 when the ship has no power at all (they stay readable, only dimmer).</summary>
@@ -221,7 +213,7 @@ public static class CockpitMath
 public readonly record struct FlightDisplayData(
     float Speed, float MaxSpeed, float Thrust, bool Boosting, bool BoostAvailable, float Target,
     int Hull, int MaxHull, int PowerProduction, int PowerDemand, int PowerPermille,
-    int Hydrogen, long FuelTicksLeft, int HoldUsed, int HoldCapacity)
+    int Hydrogen, long FuelTicksLeft, int HoldUsed, int HoldCapacity, double HoldKg = 0.0)
 {
     public float SpeedFraction => CockpitMath.Fraction(Speed, MaxSpeed);
     /// <summary>Where the demanded speed sits on the speed bar (0 to 1): the mark the gauge shows against the actual speed.</summary>
