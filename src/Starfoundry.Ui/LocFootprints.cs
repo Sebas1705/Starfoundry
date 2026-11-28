@@ -28,6 +28,13 @@ public static partial class Loc
         ["research.core:heavy_industry"] = ("Industria pesada", "Heavy industry"),
         ["research.core:heavy_industry.desc"] = ("Máquinas de varias celdas: fundición grande 2 x 2, ensambladora larga 1 x 3, fabricadora en L y núcleo de reactor en cruz, con recetas por lotes.", "Multi-cell machines: the 2 x 2 large smelter, the 1 x 3 long assembler, the L fabricator and the plus-shaped reactor core, with batch recipes."),
         ["bp.val.footprint"] = ("Una máquina no cabe: debe quedar entera sobre el suelo de un solo módulo", "A machine does not fit: it has to stand whole on the floor of a single module"),
+        ["research.core:large_structures"] = ("Estructuras grandes", "Large structures"),
+        ["research.core:large_structures.desc"] = ("Módulos grandes: bahías, bodegas y cascos de 2 x 2 o 3 x 3 módulos con un solo suelo, algo más baratos por módulo.", "Large modules: bays, holds and hulls of 2 x 2 or 3 x 3 modules with one joined floor, a little cheaper per module."),
+        ["toast.reject.badSpan"] = ("Un módulo grande es un cuadrado completo de 2 x 2 o 3 x 3 módulos del mismo tipo, y ese tipo debe poder ser grande", "A large module is a full square of 2 x 2 or 3 x 3 modules of one kind, and that kind has to be allowed to be large"),
+        ["bp.tool.large"] = ("Módulo grande", "Large module"),
+        ["bp.tool.large.hint"] = ("elige el tipo y el tamaño en la paleta; un clic pone el cuadrado entero desde esa celda; borrar quita el módulo grande entero", "pick the kind and size in the palette; a click places the whole square from that cell; delete takes the whole large module away"),
+        ["bp.large.size"] = ("{0} grande {1} x {1}", "Large {0} {1} x {1}"),
+        ["bp.large.locked"] = ("Falta investigar Estructuras grandes", "Large structures are not researched yet"),
         ["machine.size"] = ("{0} x {1} celdas", "{0} x {1} cells"),
         ["bp.plan.turn"] = ("Girar la máquina", "Turn the machine"),
     };

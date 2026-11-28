@@ -26,10 +26,31 @@ public sealed class BlueprintDraft
     private readonly Dictionary<(int Mx, int My, int Mz), int> _rotation = new();
     private readonly Dictionary<(int Mx, int My, int Mz), ModuleKind> _original = new();
     private readonly SortedSet<(int Mx, int My, int Mz, int Face)> _pieces = new(), _originalPieces = new();
+    private readonly SortedSet<(int Mx, int My, int Mz, int Size)> _spans = new(), _originalSpans = new();
     private readonly List<Snapshot> _undo = new(), _redo = new();
     private List<((int Mx, int My, int Mz) Offset, ModuleKind Kind, int Rotation)> _clipboard = new();
 
-    private sealed record Snapshot(((int Mx, int My, int Mz) Key, ModuleKind Kind, int Rotation)[] Parts, (int Mx, int My, int Mz, int Face)[] Pieces);
+    private sealed record Snapshot(((int Mx, int My, int Mz) Key, ModuleKind Kind, int Rotation)[] Parts, (int Mx, int My, int Mz, int Face)[] Pieces, (int Mx, int My, int Mz, int Size)[] Spans);
+
+    /// <summary>True in a world with large modules (ADR 0051): the draft then carries its spans, and <see cref="ToCommand"/> sends them. Set by <see cref="Load"/>.</summary>
+    public bool UsesSpans { get; private set; }
+
+    /// <summary>The draft's large modules, in anchor order.</summary>
+    public IEnumerable<DesignSpan> Spans => _spans.Select(s => new DesignSpan(s.Mx, s.My, s.Mz, s.Size));
+
+    /// <summary>The structure's own large modules.</summary>
+    public IEnumerable<DesignSpan> OriginalSpans => _originalSpans.Select(s => new DesignSpan(s.Mx, s.My, s.Mz, s.Size));
+
+    /// <summary>The draft's large module that covers a cell, when there is one.</summary>
+    public DesignSpan? SpanAt((int Mx, int My, int Mz) cell)
+    {
+        foreach (var s in _spans)
+            if (s.My == cell.My && cell.Mx >= s.Mx && cell.Mx < s.Mx + s.Size && cell.Mz >= s.Mz && cell.Mz < s.Mz + s.Size) return new DesignSpan(s.Mx, s.My, s.Mz, s.Size);
+        return null;
+    }
+
+    /// <summary>True when two cells of the draft share one floor: the same cell or two cells of one large module.</summary>
+    public bool SameFloor((int Mx, int My, int Mz) a, (int Mx, int My, int Mz) b) => a == b || (SpanAt(a) is { } sa && SpanAt(b) is { } sb && sa == sb);
 
     /// <summary>
     /// True in a world where the dock is a docking collar, a small piece on a module face (ADR 0047), not a dock module: the draft then carries the collars, the Dock module kind is
@@ -84,12 +105,15 @@ public sealed class BlueprintDraft
     // ---- loading and the plain state --------------------------------------------------------------------------
 
     /// <summary>Loads the structure's modules as the draft and as the layout Revert goes back to; the history and the clipboard are cleared.</summary>
-    public void Load(IEnumerable<KeyValuePair<(int Mx, int My, int Mz), ModuleKind>> modules, StructureKind kind = StructureKind.Ship, int structureId = -1, IEnumerable<DockPieceSpec>? pieces = null)
+    public void Load(IEnumerable<KeyValuePair<(int Mx, int My, int Mz), ModuleKind>> modules, StructureKind kind = StructureKind.Ship, int structureId = -1, IEnumerable<DockPieceSpec>? pieces = null, IEnumerable<DesignSpan>? spans = null)
     {
         Kind = kind; StructureId = structureId;
         _kinds.Clear(); _rotation.Clear(); _original.Clear(); _undo.Clear(); _redo.Clear(); _clipboard = new();
-        _pieces.Clear(); _originalPieces.Clear();
+        _pieces.Clear(); _originalPieces.Clear(); _spans.Clear(); _originalSpans.Clear();
         UsesPieces = pieces is not null;
+        UsesSpans = spans is not null;
+        if (spans is not null)
+            foreach (var sp in spans) { _spans.Add((sp.Mx, sp.My, sp.Mz, sp.Size)); _originalSpans.Add((sp.Mx, sp.My, sp.Mz, sp.Size)); }
         foreach (var (k, v) in modules) { _kinds[k] = v; _original[k] = v; }
         if (pieces is not null)
             foreach (var p in pieces) { _pieces.Add((p.Mx, p.My, p.Mz, (int)p.Face)); _originalPieces.Add((p.Mx, p.My, p.Mz, (int)p.Face)); }
@@ -101,7 +125,7 @@ public sealed class BlueprintDraft
     {
         get
         {
-            if (!_pieces.SetEquals(_originalPieces)) return true;
+            if (!_pieces.SetEquals(_originalPieces) || !_spans.SetEquals(_originalSpans)) return true;
             if (_kinds.Count != _original.Count) return true;
             foreach (var (k, v) in _kinds)
                 if (!_original.TryGetValue(k, out var o) || o != v) return true;
@@ -115,14 +139,17 @@ public sealed class BlueprintDraft
     public DesignModule[] ToModules() => _kinds.Select(kv => new DesignModule(kv.Key.Mx, kv.Key.My, kv.Key.Mz, kv.Value)).ToArray();
 
     /// <summary>The one command that applies the draft: <see cref="ApplyBlueprint"/> for a station, <see cref="DesignerApply"/> for the ship.</summary>
-    public Command ToCommand() => Kind == StructureKind.Station ? new ApplyBlueprint(StructureId, ToModules(), null, PiecesCarried()) : new DesignerApply(ToModules(), PiecesCarried());
+    public Command ToCommand() => Kind == StructureKind.Station ? new ApplyBlueprint(StructureId, ToModules(), null, PiecesCarried(), SpansCarried()) : new DesignerApply(ToModules(), PiecesCarried(), SpansCarried());
+
+    /// <summary>The large modules the command carries: all of them in a world that has them, null otherwise.</summary>
+    public DesignSpan[]? SpansCarried() => UsesSpans ? Spans.ToArray() : null;
 
     /// <summary>The collars the command carries: all of them in a world with docking collars, null otherwise (the command then reads as before).</summary>
     public DockPieceSpec[]? PiecesCarried() => UsesPieces ? Pieces.ToArray() : null;
 
     /// <summary>The simulation's verdict and price for the draft (the same code the apply runs): for a ship docked at a shipyard, or for the station being edited.</summary>
     public DesignReport Check(SimWorld world, int player) =>
-        Kind == StructureKind.Station ? world.CheckBlueprint(player, StructureId, ToModules(), null, PiecesCarried()) : world.CheckDesign(player, ToModules(), PiecesCarried());
+        Kind == StructureKind.Station ? world.CheckBlueprint(player, StructureId, ToModules(), null, PiecesCarried(), SpansCarried()) : world.CheckDesign(player, ToModules(), PiecesCarried(), SpansCarried());
 
     /// <summary>The bounds of the draft (inclusive), widened by <paramref name="margin"/> modules on every side; a small box around the origin when it is empty.</summary>
     public ((int X, int Y, int Z) Min, (int X, int Y, int Z) Max) Bounds(int margin = 1)
@@ -140,7 +167,7 @@ public sealed class BlueprintDraft
 
     // ---- history ------------------------------------------------------------------------------------------------
 
-    private Snapshot Capture() => new(_kinds.Select(kv => (kv.Key, kv.Value, _rotation.GetValueOrDefault(kv.Key))).ToArray(), _pieces.ToArray());
+    private Snapshot Capture() => new(_kinds.Select(kv => (kv.Key, kv.Value, _rotation.GetValueOrDefault(kv.Key))).ToArray(), _pieces.ToArray(), _spans.ToArray());
 
     private void Restore(Snapshot s)
     {
@@ -148,6 +175,8 @@ public sealed class BlueprintDraft
         foreach (var (k, kind, rot) in s.Parts) { _kinds[k] = kind; if (rot != 0) _rotation[k] = rot; }
         _pieces.Clear();
         foreach (var p in s.Pieces) _pieces.Add(p);
+        _spans.Clear();
+        foreach (var p in s.Spans) _spans.Add(p);
     }
 
     /// <summary>Records the state before an edit; a new edit forgets what could have been redone.</summary>
@@ -160,6 +189,7 @@ public sealed class BlueprintDraft
 
     private void Done()
     {
+        if (UsesSpans) _spans.RemoveWhere(sp => !SpanWhole(sp)); // a large module with a cell gone falls apart into ordinary modules
         if (UsesPieces) _pieces.RemoveWhere(p => !_kinds.TryGetValue((p.Mx, p.My, p.Mz), out var k) || !DockRules.CanHostPiece(k, (Dir)p.Face)); // a collar goes with its host, or when the host stops being able to carry it
         Changed?.Invoke();
     }
@@ -189,7 +219,8 @@ public sealed class BlueprintDraft
     {
         if (!Dirty && _rotation.Count == 0) return;
         Push();
-        _kinds.Clear(); _rotation.Clear(); _pieces.Clear();
+        _kinds.Clear(); _rotation.Clear(); _pieces.Clear(); _spans.Clear();
+        foreach (var sp in _originalSpans) _spans.Add(sp);
         foreach (var (k, v) in _original) _kinds[k] = v;
         foreach (var p in _originalPieces) _pieces.Add(p);
         Done();
@@ -228,7 +259,7 @@ public sealed class BlueprintDraft
     {
         if (!_kinds.ContainsKey(key)) return DesignEditResult.Empty;
         Push();
-        _kinds.Remove(key); _rotation.Remove(key);
+        if (SpanAt(key) is { } sp) RemoveSpanCells(sp); else { _kinds.Remove(key); _rotation.Remove(key); }
         Done();
         return DesignEditResult.Ok;
     }
@@ -239,7 +270,7 @@ public sealed class BlueprintDraft
         var list = keys.Distinct().Where(_kinds.ContainsKey).ToList();
         if (list.Count == 0) return new(0, 0);
         Push();
-        foreach (var k in list) { _kinds.Remove(k); _rotation.Remove(k); }
+        foreach (var k in list) { if (SpanAt(k) is { } sp) RemoveSpanCells(sp); else { _kinds.Remove(k); _rotation.Remove(k); } }
         Done();
         return new(list.Count, 0);
     }
@@ -259,6 +290,7 @@ public sealed class BlueprintDraft
     {
         var list = keys.Distinct().Where(_kinds.ContainsKey).ToList();
         if (list.Count == 0 || offset == (0, 0, 0)) return new(0, list.Count);
+        if (list.Any(k => SpanAt(k) is not null)) return new(0, list.Count); // a large module moves as a whole by being taken down and built again
         var set = new HashSet<(int, int, int)>(list.Select(k => (k.Mx, k.My, k.Mz)));
         foreach (var k in list)
         {
@@ -340,6 +372,51 @@ public sealed class BlueprintDraft
             next = at + 1;
         }
         if (next < faces.Count) _pieces.Add((key.Mx, key.My, key.Mz, (int)faces[next]));
+        Done();
+        return DesignEditResult.Ok;
+    }
+
+    private bool SpanWhole((int Mx, int My, int Mz, int Size) sp)
+    {
+        if (!_kinds.TryGetValue((sp.Mx, sp.My, sp.Mz), out var kind)) return false;
+        for (int dx = 0; dx < sp.Size; dx++)
+            for (int dz = 0; dz < sp.Size; dz++)
+                if (!_kinds.TryGetValue((sp.Mx + dx, sp.My, sp.Mz + dz), out var k) || k != kind) return false;
+        return true;
+    }
+
+    private void RemoveSpanCells(DesignSpan sp)
+    {
+        for (int dx = 0; dx < sp.Size; dx++)
+            for (int dz = 0; dz < sp.Size; dz++)
+            {
+                var c = (sp.Mx + dx, sp.My, sp.Mz + dz);
+                _kinds.Remove(c); _rotation.Remove(c);
+            }
+        _spans.Remove((sp.Mx, sp.My, sp.Mz, sp.Size));
+    }
+
+    /// <summary>The side of the biggest large module a kind may be in this draft's structure (1 when large modules are off or the kind stays single).</summary>
+    public int MaxSpan(ModuleKind kind) => UsesSpans ? ModuleKindIds.MaxSpan(Kind, kind) : 1;
+
+    /// <summary>
+    /// Builds a large module (ADR 0051): a square of <paramref name="size"/> by size cells of one kind from <paramref name="anchor"/> (its lowest corner), one undoable step. Every cell has to be
+    /// valid and free, the kind must be allowed that large, and the square has to touch the rest of the draft (or be the whole of an empty one).
+    /// </summary>
+    public DesignEditResult AddSpan((int Mx, int My, int Mz) anchor, ModuleKind kind, int size, ContentDb content)
+    {
+        if (!UsesSpans || size < 2 || size > MaxSpan(kind)) return DesignEditResult.KindNotAllowed;
+        if (!Catalogue(content).Contains(kind)) return DesignEditResult.KindNotAllowed;
+        var cells = new List<(int, int, int)>();
+        for (int dx = 0; dx < size; dx++)
+            for (int dz = 0; dz < size; dz++) cells.Add((anchor.Mx + dx, anchor.My, anchor.Mz + dz));
+        if (cells.Any(c => !StructureGrid.IsValidLocalModule(c.Item1, c.Item2, c.Item3))) return DesignEditResult.OutOfBounds;
+        if (cells.Any(c => _kinds.ContainsKey(c))) return DesignEditResult.Occupied;
+        if (_kinds.Count + cells.Count > Max) return DesignEditResult.TooManyModules;
+        if (_kinds.Count > 0 && !cells.Any(c => ShipDesignEditor.Touches(_kinds, (c.Item1, c.Item2, c.Item3)))) return DesignEditResult.NotAdjacent;
+        Push();
+        foreach (var c in cells) _kinds[c] = kind;
+        _spans.Add((anchor.Mx, anchor.My, anchor.Mz, size));
         Done();
         return DesignEditResult.Ok;
     }

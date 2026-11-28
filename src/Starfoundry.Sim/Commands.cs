@@ -188,7 +188,7 @@ public sealed record SetAttitude(int W, int X, int Y, int Z) : Command;
 /// a cargo module, no core, connected, nothing removed that holds a machine or belt, the docked port kept, no overlap with the station, the hold still fits) and
 /// priced: modules that only move are free, a removed module refunds half its cost, the hold pays first and the station stock the rest. All or nothing.
 /// With <see cref="DockPieces"/> (ADR 0047, tag 67) the same step also sets the ship's docking collars exactly; without it the collars that still have a host are kept.</summary>
-public sealed record DesignerApply(DesignModule[] Modules, DockPieceSpec[]? DockPieces = null) : Command;
+public sealed record DesignerApply(DesignModule[] Modules, DockPieceSpec[]? DockPieces = null, DesignSpan[]? Spans = null) : Command;
 
 /// <summary>
 /// Replaces the whole module list of one of the player's structures in a single atomic step (ADR 0043), the blueprint editor's apply: a station, or the player's ship
@@ -199,7 +199,10 @@ public sealed record DesignerApply(DesignModule[] Modules, DockPieceSpec[]? Dock
 /// With a <see cref="BlueprintInterior"/> (ADR 0044, tag 66) the same step also makes the machines, belts, turrets and walls of the station exactly that interior; without one the interior is left alone.
 /// With <see cref="DockPieces"/> (ADR 0047, tags 68 and 69) it also sets the docking collars exactly; without it the collars that still have a host are kept.
 /// </summary>
-public sealed record ApplyBlueprint(int Structure, DesignModule[] Modules, BlueprintInterior? Interior = null, DockPieceSpec[]? DockPieces = null) : Command;
+public sealed record ApplyBlueprint(int Structure, DesignModule[] Modules, BlueprintInterior? Interior = null, DockPieceSpec[]? DockPieces = null, DesignSpan[]? Spans = null) : Command;
+
+/// <summary>ADR 0051: a large module, a square of <paramref name="Size"/> by Size module cells (2 or 3) of one kind in one layer whose lowest corner is (Mx, My, Mz); its cells are listed as ordinary modules too.</summary>
+public readonly record struct DesignSpan(int Mx, int My, int Mz, int Size);
 
 /// <summary>Several commands applied atomically: either all succeed or the world is left untouched.</summary>
 public sealed record Batch(Command[] Commands) : Command;
@@ -355,6 +358,9 @@ public enum Reject
 
     /// <summary>A machine footprint (ADR 0050) would leave the floor of its module or reach a cell no module covers.</summary>
     FootprintBlocked,
+
+    /// <summary>A large module (ADR 0051) is not a full square of one kind its structure may build that large.</summary>
+    BadSpan,
 }
 
 /// <summary>Outcome of one submitted command.</summary>

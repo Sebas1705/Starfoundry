@@ -81,7 +81,8 @@ public partial class BlueprintEditor
 
         // tools, palette and view
         foreach (var (t, b) in _toolButtons) b.SetPressedNoSignal(s.Tool == t);
-        foreach (var (k, b) in _palette) b.SetPressedNoSignal(s.Tool == BlueprintTool.Place && s.Kind == k);
+        foreach (var (k, b) in _palette) b.SetPressedNoSignal(s.Tool == BlueprintTool.Place && s.Kind == k && s.LargeSize == 1);
+        foreach (var (k, n, b) in _largePalette) b.SetPressedNoSignal(s.Tool == BlueprintTool.Place && s.Kind == k && s.LargeSize == n);
         SyncViewButtons();
         _undo.Disabled = !(s.FloorModule is not null ? s.Interior.CanUndo : s.Draft.CanUndo);
         _redo.Disabled = !(s.FloorModule is not null ? s.Interior.CanRedo : s.Draft.CanRedo);

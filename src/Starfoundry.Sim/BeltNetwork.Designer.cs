@@ -9,6 +9,9 @@ public static class DesignerRules
     /// <summary>Most modules a ship design may have.</summary>
     public const int MaxModules = 128;
 
+    /// <summary>Most large modules (ADR 0051) one design may carry.</summary>
+    public const int MaxSpans = 64;
+
     /// <summary>Most modules a station blueprint may have (ADR 0043).</summary>
     public const int MaxStationModules = 256;
 }

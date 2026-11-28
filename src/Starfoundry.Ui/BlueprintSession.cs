@@ -30,6 +30,9 @@ public sealed class BlueprintSession
     /// <summary>The machine type the Machine tool places (a content machine index), or -1 for none yet.</summary>
     public int PlanMachine { get; private set; } = -1;
 
+    /// <summary>Side of the large module the Place tool builds (ADR 0051): 1 for an ordinary module, 2 or 3 for a square of that side.</summary>
+    public int LargeSize { get; private set; } = 1;
+
     /// <summary>Quarter turns the next multi-cell machine is placed with (ADR 0050); <see cref="TurnPlan"/> changes it.</summary>
     public int PlanTurn { get; private set; }
 
@@ -86,12 +89,12 @@ public sealed class BlueprintSession
         int ship = structure >= 0 ? structure : net.ShipStructure(_player);
         _selection.Clear(); Carrying = null; Kind = null; Tool = BlueprintTool.Select;
         FloorModule = null; PlanSelection = null;
-        Interior.SetModules(k => Draft.Modules.TryGetValue(k, out var kind) ? kind : null, net.FreeBuilding);
+        Interior.SetModules(k => Draft.Modules.TryGetValue(k, out var kind) ? kind : null, net.FreeBuilding, (a, b) => Draft.SameFloor(a, b));
         if (ship >= 0)
         {
             var st = net.GetStructure(ship);
             Interior.Load(structure >= 0 ? net.ReadInterior(structure) : BlueprintInterior.Empty);
-            Draft.Load(st.Modules, st.Kind, structure >= 0 ? structure : -1, net.DockPieceRules ? net.DockPieces(ship).ToList() : null);
+            Draft.Load(st.Modules, st.Kind, structure >= 0 ? structure : -1, net.DockPieceRules ? net.DockPieces(ship).ToList() : null, net.SpanRules ? net.Spans(ship).ToList() : null);
         }
         var (min, max) = Draft.Bounds(1);
         Camera.Frame(min, max);
@@ -141,7 +144,7 @@ public sealed class BlueprintSession
         var w = _world();
         bool station = StructureKind == StructureKind.Station;
         InteriorChange = station ? InteriorDiff.Compute(Interior.Original, Interior.ToInterior()) : InteriorDiff.Empty;
-        Report = station ? w.CheckBlueprint(_player, StructureId, Draft.ToModules(), InteriorCarried(), Draft.PiecesCarried()) : Draft.Check(w, _player);
+        Report = station ? w.CheckBlueprint(_player, StructureId, Draft.ToModules(), InteriorCarried(), Draft.PiecesCarried(), Draft.SpansCarried()) : Draft.Check(w, _player);
         var bonuses = Bonuses();
         Stats = ShipStats.Compute(Draft.Modules.Values, _content, _handling, bonuses);
         StatsBefore = ShipStats.Compute(Draft.Original.Values, _content, _handling, bonuses);
@@ -168,9 +171,10 @@ public sealed class BlueprintSession
     }
 
     /// <summary>Picks a kind from the palette: the Place tool is selected with it.</summary>
-    public void PickKind(ModuleKind kind)
+    public void PickKind(ModuleKind kind, int size = 1)
     {
         Kind = kind;
+        LargeSize = Draft.MaxSpan(kind) >= size ? Math.Max(1, size) : 1;
         Tool = BlueprintTool.Place;
         Carrying = null;
         Changed?.Invoke();
@@ -202,7 +206,7 @@ public sealed class BlueprintSession
         {
             case BlueprintTool.Place:
                 if (occupied) Select(cell, additive);
-                else if (Kind is { } kind) key = EditKey(Draft.Add(cell, kind, _content));
+                else if (Kind is { } kind) key = EditKey(LargeSize > 1 ? Draft.AddSpan(cell, kind, LargeSize, _content) : Draft.Add(cell, kind, _content));
                 else key = "designer.hint";
                 break;
             case BlueprintTool.Select:
@@ -408,7 +412,7 @@ public sealed class BlueprintSession
     public BlueprintInterior? InteriorCarried() => StructureKind == StructureKind.Station && Interior.Dirty ? Interior.ToInterior() : null;
 
     /// <summary>The one command that applies the draft.</summary>
-    public Command ToCommand() => StructureKind == StructureKind.Station ? new ApplyBlueprint(StructureId, Draft.ToModules(), InteriorCarried(), Draft.PiecesCarried()) : Draft.ToCommand();
+    public Command ToCommand() => StructureKind == StructureKind.Station ? new ApplyBlueprint(StructureId, Draft.ToModules(), InteriorCarried(), Draft.PiecesCarried(), Draft.SpansCarried()) : Draft.ToCommand();
 
     /// <summary>The rows of the stats panel for what is being edited.</summary>
     public IReadOnlyList<StatRow> StatRows() => Starfoundry.Ui.StatRows.Build(Stats, StatsBefore, StructureKind);

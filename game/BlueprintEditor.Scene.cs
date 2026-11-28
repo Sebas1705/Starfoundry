@@ -131,6 +131,24 @@ void fragment() {
             if (!kept) Overlay(node, _removedMat); else if (!original) Overlay(node, _addedMat);
             (original ? _real : _ghosts).AddChild(node);
         }
+        // The large modules (ADR 0051): a frame round the whole square, in the module's colour for the structure's own and green for the new ones.
+        var spanLines = new List<(System.Numerics.Vector3, System.Numerics.Vector3, Color)>();
+        foreach (var sp in d.Spans.Concat(d.OriginalSpans).Distinct())
+        {
+            bool original = d.OriginalSpans.Contains(sp), kept = d.Spans.Contains(sp);
+            var colour = !kept ? Colors.Red : original ? new Color(0.55f, 0.8f, 1f) : AddedColour;
+            var lo = new System.Numerics.Vector3(sp.Mx * StationGrid.ModuleX, sp.My * StationGrid.ModuleY, sp.Mz * StationGrid.ModuleZ) - System.Numerics.Vector3.One * 0.12f;
+            var hi = lo + new System.Numerics.Vector3(sp.Size * StationGrid.ModuleX, StationGrid.ModuleY, sp.Size * StationGrid.ModuleZ) + System.Numerics.Vector3.One * 0.24f;
+            System.Numerics.Vector3 P(int x, int y, int z) => new(x == 0 ? lo.X : hi.X, y == 0 ? lo.Y : hi.Y, z == 0 ? lo.Z : hi.Z);
+            for (int a = 0; a < 2; a++)
+                for (int b = 0; b < 2; b++)
+                {
+                    spanLines.Add((P(0, a, b), P(1, a, b), colour));
+                    spanLines.Add((P(a, 0, b), P(a, 1, b), colour));
+                    spanLines.Add((P(a, b, 0), P(a, b, 1), colour));
+                }
+        }
+        if (spanLines.Count > 0) _real.AddChild(LineMesh("LargeFrames", spanLines));
         // The new parts and the moved ones at their target, as tinted ghosts.
         foreach (var (cell, kind) in diff.Added)
         {
@@ -175,7 +193,21 @@ void fragment() {
             bool free = !d.Modules.ContainsKey(h);
             BoxEdges(lines, h, free ? AddedColour : Colors.White, 0.05f);
             _marks.AddChild(LineMesh("Hover", lines));
-            if (_s.Tool == BlueprintTool.Place && _s.Kind is { } k && free)
+            if (_s.Tool == BlueprintTool.Place && _s.Kind is not null && free && _s.LargeSize > 1)
+            {
+                // a large module (ADR 0051): the whole square it would take, green when it fits and red when it does not
+                var block = new List<(System.Numerics.Vector3, System.Numerics.Vector3, Color)>();
+                bool fits = true;
+                for (int dx = 0; dx < _s.LargeSize; dx++)
+                    for (int dz = 0; dz < _s.LargeSize; dz++)
+                    {
+                        var c = (h.Mx + dx, h.My, h.Mz + dz);
+                        fits &= StructureGrid.IsValidLocalModule(c.Item1, c.Item2, c.Item3) && !d.Modules.ContainsKey(c);
+                        BoxEdges(block, c, fits ? AddedColour : Colors.Red, 0.08f);
+                    }
+                _marks.AddChild(LineMesh("LargeCursor", block));
+            }
+            if (_s.Tool == BlueprintTool.Place && _s.Kind is { } k && free && _s.LargeSize == 1)
             {
                 var p = Part(k, h, DraftAt, 0, _hoverMat);
                 p.Name = "Cursor";

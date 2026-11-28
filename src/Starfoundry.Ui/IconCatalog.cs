@@ -138,7 +138,7 @@ public static class IconCatalog
         ("automated_turrets", "turret"), ("cargo_expansion", "cargo"), ("algae_fuel", "drop"), ("closed_loop", "cycle"), ("medical_bay", "repairBay"),
         ("bio_sensors", "dish"), ("symbiotic_drones", "drone"), ("field_theory", "atom"), ("efficient_reactors", "reactor"), ("long_range_jump", "jump"),
         ("targeting_lasers", "laser"), ("quantum_sensors", "radar"), ("laser_focusing", "laser"), ("beam_collimator", "crosshair"),
-        ("composites", "plateStack"), ("cryogenics", "drop"), ("resonance", "crystal"), ("heavy_industry", "furnace"),
+        ("composites", "plateStack"), ("cryogenics", "drop"), ("resonance", "crystal"), ("heavy_industry", "furnace"), ("large_structures", "hull"),
         ("ion_thrusters", "engine"), ("thrust_vectoring", "gauge"), ("plasma_drive", "bolt"),
     };
 
